@@ -168,7 +168,7 @@ HcclResult ParseAlltoAllVConcurrentSize()
         return HCCL_E_PARA;
     }
 
-    u64 alltoallvConcurrentSize = 0;
+    u32 alltoallvConcurrentSize = 0;
     if (SalStrToULong(alltoallvConcurrentSizeEnv, HCCL_BASE_DECIMAL, alltoallvConcurrentSize) != HCCL_SUCCESS) {
         HCCL_WARNING("[ParseAlltoAllVConcurrentSize] ALLTOALLV_CONCURRENT_SIZE[%s] parse failed, use default.",
             alltoallvConcurrentSizeStr.c_str());
@@ -178,7 +178,7 @@ HcclResult ParseAlltoAllVConcurrentSize()
     }
 
     if (alltoallvConcurrentSize <= 0) {
-        HCCL_WARNING("[ParseAlltoAllVConcurrentSize] ALLTOALLV_CONCURRENT_SIZE[%llu] must be greater than 0, use default.",
+        HCCL_WARNING("[ParseAlltoAllVConcurrentSize] ALLTOALLV_CONCURRENT_SIZE[%u] must be greater than 0, use default.",
             alltoallvConcurrentSize);
         g_algEnvConfig.alltoallvConcurrentSizeSet = false;
         g_algEnvConfig.alltoallvConcurrentSize = 16;
@@ -186,7 +186,7 @@ HcclResult ParseAlltoAllVConcurrentSize()
     }
 
     g_algEnvConfig.alltoallvConcurrentSizeSet = true;
-    g_algEnvConfig.alltoallvConcurrentSize = static_cast<u32>(alltoallvConcurrentSize);
+    g_algEnvConfig.alltoallvConcurrentSize = alltoallvConcurrentSize;
     HCCL_INFO("[ParseAlltoAllVConcurrentSize] ALLTOALLV_CONCURRENT_SIZE set by environment to [%u].",
         g_algEnvConfig.alltoallvConcurrentSize);
     return HCCL_SUCCESS;
