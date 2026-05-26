@@ -979,8 +979,9 @@ HcclResult ParseDfsConfig()
     dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
     std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
 
-    constexpr std::size_t DFS_CONFIG_ITEM_NUM = 2;
-    const std::array<std::string, DFS_CONFIG_ITEM_NUM> dfsConfigItems = {"task_exception", "inconsistent_check"};
+    constexpr std::size_t DFS_CONFIG_ITEM_NUM = 6;
+    const std::array<std::string, DFS_CONFIG_ITEM_NUM> dfsConfigItems = {"connection_fault_detection_time",
+        "task_exception", "cluster_heartbeat", "stuck_detection", "inconsistent_check", "task_monitor_interval"};
     auto items = SplitDfsConfig(dfsConfigEnv, ',');
     for (const auto &item : items) {
         auto itemPair = SplitDfsConfig(item, ':');
@@ -990,7 +991,7 @@ HcclResult ParseDfsConfig()
             HCCL_ERROR("[ParseDfsConfig] failed. invalid item[%s]", item.c_str());
             return HCCL_E_PARA;
         }
-        if (itemPair[0] == dfsConfigItems[1]) {
+        if (itemPair[0] == dfsConfigItems[4]) {
             CHK_RET(ParseInconsistentCheckSwitch(itemPair[1]));
         }
     }
