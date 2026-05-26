@@ -30,11 +30,11 @@ if(STATIC_MODE)
     message(STATUS "Added static_restore.cc to src_list")
 endif()
 
-message(STATUS "TARGET_NAME = ${TARGET_NAME}")
+message(STATUS "TARGET_NAME = hccl")
 message(STATUS "src_list contains ${src_list}")
 
-if(TARGET ${TARGET_NAME})
-    target_sources(${TARGET_NAME} PRIVATE
+if(TARGET hccl)
+    target_sources(hccl PRIVATE
         ${src_list}
     )
 endif()
