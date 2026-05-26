@@ -8,25 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OPS_HCCL_AICPU_KERNEL_LAUNCH_H
-#define OPS_HCCL_AICPU_KERNEL_LAUNCH_H
+#ifndef OPS_HCCL_ALLGATHER_AICPU_EXEC_OP_H
+#define OPS_HCCL_ALLGATHER_AICPU_EXEC_OP_H
 
-#include "alg_param.h"
+#include <string>
+#include <hccl/hcomm_primitives.h>
+#include "common.h"
 
-namespace ops_hccl {
-
-HcclResult RestoreVarDataBatchSendRecv(OpParam &param);
-
-HcclResult RestoreVarDataAlltoAllV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-HcclResult RestoreVarDataReduceScatterV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-HcclResult RestoreVarDataAllGatherV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-inline bool IsResCtxCacheReusable(const AlgResourceCtxSerializable &cachedResCtx, const OpParam &param)
-{
-    return cachedResCtx.commInfoPtr == param.hcclComm;
+namespace ops_hccl_allgather {
+HcclResult ExecOp(const OpParam &param, const AlgResourceCtx& resCtx);
 }
-
-}  // namespace ops_hccl
 #endif

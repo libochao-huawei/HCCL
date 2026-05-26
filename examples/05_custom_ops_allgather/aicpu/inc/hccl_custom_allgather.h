@@ -8,25 +8,24 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OPS_HCCL_AICPU_KERNEL_LAUNCH_H
-#define OPS_HCCL_AICPU_KERNEL_LAUNCH_H
+#ifndef OPS_HCCL_ALLGATHER_CUSTOM_ALLGATHER_H
+#define OPS_HCCL_ALLGATHER_CUSTOM_ALLGATHER_H
 
-#include "alg_param.h"
+#include <acl/acl.h>
+#include <hccl/hccl_comm.h>
+#include <hccl/hccl_res.h>
+#include <hccl/hccl_types.h>
 
-namespace ops_hccl {
-
-HcclResult RestoreVarDataBatchSendRecv(OpParam &param);
-
-HcclResult RestoreVarDataAlltoAllV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-HcclResult RestoreVarDataReduceScatterV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-HcclResult RestoreVarDataAllGatherV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-inline bool IsResCtxCacheReusable(const AlgResourceCtxSerializable &cachedResCtx, const OpParam &param)
-{
-    return cachedResCtx.commInfoPtr == param.hcclComm;
-}
-
-}  // namespace ops_hccl
+#ifdef __cplusplus
+extern "C" {
 #endif
+
+/* 自定义 AllGather 算子 */
+HcclResult HcclAllGatherCustom(
+    void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm, aclrtStream stream);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // OPS_HCCL_ALLGATHER_CUSTOM_ALLGATHER_H

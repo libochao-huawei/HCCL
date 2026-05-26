@@ -8,25 +8,17 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OPS_HCCL_AICPU_KERNEL_LAUNCH_H
-#define OPS_HCCL_AICPU_KERNEL_LAUNCH_H
+#ifndef OPS_HCCL_ALLGATHER_AICPU_LAUNCH_KERNEL_H
+#define OPS_HCCL_ALLGATHER_AICPU_LAUNCH_KERNEL_H
 
-#include "alg_param.h"
+#include <string>
 
-namespace ops_hccl {
+namespace ops_hccl_allgather {
 
-HcclResult RestoreVarDataBatchSendRecv(OpParam &param);
+// 使用 ASC 编译的二进制调用函数
+extern HcclResult LaunchKernelAsc(OpParam &param, aclrtStream stream);
 
-HcclResult RestoreVarDataAlltoAllV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-HcclResult RestoreVarDataReduceScatterV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-HcclResult RestoreVarDataAllGatherV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
-inline bool IsResCtxCacheReusable(const AlgResourceCtxSerializable &cachedResCtx, const OpParam &param)
-{
-    return cachedResCtx.commInfoPtr == param.hcclComm;
+HcclResult LaunchKernel(OpParam &param, aclrtStream stream);
 }
 
-}  // namespace ops_hccl
 #endif
