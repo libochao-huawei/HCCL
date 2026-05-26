@@ -17,8 +17,6 @@
 
 namespace ops_hccl {
 
-const uint32_t ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE = 16; // fullmesh最大的并发数量
-
 class InsTempAlltoAllVMesh1D : public InsAlgTemplateBase {
 public:
     InsTempAlltoAllVMesh1D() = default;
@@ -79,6 +77,7 @@ private:
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
     u32 concurrentSendRecvNum_{1};
+    u32 maxConcurrentSize_{16};
     std::vector<u64> sendCountsSplit_;
     std::vector<u64> sendSizeSplit_;
     std::vector<u64> sendOffsetSplit_;

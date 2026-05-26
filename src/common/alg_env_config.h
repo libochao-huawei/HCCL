@@ -51,6 +51,8 @@ struct AlgEnvConfig {
     double execTimeout;
     bool multipleDimensionSplitRatioSet;
     double multipleDimensionSplitRatio;
+    bool alltoallvConcurrentSizeSet;
+    u32 alltoallvConcurrentSize;
     bool hcclRetryConfig[HCCL_RETRY_ENABLE_LEVEL_NUM];
     std::map<HcclCMDType, std::vector<HcclAlgoType>> hcclAlgoConfig;
 
@@ -167,6 +169,10 @@ bool GetExternalInputExecTimeout(double &execTimeOut);
 bool RunIndependentOpExpansion(DevType deviceType);
 
 bool GetExternalInputMultipleDimensionSplitRatio(double &multipleDimensionSplitRatio);
+
+HcclResult ParseAlltoAllVConcurrentSize();
+
+bool GetExternalInputAlltoAllVConcurrentSize(u32 &alltoallvConcurrentSize);
 }
 
 #endif // HCCL_ALG_ENV_CONFIG_H

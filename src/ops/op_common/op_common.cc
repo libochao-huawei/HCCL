@@ -123,6 +123,8 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     CHK_RET(SetExecTimeout(param));
     // 获取多维度切分比例
     CHK_RET(SetMultipleDimensionSplitRatio(param));
+    // 获取alltoallv并发数
+    CHK_RET(SetAlltoAllVConcurrentSize(param));
     HCCL_INFO("Success to execute Selector.");
     return HCCL_SUCCESS;
 }
@@ -2096,6 +2098,19 @@ HcclResult SetMultipleDimensionSplitRatio(OpParam &param) {
             param.opConfig.multipleDimensionSplitRatio = ratioValue;
             HCCL_INFO("[OpCommon] Set ratio to: %f", param.opConfig.multipleDimensionSplitRatio);
         }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult SetAlltoAllVConcurrentSize(OpParam &param) {
+    u32 concurrentSize = 0;
+    const u32 DEFAULT_CONCURRENT_SIZE = 16;
+    if (!GetExternalInputAlltoAllVConcurrentSize(concurrentSize)) {
+        param.opConfig.alltoallvConcurrentSize = DEFAULT_CONCURRENT_SIZE;
+        HCCL_INFO("[OpCommon] ALLTOALLV_CONCURRENT_SIZE is not set, use default value: %u", DEFAULT_CONCURRENT_SIZE);
+    } else {
+        param.opConfig.alltoallvConcurrentSize = concurrentSize;
+        HCCL_INFO("[OpCommon] Set ALLTOALLV_CONCURRENT_SIZE to: %u", param.opConfig.alltoallvConcurrentSize);
     }
     return HCCL_SUCCESS;
 }

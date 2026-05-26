@@ -467,6 +467,7 @@ struct AlgResourceCtxSerializable {
 struct DevAicpuOpConfig {
     u32 execTimeout = 0;
     double multipleDimensionSplitRatio = 0.8;
+    u32 alltoallvConcurrentSize = 16;
     // 如要新增配置类字段，在此处添加
 };
 
