@@ -234,7 +234,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
             targetMap[channel.remoteRank].push_back(channel);
         }
     }
-
+    
     // 算法展开
     HcclResult ret = OrchestrateLoop(param, resCtx, algTemplate0, algTemplate1);
     CHK_PRT_RET(

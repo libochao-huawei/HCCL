@@ -29,11 +29,12 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     std::vector<HcclChannelDesc> myChannelDescs;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_CLOS)); 
-        for(auto channel : myChannelDescs) {
-            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
-                channels.push_back(channel);
-            }
-        } 
+        // for(auto channel : myChannelDescs) {
+        //     if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+        //         channels.push_back(channel);
+        //     }
+        // } 
+        channels = myChannelDescs;
     } else {
         CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, myChannelDescs));
         channels = myChannelDescs;
@@ -43,6 +44,13 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] channelsPerRank: [%u].", channelsPerRank);
     channelsPerRank_ = channelsPerRank;
     GetRes(resourceRequest);
+    u32 j = 0;
+    for (auto channel : channels) {
+        HCCL_INFO("zjyallgather[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                    j, channel.remoteRank, myRank_);
+        j++;
+    }
+
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumOnMainThread);
     return HcclResult::HCCL_SUCCESS;
@@ -94,6 +102,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     sizeOut_ = sizeOut;
 
     if (tempAlgParams.tailSize > 0) {
+        HCCL_INFO("[InsTempAllGatherNHR] tailSize[%llu]", tempAlgParams.tailSize);
         std::vector<u64> elemCountOutTail;
         std::vector<u64> sizeOutTail;
         std::vector<u64> elemOffsetTail;
@@ -240,6 +249,9 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
         CHK_PRT_RET(recvFromRank == static_cast<u32>(-1) || sendToRank == static_cast<u32>(-1),
             HCCL_ERROR("[RS-NHR][RunNHR] rank map failed: from[%u] to[%u]", st.fromRank, st.toRank),
             HcclResult::HCCL_E_INTERNAL);
+        HCCL_DEBUG(
+            "[InsTempAllGatherNHR] rank[%d] rankSize[%u] recvFrom[%u] sendTo[%u] step[%u] nSteps[%u] nSlices[%u], recvFromRank[%u], sendToRank[%u]",
+            myRank_, templateRankSize_, st.fromRank, st.toRank, s, steps.size(), st.nSlices,recvFromRank,sendToRank);
 
         CHK_PRT_RET(channels_.count(recvFromRank) == 0 || channels_.count(sendToRank) == 0 ||
                     channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
@@ -247,7 +259,6 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
             HcclResult::HCCL_E_INTERNAL);
         ChannelInfo linkRecv = channels_[recvFromRank].at(channelIdx);
         ChannelInfo linkSend = channels_[sendToRank].at(channelIdx);
-
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
         std::vector<DataSlice> rxSrcSlices;
@@ -291,6 +302,8 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
                 DataSlice txDstSlice = DataSlice(sendRemoteCclBuffAddr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]);  // 发送目标
+                HCCL_INFO("zjy txSrcSlice addr=%p, txDstSlice addr=%p, sendRemoteCclBuffAddr=%p, recvRemoteCclBuffAddr=%p",
+                    txSrcSlice.addr_, txDstSlice.addr_, sendRemoteCclBuffAddr, recvRemoteCclBuffAddr);
                 txSrcSlices.push_back(txSrcSlice);
                 txDstSlices.push_back(txDstSlice);
                 DataSlice rxSrcSlice = DataSlice(recvRemoteCclBuffAddr, rxScOff,

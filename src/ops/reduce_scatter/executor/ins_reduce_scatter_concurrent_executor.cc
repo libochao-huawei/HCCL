@@ -86,7 +86,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
             channelDescs0.push_back(channel);
         }
     }
-    
+    channelDescs0 = channelDescsTemp0;
     CHK_PRT_RET(channelDescs0.empty(),
                 HCCL_ERROR("[%s] channelDescs0.size()[%zu] is zero.", __func__, channelDescs0.size()),
                 HcclResult::HCCL_E_INTERNAL);
@@ -102,7 +102,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
             channelDescs1.push_back(channel);
         }
     }
-    
+    channelDescs1 = channelDescsTemp1;
     CHK_PRT_RET(channelDescs1.empty(),
                 HCCL_ERROR("[%s] channelDescs1.size()[%zu] is zero.", __func__, channelDescs1.size()),
                 HcclResult::HCCL_E_INTERNAL);
@@ -133,6 +133,13 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                                             channelDescs0.end());
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs1.begin(),
                                             channelDescs1.end());
+        u32 j = 0;
+        for (auto channel : channelDescs1) {
+            HCCL_INFO("zjy11[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                        j, channel.remoteRank, myRank_);
+
+            j++;
+        }
     } else {
         HCCL_ERROR("[InsReduceScatterConcurrentExecutor][CalcRes] the communication engine is not supported currently"
                     ", please check");
@@ -188,9 +195,27 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
             const size_t channelCount = channels.size();
             for (u32 i = 0; i < channelCount; ++i) {
                 const auto &channel = channels[i];
-                auto &targetChannels = (i < rankSize_) ? templateAlgResforTemp0.channels : templateAlgResforTemp1.channels;
+                auto &targetChannels = (i < (rankSize_ - 1)) ? templateAlgResforTemp0.channels : templateAlgResforTemp1.channels;
                 targetChannels[channel.remoteRank].push_back(channel);
             }
+    }
+    // HCCL_INFO("[DEBUG] tmp0LinkMap_ keys=%zu", templateAlgResforTemp0.channels.size());
+    //     for (auto it = templateAlgResforTemp0.channels.begin(); it != templateAlgResforTemp0.channels.end(); ++it) {
+    //         HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+    //         for (size_t j = 0; j < it->second.size(); ++j) {
+    //             HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+    //                     j, it->second[j].remoteRank, myRank_);
+    //         }
+    //     }
+    
+    // 打印 tmp1LinkMap_
+    HCCL_INFO("[DEBUG] tmp1LinkMap_ keys=%zu", templateAlgResforTemp1.channels.size());
+    for (auto it = templateAlgResforTemp1.channels.begin(); it != templateAlgResforTemp1.channels.end(); ++it) {
+        HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+        for (size_t j = 0; j < it->second.size(); ++j) {
+            HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                    j, it->second[j].remoteRank, myRank_);
+        }
     }
     // 准备数据
     TemplateDataParams tempAlgParamsforTemp0;
@@ -230,10 +255,12 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         const u64 bufferRatioTerm0 = portNum0 * templateScratchMultiplier0;
         const u64 bufferRatioTerm1 = portNum * templateScratchMultiplier1;
         const double bufferRatio0 = static_cast<double>(bufferRatioTerm0) / (bufferRatioTerm0 + bufferRatioTerm1);
+        HCCL_INFO("zjy bufferRatioTerm0[%llu], bufferRatioTerm1[%llu], bufferRatio0[%f]", bufferRatioTerm0, bufferRatioTerm1, bufferRatio0);
         cclMem0.size = cclMemSize * bufferRatio0;
         cclMem1.addr = static_cast<void *>(static_cast<s8 *>(cclMemAddr) + cclMem0.size);
         cclMem1.size = cclMemSize - cclMem0.size;
     }
+    HCCL_INFO("zjy cclMem0.addr[%p], cclMem1.addr[%p]]", cclMem0.addr, cclMem1.addr);
     
     u64 maxCountPerLoopforTemp0 = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
     u64 maxCountPerLoopforTemp1 = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
@@ -267,12 +294,20 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     // 再次填充buffer信息
     tempAlgParamsforTemp0.buffInfo.hcclBuff = cclMem0;
     tempAlgParamsforTemp0.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParamsforTemp0.buffInfo.hcclBuffSize = cclMem0.size;
     tempAlgParamsforTemp0.buffInfo.inBuffBaseOff = 0;
     tempAlgParamsforTemp0.buffInfo.outBuffBaseOff = 0;
+    tempAlgParamsforTemp0.inputRepeatStride = 0;
+    tempAlgParamsforTemp0.outputRepeatStride = 0;
+
     tempAlgParamsforTemp1.buffInfo.hcclBuff = cclMem1;
     tempAlgParamsforTemp1.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParamsforTemp1.buffInfo.hcclBuffSize = cclMem1.size;
     tempAlgParamsforTemp1.buffInfo.inBuffBaseOff = dataCountforTemp0 * dataTypeSize_;
     tempAlgParamsforTemp1.buffInfo.outBuffBaseOff = dataCountforTemp0 * dataTypeSize_;
+    tempAlgParamsforTemp1.inputRepeatStride = 0;
+    tempAlgParamsforTemp1.outputRepeatStride = 0;
+
     // 循环处理每个template
     for (u32 loopIndex = 0; loopIndex < loopTimesforTemp0 || loopIndex < loopTimesforTemp1; loopIndex++) {
         HCCL_INFO("[%s]loopIndex[%u], loopTimesforTemp0[%u], loopTimesforTemp1[%u]",

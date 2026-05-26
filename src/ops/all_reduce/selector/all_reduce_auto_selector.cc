@@ -354,7 +354,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithN
             selectAlgName = "InsAllReduceMesh1DOneShot";
         } else {
             // 大数据量，用mesh+clos并行算法
-            selectAlgName = "InsAllReduceMesh1DTwoShot";
+            selectAlgName = "InsAllReduceConcurrent";
         }
     } else if (isDataTypeOrReduceTypeSpecial) {
         selectAlgName = "InsAllReduceAicpuReduceNHR";
