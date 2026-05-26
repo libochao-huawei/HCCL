@@ -32,7 +32,6 @@ HcclResult InsTempAllReduceMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& 
     CHK_RET(GetRes(resourceRequest));
 
     std::vector<HcclChannelDesc> channelReq;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelReq));
     if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         std::vector<HcclChannelDesc> myChannelDescs;
         CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
