@@ -186,6 +186,8 @@ HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *buf
 
 HcclResult SetMultipleDimensionSplitRatio(OpParam &param);
 
+HcclResult SetAlltoAllVConcurrentSize(OpParam &param);
+
 HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly);
 
 HcclResult SetExecTimeout(OpParam &param);

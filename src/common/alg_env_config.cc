@@ -151,6 +151,59 @@ bool GetExternalInputMultipleDimensionSplitRatio(double &multipleDimensionSplitR
     return true;
 }
 
+HcclResult ParseAlltoAllVConcurrentSize()
+{
+    const char* alltoallvConcurrentSizeEnv = std::getenv("ALLTOALLV_CONCURRENT_SIZE");
+    if (alltoallvConcurrentSizeEnv == nullptr) {
+        g_algEnvConfig.alltoallvConcurrentSizeSet = false;
+        g_algEnvConfig.alltoallvConcurrentSize = 16;
+        return HCCL_SUCCESS;
+    }
+
+    std::string alltoallvConcurrentSizeStr(alltoallvConcurrentSizeEnv);
+    if (!IsValidNumberFormat(alltoallvConcurrentSizeStr)) {
+        HCCL_WARNING("[ParseAlltoAllVConcurrentSize] ALLTOALLV_CONCURRENT_SIZE[%s] format is invalid, use default.",
+            alltoallvConcurrentSizeStr.c_str());
+        g_algEnvConfig.alltoallvConcurrentSizeSet = false;
+        g_algEnvConfig.alltoallvConcurrentSize = 16;
+        return HCCL_E_PARA;
+    }
+
+    u32 alltoallvConcurrentSize = 0;
+    if (SalStrToULong(alltoallvConcurrentSizeEnv, HCCL_BASE_DECIMAL, alltoallvConcurrentSize) != HCCL_SUCCESS) {
+        HCCL_WARNING("[ParseAlltoAllVConcurrentSize] ALLTOALLV_CONCURRENT_SIZE[%s] parse failed, use default.",
+            alltoallvConcurrentSizeStr.c_str());
+        g_algEnvConfig.alltoallvConcurrentSizeSet = false;
+        g_algEnvConfig.alltoallvConcurrentSize = 16;
+        return HCCL_E_PARA;
+    }
+
+    if (alltoallvConcurrentSize <= 0) {
+        HCCL_WARNING("[ParseAlltoAllVConcurrentSize] ALLTOALLV_CONCURRENT_SIZE[%u] must be greater than 0, use default.",
+            alltoallvConcurrentSize);
+        g_algEnvConfig.alltoallvConcurrentSizeSet = false;
+        g_algEnvConfig.alltoallvConcurrentSize = 16;
+        return HCCL_E_PARA;
+    }
+
+    g_algEnvConfig.alltoallvConcurrentSizeSet = true;
+    g_algEnvConfig.alltoallvConcurrentSize = alltoallvConcurrentSize;
+    HCCL_INFO("[ParseAlltoAllVConcurrentSize] ALLTOALLV_CONCURRENT_SIZE set by environment to [%u].",
+        g_algEnvConfig.alltoallvConcurrentSize);
+    return HCCL_SUCCESS;
+}
+
+bool GetExternalInputAlltoAllVConcurrentSize(u32 &alltoallvConcurrentSize)
+{
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    if (!g_algEnvConfig.alltoallvConcurrentSizeSet) {
+        return false;
+    }
+
+    alltoallvConcurrentSize = g_algEnvConfig.alltoallvConcurrentSize;
+    return true;
+}
+
 /* 入口 */
 HcclResult InitEnvConfig()
 {
@@ -250,6 +303,17 @@ HcclResult InitEnvConfig()
         "a non-negative number"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO failed. "
+            "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
+
+    // 解析alltoallv并发数
+    ret = ParseAlltoAllVConcurrentSize();
+    const char* alltoallvConcurrentSizeEnv = std::getenv("ALLTOALLV_CONCURRENT_SIZE");
+    std::string alltoallvConcurrentSizeStr = (alltoallvConcurrentSizeEnv != nullptr) ? std::string(alltoallvConcurrentSizeEnv) : "EmptyString";
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({alltoallvConcurrentSizeStr, "ALLTOALLV_CONCURRENT_SIZE",
+        "a positive integer"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse ALLTOALLV_CONCURRENT_SIZE failed. "
             "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
 
     // 解析算法配置
