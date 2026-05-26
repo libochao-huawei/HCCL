@@ -636,13 +636,12 @@ static HcclResult CalcLevel1Hd(TopoInfoWithNetLayerDetails* topoInfo)
 
     const auto &rankNumForTopoType = topoInfo->topoInstDetailsOfLayer[level1Idx].rankNumForTopoType;
     auto closIter = rankNumForTopoType.find(CommTopo::COMM_TOPO_CLOS);
-    if (closIter == rankNumForTopoType.end() || closIter->second.empty()) {
+    if (closIter == rankNumForTopoType.end() || closIter->second.size() != 1) {
         return HCCL_SUCCESS;
     }
 
     const u32 closRankSize = closIter->second[0];
-    constexpr u32 HD_LEVEL1_RANK_SIZE = 8;
-    topoInfo->Level1Hd = closRankSize == HD_LEVEL1_RANK_SIZE;
+    topoInfo->Level1Hd = closRankSize != 0 && (closRankSize & (closRankSize - 1)) == 0;
     HCCL_INFO("[TopoHost][CalcLevel1Hd] level1Idx[%u], closRankSize[%u], Level1Hd[%d]", level1Idx,
         closRankSize, topoInfo->Level1Hd);
     return HCCL_SUCCESS;
