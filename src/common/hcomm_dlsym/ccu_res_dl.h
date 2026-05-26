@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-DECL_WEAK_FUNC(HcommResult, HcommCcuGetMemToken, uint64_t srcVa, uint64_t size, uint64_t *tokenInfo);
+DECL_WEAK_FUNC(CcuResult, HcommCcuGetMemToken, uint64_t srcVa, uint64_t size, uint64_t *tokenInfo);
 
 void CcuResDlInit(void* libHcommHandle);
 
