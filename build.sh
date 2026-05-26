@@ -21,9 +21,9 @@ JOB_NUM="-j${CPU_NUM}"
 ASAN="false"
 COV="false"
 CUSTOM_OPTION="-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}"
-FULL_MODE="false"  # 新增变量，用于控制是否全量构建
 STATIC_MODE="false"  # 新增变量，用于控制是否静态编译
-KERNEL="false"  # 新增变量，用于控制是否只编译 ccl_kernel.so
+ENABLE_BUILD_DEVICE="OFF"
+ENABLE_BUILD_AARCH="OFF" 
 CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
 ENABLE_SIGN="false"
@@ -89,10 +89,8 @@ function clean()
         rm -rf ${BUILD_DIR}
     fi
 
-    if [ -z "${TEST}" ] && [ -z "${KERNEL}" ];then
-        if [ -n "${OUTPUT_DIR}" ];then
-            rm -rf ${OUTPUT_DIR}
-        fi
+    if [ -n "${OUTPUT_DIR}" ];then
+        rm -rf ${OUTPUT_DIR}
     fi
 
     mkdir -p ${BUILD_DIR}
@@ -588,11 +586,11 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
     --aicpu)  # 新增选项，用于只编译 scatter_aicpu_kernel
-        KERNEL="true"
+        ENABLE_BUILD_DEVICE="ON"
         shift
         ;;
     --full)
-        FULL_MODE="true"
+        ENABLE_BUILD_DEVICE="ON"
         shift
         ;;
     --static)
@@ -600,7 +598,7 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
     --build_aarch)
-        BUILD_AARCH="true"
+        ENABLE_BUILD_DEVICE="ON"
         shift
         ;;
     --asan)
@@ -660,20 +658,8 @@ if [ -n "${TEST}" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_TEST=ON"
 fi
 
-if [ "${KERNEL}" == "true" ];then
-    CUSTOM_OPTION="${CUSTOM_OPTION} -DKERNEL_MODE=ON -DDEVICE_MODE=ON"
-fi
-
-if [ "${FULL_MODE}" == "true" ];then
-    CUSTOM_OPTION="${CUSTOM_OPTION} -DFULL_MODE=ON"
-fi
-
 if [ "${STATIC_MODE}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DSTATIC_MODE=ON"
-fi
-
-if [ "${BUILD_AARCH}" == "true" ];then
-    CUSTOM_OPTION="${CUSTOM_OPTION} -DAARCH_MODE=ON"
 fi
 
 if [ "${ASAN}" == "true" ];then
@@ -703,10 +689,19 @@ if [ -n "${third_party_nlohmann_path}" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DTHIRD_PARTY_NLOHMANN_PATH=${third_party_nlohmann_path}"
 fi
 
-CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}"
+CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}"
 CUSTOM_OPTION="${CUSTOM_OPTION} -DASCEND_INSTALL_PATH=${ASCEND_CANN_PACKAGE_PATH}"
-CUSTOM_OPTION="$CUSTOM_OPTION -DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}"
-CUSTOM_OPTION="$CUSTOM_OPTION -DCMAKE_BUILD_TYPE=${BUILD_TYPE}"
+CUSTOM_OPTION="${CUSTOM_OPTION} -DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}"
+
+CUSTOM_OPTION="${CUSTOM_OPTION} -DCMAKE_BUILD_TYPE=${BUILD_TYPE}"
+CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_BUILD_DEVICE=${ENABLE_BUILD_DEVICE}"
+CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_BUILD_AARCH=${ENABLE_BUILD_AARCH}"
+
+
+CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT}"
+CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_SIGN=${ENABLE_SIGN}"
+CUSTOM_OPTION="${CUSTOM_OPTION} -DVERSION_INFO=${VERSION_INFO}"
+CUSTOM_OPTION="${CUSTOM_OPTION} -DPRODUCT=ascend"
 
 set_env
 
@@ -721,8 +716,6 @@ elif [ "${ENABLE_ST}" == "on" ]; then
     run_st
 elif [ -n "${TEST}" ];then
     build_test
-elif [ "${KERNEL}" == "true" ]; then
-    build_kernel
 elif [ "${ENABLE_CUSTOM}" == "on" ]; then
     build_custom
 elif [ "${BUILD_CB_TEST}" == "true" ]; then
@@ -734,21 +727,15 @@ elif [ "${BUILD_CB_TEST}" == "true" ]; then
     else
         log "Info: Building cb_test_verify success"
     fi
-elif [ "${FULL_MODE}" == "true" ]; then
-    cd ..
-    mkdir -p ${BUILD_DEVICE_DIR}
-    cd ${BUILD_DEVICE_DIR}
-    CURRENT_CUSTOM_OPTION="${CUSTOM_OPTION}"
-    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DFULL_MODE=ON -DDEVICE_MODE=ON -DKERNEL_MODE=ON -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT} -DENABLE_SIGN=${ENABLE_SIGN} -DVERSION_INFO=${VERSION_INFO}"
-    build_device
-    cd .. & cd ${BUILD_DIR}
-    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF"
-    build_package
-    [ -n "${BUILD_DEVICE_DIR}" ] && rm -rf ${BUILD_DEVICE_DIR}
 elif [ "${STATIC_MODE}" == "true" ]; then
     build_static
     package_static_tar
 else
-    CUSTOM_OPTION="${CUSTOM_OPTION} -DDEVICE_MODE=OFF"
-    build_package
+    build_hccl
+    if [ $? -ne 0 ]; then
+        log "Error: build hccl failed"
+
+        exit 1
+
+    fi
 fi
