@@ -111,12 +111,6 @@ function build()
     cmake --build . --target "$@" ${JOB_NUM} #--verbose
 }
 
-function build_package(){
-    cmake_config
-    log "Info: build_package"
-    build package
-}
-
 function build_cb_test_verify(){
     cd ${CURRENT_DIR}/examples/
     bash build.sh
@@ -168,24 +162,6 @@ function build_test() {
     # 除算法的测试用例都依赖编译出来的so文件，所以需要额外加入环境变量
     LIBRARY_DIR="${BUILD_DIR}/src:${BUILD_DIR}/src/algorithm:${BUILD_DIR}/src/framework:${BUILD_DIR}/src/platform: \
     ${BUILD_DIR}/test:${ASCEND_HOME_PATH}/lib64:"
-}
-
-function build_device(){
-    cmake_config
-    log "Info: build_device"
-    TARGET_LIST="scatter_aicpu_kernel"
-    echo "TARGET_LIST=${TARGET_LIST}"
-    PKG_TARGET_LIST="generate_device_aicpu_package"
-    echo "PKG_TARGET_LIST=${PKG_TARGET_LIST}"
-    SIGN_TARGET_LIST="sign_aicpu_hccl"
-    echo "SIGN_TARGET_LIST=${SIGN_TARGET_LIST}"
-    build ${TARGET_LIST} ${PKG_TARGET_LIST} ${SIGN_TARGET_LIST}
-}
-
-function build_kernel() {
-    cmake_config
-    log "Info: build_kernel"
-    build scatter_aicpu_kernel
 }
 
 function build_static() {
@@ -472,6 +448,36 @@ function build_custom() {
                   -DVERSION_INFO=${VERSION_INFO}"
     # 打包 run 包
     build package
+}
+
+function build_hccl() {
+    # 设置 hcc 编译器工具链
+    export TOOLCHAIN_DIR="${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc"
+
+    # 创建构建目录
+    mk_dir "${BUILD_DIR}"
+    cd "${BUILD_DIR}"
+
+    # 配置
+    cmake -S ../ -B . ${CUSTOM_OPTION}
+    if [ $? -ne 0 ]; then
+        log "Error: cmake config failed"
+        return 1
+    fi
+
+    # 编译
+    cmake --build . -j${CPU_NUM}
+    if [ $? -ne 0 ]; then
+        log "Error: cmake build failed"
+        return 1
+    fi
+
+    # 打包
+    make package -j${CPU_NUM}
+    if [ $? -ne 0 ]; then
+        log "Error: make package failed"
+        return 1
+    fi
 }
 
 # print usage message
