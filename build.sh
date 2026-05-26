@@ -12,6 +12,7 @@ set -e
 
 CURRENT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 BUILD_DIR=${CURRENT_DIR}/build
+#这里是否需要删除
 BUILD_DEVICE_DIR="${CURRENT_DIR}/build_device"
 OUTPUT_DIR=${CURRENT_DIR}/build_out
 OUTPUT_PATH=${CURRENT_DIR}/output
@@ -162,6 +163,7 @@ function build_test() {
     ${BUILD_DIR}/test:${ASCEND_HOME_PATH}/lib64:"
 }
 
+#这个需要整改吗
 function build_static() {
     log "Info: Starting static library build"
 
@@ -355,7 +357,7 @@ function package_static_tar() {
 function mk_dir() {
   local create_dir="$1"  # the target to make
   mkdir -pv "${create_dir}"
-  echo "created ${create_dir}"
+  log "Info: Created ${create_dir}"
 }
 
 # create build path
@@ -420,6 +422,7 @@ function run_st() {
   fi
 }
 
+#这个需要整改吗
 function build_custom() {
     # 编译 Device 包
     log "Info: build_custom_device"
