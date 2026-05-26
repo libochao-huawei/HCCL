@@ -10,8 +10,6 @@
 
 #include "ccu_temp_all_to_all_v_mesh2die.h"
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "alg_data_trans_wrapper.h"
 #include "kernel/ccu_kernel_all_to_all_v_mesh2die.h"
 

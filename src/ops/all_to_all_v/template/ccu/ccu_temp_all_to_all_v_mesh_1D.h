@@ -13,6 +13,7 @@
 
 #include "utils.h"
 #include "ccu_alg_template_base.h"
+#include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
 
@@ -46,8 +47,7 @@ public:
 
     void SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRecvInfo);
     HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
-    HcclResult CalcChannelRes(HcclComm comm, const OpParam& param,
-        const TopoInfoWithNetLayerDetails* topoInfo, std::vector<HcclChannelDesc>& channelDescs);
+
 private:
     A2ASendRecvInfo localSendRecvInfo_;
     u32             concurrentSendRecvNum_ = 8;
@@ -61,7 +61,7 @@ private:
     std::vector<u64> recvCounts_;
     std::vector<u64> sdispls_;
     std::vector<u64> rdispls_;
-    std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
+    bool loadFromMem_;
 };
 
 }// namespace ops_hccl
