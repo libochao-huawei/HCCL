@@ -67,8 +67,11 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllMesh(
     const std::vector<ThreadHandle> &threads,
     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
-    HCCL_INFO("[InsTempAlltoAllMeshClosV2][RunAlltoAllMesh] Rank[%d] templateRankSize[%u] totalLinks[%u].",
-              myRank_, templateRankSize_, channelsPerRank_);
+    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] Entry: rank=%d templateRankSize=%u totalLinks=%u "
+              "hierarchy: xRank=%u yRank=%u totalRank=%u myXRank=%u myYRank=%u sliceSize=%llu",
+              myRank_, templateRankSize_, channelsPerRank_,
+              xRankSize_, yRankSize_, totalRankSize_, myXRank_, myYRank_,
+              tempAlgParams_.sliceSize);
     if (templateRankSize_ <= 1) {
         return HCCL_SUCCESS;
     }
@@ -78,6 +81,9 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllMesh(
     }
     for (u32 i = 0; i < failedRanks_.size(); i++) {
         if (failedRanks_[i]) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] Failed rank[%u] detected. "
+                       "templateRank=%u myRank=%d totalLinks=%u",
+                       i, templateRankSize_, myRank_, channelsPerRank_);
             return HcclResult::HCCL_E_INTERNAL;
         }
     }
@@ -90,8 +96,9 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
     u32 linkIdx)
 {
     CHK_PRT_RET(linkIdx >= threads.size(),
-                HCCL_ERROR("[InsTempAlltoAllMeshClosV2] linkIdx[%u] >= threads.size()[%zu].",
-                           linkIdx, threads.size()),
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] >= threads.size()[%zu] "
+                           "myRank=%d templateRank=%u",
+                           linkIdx, threads.size(), myRank_, templateRankSize_),
                 HcclResult::HCCL_E_INTERNAL);
 
     u32 myAlgRank = 0;
@@ -115,13 +122,16 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
 
         if (failedRanks_[connectedAlgRank]) {
+            HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos] linkIdx[%u] rank[%d] peer[%u] already failed, skipping.",
+                      linkIdx, myRank_, connectedRank);
             continue;
         }
 
         auto it = channels.find(connectedRank);
         if (it == channels.end() || it->second.empty()) {
-            HCCL_ERROR("[InsTempAlltoAllMeshClosV2] Rank[%d] connectedRank[%u] has no channels.",
-                       myRank_, connectedRank);
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] Rank[%d] connectedRank[%u] has no channels. "
+                       "linkIdx=%u channels.size=%zu templateRank=%u",
+                       myRank_, connectedRank, linkIdx, channels.size(), templateRankSize_);
             return HcclResult::HCCL_E_INTERNAL;
         }
 
@@ -132,10 +142,12 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
             continue;
         }
 
-        HCCL_INFO("[InsTempAlltoAllMeshClosV2] Rank[%d] linkIdx[%u] matched connectedRank[%u] "
-                  "selectedLinkIdx[%u] totalLinks[%u] totalThreads[%u] enableRemoteMemAccess[%d]",
-                  myRank_, linkIdx, connectedRank, selectedLinkIdx, totalLinksToNeighbor, threads.size(),
-                  enableRemoteMemAccess_);
+        HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] matched: "
+                  "myRank=%d connectedRank=%u selectedLinkIdx=%u/%u threads=%zu "
+                  "enableRemoteMemAccess=%d isPcie=%d",
+                  linkIdx, myRank_, connectedRank, selectedLinkIdx,
+                  totalLinksToNeighbor, threads.size(),
+                  enableRemoteMemAccess_, isPcie);
 
         const ChannelInfo &linkRemote = it->second[linkIdx];
         void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
@@ -185,6 +197,13 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
             txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, actualChunkSize, chunkCount);
             rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, actualChunkSize, chunkCount);
             rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, actualChunkSize, chunkCount);
+
+            HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] rank[%d]->peer[%d] linkIdx[%u] rpt[%u] "
+                      "txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu "
+                      "actualSz=%llu fromScratch=%d",
+                      myRank_, connectedRank, linkIdx, rpt,
+                      txSrcOffset, txDstOffset, rxSrcOffset, rxOutOffset,
+                      actualChunkSize, readingFromScratch);
         }
 
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll},
@@ -201,13 +220,16 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
             failedRanks_[connectedAlgRank] = 1;
-            HCCL_WARNING("[InsTempAlltoAllMeshClosV2] linkIdx[%u] peer %u timed out.", linkIdx, connectedRank);
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos] linkIdx[%u] peer %u timed out. "
+                         "myRank=%d templateRank=%u",
+                         linkIdx, connectedRank, myRank_, templateRankSize_);
             continue;
         }
 
         if (dmaResult != HCCL_SUCCESS) {
-            HCCL_ERROR("[InsTempAlltoAllMeshClosV2] send/recv failed linkIdx[%u] connectedRank[%u]",
-                       linkIdx, connectedRank);
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos] send/recv FAILED: linkIdx=%u connectedRank=%u err=0x%x "
+                       "myRank=%d templateRank=%u actualChunkSize=%llu",
+                       linkIdx, connectedRank, dmaResult, myRank_, templateRankSize_, actualChunkSize);
             return dmaResult;
         }
     }
@@ -217,9 +239,11 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
 
 HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 {
-    HCCL_INFO("[InsTempAlltoAllMeshClosV2][LocalDataCopy] Start. totalRankSize=%u xRank=%u yRank=%u "
-              "totalSliceSize=%llu",
-              totalRankSize_, xRankSize_, yRankSize_, tempAlgParams_.sliceSize);
+    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][LocalDataCopy] Start: totalRank=%u xRank=%u yRank=%u "
+              "totalSlice=%llu cellSize=%llu perPeerClos=%llu myXRank=%u myYRank=%u",
+              totalRankSize_, xRankSize_, yRankSize_,
+              tempAlgParams_.sliceSize, cellSize, perPeerClosSize,
+              myXRank_, myYRank_);
     if (threads.empty()) {
         return HcclResult::HCCL_E_INTERNAL;
     }
@@ -227,7 +251,8 @@ HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHand
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     if (totalRankSize_ == 0 || yRankSize_ == 0) {
-        HCCL_ERROR("[InsTempAlltoAllMeshClosV2][LocalDataCopy] invalid rank sizes.");
+        HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][LocalDataCopy] invalid rank sizes: totalRank=%u xRank=%u yRank=%u",
+                   totalRankSize_, xRankSize_, yRankSize_);
         return HCCL_E_INTERNAL;
     }
 
@@ -282,16 +307,20 @@ HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHand
 
 HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
-    HCCL_INFO("[InsTempAlltoAllMeshClosV2][PostLocalCopy] Start.");
+    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] Start: templateRank=%u xRank=%u yRank=%u totalRank=%u "
+              "sliceSize=%llu cellSize=%llu perPeerSize=%llu",
+              templateRankSize_, xRankSize_, yRankSize_, totalRankSize_,
+              tempAlgParams_.sliceSize, cellSize, perPeerSize);
     if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
-        HCCL_INFO("[InsTempAlltoAllMeshClosV2][PostLocalCopy] skip because output is scratch");
+        HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] skip because output is scratch");
         return HcclResult::HCCL_SUCCESS;
     }
 
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     if (xRankSize_ == 0 || yRankSize_ == 0 || totalRankSize_ == 0) {
-        HCCL_ERROR("[InsTempAlltoAllMeshClosV2][PostLocalCopy] invalid rank sizes.");
+        HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] invalid rank sizes: xRank=%u yRank=%u totalRank=%u",
+                   xRankSize_, yRankSize_, totalRankSize_);
         return HCCL_E_INTERNAL;
     }
 
