@@ -12,7 +12,7 @@
 add_subdirectory(op_common)
 # add_subdirectory(reduce_scatter)
 add_subdirectory(all_gather)
-# add_subdirectory(all_to_all_v)
+add_subdirectory(all_to_all_v)
 # add_subdirectory(broadcast)
 add_subdirectory(all_reduce)
 # add_subdirectory(send)
