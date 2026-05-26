@@ -61,13 +61,13 @@ public:
         if (loop == 0) {
             tagTemp = curTag_;
         }
-        WaitFlag(rank_, flag_offset, tagTemp);
+        WaitFlagForAlltoAllV(rank_, flag_offset, tagTemp);
 
         CpGM2GM((__gm__ T *)sendOutputOffset, (__gm__ T *)sendInputOffset, sendCurCount);
         PipeBarrier<PIPE_ALL>();
 
         flag_offset = rank_ * coreNumPerRank + coreIndex + coreCount;
-        Record(targetRank, flag_offset, loop);
+        RecordForAlltoAllV(targetRank, flag_offset, loop);
     }
  
     __aicore__ inline void Consumer(uint64_t loop)
@@ -76,13 +76,13 @@ public:
             return;
         }
         uint64_t flag_offset = block_idx + coreCount;
-        WaitFlag(rank_, flag_offset, loop);
+        WaitFlagForAlltoAllV(rank_, flag_offset, loop);
 
         CpGM2GM((__gm__ T *)recvOutputOffset, (__gm__ T *)recvInputOffset, recvCurCount);
         PipeBarrier<PIPE_ALL>(); // 核内自己的同步
 
         flag_offset = rank_ * coreNumPerRank + coreIndex;
-        Record(targetRank, flag_offset, loop + 1);
+        RecordForAlltoAllV(targetRank, flag_offset, loop + 1);
     }
  
     __aicore__ inline void Process(uint64_t len, uint32_t sliceId, ExtraArgs &extraArgs)
@@ -107,14 +107,14 @@ public:
         // 前面 coreCount 个位置给 Producer，后面 coreCount 个位置给 Consumer
         // 初始化的时候，先给对端一个flag
         uint64_t flag_offset = rank_ * coreNumPerRank + coreIndex + coreCount;
-        Record(targetRank, flag_offset, curTag_);
+        RecordForAlltoAllV(targetRank, flag_offset, curTag_);
 
         // 然后wait到Consumer位置的flag之后，写个flag 到对端Producer的位置，后续正常循环
         flag_offset = block_idx + coreCount;
-        WaitFlag(rank_, flag_offset, curTag_);
+        WaitFlagForAlltoAllV(rank_, flag_offset, curTag_);
 
         flag_offset = rank_ * coreNumPerRank + coreIndex;
-        Record(targetRank, flag_offset, curTag_);
+        RecordForAlltoAllV(targetRank, flag_offset, curTag_);
  
         // 这里根据ccl buffer的大小去做循环
         uint64_t maxSendOrRecvDataCount = 0;
