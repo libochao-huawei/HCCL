@@ -364,8 +364,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     HCCL_INFO("[kernelNum111] = %u ",kernelNum);
     const uint32_t rankSize = subCommRanks_[0].size();
 
-    uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
-    uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    uint64_t inputAddr2die  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
+    uint64_t outputAddr2die = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
     uint64_t sliceSizeMesh2die = 0;
     uint64_t sliceSizeMesh1d = 0;
@@ -376,17 +376,19 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     } else {
         sliceSizeMesh2die = templateDataParams.sliceSize;
     }
+    uint64_t inputAddr1d  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff + sliceSizeMesh2die;
+    uint64_t outputAddr1d = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff + sliceSizeMesh2die;
 
     // uint64_t inputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
     uint64_t outputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
     uint64_t inputSliceStride = outputSliceStride;
     uint64_t outBuffBaseOff =  buffInfo_.outBuffBaseOff;
     HCCL_INFO("[CcuTempAllToAllMesh1D2Die][KernelRun] begin. Rank[%d], input[%#llx/%#llx], output[%#llx/%#llx], "
-        "sendType[%d], recvType[%d]", myRank_, inputAddr, param.inputPtr, outputAddr, param.outputPtr,
+        "sendType[%d], recvType[%d]", myRank_, inputAddr2die, param.inputPtr, outputAddr2die, param.outputPtr,
         param.all2AllDataDes.sendType, param.all2AllDataDes.recvType);
-    HCCL_INFO("[CcuTempAllToAllMesh1D2Die][KernelRun] myRank_[%d], rankSize[%lu], inputAddr[%llu],"
-              "outputAddr[%llu], sliceSizeMesh2die[%llu], outBuffBaseOff[%llu], inputSliceStride[%llu], outputSliceStride[%llu]",
-               myRank_, rankSize, inputAddr, outputAddr, sliceSizeMesh2die, outBuffBaseOff, inputSliceStride, outputSliceStride);
+    HCCL_INFO("[CcuTempAllToAllMesh1D2Die][KernelRun] myRank_[%d], rankSize[%lu], inputAddr2die[%llu],"
+              "outputAddr2die[%llu], sliceSizeMesh2die[%llu], outBuffBaseOff[%llu], inputSliceStride[%llu], outputSliceStride[%llu]",
+               myRank_, rankSize, inputAddr2die, outputAddr2die, sliceSizeMesh2die, outBuffBaseOff, inputSliceStride, outputSliceStride);
 
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -399,7 +401,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
 
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
         std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllToAllMesh2Die>(
-            inputAddr, outputAddr, token, sliceSizeMesh1d, inputSliceStride, outputSliceStride);
+            inputAddr2die, outputAddr2die, token, sliceSizeMesh2die, inputSliceStride, outputSliceStride);
         void *taskArgPtr = static_cast<void *>(taskArg.get());
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[dieId], templateResource.ccuKernels[dieId],
             taskArgPtr));
@@ -414,11 +416,11 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
         uint64_t srcOffset = 0;
         uint64_t dstOffset = myRank_ * dstStride;
 
-        HCCL_INFO("[CcuTempAllToAllMesh1D2Die] Run Init: myRank_[%d],  inputAddr[%llu],"\
-            "outputAddr[%llu], sliceSizeMesh1d[%llu], srcOffset[%llu], dstOffset[%llu]",
-            myRank_, inputAddr, outputAddr, sliceSizeMesh1d, srcOffset, dstOffset);
+        HCCL_INFO("[CcuTempAllToAllMesh1D2Die] Run Init: myRank_[%d],  inputAddr1d[%llu],"\
+            "outputAddr1d[%llu], sliceSizeMesh1d[%llu], srcOffset[%llu], dstOffset[%llu]",
+            myRank_, inputAddr1d, outputAddr1d, sliceSizeMesh1d, srcOffset, dstOffset);
         std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
-            inputAddr, outputAddr, sliceSizeMesh1d, token, srcOffset, dstOffset, srcStride);
+            inputAddr1d, outputAddr1d, sliceSizeMesh1d, token, srcOffset, dstOffset, srcStride);
 
         void* taskArgPtr = static_cast<void*>(taskArg.get());
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[DIE_NUM], templateResource.ccuKernels[DIE_NUM], taskArgPtr));
