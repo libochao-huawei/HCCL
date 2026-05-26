@@ -33,7 +33,7 @@
     └── Makefile                        # 编译/构建配置文件
 ```
 
-> 自定义算子编译工程依赖 HCCL 代码仓中的 [cmake](../../cmake) 配置和编译脚本 [build.sh](../../build.sh)，其中：
+> 自定义算子编译工程依赖 HCCL 代码仓中的 [cmake](../../../cmake) 配置和编译脚本 [build.sh](../../../build.sh)，其中：
 > 
 > - cmake 包含 CMake 配置、MakeSelf 打包配置等内容
 > - build.sh 是工程编译入口
@@ -87,7 +87,7 @@ hccl代码仓提供了自定义算子编译打包工程，该工程依赖代码�
 git clone https://gitcode.com/cann/hccl.git
 
 # 编译自定义算子包
-bash build.sh --vendor=cust --ops=allgather_aicpu --custom_ops_path=./examples/06_custom_ops_allgather_aicpu
+bash build.sh --vendor=cust --ops=allgather_aicpu --custom_ops_path=./examples/05_custom_ops_allgather/aicpu
 ```
 
 > 其中：
@@ -174,7 +174,7 @@ load_as_per_soc:false
 
 ### 3. 编译样例
 
-在 `examples/06_custom_ops_allgather_aicpu/testcase` 代码目录下执行如下命令：
+在 `examples/05_custom_ops_allgather/aicpu/testcase` 代码目录下执行如下命令：
 
 ```bash
 # 编译样例
