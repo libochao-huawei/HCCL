@@ -9,7 +9,6 @@
  */
 
 #include "ins_v2_alltoall_parallel_executor.h"
-#include <alloca.h>
 #include <cmath>
 #include "hcomm_primitives.h"
 #include "alg_data_trans_wrapper.h"
@@ -64,10 +63,14 @@ static HcclResult ReorganizeScratches(
     // Dual-save: need 2× the max cell for temp1+temp2
     u64 maxCellSize = std::max(intraCellSize, interCellSize);
     if (maxCellSize == 0) return HCCL_SUCCESS;
-    uint8_t *temp = static_cast<uint8_t*>(alloca(2 * maxCellSize));
-    if (temp == nullptr) return HCCL_E_INTERNAL;
+    std::vector<uint8_t> tempBuf(2 * maxCellSize);
+    uint8_t *temp = tempBuf.data();
     uint8_t *temp1 = temp;
     uint8_t *temp2 = temp + maxCellSize;
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][ReorganizeScratches] xSize=%u ySize=%u intraSlice=%llu interSlice=%llu "
+                 "perPeerMesh=%llu perPeerClos=%llu intraCell=%llu interCell=%llu maxCell=%llu temp=%zu",
+                 xSize, ySize, intraSliceSize, interSliceSize,
+                 perPeerMesh, perPeerClos, intraCellSize, interCellSize, maxCellSize, tempBuf.size());
 
     for (u32 sx = 0; sx < xSize; sx++) {
         // Intra block info for source row sx
@@ -216,7 +219,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][CalcRes] ClosMesh2D branch: level0Topo=MESH_1D_CLOS level0PcieMix=0 "
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][CalcRes] ClosMesh2D branch: level0Topo=MESH_1D_CLOS level0PcieMix=0 "
                   "infos.size=%zu infos[0].size=%zu",
                   algHierarchyInfo.infos.size(), algHierarchyInfo.infos[0].size());
         CHK_PRT_RET(algHierarchyInfo.infos.size() < 2 || algHierarchyInfo.infos[0].size() < 2 ||
@@ -234,10 +237,10 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             }
         }
         interHierarchyInfo = {closRanks};
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][CalcRes] ClosMesh2D: userRank=%u meshSize=%u intra[0]=%zu closRanks=%zu",
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][CalcRes] ClosMesh2D: userRank=%u meshSize=%u intra[0]=%zu closRanks=%zu",
                   topoInfo->userRank, meshSize, intraHierarchyInfo[0].size(), closRanks.size());
     } else {
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][CalcRes] Direct branch: level0Topo=%d level0PcieMix=%d "
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][CalcRes] Direct branch: level0Topo=%d level0PcieMix=%d "
                   "infos.size=%zu",
                   static_cast<int>(topoInfo->level0Topo),
                   static_cast<int>(topoInfo->level0PcieMix),
@@ -253,7 +256,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                     HcclResult::HCCL_E_INTERNAL);
         intraHierarchyInfo = algHierarchyInfo.infos[0];
         interHierarchyInfo = algHierarchyInfo.infos[1];
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][CalcRes] Direct: infos[0].size=%zu infos[1].size=%zu",
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][CalcRes] Direct: infos[0].size=%zu infos[1].size=%zu",
                   algHierarchyInfo.infos[0].size(), algHierarchyInfo.infos[1].size());
     }
 
@@ -513,33 +516,73 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         HCCL_INFO("[Orchestrate] intraLinkMap_ size=%zu interLinkMap_ size=%zu",
                   intraLinkMap_.size(), interLinkMap_.size());
         for (auto &kv : intraLinkMap_) {
-            HCCL_INFO("[Orchestrate] intraLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
+            HCCL_WARNING("[Orchestrate] intraLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
         }
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] Entering interLinkMap_ log loop. interLinkMap_.size()=%zu",
+                     interLinkMap_.size());
         for (auto &kv : interLinkMap_) {
-            HCCL_INFO("[Orchestrate] interLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
+            HCCL_WARNING("[Orchestrate] interLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
         }
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] interLinkMap_ iteration complete. About to enter topology detection.");
     }
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
+    if (static_cast<int>(dataType_) < 0 || dataType_ >= HCCL_DATA_TYPE_RESERVED) {
+        HCCL_ERROR("[Orchestrate] FATAL: invalid dataType=%d", static_cast<int>(dataType_));
+        return HcclResult::HCCL_E_INTERNAL;
+    }
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
+    HCCL_WARNING("[ALLTOALL_V2_CRASH_DIAG][L1] dataCount=%llu dataType=%d dataTypeSize=%u dataSize=%llu",
+        dataCount_, static_cast<int>(dataType_), dataTypeSize_, dataSize_);
 
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] myRank=%u dataCount=%llu dataSize=%llu dataTypeSize=%u",
               myRank_, dataCount_, dataSize_, dataTypeSize_);
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] infos.size=%zu infos[0].size=%zu infos[1].size=%zu "
-              "level0Topo=%d level0PcieMix=%d userRank=%u",
-              resCtx.algHierarchyInfo.infos.size(),
-              resCtx.algHierarchyInfo.infos.empty() ? 0 : resCtx.algHierarchyInfo.infos[0].size(),
-              resCtx.algHierarchyInfo.infos.size() < 2 ? 0 : resCtx.algHierarchyInfo.infos[1].size(),
-              static_cast<int>(resCtx.topoInfo.level0Topo),
-              static_cast<int>(resCtx.topoInfo.level0PcieMix), resCtx.topoInfo.userRank);
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] Topology: level0Topo=%d, level0PcieMix=%d, infos.size=%zu",
+                 static_cast<int>(resCtx.topoInfo.level0Topo),
+                 static_cast<int>(resCtx.topoInfo.level0PcieMix),
+                 resCtx.algHierarchyInfo.infos.size());
+    if (resCtx.algHierarchyInfo.infos.size() > 0) {
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] infos[0].size=%zu",
+                     resCtx.algHierarchyInfo.infos[0].size());
+        if (resCtx.algHierarchyInfo.infos[0].size() >= 1) {
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] infos[0][0].size=%zu",
+                         resCtx.algHierarchyInfo.infos[0][0].size());
+        }
+        if (resCtx.algHierarchyInfo.infos[0].size() >= 2) {
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] infos[0][1].size=%zu",
+                         resCtx.algHierarchyInfo.infos[0][1].size());
+        }
+    }
+    if (resCtx.algHierarchyInfo.infos.size() > 1) {
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] infos[1].size=%zu",
+                     resCtx.algHierarchyInfo.infos[1].size());
+    }
     for (size_t i = 0; i < resCtx.algHierarchyInfo.infos.size(); i++) {
         HCCL_INFO("[Orchestrate] infos[%zu].size()=%zu", i,
                   resCtx.algHierarchyInfo.infos[i].size());
     }
 
+    HCCL_WARNING("[ALLTOALL_V2_CRASH_DIAG][L2] Entering topology detection. level0Topo=%d level0PcieMix=%d "
+        "infos.size=%zu infos[0].size=%zu",
+        static_cast<int>(resCtx.topoInfo.level0Topo),
+        static_cast<int>(resCtx.topoInfo.level0PcieMix),
+        resCtx.algHierarchyInfo.infos.size(),
+        resCtx.algHierarchyInfo.infos.empty() ? 0 : resCtx.algHierarchyInfo.infos[0].size());
+
+    // DEFENSIVE: validate infos before accessing
+    if (resCtx.algHierarchyInfo.infos.empty() || resCtx.algHierarchyInfo.infos[0].empty()) {
+        HCCL_ERROR("[Orchestrate] FATAL: algHierarchyInfo.infos is empty or infos[0] is empty");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+
     // ClosMesh2D: infos[0] has 2+ groups (one per pod). UBX: 1 group.
     if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
+        if (resCtx.algHierarchyInfo.infos[0].size() < 2) {
+            HCCL_ERROR("[Orchestrate] FATAL: ClosMesh2D path but infos[0].size=%zu < 2",
+                resCtx.algHierarchyInfo.infos[0].size());
+            return HcclResult::HCCL_E_INTERNAL;
+        }
         intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
@@ -549,13 +592,18 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             }
         }
         interHierarchyInfo_ = {closRanks};
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][Orchestrate] ClosMesh2D: intra[%zu] inter[%zu] meshSize=%u",
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] ClosMesh2D: intra[%zu] inter[%zu] meshSize=%u",
                   intraHierarchyInfo_[0].size(), interHierarchyInfo_[0].size(), meshSize);
     } else {
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][Orchestrate] Direct: level0Topo=%d level0PcieMix=%d",
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] Direct: level0Topo=%d level0PcieMix=%d",
                   static_cast<int>(resCtx.topoInfo.level0Topo),
                   static_cast<int>(resCtx.topoInfo.level0PcieMix));
         intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
+        if (resCtx.algHierarchyInfo.infos.size() < 2) {
+            HCCL_ERROR("[Orchestrate] FATAL: Direct path but infos.size=%zu < 2",
+                resCtx.algHierarchyInfo.infos.size());
+            return HcclResult::HCCL_E_INTERNAL;
+        }
         interHierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
     }
     rankSizeLevel0_ = GetRankSize(intraHierarchyInfo_);
@@ -563,20 +611,35 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
     rankIdxLevel1_ = myRank_ / rankSizeLevel0_;
 
-    HCCL_INFO("[ALLTOALL_V2_DEBUG][Orchestrate] hierarchy: intra.size=%zu inter.size=%zu "
+    HCCL_WARNING("[ALLTOALL_V2_CRASH_DIAG][L3] Topology detection complete. "
+        "intraHierarchyInfo_.size=%zu interHierarchyInfo_.size=%zu "
+        "rankSize0=%llu rankSize1=%llu",
+        intraHierarchyInfo_.size(), interHierarchyInfo_.size(),
+        rankSizeLevel0_, rankSizeLevel1_);
+
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] hierarchy: intra.size=%zu inter.size=%zu "
               "rankSize0=%llu rankSize1=%llu rankIdx0=%llu rankIdx1=%llu",
               intraHierarchyInfo_.size(), interHierarchyInfo_.size(),
               rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
+
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] L4: rankSize0=%llu rankSize1=%llu rankIdx0=%llu rankIdx1=%llu",
+        rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
 
     InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, intraHierarchyInfo_);
     InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, interHierarchyInfo_);
     HCCL_INFO("[Orchestrate] templates: intra=%s inter=%s",
               intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
 
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] L5: templates constructed. intra=%s inter=%s",
+        intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
+
     intraTempAlg.SetMeshDimensions(rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
     interTempAlg.SetMeshDimensions(rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
     HCCL_INFO("[Orchestrate] SetMeshDimensions: rankSize0=%llu rankSize1=%llu rankIdx0=%llu rankIdx1=%llu",
               rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
+
+    HCCL_WARNING("[ALLTOALL_V2_CRASH_DIAG][L4] Templates constructed. intra=%s inter=%s",
+        intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
 
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] intra template=%s inter template=%s",
               intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
@@ -589,7 +652,11 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     bool hasInterComm = !interLinkMap_.empty();
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] hasInterComm=%d", hasInterComm);
 
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] L6: calling PrepareResForTemplate. hasInterComm=%d", hasInterComm);
+
     PrepareResForTemplate(intraTempAlg, interTempAlg);
+
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] L7: entering OrchestrateLoop");
 
     HcclResult ret = OrchestrateLoop(param, resCtx, intraTempAlg, interTempAlg, hasInterComm);
     CHK_PRT_RET(
@@ -774,7 +841,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAxis0 : dataCountPerLoopAxis0;
         u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAxis1 : dataCountPerLoopAxis1;
 
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Loop[%u/%u] start: currPart0=%llu currPart1=%llu "
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Loop[%u/%u] start: currPart0=%llu currPart1=%llu "
                   "splitData=[%.4f,%.4f]",
                   loopIndex, loopTimes, currCountPart0, currCountPart1,
                   splitDataSize[0], splitDataSize[1]);
@@ -872,7 +939,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                 uint8_t *intraBuf = static_cast<uint8_t*>(resCtx.cclMem.addr) + intraScratchOffset;
                 uint8_t *interBuf = static_cast<uint8_t*>(resCtx.cclMem.addr) + interScratchOffset;
 
-                HCCL_INFO("[ALLTOALL_V2_DEBUG][OrchestrateLoop] ReorganizeScratches: "
+                HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] ReorganizeScratches: "
                           "meshSliceSize=%llu closSliceSize=%llu perPeerMesh=%llu perPeerClos=%llu "
                           "rankSize0=%llu rankSize1=%llu intraBuf@0x%llx interBuf@0x%llx "
                           "needIntraToInter=%d needInterToIntra=%d",
@@ -885,9 +952,9 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                     intraBuf, interBuf, rankSizeLevel0_, rankSizeLevel1_,
                     meshSliceSize, closSliceSize, perPeerMesh, perPeerClos);
                 CHK_RET(reorgRet);
-                HCCL_INFO("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Reorganization complete.");
+                HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Reorganization complete.");
             } else {
-                HCCL_INFO("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Skipping reorganization: rankSize0=%llu rankSize1=%llu "
+                HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Skipping reorganization: rankSize0=%llu rankSize1=%llu "
                           "currPart0=%llu currPart1=%llu",
                           rankSizeLevel0_, rankSizeLevel1_, currCountPart0, currCountPart1);
             }
