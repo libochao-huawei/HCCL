@@ -22,6 +22,7 @@ constexpr uint64_t CCU_MS_SIZE = 4096;
 constexpr uint64_t LOCAL_COPY_MS = 8;
 constexpr int POST_SYNC_ID = 3;  
 constexpr uint16_t BIT_NUM_PER_CKE = 16;
+constexpr uint32_t UNROLL_NUM = 8;
 
 CcuKernelAllGatherMesh1DMem2Mem::CcuKernelAllGatherMesh1DMem2Mem(const CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
@@ -72,12 +73,16 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
     constVar1_                    = 1;
     repeatTimeflag_               = CreateVariable();
     repeatTimeflag_               = 0;
+    waitRepeatNum_                = CreateVariable();
+    waitRepeatNum_                = 0;
+    groupCopyRepeatNum_           = CreateVariable();
+    groupCopyRepeatNum_           = 0;
     isInputOutputEqual_           = CreateVariable();
     localGoSize_                  = CreateGroupOpSize();
 
     src = CreateLocalAddr();
     src_loccopy = CreateLocalAddr();
-    remote_src= CreateLocalAddr();
+    localCopyDst_ = CreateLocalAddr();
 
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx == rankId_) {
@@ -87,7 +92,8 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
         }
     }
 
-    for(uint32_t i = 0; i < (rankSize_ + BIT_NUM_PER_CKE - 1)/BIT_NUM_PER_CKE; i++){
+    uint32_t numEventsPerIter = (rankSize_ + BIT_NUM_PER_CKE - 1)/BIT_NUM_PER_CKE;
+    for(uint32_t i = 0; i < UNROLL_NUM * numEventsPerIter; i++){
         event_.push_back(CreateCompletedEvent());
     }
     return HcclResult::HCCL_SUCCESS;
@@ -151,7 +157,7 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
     }
     CCU_IF(isInputOutputEqual_ == 0)
     {
-        GroupCopy(remote_src, src_loccopy, localGoSize_);
+        GroupCopy(localCopyDst_, src_loccopy, localGoSize_);
     }
     for(uint32_t i = 0; i < (rankSize_ + BIT_NUM_PER_CKE - 1)/BIT_NUM_PER_CKE; i++){
         if (i == (rankSize_ + BIT_NUM_PER_CKE - 1)/BIT_NUM_PER_CKE - 1) {
@@ -163,6 +169,43 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
             event_[i].SetMask((1 << BIT_NUM_PER_CKE) - 1);
         }
         WaitEvent(event_[i]);
+    }
+}
+
+void CcuKernelAllGatherMesh1DMem2Mem::DoAllGatherWrite(const hcomm::CcuRep::LocalAddr              &src,
+                                                                const std::vector<hcomm::CcuRep::RemoteAddr> &dst,
+                                                                const CcuRep::Variable            &sliceSize,
+                                                                uint32_t unrollIdx)
+{
+    uint32_t channelId = 0;
+    uint32_t numEventsPerIter = (rankSize_ + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
+    for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
+        uint32_t eventIdx = unrollIdx * numEventsPerIter + rankIdx / BIT_NUM_PER_CKE;
+        event_[eventIdx].SetMask(1 << (rankIdx % BIT_NUM_PER_CKE));
+        if (rankIdx == rankId_) {
+            RecordEvent(event_[eventIdx]);
+        } else {
+            WriteNb(channels_[channelId], dst[rankIdx], src, sliceSize, event_[eventIdx]);
+            channelId++;
+        }
+    }
+}
+
+void CcuKernelAllGatherMesh1DMem2Mem::DoAllGatherWait(uint32_t unrollIdx)
+{
+    uint32_t numEventsPerIter = (rankSize_ + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
+    for(uint32_t i = 0; i < numEventsPerIter; i++){
+        uint32_t eventIdx = unrollIdx * numEventsPerIter + i;
+        if (i == numEventsPerIter - 1) {
+            if(rankSize_ % BIT_NUM_PER_CKE == 0){
+                event_[eventIdx].SetMask((1 << BIT_NUM_PER_CKE) - 1);
+            } else {
+                event_[eventIdx].SetMask((1 << (rankSize_ % BIT_NUM_PER_CKE)) - 1);
+            }
+        } else {
+            event_[eventIdx].SetMask((1 << BIT_NUM_PER_CKE) - 1);
+        }
+        WaitEvent(event_[eventIdx]);
     }
 }
 
@@ -178,35 +221,82 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
 
     for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx == rankId_){
-            remote_src.addr = output_[rankId_];
-            remote_src.addr += currentRankSliceOutputOffset_;
-            remote_src.token = token_[rankId_];
+            localCopyDst_.addr = output_[rankId_];
+            localCopyDst_.addr += currentRankSliceOutputOffset_;
+            localCopyDst_.token = token_[rankId_];
         } else {
             dst[rankIdx].addr = output_[rankIdx];
             dst[rankIdx].addr += currentRankSliceOutputOffset_;
             dst[rankIdx].token = token_[rankIdx];
         }
     }
-    CCU_WHILE(tmpRepeatNum_ != UINT64_MAX)
+    // 软件展开三阶段设计（仅支持repeatNum <= UNROLL_NUM）：
+    // Phase 1: 先下发所有WriteNb（非阻塞，event错开），不包含GroupCopy
+    // Phase 2: GroupCopy使用CCU_WHILE（实际do-while），节省指令空间
+    // Phase 3: 最后一把WaitEvent，收齐所有远端WriteNb完成信号
+    // waitRepeatNum_/groupCopyRepeatNum_从tmpRepeatNum_派生，不再单独传参
+
+    // 从tmpRepeatNum_派生Phase 2/3计数器
+    waitRepeatNum_ += tmpRepeatNum_;
+    groupCopyRepeatNum_ += tmpRepeatNum_;
+
+    // Phase 1: 第1轮迭代（不需要地址步进）
+    CCU_IF(tmpRepeatNum_ != UINT64_MAX)
     {
         tmpRepeatNum_ += constVar1_;
-        CCU_IF(repeatTimeflag_ != 0)
+        CCU_IF(normalSliceSize_ != 0)
         {
+            DoAllGatherWrite(src, dst, normalSliceSize_, 0);
+        }
+    }
+
+    // 第2~UNROLL_NUM轮迭代（需要地址步进）
+    for (uint32_t i = 1; i < UNROLL_NUM; i++) {
+        CCU_IF(tmpRepeatNum_ != UINT64_MAX)
+        {
+            tmpRepeatNum_ += constVar1_;
             src.addr += inputRepeatStride_;
             for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-                if (rankIdx == rankId_){
-                    remote_src.addr += outputRepeatStride_;
-                } else {
+                if (rankIdx != rankId_){
                     dst[rankIdx].addr += outputRepeatStride_;
                 }
             }
+            CCU_IF(normalSliceSize_ != 0)
+            {
+                DoAllGatherWrite(src, dst, normalSliceSize_, i);
+            }
         }
-        CCU_IF(normalSliceSize_ != 0)
-        {
-            DoAllGather(src, dst, normalSliceSize_);
-        }
-        repeatTimeflag_ = 1;
     }
+
+    // Phase 2: GroupCopy使用CCU_WHILE（实际do-while语义），节省指令空间
+    // 外层CCU_IF保护repeatNum=0时不进入；repeatTimeflag_处理首轮地址步进跳过
+    CCU_IF(groupCopyRepeatNum_ != UINT64_MAX)
+    {
+        repeatTimeflag_ = 0;
+        CCU_WHILE(groupCopyRepeatNum_ != UINT64_MAX)
+        {
+            groupCopyRepeatNum_ += constVar1_;
+            CCU_IF(repeatTimeflag_ != 0)
+            {
+                localCopyDst_.addr += outputRepeatStride_;
+            }
+            CCU_IF(isInputOutputEqual_ == 0)
+            {
+                GroupCopy(localCopyDst_, src_loccopy, localGoSize_);
+            }
+            repeatTimeflag_ = 1;
+        }
+    }
+
+    // Phase 3: 批量WaitEvent，收齐所有远端WriteNb完成信号
+    for (uint32_t i = 0; i < UNROLL_NUM; i++) {
+        CCU_IF(waitRepeatNum_ != UINT64_MAX)
+        {
+            waitRepeatNum_ += constVar1_;
+            DoAllGatherWait(i);
+        }
+    }
+
 }
 
 HcclResult CcuKernelAllGatherMesh1DMem2Mem::Algorithm()
