@@ -67,7 +67,7 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllMesh(
     const std::vector<ThreadHandle> &threads,
     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
-    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] Entry: rank=%d templateRankSize=%u totalLinks=%u "
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] Entry: rank=%d templateRankSize=%u totalLinks=%u "
               "hierarchy: xRank=%u yRank=%u totalRank=%u myXRank=%u myYRank=%u sliceSize=%llu",
               myRank_, templateRankSize_, channelsPerRank_,
               xRankSize_, yRankSize_, totalRankSize_, myXRank_, myYRank_,
@@ -122,7 +122,7 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
 
         if (failedRanks_[connectedAlgRank]) {
-            HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos] linkIdx[%u] rank[%d] peer[%u] already failed, skipping.",
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos] linkIdx[%u] rank[%d] peer[%u] already failed, skipping.",
                       linkIdx, myRank_, connectedRank);
             continue;
         }
@@ -142,7 +142,7 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
             continue;
         }
 
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] matched: "
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] matched: "
                   "myRank=%d connectedRank=%u selectedLinkIdx=%u/%u threads=%zu "
                   "enableRemoteMemAccess=%d isPcie=%d",
                   linkIdx, myRank_, connectedRank, selectedLinkIdx,
@@ -198,7 +198,7 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
             rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, actualChunkSize, chunkCount);
             rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, actualChunkSize, chunkCount);
 
-            HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] rank[%d]->peer[%d] linkIdx[%u] rpt[%u] "
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] rank[%d]->peer[%d] linkIdx[%u] rpt[%u] "
                       "txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu "
                       "actualSz=%llu fromScratch=%d",
                       myRank_, connectedRank, linkIdx, rpt,
@@ -262,7 +262,7 @@ HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHand
         perPeerClosSize = totalSliceSize;
     }
 
-    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][LocalDataCopy] Start: totalRank=%u xRank=%u yRank=%u "
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][LocalDataCopy] Start: totalRank=%u xRank=%u yRank=%u "
               "totalSlice=%llu cellSize=%llu perPeerClos=%llu myXRank=%u myYRank=%u",
               totalRankSize_, xRankSize_, yRankSize_,
               tempAlgParams_.sliceSize, cellSize, perPeerClosSize,
@@ -309,7 +309,7 @@ HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHand
 HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
     if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
-        HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] skip because output is scratch");
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] skip because output is scratch");
         return HcclResult::HCCL_SUCCESS;
     }
 
@@ -325,7 +325,7 @@ HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHand
     u64 cellSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
     u64 perPeerSize = (totalSliceSize + yRankSize_ - 1) / yRankSize_;
 
-    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] Start: templateRank=%u xRank=%u yRank=%u totalRank=%u "
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] Start: templateRank=%u xRank=%u yRank=%u totalRank=%u "
               "sliceSize=%llu cellSize=%llu perPeerSize=%llu",
               templateRankSize_, xRankSize_, yRankSize_, totalRankSize_,
               tempAlgParams_.sliceSize, cellSize, perPeerSize);
