@@ -990,7 +990,7 @@ HcclResult ParseDfsConfig()
             HCCL_ERROR("[ParseDfsConfig] failed. invalid item[%s]", item.c_str());
             return HCCL_E_PARA;
         }
-        if (itemPair[0] == dfsConfigItems[1]) {
+        if (itemPair[0] == dfsConfigItems[2]) {
             CHK_RET(ParseInconsistentCheckSwitch(itemPair[1]));
         }
     }
