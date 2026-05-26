@@ -47,7 +47,7 @@ HcclResult AivTempAllReduceMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& 
         std::vector<HcclChannelDesc> myChannelDescs;
         CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
         for(auto channel : myChannelDescs) {
-            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UB_MEM) {
                 level0Channels.push_back(channel);
             }
         }
