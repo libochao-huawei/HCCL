@@ -53,6 +53,8 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     resourceRequest.channels.push_back(level0Channels);
     channelsPerRank_ = CalcChannelsPerRank(level0Channels);
     HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] channelsPerRank_ is [%u]", channelsPerRank_);
+    maxConcurrentSize_ = param.opConfig.alltoallvConcurrentSize;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] maxConcurrentSize_[%u]", maxConcurrentSize_);
     resourceRequest.slaveThreadNum = std::min(maxConcurrentSize_, templateRankSize_ - 1) * channelsPerRank_;
     for (u32 index = 0; index < resourceRequest.slaveThreadNum; index++) {
         // 从流的notify数量以rank间channel数的最大值为准，用于和主流同步以及同一个rank多条链路间的同步
@@ -68,6 +70,7 @@ u64 InsTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
     (void) outBuffType;
     // 分组fullmesh，每轮最多通信maxConcurrentSize_个
     concurrentSendRecvNum_ = std::min(maxConcurrentSize_, templateRankSize_ - 1);
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcScratchMultiple] concurrentSendRecvNum_[%u], maxConcurrentSize_[%u]", concurrentSendRecvNum_, maxConcurrentSize_);
     return concurrentSendRecvNum_;
 }
 
@@ -132,6 +135,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     threadNum_ = templateResource.threads.size();
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ = SIZE_TABLE[dataType_];
+    maxConcurrentSize_ = param.opConfig.alltoallvConcurrentSize;
 
     bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
     isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
