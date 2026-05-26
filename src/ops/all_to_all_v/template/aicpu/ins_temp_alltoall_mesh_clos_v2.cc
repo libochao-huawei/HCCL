@@ -239,11 +239,6 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
 
 HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 {
-    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][LocalDataCopy] Start: totalRank=%u xRank=%u yRank=%u "
-              "totalSlice=%llu cellSize=%llu perPeerClos=%llu myXRank=%u myYRank=%u",
-              totalRankSize_, xRankSize_, yRankSize_,
-              tempAlgParams_.sliceSize, cellSize, perPeerClosSize,
-              myXRank_, myYRank_);
     if (threads.empty()) {
         return HcclResult::HCCL_E_INTERNAL;
     }
@@ -266,6 +261,12 @@ HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHand
     if (perPeerClosSize == 0) {
         perPeerClosSize = totalSliceSize;
     }
+
+    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][LocalDataCopy] Start: totalRank=%u xRank=%u yRank=%u "
+              "totalSlice=%llu cellSize=%llu perPeerClos=%llu myXRank=%u myYRank=%u",
+              totalRankSize_, xRankSize_, yRankSize_,
+              tempAlgParams_.sliceSize, cellSize, perPeerClosSize,
+              myXRank_, myYRank_);
 
     for (u32 d = 0; d < totalRankSize_; d++) {
         u32 sx = d % xRankSize_;
@@ -307,10 +308,6 @@ HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHand
 
 HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
-    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] Start: templateRank=%u xRank=%u yRank=%u totalRank=%u "
-              "sliceSize=%llu cellSize=%llu perPeerSize=%llu",
-              templateRankSize_, xRankSize_, yRankSize_, totalRankSize_,
-              tempAlgParams_.sliceSize, cellSize, perPeerSize);
     if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
         HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] skip because output is scratch");
         return HcclResult::HCCL_SUCCESS;
@@ -327,6 +324,11 @@ HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHand
     u64 totalSliceSize = tempAlgParams_.sliceSize;
     u64 cellSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
     u64 perPeerSize = (totalSliceSize + yRankSize_ - 1) / yRankSize_;
+
+    HCCL_INFO("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] Start: templateRank=%u xRank=%u yRank=%u totalRank=%u "
+              "sliceSize=%llu cellSize=%llu perPeerSize=%llu",
+              templateRankSize_, xRankSize_, yRankSize_, totalRankSize_,
+              tempAlgParams_.sliceSize, cellSize, perPeerSize);
 
     for (auto rank : subCommRanks_[0]) {
         if (rank == myRank_) {

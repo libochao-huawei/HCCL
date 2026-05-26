@@ -139,7 +139,7 @@ HcclResult InsTempAlltoAllMesh2DV2::KernelRun(const OpParam &param, const Templa
         return HCCL_SUCCESS;
     }
     dataType_ = param.DataDes.dataType;
-    HCCL_DEBUG("[InsTempAlltoAllMesh2DV2] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
+    HCCL_INFO("[InsTempAlltoAllMesh2DV2] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
 
     CHK_RET(LocalDataCopy(templateResource.threads));
 
@@ -330,13 +330,6 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
 
 HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 {
-    HCCL_INFO("[ALLTOALL_V2_DEBUG][Mesh2D][LocalDataCopy] Start: totalRank=%u xRank=%u yRank=%u "
-              "totalSlice=%llu chunkPerPeer=%llu cellSize=%llu perPeerMesh=%llu myXRank=%u myYRank=%u",
-              totalRankSize_, xRankSize_, yRankSize_,
-              tempAlgParams_.sliceSize,
-              (tempAlgParams_.sliceSize + totalRankSize_ - 1) / totalRankSize_,
-              cellSize, perPeerMeshSize,
-              myXRank_, myYRank_);
     if (threads.empty()) {
         return HcclResult::HCCL_E_INTERNAL;
     }
@@ -358,6 +351,14 @@ HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle
     if (perPeerMeshSize == 0) {
         perPeerMeshSize = totalSliceSize;
     }
+
+    HCCL_INFO("[ALLTOALL_V2_DEBUG][Mesh2D][LocalDataCopy] Start: totalRank=%u xRank=%u yRank=%u "
+              "totalSlice=%llu chunkPerPeer=%llu cellSize=%llu perPeerMesh=%llu myXRank=%u myYRank=%u",
+              totalRankSize_, xRankSize_, yRankSize_,
+              tempAlgParams_.sliceSize,
+              (tempAlgParams_.sliceSize + totalRankSize_ - 1) / totalRankSize_,
+              cellSize, perPeerMeshSize,
+              myXRank_, myYRank_);
 
     for (u32 d = 0; d < totalRankSize_; d++) {
         u32 dx = d % xRankSize_;
@@ -399,10 +400,6 @@ HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle
 
 HcclResult InsTempAlltoAllMesh2DV2::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
-    HCCL_INFO("[ALLTOALL_V2_DEBUG][Mesh2D][PostLocalCopy] Start: templateRank=%u xRank=%u yRank=%u totalRank=%u "
-              "sliceSize=%llu cellSize=%llu perPeerSize=%llu",
-              templateRankSize_, xRankSize_, yRankSize_, totalRankSize_,
-              tempAlgParams_.sliceSize, cellSize, perPeerSize);
     if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
         HCCL_INFO("[ALLTOALL_V2_DEBUG][Mesh2D][PostLocalCopy] skip because output is scratch");
         return HcclResult::HCCL_SUCCESS;
@@ -419,6 +416,11 @@ HcclResult InsTempAlltoAllMesh2DV2::PostLocalCopy(const std::vector<ThreadHandle
     u64 totalSliceSize = tempAlgParams_.sliceSize;
     u64 cellSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
     u64 perPeerSize = (totalSliceSize + xRankSize_ - 1) / xRankSize_;
+
+    HCCL_INFO("[ALLTOALL_V2_DEBUG][Mesh2D][PostLocalCopy] Start: templateRank=%u xRank=%u yRank=%u totalRank=%u "
+              "sliceSize=%llu cellSize=%llu perPeerSize=%llu",
+              templateRankSize_, xRankSize_, yRankSize_, totalRankSize_,
+              tempAlgParams_.sliceSize, cellSize, perPeerSize);
 
     for (auto rank : subCommRanks_[0]) {
         if (rank == myRank_) {
