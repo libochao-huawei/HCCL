@@ -525,13 +525,35 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         }
         HCCL_WARNING("[ALLTOALL_V2_DEBUG][Orchestrate] interLinkMap_ iteration complete. About to enter topology detection.");
     }
-    dataCount_ = param.DataDes.count;
-    dataType_ = param.DataDes.dataType;
-    if (static_cast<int>(dataType_) < 0 || dataType_ >= HCCL_DATA_TYPE_RESERVED) {
-        HCCL_ERROR("[Orchestrate] FATAL: invalid dataType=%d", static_cast<int>(dataType_));
-        return HcclResult::HCCL_E_INTERNAL;
+    // v1.4 Fix: OpParam uses a union — must read the correct variant based on opType.
+    // AlltoAllV (and AlltoAll converted to AlltoAllV) populates all2AllVDataDes, not DataDes.
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        dataType_ = param.all2AllVDataDes.sendType;
+        // AlltoAllV has per-peer counts; compute total dataCount by summing sendCounts
+        // For AlltoAll (uniform), sendCounts[i] == sendCount for all i
+        u64* sendCounts = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts);
+        u64 totalRanks = resCtx.topoInfo.userRankSize;
+        u64 totalCount = 0;
+        for (u64 i = 0; i < totalRanks; i++) {
+            totalCount += sendCounts[i];
+        }
+        dataCount_ = totalCount;
+        if (static_cast<int>(dataType_) < 0 || dataType_ >= HCCL_DATA_TYPE_RESERVED) {
+            HCCL_ERROR("[Orchestrate] FATAL: invalid dataType=%d from all2AllVDataDes.sendType",
+                       static_cast<int>(dataType_));
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+    } else {
+        dataCount_ = param.DataDes.count;
+        dataType_ = param.DataDes.dataType;
+        if (static_cast<int>(dataType_) < 0 || dataType_ >= HCCL_DATA_TYPE_RESERVED) {
+            HCCL_ERROR("[Orchestrate] FATAL: invalid dataType=%d from DataDes.dataType",
+                       static_cast<int>(dataType_));
+            return HcclResult::HCCL_E_INTERNAL;
+        }
     }
-    dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     dataSize_ = dataCount_ * dataTypeSize_;
     HCCL_WARNING("[ALLTOALL_V2_CRASH_DIAG][L1] dataCount=%llu dataType=%d dataTypeSize=%u dataSize=%llu",
         dataCount_, static_cast<int>(dataType_), dataTypeSize_, dataSize_);

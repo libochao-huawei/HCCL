@@ -123,7 +123,7 @@ HcclResult InsTempAlltoAllMesh2DV2::KernelRun(const OpParam &param, const Templa
     tempAlgParams_ = tempAlgParams;
 
     // v3.0 Fix A: Element-level guard — fall back to local-only if chunk < one element
-    u32 dataTypeSize = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
+    u32 dataTypeSize = DATATYPE_SIZE_TABLE[param.all2AllVDataDes.sendType];
     u64 localPerPeerChunkSize = (tempAlgParams.sliceSize + totalRankSize_ - 1) / totalRankSize_;
     if (localPerPeerChunkSize < static_cast<u64>(dataTypeSize) && tempAlgParams.sliceSize > 0) {
         HCCL_WARNING("[ALLTOALL_V2_DEBUG][Mesh2D][KernelRun] perPeerChunkSize[%llu] < dataTypeSize[%u], fallback to local-only. "
@@ -138,7 +138,7 @@ HcclResult InsTempAlltoAllMesh2DV2::KernelRun(const OpParam &param, const Templa
         tempAlgParams_.buffInfo.inBuffType = savedInBuffType;
         return HCCL_SUCCESS;
     }
-    dataType_ = param.DataDes.dataType;
+    dataType_ = param.all2AllVDataDes.sendType;
     HCCL_INFO("[InsTempAlltoAllMesh2DV2] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
 
     CHK_RET(LocalDataCopy(templateResource.threads));

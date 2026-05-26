@@ -22,6 +22,12 @@ bool IsAllGatherMeshClosV2Enabled()
     return (env != nullptr && std::strcmp(env, "1") == 0);
 }
 
+bool IsAllGatherAsymmetricOptEnabled()
+{
+    const char *env = std::getenv("HCCL_ENABLE_AG_A2A_ASYMMETRIC_OPT");
+    return (env != nullptr && std::strcmp(env, "1") == 0);
+}
+
 }  // namespace
 
 namespace ops_hccl {
@@ -361,7 +367,12 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgoMeshClosV2(
                     selectAlgName = "InsAllGatherMesh1D";
                 }
             } else if (isClosNumMultipleOfMeshNum && dataSize > SMALL_COUNT_512KB) {
-                selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2MultiJetty";
+                if (IsAllGatherAsymmetricOptEnabled()) {
+                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosV3Opt";
+                    HCCL_INFO("[AllGatherAutoSelector] asymmetric opt enabled, select V3Opt [%s]", selectAlgName.c_str());
+                } else {
+                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2MultiJetty";
+                }
             } else {
                 selectAlgName = "InsAllGatherMeshClosV2";
             }
