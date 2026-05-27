@@ -625,7 +625,7 @@ HcclResult ops_hccl::RestoreVarDataAllGatherV(OpParam &param, const AlgResourceC
     return HCCL_SUCCESS;
 }
 
-extern "C" unsigned int HcclLaunchAicpuKernelA3(OpParam *param)
+extern "C" unsigned int HcclLaunchAicpuKernelA5(OpParam *param)
 {
     if (param == nullptr) {
         HCCL_ERROR("%s param is nullptr", __func__);

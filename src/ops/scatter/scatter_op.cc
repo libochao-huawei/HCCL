@@ -341,7 +341,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         if (HcommIsProfilingSupported()) {
             beginTime = HcommGetProfilingSysCycleTime();
         } 
-        std::string kernelName = "HcclLaunchAicpuKernelA3";
+        std::string kernelName = "HcclLaunchAicpuKernel";
         aclrtFuncHandle funcHandle;
         aclrtArgsHandle argsHandle;
 

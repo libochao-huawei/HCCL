@@ -673,7 +673,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     CHK_RET(AicpuKernelLaunch(comm, param, unfoldThread));
     CHK_PTR_NULL(comm);
-    std::string kernelName = "HcclLaunchAicpuKernel";
+    std::string kernelName = "HcclLaunchAicpuKernelA5";
     char* kernelNameCStr = const_cast<char*>(kernelName.c_str());
     HcclResult ret = HcclReportAicpuKernel(comm, beginTime, kernelNameCStr);
     if (ret != HCCL_SUCCESS) {
@@ -689,7 +689,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
 
 HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldThread)
 {
-    std::string kernelName = "HcclLaunchAicpuKernel";
+    std::string kernelName = "HcclLaunchAicpuKernelA5";
     aclrtFuncHandle funcHandle;
     aclrtArgsHandle argsHandle;
     // 注意，目前开源HCCL加载AICPU kernel使用的是从json文件加载
