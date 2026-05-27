@@ -230,7 +230,7 @@ static HcclResult SaveAivDfxTaskInfo(const AivOpArgs &opArgs)
     taskInfo.dataType = opArgs.dataType;
     taskInfo.beginTime = opArgs.beginTime;
 
-    HCCL_DEBUG("Begin to SaveAivDfxTaskInfo taskType[%d]", static_cast<int32_t>(opArgs.cmdType));
+    HCCL_INFO("Begin to SaveAivDfxTaskInfo taskType[%d]", static_cast<int32_t>(opArgs.cmdType));
     std::lock_guard<mutex> lock(g_aivTaskMutex);
     auto &taskQueue = g_aivTaskByStream[streamId];
     taskQueue.push_back(taskInfo);
@@ -611,7 +611,7 @@ static HcclResult ClearDeviceRegistry(AivDeviceRegistry &registry)
 }
 
 // Kernel注册入口，每个device只需要初始化一次
-HcclResult RegisterKernel(HcclComm comm)
+HcclResult RegisterKernel()
 {
     s32 deviceId = 0;
     CHK_RET(GetCurrentDeviceId(deviceId));
@@ -677,7 +677,7 @@ HcclResult RegisterKernel(HcclComm comm)
 
     registry.initialized = true;
 
-    RegisterAivExceptionCallback(comm);
+    RegisterAivExceptionCallback();
 
     return HCCL_SUCCESS;
 }
