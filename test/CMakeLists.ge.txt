@@ -1,0 +1,806 @@
+# Copyright 2020 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+
+set(_op_proto_utils_protolist
+  "${SDK_PROTO_DIR}/task.proto"
+  "${SDK_PROTO_DIR}/ge_ir.proto"
+)
+
+protobuf_generate(op_proto _proto_cc _proto_h ${_op_proto_utils_protolist})
+
+file(GLOB_RECURSE _op_proto_utils
+  util/array_ops_shape_fns.cc
+  util/axis_util.cc
+  util/candidate_sampling_shape_fns.cc
+  util/common_shape_fns.cc
+  ../../common/src/error_util.cc
+  ../../common/src/op_util.cc
+  ../../common/src/mc2_moe_utils.cc
+  util/images_ops_shape_fns.cc
+  util/linalg_ops_shape_fns.cc
+  util/lookup_ops_shape_fns.cc
+  util/nn_shape_fns.cc
+  util/ragged_conversion_ops_shape_fns.cc
+  util/random_ops_shape_fns.cc
+  util/resource_variable_ops_shape_fns.cc
+  util/transfer_shape_according_to_format.cc
+  util/util.cc
+  util/index.cc
+  util/reduce_infer_util.cc
+  ../fusion_pass/common/fp16_t.cc
+)
+
+file(GLOB_RECURSE _op_proto_rt_srcs
+  ../../common/src/error_util.cc
+  ../../common/src/op_util.cc
+  ../../common/src/mc2_moe_utils.cc
+  ../fusion_pass/common/fp16_t.cc
+  util/index.cc
+  runtime/runtime_util.cc
+  runtime/elewise.cc
+  runtime/broadcast_infer.cc
+  # TBE_vector_1_liuyi
+  runtime/apply_came_part1_ops.cc
+  runtime/apply_came_part2_ops.cc
+  runtime/apply_came_part3_ops.cc
+  runtime/apply_came_part4_ops.cc
+  runtime/attention_worker_scheduler_infershape.cc
+  runtime/deep_md.cc
+  runtime/dynamic_rnn_v3.cc
+  runtime/im2col.cc
+  runtime/lut_3d.cc
+  runtime/pooling_sum_infer_fns.cc
+  runtime/quantize_ops.cc
+  runtime/rgb_2_yuv422.cc
+  runtime/rnn.cc
+  runtime/scan_sq_codes.cc
+  runtime/slice_with_axes.cc
+  runtime/tabulate_fusion.cc
+  runtime/vector_search.cc
+  # TBE_vector_2_liankang
+  runtime/ada_cast.cc
+  runtime/arg_max_v2.cc
+  runtime/as_strided.cc
+  runtime/embedding_hashtable_apply_adam_w.cc
+  runtime/bias_add_grad.cc
+  runtime/check_valid.cc
+  runtime/concat_d.cc
+  runtime/concat_offset.cc
+  runtime/kl_div.cc
+  runtime/nll_loss_grad.cc
+  runtime/pack.cc
+  runtime/prelu_grad_reduce.cc
+  runtime/range_infer.cc
+  runtime/reduce_infer.cc
+  runtime/reduce_nansum.cc
+  runtime/resize_ops.cc
+  runtime/roi_align_op_imp.cc
+  runtime/sparse_reshape.cc
+  runtime/split_combination_ops.cc
+  runtime/embedding_hash_table_import_infer.cc
+  runtime/embedding_hash_table_lookup_or_insert.cc
+  runtime/embedding_hash_table_evict.cc
+  runtime/embedding_hash_table_export.cc
+  runtime/init_embedding_hash_table.cc
+  runtime/strided_slice.cc
+  runtime/trans_data.cc
+  runtime/transpose.cc
+  runtime/unpack.cc
+  # TBE_vector_3_liuxiaoxing
+  runtime/ffn_worker_batching.cc
+  runtime/hbm_stress_test_pi_proto.cpp
+  runtime/array_ops.cc
+  runtime/batch_to_space.cc
+  runtime/batch_to_space_nd.cc
+  runtime/bincount_ops.cc
+  runtime/deformable_offsets.cc
+  runtime/diag_ops.cc
+  runtime/extract_glimpse_v2.cc
+  runtime/flatten.cc
+  runtime/gather_nd.cc
+  runtime/gatherv2.cc
+  runtime/generate_bounding_box_proposals.cc
+  runtime/histogram_ops.cc
+  runtime/image_projective_transform.cc
+  runtime/is_nan.cc
+  runtime/nll_loss.cc
+  runtime/pad_ops.cc
+  runtime/scatter_ops.cc
+  runtime/segment_sum.cc
+  runtime/slice.cc
+  runtime/space_to_batch.cc
+  runtime/drop_out_v3_ops.cc
+  runtime/space_to_batch_nd.cc
+  runtime/sparse_segment_sum_grad.cc
+  runtime/strided_slice_grad.cc
+  runtime/unsorted_segment.cc
+  runtime/mse_loss_grad_infer.cc
+  runtime/stateless_bernoulli_infer.cc
+  # TBE_vector_4_huangqiang
+  runtime/adam_apply_one.cc
+  runtime/broadcast_gradient_args.cc
+  runtime/attention_worker_combine.cc
+  runtime/bn_3d_training.cc
+  runtime/bn_training_reduce.cc
+  runtime/bn_training_reduce_grad.cc
+  runtime/bn_training_update.cc
+  runtime/bn_training_update_grad.cc
+  runtime/bn_training_update_v2.cc
+  runtime/bn_training_update_v3.cc
+  runtime/bninference_d.cc
+  runtime/broadcast_to.cc
+  runtime/fill.cc
+  runtime/in_training_reduce_v2.cc
+  runtime/intraining_ops.cc
+  runtime/layer_norm.cc
+  runtime/layer_norm_v3.cc
+  runtime/layer_norm_x_backprop_v2.cc
+  runtime/layer_norm_x_backprop_v3.cc
+  runtime/layer_norm_quant.cc
+  runtime/max_pool.cc
+  runtime/max_pool3d.cc
+  runtime/max_pool_grad.cc
+  runtime/max_pool_v3.cc
+  runtime/maxpoolwithargmaxv1.cc
+  runtime/max_pool_grad_with_argmax_v3.cc
+  runtime/maximum.cc
+  runtime/nn_norm_ops.cc
+  runtime/nonlinear_fuc_ops.cc
+  runtime/post_layer_norm.cc
+  runtime/prelu_grad_update.cc
+  runtime/scale.cc
+  runtime/select.cc
+  runtime/sigmoid_cross_entropy_with_logits_v2.cc
+  runtime/softmax_cross_entropy_with_logits.cc
+  runtime/tile.cc
+  runtime/tile_with_axis.cc
+  # TBE_vector_5_wanglinmu
+  runtime/tome_merge_ops.cc
+  runtime/tome_unmerge_infer.cc
+  runtime/dynamic_stitch_infer.cc
+  # TBE_vector_6_gaoxiang
+  runtime/apply_ops.cc
+  runtime/fused_mul_apply_momentum.cc
+  runtime/gelu_grad_v2.cc
+  runtime/is_neg_inf.cc
+  runtime/is_pos_inf.cc
+  # TBE_vector_zhangyuxiang
+  runtime/CumminAndCummax.cc
+  runtime/col2im_v2.cc
+  runtime/ctc_loss_v2.cc
+  runtime/embedding_common_v2.cc
+  runtime/embedding_large_table_v2.cc
+  runtime/embedding_small_table_v2.cc
+  runtime/embedding_hash_map_v2.cc
+  runtime/eye.cc
+  runtime/adaptive_avg_pool_2d.cc
+  runtime/group_norm.cc
+  runtime/index.cc
+  runtime/index_by_tensor.cc
+  runtime/maxpoolgradwithargmaxv2.cc
+  runtime/maxpoolwithargmaxv2.cc
+  runtime/maxpoolwithargmaxv3.cc
+  runtime/multilabel_margin_loss.cc
+  runtime/one_hot.cc
+  runtime/pad_v3.cc
+  runtime/pad_v3_grad.cc
+  runtime/pdist.cc
+  runtime/smooth_l1_loss_grad_v2.cc
+  runtime/soft_margin_loss_grad.cc
+  runtime/rnnt_loss.cc
+  runtime/multinomial_with_replacement.cc
+  runtime/sort.cc
+  runtime/stride_add.cc
+  runtime/strided_slice_v2.cc
+  runtime/strided_slice_v3.cc
+  runtime/sync_batch_norm_gather_stats_ops.cc
+  runtime/unique_consecutive.cc
+  runtime/resource_common_v2.cc
+  runtime/tensor_array_v2.cc
+  runtime/unique_with_counts_and_sorting.cc
+  runtime/warp_affine.cc
+  runtime/histogram.cc
+  runtime/trace.cc
+  runtime/unique_infer.cc
+  runtime/string_ops.cc
+  runtime/tensor_array_ops.cc
+  runtime/UniqueWithCounts.cc
+  runtime/dot.cc
+  runtime/ger.cc
+  runtime/reduce_mean_with_count.cc
+  runtime/reduce_std_infer_funcs.cc
+  runtime/resource_common.cc
+  runtime/sync_batch_norm_backward_reduce.cc
+  runtime/sync_batch_norm_gather_stats_with_counts.cc
+  # TBE_vector_chenlong
+  # TBE_vector_zhajianqing
+  # TBE_vector_yuxinjie
+  runtime/adaptive_avg_pool_2d_assist_matrix.cc
+  runtime/apply_adam_v2.cc
+  runtime/axpy_with_softmax_and_drop_out_do_mask.cc
+  runtime/batch_multi_class_non_max_suppression.cc
+  runtime/cdist.cc
+  runtime/cdist_grad.cc
+  runtime/common_iou.cc
+  runtime/common_iou_grad.cc
+  runtime/global_lp_pool.cc
+  runtime/glu.cc
+  runtime/glu_grad.cc
+  runtime/index_put_v2.cc
+  runtime/iou.cc
+  runtime/lp_loss.cc
+  runtime/lp_norm.cc
+  runtime/min_area_polygons.cc
+  runtime/psroipooling_grad_v2d_ops.cc
+  runtime/psroipooling_v2.cc
+  runtime/repeat_interleave.cc
+  runtime/resize_d.cc
+  runtime/resize_grad_d.cc
+  runtime/rnn_gen_mask_v2.cc
+  runtime/rotary_mul.cc
+  runtime/rotary_mul_grad.cc
+  runtime/rotated_feature_align.cc
+  runtime/rotated_feature_align_grad.cc
+  runtime/rotated_iou.cc
+  runtime/rotated_nms.cc
+  runtime/sign_bits_pack.cc
+  runtime/sign_bits_unpack.cc
+  runtime/silent_check.cc
+  runtime/upsampletrilinear3d.cc
+  # TBE_vector_xllyjsk2zu
+  runtime/active_rotated_filter.cc
+  runtime/active_rotated_filter_grad.cc
+  runtime/amp_update_scale.cc
+  runtime/ball_query.cc
+  runtime/chamfer_distance.cc
+  runtime/deformable_roi_pool.cc
+  runtime/deformable_roi_pool_grad.cc
+  runtime/points_in_polygons.cc
+  runtime/psa_mask.cc
+  runtime/psa_mask_grad.cc
+  runtime/roi_pooling_with_arg_max.cc
+  runtime/three_interpolate.cc
+  runtime/three_nn.cc
+  runtime/voxelization.cc
+  # binary
+  matmul_infer_fns.cc
+  # ASCENDC_mix_huangjunjian
+  runtime/swin_attention_score.cc
+  # cube_7_fanqirui
+  runtime/weight_quant_batch_matmul_v2_infer.cc
+  conv3d_infer_fns.cc
+  # TBE_vector_chenxiaogang
+  runtime/dyn_seq_outer.cc
+  runtime/expand.cc
+  runtime/moving_sum_with_sigmoid.cc
+  runtime/resize_trilinear.cc
+  runtime/yolox_bounding_box_decode.cc
+  runtime/reshape_and_cache.cc
+  # conv_backprop_guojian
+  cube_util.cc
+  runtime/convolution_backprop_infer_fns.cc
+  dilation_infer_fns.cc
+  # other
+  runtime/act_ulqclamp_max_grad.cc
+  runtime/acts_ulq.cc
+  runtime/acts_ulq_input_grad.cc
+  runtime/adaptive_avg_pool.cc
+  runtime/adaptive_avg_pool_assist_matrix.cc
+  runtime/adjacent_difference.cpp
+  runtime/avgpool_infer_fns.cc
+  runtime/avgpool_update_infer_fns.cc
+  runtime/avgpoolv2_infer_fns.cc
+  runtime/conv2d_infer_fns.cc
+  runtime/ctc_loss.cc
+  runtime/depthwise_conv2d_infer_fns.cc
+  runtime/dropout_gen_mask_infer.cc
+  runtime/dynamic_mx_quant.cc
+  runtime/grouped_dynamic_mx_quant.cc
+  runtime/extract_image_patches.cc
+  runtime/fill_window_cache.cc
+  runtime/gaussian_blur.cc
+  runtime/gelocal.cc
+  runtime/identity_op_impl.cc
+  runtime/ifmr.cc
+  runtime/in_top_k_d.cc
+  runtime/matmul_layer_norm_reduce.cc
+  runtime/mc2_common_infershape.cc
+  runtime/moe_distribute_combine_setup_infer.cc
+  runtime/moe_distribute_combine_teardown_infer.cc
+  runtime/moe_distribute_dispatch_setup_infer.cc
+  runtime/moe_distribute_dispatch_teardown_infer.cc
+  runtime/non_max_suppression_v6.cc
+  runtime/random_choice_with_mask_infer.cc
+  runtime/random_uniform_infer.cc
+  runtime/random_ops_infer.cc
+  runtime/rank_op_impl.cc
+  runtime/repeat_with_pad.cc
+  runtime/renorm.cc
+  runtime/resize_linear.cc
+  runtime/resize_bicubic_v2.cc
+  runtime/resize_linear_grad.cc
+  runtime/resize_bicubic_v2_grad.cc
+  runtime/resize_d.cc
+  runtime/resize_d.cc
+  runtime/resize_grad_d.cc
+  runtime/resize_ops.cc
+  runtime/resize_trilinear.cc
+  runtime/rgb_to_grayscale.cc
+  runtime/roi_extractor.cc
+  runtime/rotate.cc
+  runtime/silent_check_v2.cc
+  runtime/silent_check_v3.cc
+  runtime/smooth_l1_loss_v2.cc
+  runtime/sorted_nms.cc
+  runtime/sort_with_index.cpp
+  runtime/sparse_apply_ops.cc
+  runtime/sparse_fill_empty_rows_infer.cc
+  runtime/square_sum_all.cc
+  runtime/stateless_random_normal_v2.cc
+  runtime/top_k.cc
+  runtime/logging_ops.cc
+  runtime/nn_ops.cc
+  runtime/bitwise_ops.cc
+  runtime/math_ops.cc
+  runtime/selection_ops.cc
+  runtime/sparse_ops.cc
+  runtime/topk_pq_distance_v2.cc
+  runtime/top_p_sample.cc
+  runtime/trans_argb.cc
+  runtime/where_infer.cc
+  runtime/wts_arq.cc
+  runtime/quant_per_channel.cc
+  runtime/quant_matmul_dequant.cc
+  runtime/ffn_worker_scheduler_infershape.cc
+  # dvpp
+  runtime/image_ops.cc
+  # rms_norm_atb
+  runtime/rms_norm_atb.cc
+  # hcom
+  runtime/hcom_ops_v2.cc
+  runtime/apply_adam_w_quant.cc
+)
+
+set(_op_proto_srcs
+  act_ulq_clamp_max_grad.cc
+  acts_ulq.cc
+  acts_ulq_input_grad.cc
+  ada_cast.cc
+  aipp.cc
+  array_ops.cc
+  audio_ops.cc
+  avg_pool_1d_ops.cc
+  batch_ops.cc
+  bitwise_ops.cc
+  candidate_sampling_ops.cc
+  cache_management_ops.cc
+  case_condition_ops.cc
+  cluster.cc
+  condtake_ops.cc
+  control_flow_ops.cc
+  coordinates_1d_to_2d_ops.cc
+  copy_ops.cc
+  correlation.cc
+  ctc_ops.cc
+  data_flow_ops.cc
+  data_preprocess.cc
+  deep_md.cc
+  elewise_calculation_ops.cc
+  embedding_ops.cc
+  encoding_ops.cc
+  experiment_ops.cc
+  fsrdetectionoutput_ops.cc
+  functional_ops.cc
+  hcom_ops.cc
+  hvd_ops.cc
+  ifmr.cc
+  image.cc
+  image_ops.cc
+  index_to_addr_ops.cc
+  internal_ops.cc
+  linalg_ops.cc
+  list_ops.cc
+  logging_ops.cc
+  lookup_ops.cc
+  map_ops.cc
+  math_ops.cc
+  matrix_calculation_ops.cc
+  matrix_calculation_matmul.cc
+  matrix_calculation_fullyconnection.cc
+  matrix_calculation_einsum_gemm.cc
+  nn_batch_norm_ops.cc
+  nn_calculation_ops.cc
+  nn_detect_ops.cc
+  nn_norm_ops.cc
+  nn_ops.cc
+  nn_other.cc
+  nn_other_ops.cc
+  nn_pooling_ops.cc
+  nn_training_ops.cc
+  no_op.cc
+  nonlinear_fuc_ops.cc
+  npu_loss_scale_ops.cc
+  ocr_ops.cc
+  outfeed_ops.cc
+  pad_ops.cc
+  parsing_ops.cc
+  psroipooling_ops.cc
+  quantize_ops.cc
+  ragged_array_ops.cc
+  ragged_conversion_ops.cc
+  ragged_math_ops.cc
+  random_ops.cc
+  randomdsa_ops.cc
+  reduce_ops.cc
+  reduction_ops.cc
+  resource_variable_ops.cc
+  rnn.cc
+  roipooling_ops.cc
+  rpn_ops.cc
+  sdca_ops.cc
+  search_n.cc
+  selection_ops.cc
+  sequence_ops.cc
+  set_ops.cc
+  slice_write_ops.cc
+  sparse_ops.cc
+  spectral_ops.cc
+  split_combination_ops.cc
+  ssddetectionoutput_ops.cc
+  state_ops.cc
+  stateful_random_ops.cc
+  stateless_random_ops.cc
+  string_ops.cc
+  target_crop_and_resize.cc
+  trans_argb.cc
+  transformation_ops.cc
+  vector_search.cc
+  warp_perspective_ops.cc
+  wts_arq.cc
+)
+
+set(_op_proto_link_libs
+  -Wl,--no-as-needed
+    exe_graph
+    graph
+    graph_base
+    register
+    alog
+    error_manager
+    platform
+    static_turbojpeg
+    ops_utils_proto
+    op_common
+  -Wl,--as-needed
+    c_sec
+    json
+    ascend_protobuf
+)
+
+if(ENABLE_TEST STREQUAL "")
+  add_library(opsproto SHARED
+    ${_op_proto_srcs}
+    ${_op_proto_rt_srcs}
+    ${_op_proto_utils}
+    ${_proto_h}
+  )
+  target_include_directories(opsproto PRIVATE
+    ${OP_PROTO_INCLUDE}
+  )
+  if(NOT ${CMAKE_BUILD_MODE} STREQUAL "FALSE")
+   set(compile_opt_mode ${CMAKE_BUILD_MODE})
+  else()
+   set(compile_opt_mode -O2)
+  endif()
+  target_compile_options(opsproto PRIVATE
+    ${compile_opt_mode}
+    -Dgoogle=ascend_private
+    -fno-common
+  )
+  target_link_libraries(opsproto PRIVATE
+    $<BUILD_INTERFACE:intf_pub>
+    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+    ${_op_proto_link_libs}
+    -Wl,--whole-archive
+      rt2_registry_static
+    -Wl,--no-whole-archive
+    -Wl,-Bsymbolic
+  )
+  if(BUILD_OPEN_PROJECT)
+    set(OPS_PROTO_PATH "${INSTALL_PATH}/opp/built-in/op_proto/lib/linux/${CMAKE_SYSTEM_PROCESSOR}")
+    add_library(opsproto_rt2.0 SHARED
+      ${_op_proto_rt_srcs}
+      ${_proto_h}
+    )
+    target_include_directories(opsproto_rt2.0 PRIVATE
+      ${OP_PROTO_INCLUDE}
+    )
+
+    target_compile_options(opsproto_rt2.0 PRIVATE
+      ${compile_opt_mode}
+      -Dgoogle=ascend_private
+      -fvisibility=hidden
+      -DDISABLE_COMPILE_V1
+      -fPIC
+      -fno-common
+    )
+    target_link_libraries(opsproto_rt2.0 PRIVATE
+      $<BUILD_INTERFACE:intf_pub>
+      $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+      $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+      -Wl,--whole-archive
+        rt2_registry_static
+      -Wl,--no-whole-archive
+      ${_op_proto_link_libs}
+    )
+    cann_install(
+      TARGET      opsproto
+      FILES       $<TARGET_FILE:opsproto>
+      DESTINATION "${OPS_PROTO_PATH}"
+    )
+    cann_install(
+      TARGET      opsproto_rt2.0
+      FILES       $<TARGET_FILE:opsproto_rt2.0>
+      DESTINATION "${OPS_PROTO_PATH}"
+    )
+    add_custom_target(copy_op_proto_inc ALL)
+    cann_install(
+      TARGET      copy_op_proto_inc
+      DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/inc
+      DESTINATION "${OPS_PROTO_PATH}"
+    )
+    add_library(opsproto_static_rt2.0 STATIC
+      ${_op_proto_srcs}
+      ${_op_proto_rt_srcs}
+      ${_op_proto_utils}
+      ${_proto_h}
+    )
+    target_include_directories(opsproto_static_rt2.0 PRIVATE
+      ${OP_PROTO_INCLUDE}
+    )
+    target_compile_options(opsproto_static_rt2.0 PRIVATE
+      ${compile_opt_mode}
+      -Dgoogle=ascend_private
+      -DDISABLE_COMPILE_V1
+      -fPIC
+    )
+    target_link_libraries(opsproto_static_rt2.0 PRIVATE
+      $<BUILD_INTERFACE:intf_pub>
+      $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+      $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+      -Wl,--whole-archive
+        rt2_registry_static
+      -Wl,--no-whole-archive
+      ${_op_proto_link_libs}
+    )
+    cann_install(
+      TARGET      opsproto_static_rt2.0
+      FILES       $<TARGET_FILE:opsproto_static_rt2.0>
+      DESTINATION "${OPS_PROTO_PATH}"
+    )
+  else()
+    add_library(opsproto_rt2.0 SHARED
+      ${_op_proto_rt_srcs}
+      ${_proto_h}
+    )
+
+    add_custom_command(TARGET opsproto_rt2.0 POST_BUILD
+         COMMAND ${HI_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/../kernel/binary_script/build_opp_kernel_static.py GenerateSymbol -l $<TARGET_FILE:opsproto_rt2.0> -s ${CMAKE_CURRENT_BINARY_DIR}/opsproto_rt2.0.txt
+         VERBATIM)
+    target_include_directories(opsproto_rt2.0 PRIVATE
+      ${OP_PROTO_INCLUDE}
+    )
+    target_compile_options(opsproto_rt2.0 PRIVATE
+      ${compile_opt_mode}
+      -Dgoogle=ascend_private
+      -fvisibility=hidden
+      -DDISABLE_COMPILE_V1
+      -fPIC
+      -fno-common
+    )
+    target_link_libraries(opsproto_rt2.0 PRIVATE
+      $<BUILD_INTERFACE:intf_pub>
+      $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+      $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+      -Wl,--whole-archive
+        rt2_registry_static
+      -Wl,--no-whole-archive
+      ${_op_proto_link_libs}
+    )
+    add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/inc
+      COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/inc
+      COMMAND cp -rf ${CMAKE_CURRENT_SOURCE_DIR}/inc/* ${CMAKE_CURRENT_BINARY_DIR}/inc/
+    )
+    add_custom_target(op_proto_inc DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/inc)
+    install(
+      TARGETS opsproto OPTIONAL
+      LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+    )
+    install(
+      TARGETS opsproto OPTIONAL
+      EXPORT  opsproto-targets
+      LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}/${CMAKE_SYSTEM_PROCESSOR}
+    )
+    install(
+      TARGETS opsproto_rt2.0 OPTIONAL
+      EXPORT  opsproto_rt2.0-targets
+      LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}/${CMAKE_SYSTEM_PROCESSOR}
+    )
+    install(
+      FILES ${CMAKE_CURRENT_BINARY_DIR}/opsproto_rt2.0.txt
+      DESTINATION ${INSTALL_LIBRARY_DIR}/${CMAKE_SYSTEM_PROCESSOR} OPTIONAL
+    )
+    add_library(opsproto_static_rt2.0 STATIC
+      ${_op_proto_srcs}
+      ${_op_proto_rt_srcs}
+      ${_op_proto_utils}
+      ${_proto_h}
+    )
+    target_include_directories(opsproto_static_rt2.0 PRIVATE
+      ${OP_PROTO_INCLUDE}
+    )
+    target_compile_options(opsproto_static_rt2.0 PRIVATE
+      ${compile_opt_mode}
+      -Dgoogle=ascend_private
+      -DDISABLE_COMPILE_V1
+      -fPIC
+    )
+    target_link_libraries(opsproto_static_rt2.0 PRIVATE
+      $<BUILD_INTERFACE:intf_pub>
+      $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+      $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+      -Wl,--whole-archive
+        rt2_registry_static
+      -Wl,--no-whole-archive
+      ${_op_proto_link_libs}
+    )
+    install(
+      TARGETS opsproto_static_rt2.0 OPTIONAL
+      EXPORT  opsproto_static_rt2.0-targets
+      LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}/${CMAKE_SYSTEM_PROCESSOR}
+    )
+    if(${CMAKE_BUILD_TYPE} STREQUAL "Release")
+      install(
+        DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/inc
+        DESTINATION "${INSTALL_LIBRARY_DIR}/op_proto_inc"
+        OPTIONAL
+	      PATTERN "OWNERS" EXCLUDE
+        PATTERN "experiment_ops.h" EXCLUDE
+      )
+    else()
+      install(
+        DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/inc
+        DESTINATION "${INSTALL_LIBRARY_DIR}/op_proto_inc"
+        OPTIONAL
+        PATTERN "OWNERS" EXCLUDE
+      )
+    endif()
+  endif()
+elseif(UT_TEST_ALL OR PROTO_UT OR PASS_UT OR PLUGIN_UT OR ONNX_PLUGIN_UT)
+  if(UT_TEST_ALL OR ONNX_PLUGIN_UT)
+    add_library(opsproto_llt_onnx STATIC
+      ${_op_proto_srcs}
+      ${_op_proto_rt_srcs}
+      ${_op_proto_utils}
+      ${_proto_h}
+    )
+  endif()
+  add_library(opsproto_llt SHARED
+    ${_op_proto_srcs}
+    runtime/mc2_gen_task_moe.cc
+    runtime/mc2_gen_task_training.cc
+    runtime/mc2_gen_task_utils.cc
+    runtime/matmul_all_reduce_gen_task_utils.cc
+    runtime/superkernel_gen_task.cc
+    runtime/hccl_gen_task_superkernel.cc
+    ${_op_proto_rt_srcs}
+    ${_op_proto_utils}
+    ${_proto_h}
+  )
+  if(NOT ${CMAKE_BUILD_MODE} STREQUAL "FALSE")
+   set(compile_opt_mode ${CMAKE_BUILD_MODE})
+  else()
+   set(compile_opt_mode -O0)
+  endif()
+  if(UT_TEST_ALL OR ONNX_PLUGIN_UT)
+    target_include_directories(opsproto_llt_onnx PUBLIC
+      ${OP_PROTO_INCLUDE}
+    )
+    target_compile_options(opsproto_llt_onnx PUBLIC
+      ${compile_opt_mode}
+      -Dgoogle=ascend_private
+      -mcmodel=medium
+    )
+    target_link_libraries(opsproto_llt_onnx
+      PRIVATE
+        $<BUILD_INTERFACE:intf_llt_pub_asan>
+        $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+      PUBLIC
+        ${_op_proto_link_libs}
+    )
+  endif()
+  target_include_directories(opsproto_llt PUBLIC
+    ${OP_PROTO_INCLUDE}
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> 
+  )
+  target_compile_options(opsproto_llt PUBLIC
+    ${compile_opt_mode}
+    -Dgoogle=ascend_private
+    -mcmodel=medium
+  )
+  target_link_libraries(opsproto_llt
+    PRIVATE
+      $<BUILD_INTERFACE:intf_llt_pub_asan>
+      $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+    PUBLIC
+      ${_op_proto_link_libs}
+  )
+  target_compile_definitions(opsproto_llt PRIVATE
+    ASCEND_OPSPROTO_UT
+  )
+  set(OPS_PROTO_PATH "${INSTALL_PATH}/opp/built-in/op_proto/lib/linux/${CMAKE_SYSTEM_PROCESSOR}")
+  add_library(opsproto_rt2.0 SHARED
+    ${_op_proto_srcs}
+    ${_op_proto_rt_srcs}
+    ${_op_proto_utils}
+    ${_proto_h}
+  )
+  target_include_directories(opsproto_rt2.0 PRIVATE
+    ${OP_PROTO_INCLUDE}
+  )
+  target_compile_options(opsproto_rt2.0 PRIVATE
+    ${compile_opt_mode}
+    -Dgoogle=ascend_private
+    -fvisibility=hidden
+    -DDISABLE_COMPILE_V1
+    -fPIC
+    -fno-common
+  )
+  target_link_libraries(opsproto_rt2.0 PRIVATE
+    $<BUILD_INTERFACE:intf_pub>
+    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+    -Wl,--whole-archive
+      rt2_registry_static
+    -Wl,--no-whole-archive
+    ${_op_proto_link_libs}
+  )
+  add_library(opsproto_static_rt2.0 STATIC
+    ${_op_proto_srcs}
+    ${_op_proto_rt_srcs}
+    ${_op_proto_utils}
+    ${_proto_h}
+  )
+  target_include_directories(opsproto_static_rt2.0 PRIVATE
+    ${OP_PROTO_INCLUDE}
+  )
+  target_compile_options(opsproto_static_rt2.0 PRIVATE
+    ${compile_opt_mode}
+    -Dgoogle=ascend_private
+    -DDISABLE_COMPILE_V1
+    -fPIC
+  )
+  target_link_libraries(opsproto_static_rt2.0 PRIVATE
+    $<BUILD_INTERFACE:intf_pub>
+    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+    -Wl,--whole-archive
+      rt2_registry_static
+    -Wl,--no-whole-archive
+    ${_op_proto_link_libs}
+  )
+endif()
