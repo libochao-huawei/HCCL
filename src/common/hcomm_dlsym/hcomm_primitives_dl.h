@@ -12,7 +12,7 @@
 #define HCOMM_PRIMITIVES_DL_H
 
 #include "dlsym_common.h"
-#include "hcomm_primitives.h"   // 原头文件，包含所有类型和定义
+#include "hcomm_primitives_dl.h.h"   // 原头文件，包含所有类型和定义
 #include "hccl_types.h"
 
 /* 8.5.0 桩: HcclCommSymWindow (来自 hccl_types.h) */

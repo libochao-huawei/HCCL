@@ -269,7 +269,6 @@ static const char* get_safe_base_path(void) {
     const char* env_path;
 
     env_path = getenv("ASCEND_HOME_PATH");
-
     if (env_path != NULL && is_safe_path(env_path)) {
         if (safe_strcpy(safe_path, sizeof(safe_path), env_path) == 0) {
             return safe_path;
@@ -303,7 +302,6 @@ static int build_safe_path(const char* base_path, const char* relative_path,
 
     base_len = strlen(base_path);
     rel_len = strlen(relative_path);
-
     /* 检查总长度是否溢出 */
     if (base_len + rel_len + 2 > output_size) {
         HCCL_ERROR("Combined path too long");
@@ -339,6 +337,7 @@ static FILE* lock_file(FILE* fp, const char* target_path) {
     /* 5 秒超时，每 50ms 重试一次 */
     const int timeout_ms = 5000;
     const int retry_interval_ms = 50;
+    const int milliSecond = 1000;
     const int max_retries = timeout_ms / retry_interval_ms;
 
     for (int i = 0; i < max_retries; i++) {
@@ -351,7 +350,7 @@ static FILE* lock_file(FILE* fp, const char* target_path) {
             fclose(fp);
             return NULL;
         }
-        usleep(retry_interval_ms * 1000);
+        usleep(retry_interval_ms * milliSecond);
     }
 
     HCCL_ERROR("Timeout acquiring lock on '%s' after %dms",
@@ -455,7 +454,6 @@ static int compare_crc(const uint8_t* buffer, const void* expected_data,
                        size_t expected_size, uint32_t expected_crc) {
     uint32_t existing_crc = calc_crc32(buffer, expected_size);
     uint32_t computed_crc = (expected_crc != 0) ? expected_crc : calc_crc32(expected_data, expected_size);
-
     if (existing_crc != computed_crc) {
         HCCL_WARNING("Existing file CRC (0x%08X) differs from embedded (0x%08X), will overwrite",
                 existing_crc, computed_crc);

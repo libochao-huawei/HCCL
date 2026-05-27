@@ -136,7 +136,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
 HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldThread);
 
 HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
-    AlgResourceCtxSerializable &resCtxHost);
+    AlgResourceCtxSerializable &resCtxHost) const;
 
 HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
 
@@ -155,7 +155,7 @@ bool HcclCheckCcuEnableOpen();
 bool HcclCheckAivEnableOpen();
 bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig);
 
-HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
+HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle) const;
 
 HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize);
 
@@ -165,9 +165,9 @@ HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam);
 
 HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam);
 
-HcclResult HcclAllocAlgResourceAivGraphMode(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost);
+HcclResult HcclAllocAlgResourceAivGraphMode(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost) const;
 
-HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
+HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, const void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle) const;
 
 HcclResult SetMultipleDimensionSplitRatio(OpParam &param);
 

@@ -199,7 +199,6 @@ HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr,
         remain -= len;
         return true;
     };
-
     if (!append_str(param.tag) || !append_str("_") || !append_str(dataTypeStr)) {
         goto fail;
     }
@@ -395,8 +394,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
             newArgs.stream = param.stream;
 
             // Update addresses
-            newArgs.input = (u64)param.inputPtr + ins.inputOffset;
-            newArgs.output = (u64)param.outputPtr + ins.outputOffset;
+            newArgs.input = static_cast<u64>param.inputPtr + ins.inputOffset;
+            newArgs.output = static_cast<u64>param.outputPtr + ins.outputOffset;
 
             CHK_RET(ExecuteKernelLaunch(newArgs));
         }
@@ -404,8 +403,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         // Miss
         if (useCache) {
             g_recordingQueue = std::make_shared<InsQueue>();
-            g_baseInputAddr = (u64)param.inputPtr;
-            g_baseOutputAddr = (u64)param.outputPtr;
+            g_baseInputAddr = static_cast<u64>param.inputPtr;
+            g_baseOutputAddr = static_cast<u64>param.outputPtr;
         }
 
         CHK_RET(executor->Orchestrate(param, resCtxHost));
@@ -423,7 +422,7 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, 
     std::string &algName, const ResPackGraphMode &resPack)
 {   
-    void * fallbackCtx = nullptr;
+    void* fallbackCtx = nullptr;
     uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
     CHK_RET(HcclEngineCtxCreate(comm, param.fallbackTag, CommEngine::COMM_ENGINE_CCU, fallbackCtxSize, &fallbackCtx));
     char* newAlgName = static_cast<char*>(fallbackCtx);
@@ -440,6 +439,7 @@ HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
 HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
+    (void) comm;
     HCCL_INFO("Start to execute ReSelector.");
     // 回退AICPU
     param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
@@ -485,7 +485,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp. HcommGetProfilingSysCycleTime[%llu]", beginTime);
     // 当前通信域的某个算法回退过，则下次直接回退
-    void * fallbackCtx = nullptr;
+    void* fallbackCtx = nullptr;
     uint64_t fallbackCtxSize = 0;
     CHK_RET(SetOpParamFallbackTag(param, algName));
     if (HcclEngineCtxGet(comm, param.fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
@@ -698,8 +698,9 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
 }
 
 HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
-    AlgResourceCtxSerializable &resCtxHost)
+    AlgResourceCtxSerializable &resCtxHost) const
 {
+    (void) topoInfo;
     HCCL_INFO("[%s] algTag[%s] commModeTag[%s] resCtx(Host)[%p] aivCommInfoPtr(Device)[%p]", __func__,
         param.algTag, param.commModeTag, param.resCtx, resCtxHost.aivCommInfoPtr);
     u32 numBlocksLimit = MAX_NUM_BLOCKS;
@@ -1380,12 +1381,16 @@ HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest 
 }
 
 HcclResult HcclAllocAlgResourceAivGraphMode(
-    HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost)
+    HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost) const
 {
+    (void) comm;
+    (void) param;
+    (void) resRequest;
+    (void) resCtxHost;
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
+HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, const void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle) const
 {
     CHK_PTR_NULL(memHandle);
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
@@ -1894,7 +1899,7 @@ bool HcclCheckAicpuEnableOpen()
     return true;
 }
 
-HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
+HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle) const
 {
     CHK_PTR_NULL(memHandle);
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};

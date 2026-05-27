@@ -310,9 +310,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
                 CacheStats stats;
                 size_t cacheSize;
+                u32 hitRateNum = 100;
                 if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
                     HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
-                    __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
+                    __func__, commName.c_str(), stats.hitRate() * hitRateNum, cacheSize);
                 }
                 resCtxPtr = cachedResCtxHolder.get();
             } else {

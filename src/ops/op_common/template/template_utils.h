@@ -95,12 +95,12 @@ struct DataInfo {
     ChannelInfo channel_;
     SlicesList slices_;
     HcclDataType dataType_;
-    DataInfo(const ChannelInfo &channel, const SlicesList &slices)
-    : channel_(channel), slices_(slices)
-    {
-    }
     DataInfo(const ChannelInfo &channel, const SlicesList &slices, HcclDataType dataType)
     : channel_(channel), slices_(slices), dataType_(dataType)
+    {
+    }
+    DataInfo(const ChannelInfo &channel, const SlicesList &slices)
+    : channel_(channel), slices_(slices)
     {
     }
 };
@@ -141,13 +141,13 @@ struct SendRecvInfo {
     TxRxSlicesList    sendRecvSlices_;
     HcclDataType      dataType_;
 
-    SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices)
-        : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices)
-    {
-    }
-
     SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices, HcclDataType dataType)
     : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices), dataType_(dataType)
+    {
+    }
+    
+    SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices)
+        : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices)
     {
     }
 };

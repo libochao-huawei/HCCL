@@ -67,14 +67,14 @@ static bool IsValidNumberFormat(const std::string &str, const size_t maxDecimal 
 
 HcclResult ParseExecTimeout()
 {
+    u32 timeOutSize = 2;
     std::string execTimeOutEnv = GetEnv("HCCL_EXEC_TIMEOUT");
     if (execTimeOutEnv == "EmptyString") {
         g_algEnvConfig.execTimeOutSet = false;
         g_algEnvConfig.execTimeout = 0;
         return HCCL_SUCCESS;
     }
-
-    if (!IsValidNumberFormat(execTimeOutEnv, 2)) {
+    if (!IsValidNumberFormat(execTimeOutEnv, timeOutSize)) {
         HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
             execTimeOutEnv.c_str());
         g_algEnvConfig.execTimeOutSet = false;

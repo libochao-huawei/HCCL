@@ -57,7 +57,7 @@ private:
     HcclResult RunTemplate(u32 dataSliceIdx, u32 stageIdx, u32 stepIdx, bool isInter);
 
 #ifndef AICPU_COMPILE
-    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *ctx) override;
     HcclResult FastLaunchSaveCtx();
 #endif
 
@@ -69,7 +69,7 @@ private:
     u32 intraLocalRoot_{0};     // server内算法root
     u32 interLocalRoot_{0};     // server间算法root
 
-    ThreadHandle mainThread_;
+    ThreadHandle mainThread_ = 0;
     std::vector<ThreadHandle> templateMainThreads_;
     std::vector<u32> syncNotifyOnTemplates_;
     std::vector<u32> syncNotifyOnMain_;
@@ -98,13 +98,13 @@ private:
     std::array<std::array<std::shared_ptr<CommonAlgTemplateBase>, dataSplitPart_>, stageSize_> algTemplatePtrArr_{{}};
 
     OpParam param_;
-    AlgResourceCtxSerializable resCtx_;
-    std::array<TemplateResource, 4> tempAlgResArr_{};
+    AlgResourceCtxSerializable resCtx_{0};
+    u32 tempAlgConst = 4;
+    std::array<TemplateResource, tempAlgConst> tempAlgResArr_{};
     std::array<u64, dataSplitPart_> dataOffsetPerLoop_{0, 0};
     std::array<u64, dataSplitPart_> dataCountPerLoop_{0, 0};
     std::vector<std::vector<u32>> temp0HierarchyInfo_;
     std::vector<std::vector<u32>> temp1HierarchyInfo_;
-    
 };
 }  // namespace ops_hccl
 

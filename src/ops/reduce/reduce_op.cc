@@ -27,7 +27,8 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
     HCCL_INFO("Start to run execute HcclReduce");
-    if (GetHcommVersion() < 90000000) { // compat handle
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
 
@@ -103,7 +104,7 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
 
 namespace ops_hccl {
 // 除了错误都是公共的
-HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
+HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream) const
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr,
@@ -129,7 +130,7 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const 
 }
 
 HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-    HcclReduceOp op, aclrtStream stream, std::string &opTag)
+    HcclReduceOp op, const aclrtStream stream, std::string &opTag)
 {
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());

@@ -25,8 +25,8 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
                          aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllGather");
-
-    if (GetHcommVersion() < 90000000) { // compat handle
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
 
