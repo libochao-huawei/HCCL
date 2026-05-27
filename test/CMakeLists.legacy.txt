@@ -1,0 +1,1320 @@
+# Copyright 2020 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
+
+set(VENDOR_NAME "customize" CACHE STRING "vendor name")
+set(PKG_NAME inner)
+set(COMMON_NAME common_${PKG_NAME})
+set(OPHOST_NAME ophost_${PKG_NAME})
+set(GRAPH_PLUGIN_NAME graph_plugin_${PKG_NAME})
+set(OPS_BUILTIN_TEST_DIR ${OPS_DIR}/built-in/tests)
+set(IGNORE_LEGACY_TILING_REG_PRODUCTS "ascend950" "ascend910_96")
+add_library(${OPHOST_NAME}_opdef_aclnn_obj INTERFACE)
+add_library(${OPHOST_NAME}_opdef_aclnn_inner_obj INTERFACE)
+add_library(${OPHOST_NAME}_opdef_aclnn_exclude_obj INTERFACE)
+if("${PACKAGE}" STREQUAL "legacy")
+    if(NOT DEFINED PRODUCT OR NOT ${PRODUCT} IN_LIST IGNORE_LEGACY_TILING_REG_PRODUCTS)
+        add_compile_definitions(TILING_REG_FLAG=1)
+    endif()
+else()
+    add_compile_definitions(TILING_REG_FLAG=1)
+endif()
+if(NOT ${CMAKE_BUILD_MODE} STREQUAL "FALSE")
+    set(COMPILE_OP_MODE ${CMAKE_BUILD_MODE})
+else()
+    if(UT_TEST_ALL OR PROTO_UT OR PASS_UT OR PLUGIN_UT OR ONNX_PLUGIN_UT OR OP_API_UT OR TILING_UT)
+        set(COMPILE_OP_MODE -O0)
+    else()
+        set(COMPILE_OP_MODE -O2)
+    endif()
+endif()
+set(PACKAGE_LISTS "math" "cv" "nn" "transformer" "inner" "ras")
+
+if(BUILD_OPEN_PROJECT)
+    set(C_SEC_INCLUDE ${OPENSDK_DIR}/c_sec/include/)
+    set(ACL_EXTERNAL_INCLUDE ${OPENSDK_DIR}/include/ascendcl/external/)
+    set(HCCL_EXTERNAL_INCLUDE ${OPENSDK_DIR}/include/hccl/external)
+    set(ACL_EXTERNAL_INC_INCLUDE ${ASCEND_DIR}/runtime/include/acl)
+    set(RUNTIME_INCLUDE ${OPENSDK_DIR}/include/runtime/)
+    set(MSPROF_INCLUDE  ${OPENSDK_DIR}/include/msprof)
+    set(NNOPBASE_INCLUDE ${OPENSDK_DIR}/include/nnopbase/
+                         ${OPENSDK_DIR}/include/nnopbase/external/)
+    set(JSON_INCLUDE ${OPENSDK_DIR}/json/include)
+    set(PLATFORM_INCLUDE ${ASCEND_DIR}/include/)
+else()
+    set(C_SEC_INCLUDE ${TOP_DIR}/abl/libc_sec/include/)
+    set(ACL_EXTERNAL_INCLUDE ${TOP_DIR}/runtime/include/external/
+                            )
+    set(HCCL_EXTERNAL_INCLUDE ${TOP_DIR}/ace/comop/inc/external)
+    set(ACL_EXTERNAL_INC_INCLUDE ${ACL_EXTERNAL_INCLUDE}/acl/)
+    set(RUNTIME_INCLUDE ${TOP_DIR}/runtime/pkg_inc/runtime/runtime/
+                        ${TOP_DIR}/runtime/pkg_inc/runtime/)
+    set(MSPROF_INCLUDE  ${TOP_DIR}/abl/msprof/inc/)
+    set(NNOPBASE_INCLUDE ${TOP_DIR}/ops-base/include/nnopbase/
+                         ${TOP_DIR}/runtime/pkg_inc/aicpu_sched/common/
+                         )
+    set(JSON_INCLUDE ${TOP_DIR}/open_source/json/include/)
+    set(PLATFORM_INCLUDE ${TOP_DIR}/runtime/pkg_inc/)
+endif()
+
+set(OPAPI_INCLUDE
+    ${OPS_INCLUDE}
+    ${OPS_DIR}
+    ${C_SEC_INCLUDE}
+    ${RUNTIME_INCLUDE}
+    ${MSPROF_INCLUDE}
+    ${NNOPBASE_INCLUDE}
+    ${JSON_INCLUDE}
+    ${PLATFORM_INCLUDE}
+    ${METADEF_DIR}
+    ${METADEF_DIR}/inc
+    ${METADEF_DIR}/pkg_inc
+    ${METADEF_DIR}/inc/external
+    ${METADEF_DIR}/external
+    ${ACL_EXTERNAL_INCLUDE}
+    ${HCCL_EXTERNAL_INCLUDE}
+    ${ACL_EXTERNAL_INC_INCLUDE}
+    ${TOP_DIR}/ace/comop/inc/
+    ${CMAKE_CURRENT_SOURCE_DIR}/built-in/op_api/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/built-in/op_api/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/built-in/op_api/inc/level2
+    ${CMAKE_CURRENT_SOURCE_DIR}/built-in/op_api/src/level2
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops-nn/
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops-nn/common/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops-nn/common/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops-math/common/inc
+    ${OPS_DIR}
+    ${TOP_DIR}/runtime/pkg_inc
+    ${TOP_DIR}/runtime/include/external
+    ${TOP_DIR}/ops/ops-transformer/mc2/common/inc
+    ${TOP_DIR}/ops-base/pkg_inc
+    ${TOP_DIR}/ops-base/pkg_inc/op_common
+    ${TOP_DIR}/ops-base/pkg_inc/op_common/op_host
+    ${TOP_DIR}/ops/ops-transformer/mc2/3rd
+    ${TOP_DIR}/ops/ops-transformer/common/inc
+    ${TOP_DIR}/ops/ops-cv/common/inc
+    ${TOP_DIR}/ops/ops-transformer/common/include
+    ${AIR_DIR}
+    ${AIR_INCLUDE}
+    ${AIR_INCLUDE}/external
+    ${AIR_DIR}/external
+)
+
+set(MATMUL_TILING_INCLUDE
+    ${OPS_DIR}/matmul
+    ${OPS_DIR}/matmul/batch_mat_mul_v3/op_host/op_tiling
+    ${OPS_DIR}/matmul/mat_mul_v3/op_host/op_tiling
+    ${OPS_DIR}/matmul/quant_batch_matmul_v3/op_host/op_tiling
+    ${OPS_DIR}/matmul/fused_mat_mul/op_host/op_tiling
+    ${OPS_DIR}/matmul/gemm_v2/op_host/op_tiling
+    ${OPS_DIR}/matmul/gemm_v3/op_host/op_tiling
+    ${OPS_DIR}/matmul/pp_mat_mul/op_host/op_tiling
+    ${OPS_DIR}/matmul/pp_mat_mul_w8a8/op_host/op_tiling
+    ${OPS_DIR}/matmul/pp_mat_mul_w8a8_compress/op_host/op_tiling
+    ${OPS_DIR}/matmul/quant_batch_matmul_v4/op_host/op_tiling
+    ${OPS_DIR}/matmul/quant_matmul_reduce_sum/op_host/op_tiling
+    ${OPS_DIR}/matmul/transpose_batch_mat_mul/op_host/op_tiling
+    ${OPS_DIR}/matmul/weight_quant_batch_matmul_v2/op_host/op_tiling)
+
+set(OP_TILING_INCLUDE
+    ${ASCEND_DIR}/include # for BUILD_OPEN_PROJECT
+    ${OPS_INCLUDE}
+    ${C_SEC_INCLUDE}
+    ${RUNTIME_INCLUDE}
+    ${MSPROF_INCLUDE}
+    ${NNOPBASE_INCLUDE}
+    ${JSON_INCLUDE}
+    ${ACL_EXTERNAL_INCLUDE}
+    ${OPS_DIR}
+    ${OPS_DIR}/common
+    ${OPS_DIR}/utils/inc
+    ${OPS_DIR}/built-in
+    ${OPS_DIR}/ops-conv
+    ${OPS_DIR}/built-in/op_tiling
+    ${OPS_DIR}/built-in/op_tiling/runtime
+    ${FWKACLLIB_INCLUDE}
+    ${METADEF_DIR}
+    ${METADEF_DIR}/pkg_inc
+    ${CANN_INSTALL_INCLUDE}
+    ${CANN_INSTALL_INCLUDE}/graph
+    ${CANN_INSTALL_INCLUDE}/exe_graph
+    ${METADEF_INCLUDE}
+    ${METADEF_INCLUDE}/common
+    ${METADEF_INCLUDE}/common/util
+    ${METADEF_INCLUDE}/external
+    ${METADEF_INCLUDE}/external/graph
+    ${METADEF_INCLUDE}/external/exe_graph
+    ${METADEF_INCLUDE}/exe_graph
+    ${GRAPHENGINE_INCLUDE}
+    ${GRAPHENGINE_INCLUDE}/external
+    ${CMAKE_BINARY_DIR}/proto/opp
+    ${CMAKE_BINARY_DIR}/proto/op_proto
+    ${Protobuf_INCLUDE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/built-in/op_proto
+    ${MATMUL_TILING_INCLUDE}
+    ${TOP_DIR}/runtime/pkg_inc
+    ${TOP_DIR}/runtime/include/external
+    ${AIR_INCLUDE}
+    ${AIR_INCLUDE}/common
+    ${AIR_INCLUDE}/common/util
+    ${AIR_INCLUDE}/external
+    ${AIR_INCLUDE}/external/graph
+    ${AIR_INCLUDE}/external/exe_graph
+    ${AIR_INCLUDE}/exe_graph
+    ${AIR_DIR}
+)
+
+set(OP_HOST_INCLUDE
+    ${ASCEND_DIR}/include # for BUILD_OPEN_PROJECT
+    ${C_SEC_INCLUDE}
+    ${NNOPBASE_INCLUDE}
+    ${METADEF_DIR}/pkg_inc
+    ${METADEF_INCLUDE}
+    ${METADEF_INCLUDE}/external
+    ${TOP_DIR}/runtime/pkg_inc
+    ${TOP_DIR}/runtime/include/external
+    ${AIR_INCLUDE}
+    ${AIR_INCLUDE}/external
+)
+
+set(OP_FALLBACK
+    ${OPS_DIR}/built-in/op_fallback
+)
+
+set(OP_PROTO_INCLUDE
+    ${ASCEND_DIR}/include # for BUILD_OPEN_PROJECT
+    ${OPS_INCLUDE}
+    ${C_SEC_INCLUDE}
+    ${RUNTIME_INCLUDE}
+    ${MSPROF_INCLUDE}
+    ${FWKACLLIB_INCLUDE}
+    ${OPS_DIR}
+    ${OPS_DIR}/built-in/op_proto/util
+    ${OPS_DIR}/built-in/op_proto/inc
+    ${OPS_DIR}/built-in/op_proto/runtime
+    ${OPS_DIR}/matmul/common/op_host/
+    ${METADEF_DIR}
+    ${METADEF_DIR}/pkg_inc
+    ${METADEF_DIR}/third_party/transformer/inc
+    ${CANN_INSTALL_INCLUDE}
+    ${CANN_INSTALL_INCLUDE}/graph
+    ${CANN_INSTALL_INCLUDE}/exe_graph
+    ${METADEF_INCLUDE}
+    ${METADEF_INCLUDE}/external
+    ${METADEF_INCLUDE}/external/ge
+    ${METADEF_INCLUDE}/external/exe_graph
+    ${METADEF_INCLUDE}/external/graph
+    ${METADEF_INCLUDE}/exe_graph
+    ${TOP_DIR}/runtime/pkg_inc
+    ${GRAPHENGINE_INCLUDE}
+    ${GRAPHENGINE_INCLUDE}/external
+    ${CMAKE_BINARY_DIR}/proto/opp
+    ${CMAKE_BINARY_DIR}/proto/op_proto
+    ${Protobuf_INCLUDE}
+    ${OPS_DIR}/common/op_common
+    ${TOP_DIR}/runtime/include/external
+    ${TOP_DIR}/runtime/include/dfx
+    ${AIR_DIR}
+    ${AIR_INCLUDE}
+    ${AIR_INCLUDE}/external
+    ${AIR_INCLUDE}/external/ge
+    ${AIR_INCLUDE}/external/exe_graph
+    ${AIR_INCLUDE}/external/graph
+    ${AIR_INCLUDE}/exe_graph
+)
+
+set(_hccl_sk_protolist
+    "${SDK_PROTO_DIR}/task.proto"
+)
+
+protobuf_generate(hccl_sk_proto hccl_sk_proto_cc hccl_sk_proto_h ${_hccl_sk_protolist} TARGET)
+
+function(AddOpKernelForTiling)
+    set (LIB_OP_TILING "optiling" "opmaster_rt2.0" "opmaster_static_rt2.0" "opmaster_ct")
+    foreach(lib_name ${LIB_OP_TILING})
+        target_include_directories(${lib_name} PRIVATE
+                                   ${CMAKE_CURRENT_SOURCE_DIR}/../op_kernel)
+    endforeach()
+endfunction()
+
+#get asl prefix dir
+string(REGEX REPLACE "/asl.*" "" CANN_DIR "${OPS_DIR}")
+set(OPEN_SOURCE_DIR ${CANN_DIR}/ops)
+if(LEGACY_PKG)
+    message(STATUS "legacy package does not compile open source")
+    set(OPEN_SOURCE_LISTS "")
+else()
+    # set compile params for ops-base
+    set(OPEN_SOURCE_OPS_BASE_DIR ${CANN_DIR}/ops-base)
+    if(EXISTS ${OPEN_SOURCE_OPS_BASE_DIR}/CMakeLists.txt AND NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/ops-base)
+        message(STATUS "create link from ${CMAKE_CURRENT_SOURCE_DIR}/ops-base to open source dir: ${OPEN_SOURCE_OPS_BASE_DIR}")
+        execute_process(COMMAND ln -sf ${OPEN_SOURCE_OPS_BASE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/ops-base)
+    endif()
+    if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ops-base)
+        message(STATUS "found link dir: ${CMAKE_CURRENT_SOURCE_DIR}/ops-base")
+        add_subdirectory("ops-base")
+    endif()
+    set(OPEN_SOURCE_LISTS "ops-math" "ops-cv" "ops-nn" "ops-transformer" "ops-ras")
+endif()
+# create link to open source dir
+foreach(OPEN_DIR ${OPEN_SOURCE_LISTS})
+    if(EXISTS ${OPEN_SOURCE_DIR}/${OPEN_DIR}/CMakeLists.txt AND NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${OPEN_DIR})
+        message(STATUS "create link from ${CMAKE_CURRENT_SOURCE_DIR}/${OPEN_DIR} to open source dir: ${OPEN_SOURCE_DIR}/${OPEN_DIR}")
+        execute_process(COMMAND ln -sf ${OPEN_SOURCE_DIR}/${OPEN_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${OPEN_DIR})
+    endif()
+    if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${OPEN_DIR})
+        message(STATUS "found link dir: ${CMAKE_CURRENT_SOURCE_DIR}/${OPEN_DIR}")
+        add_subdirectory(${OPEN_DIR})
+    endif()
+endforeach()
+
+function(add_modules)
+    set(options OPTION_RESERVED)
+    set(oneValueArgs MODE)
+    set(multiValueArgs TARGETS SUB_LIBS)
+
+    cmake_parse_arguments(ARGS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    foreach(target ${ARGS_TARGETS})
+        if (TARGET ${target} AND TARGET ${ARGS_SUB_LIBS})
+            message(STATUS "=== Debug add_modules: target_link_libraries(${target} ${ARGS_MODE} ${ARGS_SUB_LIBS})")
+            target_link_libraries(${target} ${ARGS_MODE} ${ARGS_SUB_LIBS})
+        else()
+            message(STATUS "=== Debug add_modules: target_link_libraries ${target} is not init or ${ARGS_SUB_LIBS} is None")
+        endif()
+    endforeach()
+endfunction()
+
+function(add_infer_modules host_name)
+    if (NOT TARGET ${host_name}_infer_obj)
+        add_library(${host_name}_infer_obj OBJECT)
+        target_compile_definitions(${host_name}_infer_obj
+                                    PRIVATE OPS_UTILS_LOG_SUB_MOD_NAME="OP_PROTO")
+        target_include_directories(${host_name}_infer_obj
+                                    PRIVATE ${OP_PROTO_INCLUDE})
+        if(UT_TEST_ALL OR PROTO_UT OR PASS_UT OR PLUGIN_UT OR ONNX_PLUGIN_UT)
+            target_compile_definitions(${host_name}_infer_obj PRIVATE ASCEND_OPSPROTO_UT)
+            target_compile_options(${host_name}_infer_obj PRIVATE
+                                    ${COMPILE_OP_MODE}
+                                    -Dgoogle=ascend_private
+                                    -mcmodel=medium)
+            target_link_libraries(${host_name}_infer_obj
+                                    PRIVATE $<BUILD_INTERFACE:intf_llt_pub_asan_cxx14>
+                                    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                                    alog
+                                    op_common)
+        else()
+            target_compile_options(${host_name}_infer_obj PRIVATE
+                                    ${COMPILE_OP_MODE}
+                                    -Dgoogle=ascend_private
+                                    -DDISABLE_COMPILE_V1
+                                    -fvisibility=hidden
+                                    -fPIC
+                                    -fno-common)
+            target_link_libraries(${host_name}_infer_obj
+                                    PRIVATE $<BUILD_INTERFACE:intf_pub_cxx14>
+                                    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                                    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+                                    alog
+                                    op_common)
+        endif()
+    endif()
+endfunction()
+
+function(add_v1_infer_modules host_name)
+    if (NOT TARGET ${host_name}_v1_infer_obj)
+        add_library(${host_name}_v1_infer_obj OBJECT)
+        target_compile_definitions(${host_name}_v1_infer_obj
+                PRIVATE OPS_UTILS_LOG_SUB_MOD_NAME="OP_PROTO")
+        target_include_directories(${host_name}_v1_infer_obj
+                PRIVATE ${OP_PROTO_INCLUDE})
+        if(UT_TEST_ALL OR PROTO_UT OR PASS_UT OR PLUGIN_UT OR ONNX_PLUGIN_UT)
+            target_compile_definitions(${host_name}_v1_infer_obj PRIVATE ASCEND_OPSPROTO_UT)
+            target_compile_options(${host_name}_v1_infer_obj PRIVATE
+                    ${COMPILE_OP_MODE}
+                    -Dgoogle=ascend_private)
+            target_link_libraries(${host_name}_v1_infer_obj
+                    PRIVATE $<BUILD_INTERFACE:intf_llt_pub_asan_cxx14>
+                    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                    alog)
+        else()
+            target_compile_options(${host_name}_v1_infer_obj PRIVATE
+                    ${COMPILE_OP_MODE}
+                    -Dgoogle=ascend_private
+                    -DDISABLE_COMPILE_V1
+                    -fvisibility=hidden
+                    -fPIC
+                    -fno-common)
+            target_link_libraries(${host_name}_v1_infer_obj
+                    PRIVATE $<BUILD_INTERFACE:intf_pub_cxx14>
+                    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+                    alog)
+        endif()
+    endif()
+endfunction()
+
+function(add_graph_plugin_modules host_name)
+    if (NOT TARGET ${host_name}_graph_plugin_obj)
+        add_library(${host_name}_graph_plugin_obj OBJECT)
+        target_compile_definitions(${host_name}_graph_plugin_obj
+                PRIVATE OPS_UTILS_LOG_SUB_MOD_NAME="OP_PROTO")
+        target_include_directories(${host_name}_graph_plugin_obj
+                PRIVATE ${OP_PROTO_INCLUDE})
+        if(UT_TEST_ALL OR PROTO_UT OR PASS_UT OR PLUGIN_UT OR ONNX_PLUGIN_UT)
+            target_compile_definitions(${host_name}_graph_plugin_obj PRIVATE ASCEND_OPSPROTO_UT)
+            target_compile_options(${host_name}_graph_plugin_obj PRIVATE
+                    ${COMPILE_OP_MODE}
+                    -Dgoogle=ascend_private)
+            target_link_libraries(${host_name}_graph_plugin_obj
+                    PRIVATE $<BUILD_INTERFACE:intf_llt_pub_asan_cxx14>
+                    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                    alog)
+        else()
+            target_compile_options(${host_name}_graph_plugin_obj PRIVATE
+                    ${COMPILE_OP_MODE}
+                    -Dgoogle=ascend_private
+                    -DDISABLE_COMPILE_V1
+                    -fvisibility=hidden
+                    -fPIC
+                    -fno-common)
+            target_link_libraries(${host_name}_graph_plugin_obj
+                    PRIVATE $<BUILD_INTERFACE:intf_pub_cxx14>
+                    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+                    alog)
+        endif()
+    endif()
+endfunction()
+
+function(add_tiling_modules host_name)
+    if (NOT TARGET ${host_name}_tiling_obj)
+        add_library(${host_name}_tiling_obj OBJECT)
+        target_compile_definitions(${host_name}_tiling_obj
+                                    PRIVATE OPS_UTILS_LOG_SUB_MOD_NAME="OP_TILING")
+        target_include_directories(${host_name}_tiling_obj
+                                    PRIVATE ${OP_TILING_INCLUDE})
+        if(UT_TEST_ALL OR TILING_UT)
+            target_compile_definitions(${host_name}_tiling_obj PRIVATE ASCEND_OPTILING_UT)
+            target_compile_options(${host_name}_tiling_obj PRIVATE
+                                    ${COMPILE_OP_MODE}
+                                    -Dgoogle=ascend_private
+                                    -fPIC
+                                    -mcmodel=medium)
+            target_link_libraries(${host_name}_tiling_obj
+                                    PRIVATE $<BUILD_INTERFACE:intf_llt_pub_asan_cxx14>
+                                    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                                    alog
+                                    json
+                                    ops_utils_tiling
+                                    tiling_api)
+        else()
+            target_compile_options(${host_name}_tiling_obj PRIVATE
+                                    ${COMPILE_OP_MODE}
+                                    -Dgoogle=ascend_private
+                                    -DDISABLE_COMPILE_V1
+                                    -fvisibility=hidden
+                                    -fPIC
+                                    "-fno-strict-aliasing"
+                                    "-fno-common"
+                                    -Wno-narrowing)
+            target_link_libraries(${host_name}_tiling_obj
+                                    PRIVATE $<BUILD_INTERFACE:intf_pub_cxx14>
+                                    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                                    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+                                    alog
+                                    json
+                                    ops_utils_tiling
+                                    tiling_api)
+        endif()
+    endif()
+endfunction()
+
+function(add_opapi_modules host_name)
+    if (NOT TARGET ${host_name}_opapi_obj)
+        add_library(${host_name}_opapi_obj OBJECT)
+        target_include_directories(${host_name}_opapi_obj
+                                    PRIVATE ${OPAPI_INCLUDE})
+        if(UT_TEST_ALL OR OP_API_UT)
+            target_compile_options(${host_name}_opapi_obj PUBLIC
+                                    ${COMPILE_OP_MODE}
+                                    -Dgoogle=ascend_private
+                                    -DACLNN_LOG_FMT_CHECK)
+            target_link_libraries(${host_name}_opapi_obj
+                                    PUBLIC $<BUILD_INTERFACE:intf_llt_pub_asan_cxx17>
+                                    $<BUILD_INTERFACE:adump_headers>)
+        else()
+            target_compile_options(${host_name}_opapi_obj PRIVATE
+                                    ${COMPILE_OP_MODE}
+                                    -Wno-sign-compare
+                                    -Wno-unused-parameter
+                                    -Wno-unused-function
+                                    -Wno-unused-function
+                                    -Wno-ignored-qualifiers
+                                    -Wno-maybe-uninitialized
+                                    -Wno-stringop-overflow
+                                    -Wno-address
+                                    -Wno-unused-variable
+                                    -Wno-narrowing
+                                    -Wno-parentheses
+                                    -Wno-unused-but-set-variable
+                                    -Wno-return-type
+                                    -Wno-unused-value
+                                    -Werror=format
+                                    -Wno-deprecated-declarations
+                                    -Dgoogle=ascend_private
+                                    -DACLNN_LOG_FMT_CHECK
+                                    -Werror=format-signedness)
+            target_link_libraries(${host_name}_opapi_obj
+                                    PUBLIC $<BUILD_INTERFACE:intf_pub_cxx17>
+                                    $<BUILD_INTERFACE:adump_headers>
+                                    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>)
+        endif()
+    endif()
+endfunction()
+
+function(check_open_sources op_type open_dir)
+    foreach(OPEN_DIR ${OPEN_SOURCE_LISTS})
+        file(GLOB CURRENT_DIRS LIST_DIRECTORIES true RELATIVE ${OPS_DIR}/${OPEN_DIR} ${OPS_DIR}/${OPEN_DIR}/*)
+        foreach(dir ${CURRENT_DIRS})
+            if (EXISTS ${OPS_DIR}/${OPEN_DIR}/${dir}/${op_type})
+                message(STATUS "found open dirs: ${OPS_DIR}/${OPEN_DIR}/${dir}/${op_type}")
+                set(${open_dir} "${OPS_DIR}/${OPEN_DIR}/${dir}/${op_type}" PARENT_SCOPE)
+                break()
+            endif()
+        endforeach()
+    endforeach()
+endfunction()
+
+function(mc2_add_modules_sources)
+    set(options OPTION_RESERVED)
+    set(oneValueArgs HOSTNAME MODE DIR)
+    set(multiValueArgs ACLNNTYPE)
+    cmake_parse_arguments(MODULE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    file(GLOB OPINFER_SRCS ${MODULE_DIR}/*_infershape*.cc)
+    add_infer_modules(${MODULE_HOSTNAME})
+    target_sources(${MODULE_HOSTNAME}_infer_obj ${MODULE_MODE} ${OPINFER_SRCS})
+
+    file(GLOB OPAPI_SRCS ${MODULE_DIR}/op_api/*.cpp)
+    add_opapi_modules(${MODULE_HOSTNAME})
+    target_sources(${MODULE_HOSTNAME}_opapi_obj ${MODULE_MODE} ${OPAPI_SRCS})
+    target_include_directories(${MODULE_HOSTNAME}_opapi_obj PRIVATE ${MODULE_DIR}/op_api)
+
+    file(GLOB_RECURSE OPTILING_SRCS ${MODULE_DIR}/op_tiling/*_tiling*.cc)
+    add_tiling_modules(${MODULE_HOSTNAME})
+    target_sources(${MODULE_HOSTNAME}_tiling_obj ${MODULE_MODE} ${OPTILING_SRCS})
+    target_include_directories(${MODULE_HOSTNAME}_tiling_obj PRIVATE ${MODULE_DIR}/op_tiling)
+
+    list(LENGTH MODULE_ACLNNTYPE len)
+    math(EXPR len "${len} - 1")
+    foreach(i RANGE ${len})
+        list(GET MODULE_ACLNNTYPE ${i} aclnn_type)
+        if (${aclnn_type} STREQUAL "aclnn" OR
+            ${aclnn_type} STREQUAL "aclnn_inner" OR
+            ${aclnn_type} STREQUAL "aclnn_exclude")
+            file(GLOB OPDEF_SRCS ${MODULE_DIR}/*_def*.cpp)
+            target_sources(${MODULE_HOSTNAME}_opdef_${aclnn_type}_obj INTERFACE ${OPDEF_SRCS})
+        else()
+            message(FATAL_ERROR "ACLNN TYPE UNSPPORTED, ONLY SUPPORT aclnn/aclnn_inner/aclnn_exclude")
+        endif()
+    endforeach()
+endfunction()
+
+function(mc2_copy_def DIR)
+    file(GLOB OPDEF_SRCS ${DIR}/*_def*.cpp)
+    target_sources(ophost_inner_opdef_aclnn_inner_obj INTERFACE ${OPDEF_SRCS})
+    target_sources(ophost_inner_opdef_aclnn_obj INTERFACE ${OPDEF_SRCS})
+endfunction()
+
+function(add_graph_plugin)
+    get_filename_component(full_path ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
+    get_filename_component(op_dir ${full_path} NAME)
+    get_filename_component(op_dir ${op_dir} NAME)
+    set(open_dir)
+    check_open_sources(${op_dir} open_dir)
+    if (open_dir)
+        file(GLOB OPEN_OPINFER_SRCS ${open_dir}/graph_plugin/*_graph_*.cpp)
+        file(GLOB OPEN_OPINFER_SRCS ${open_dir}/op_graph/*_graph_*.cpp)
+        message(STATUS "OPEN_OPINFER_SRCS: ${OPEN_OPINFER_SRCS}")
+    endif()
+
+    file(GLOB OP_GRAPH_PLUGIN_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/*_graph_*.cpp)
+    if (NOT OPEN_OPINFER_SRCS AND OP_GRAPH_PLUGIN_SRCS)
+        add_graph_plugin_modules(${OPHOST_NAME})
+        target_sources(${OPHOST_NAME}_graph_plugin_obj PRIVATE ${OP_GRAPH_PLUGIN_SRCS})
+    endif()
+endfunction()
+
+function(add_modules_sources)
+    set(options OPTION_RESERVED)
+    set(oneValueArgs HOSTNAME MODE DIR ENABLE_IN_OPP)
+    set(multiValueArgs OPTYPE ACLNNTYPE)
+
+    cmake_parse_arguments(MODULE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    string(REGEX REPLACE "/op_host(/.*)?$" "" op_dir "${MODULE_DIR}")
+    get_filename_component(op_dir ${op_dir} NAME)
+    set(open_dir)
+    check_open_sources(${op_dir} open_dir)
+    if (open_dir)
+        set(open_dir ${open_dir}/op_host)
+        file(GLOB OPEN_OPINFER_SRCS ${open_dir}/*_infershape*.cpp)
+        file(GLOB OPEN_OPINFER_SRCS_V1 ${open_dir}/*_infer_v1.cpp)
+    endif()
+    file(GLOB OPINFER_SRCS ${MODULE_DIR}/*_infershape*.cpp)
+    file(GLOB OPINFER_SRCS_V1 ${MODULE_DIR}/*_infer_v1.cpp)
+    if (NOT OPEN_OPINFER_SRCS AND OPINFER_SRCS)
+        add_infer_modules(${MODULE_HOSTNAME})
+        target_sources(${MODULE_HOSTNAME}_infer_obj ${MODULE_MODE} ${OPINFER_SRCS})
+    endif()
+    if (NOT OPEN_OPINFER_SRCS_V1 AND OPINFER_SRCS_V1)
+        add_v1_infer_modules(${MODULE_HOSTNAME})
+        target_sources(${MODULE_HOSTNAME}_v1_infer_obj ${MODULE_MODE} ${OPINFER_SRCS_V1})
+    endif()
+
+    file(GLOB OPAPI_SRCS ${MODULE_DIR}/op_api/*.cpp)
+    file(GLOB OPEN_OPAPI_SRCS ${open_dir}/op_api/*.cpp)
+    file(GLOB OPEN_OPAPI_SRCS1 ${open_dir}/../op_api/*.cpp)
+    if (NOT OPEN_OPAPI_SRCS AND NOT OPEN_OPAPI_SRCS1 AND OPAPI_SRCS)
+        add_opapi_modules(${MODULE_HOSTNAME})
+        target_sources(${MODULE_HOSTNAME}_opapi_obj ${MODULE_MODE} ${OPAPI_SRCS})
+    endif()
+
+    file(GLOB OPTILING_SRCS ${MODULE_DIR}/*_tiling*.cpp)
+    file(GLOB OPEN_OPTILING_SRCS ${open_dir}/*_tiling*.cpp ${open_dir}/*/*_tiling*.cpp)
+    message(STATUS "ENABLE_IN_OPP=${MODULE_ENABLE_IN_OPP}")
+    if (NOT OPEN_OPTILING_SRCS AND OPTILING_SRCS OR MODULE_ENABLE_IN_OPP)
+        add_tiling_modules(${MODULE_HOSTNAME})
+        target_sources(${MODULE_HOSTNAME}_tiling_obj ${MODULE_MODE} ${OPTILING_SRCS})
+    endif()
+
+    file(GLOB_RECURSE OPTILING_SRCS ${MODULE_DIR}/op_tiling/*.cpp)
+    file(GLOB_RECURSE OPEN_OPTILING_SRCS ${open_dir}/op_tiling/*.cpp)
+
+    if (NOT OPEN_OPTILING_SRCS AND OPTILING_SRCS OR MODULE_ENABLE_IN_OPP)
+        # 分别计算每个条件
+        set(_is_ops_conv FALSE)
+        if(MODULE_DIR MATCHES "ops-conv/common")
+            set(_is_ops_conv TRUE)
+        endif()
+
+        set(_conv2d_exists FALSE)
+        set(_conv2d_path "${MODULE_DIR}/../../../ops-nn/conv/conv2d_v2")
+        if(EXISTS "${_conv2d_path}")
+            set(_conv2d_exists TRUE)
+        endif()
+
+        message(STATUS "MODULE_DIR:${MODULE_DIR}")
+        message(STATUS "_is_ops_conv:${_is_ops_conv}, _conv2d_exists:${_conv2d_exists}")
+        # 组合条件判断
+        if(_is_ops_conv AND _conv2d_exists)
+            # 条件满足时不执行任何操作
+        else()
+            add_tiling_modules(${MODULE_HOSTNAME})
+            target_sources(${MODULE_HOSTNAME}_tiling_obj ${MODULE_MODE} ${OPTILING_SRCS})
+        endif()
+    endif()
+
+    file(GLOB_RECURSE CONV3D_V2_PRIVATE_SRCS ${MODULE_DIR}/op_tiling/conv3d_v2_*.cpp)
+    file(GLOB_RECURSE CONV3D_V2_OPEN_SRCS ${open_dir}/op_tiling/conv3d_v2_*.cpp)
+
+    if (NOT CONV3D_V2_OPEN_SRCS AND CONV3D_V2_PRIVATE_SRCS)
+        target_sources(${MODULE_HOSTNAME}_tiling_obj ${MODULE_MODE} ${CONV3D_V2_PRIVATE_SRCS})
+    endif()
+
+    if (MODULE_OPTYPE)
+        list(LENGTH MODULE_OPTYPE len)
+        math(EXPR len "${len} - 1")
+        foreach(i RANGE ${len})
+            list(GET MODULE_OPTYPE ${i} op_type)
+            list(GET MODULE_ACLNNTYPE ${i} aclnn_type)
+            if (${aclnn_type} STREQUAL "aclnn" OR
+                ${aclnn_type} STREQUAL "aclnn_inner" OR
+                ${aclnn_type} STREQUAL "aclnn_exclude")
+                file(GLOB OPDEF_SRCS RELATIVE ${MODULE_DIR} ${MODULE_DIR}/${op_type}_def*.cpp)
+                file(GLOB OPEN_OPDEF_SRCS ${open_dir}/${op_type}_def*.cpp)
+                if (NOT OPEN_OPDEF_SRCS AND OPDEF_SRCS)
+                    target_sources(${MODULE_HOSTNAME}_opdef_${aclnn_type}_obj INTERFACE ${OPDEF_SRCS})
+                endif()
+            else()
+                message(FATAL_ERROR "ACLNN TYPE UNSPPORTED, ONLY SUPPORT aclnn/aclnn_inner/aclnn_exclude")
+            endif()
+        endforeach()
+    else()
+        file(GLOB OPDEF_SRCS ${MODULE_DIR}/*_def*.cpp)
+        file(GLOB OPEN_OPDEF_SRCS ${open_dir}/*_def*.cpp)
+        set(L2_SRCS ${OPAPI_SRCS})
+        set(L0_SRCS ${OPAPI_SRCS})
+        list(FILTER L2_SRCS INCLUDE REGEX "aclnn")
+        list(FILTER L0_SRCS EXCLUDE REGEX "aclnn")
+        if(NOT OPEN_OPDEF_SRCS AND OPDEF_SRCS)
+            if(L2_SRCS AND L0_SRCS)
+                # both have L0 and L2, belong to aclnn_exclude
+                target_sources(${MODULE_HOSTNAME}_opdef_aclnn_exclude_obj INTERFACE ${OPDEF_SRCS})
+            elseif(NOT L2_SRCS AND L0_SRCS)
+                # have l0 with no l2, belong to aclnn_exclude
+                target_sources(${MODULE_HOSTNAME}_opdef_aclnn_exclude_obj INTERFACE ${OPDEF_SRCS})
+            elseif(NOT L2_SRCS AND NOT L0_SRCS)
+                # no L0 and L2, belong to aclnn
+                target_sources(${MODULE_HOSTNAME}_opdef_aclnn_obj INTERFACE ${OPDEF_SRCS})
+            else()
+                message(FATAL_ERROR
+                "Cannot Automatic Indentify, Should Manually specify aclnn/aclnn_inner/aclnn_exclude\n"
+                "usage: add_modules_sources(HOSTNAME hostname MODE mode DIR dir OPTYPE optypes ACLNNTYPE aclnntypes)\n"
+                )
+            endif()
+        endif()
+    endif()
+endfunction()
+
+
+if (BUILD_OPEN_PROJECT)
+    set(IMPL_INSTALL_DIR packages/vendors/${VENDOR_NAME}/op_impl/ai_core/tbe/${VENDOR_NAME}_impl)
+else ()
+    set(IMPL_INSTALL_DIR lib/ascendc/impl)
+endif ()
+
+set(OP_TEST_OPAPI_INCLUDE
+        ${OPAPI_INCLUDE}
+        ${OPENSDK_DIR}/gtest_shared/include/
+        ${CANN_ROOT}/ops/built-in/op_api/inc
+        ${CANN_ROOT}/ops/built-in/op_api/inc/level2
+        ${CANN_ROOT}/ops/built-in/op_api/src
+        )
+
+set(OP_TEST_TILING_INCLUDE
+    ${OP_TILING_INCLUDE}
+    ${GTEST_INCLUDE}
+    ${OPS_DIR}/built-in/tests/ut/op_tiling_test
+    ${OPS_DIR}/built-in/utils
+    ${OPS_DIR}/built-in/fusion_pass/common
+    ${OPS_BUILTIN_TEST_DIR}/common/utils_plugin_and_op_proto
+    ${OPS_BUILTIN_TEST_DIR}
+    ${OPS_BUILTIN_TEST_DIR}/common/utils
+    ${OPS_BUILTIN_TEST_DIR}/../op_proto/inc
+    ${OPS_BUILTIN_TEST_DIR}/../op_proto/
+    ${OPS_BUILTIN_TEST_DIR}/../op_proto/utils
+    )
+
+set(OP_TEST_TILING_COMMON_INCLUDE
+    ${METADEF_DIR}/exe_graph
+    ${METADEF_DIR}/graph
+    ${METADEF_DIR}
+    ${METADEF_DIR}/pkg_inc
+    ${GTEST_INCLUDE}
+    ${op_tiling_include}
+    )
+
+function (append_include_target op_objs type target)
+    if(NOT TARGET ${target})
+        message(STATUS "=== Warning<${op_objs}, add ${target} include dirs>: ops.CMakeLists.txt Target ${target} is not define")
+    else()
+        get_target_property(INCLUDE_DIRS ${target} INCLUDE_DIRECTORIES)
+        message(STATUS "=== Info<${op_objs}, add ${target} include dirs>: INCLUDE_DIRS: ${INCLUDE_DIRS}")
+        if(INCLUDE_DIRS)
+            target_include_directories(${op_objs} ${type} ${INCLUDE_DIRS})
+        endif()
+    endif()
+endfunction()
+
+if (UT_TEST_ALL OR OP_API_UT AND NOT TARGET TEST_opapi_l0_obj)
+    message(STATUS "=== Debug add<TEST_opapi_l0_obj>")
+    add_library(TEST_opapi_l0_obj STATIC)
+endif()
+
+if (UT_TEST_ALL OR OP_API_UT AND NOT TARGET TEST_opapi_l2_obj)
+    message(STATUS "=== Debug add<TEST_opapi_l2_obj>")
+    add_library(TEST_opapi_l2_obj STATIC)
+endif()
+
+if (UT_TEST_ALL OR PROTO_UT AND NOT TARGET TEST_ophost_infer_obj)
+    message(STATUS "=== Debug add<TEST_ophost_infer_obj>")
+    add_library(TEST_ophost_infer_obj STATIC)
+endif()
+
+if (UT_TEST_ALL OR TILING_UT AND NOT TARGET TEST_ophost_tiling_obj)
+    message(STATUS "=== Debug add<TEST_ophost_tiling_obj>")
+    add_library(TEST_ophost_tiling_obj STATIC)
+endif()
+
+if (UT_TEST_ALL OR PASS_UT AND NOT TARGET TEST_fusion_pass_obj)
+    message(STATUS "=== Debug add<TEST_fusion_pass_obj>")
+    add_library(TEST_fusion_pass_obj STATIC)
+endif()
+
+if(NOT ${CMAKE_BUILD_MODE} STREQUAL "FALSE")
+   set(compile_opt_mode ${CMAKE_BUILD_MODE})
+else()
+   set(compile_opt_mode -g)
+endif()
+
+function(add_optest_modules host_name)
+    message(STATUS "=== Debug<add_optest_modules>: ${host_name}")
+
+    if (UT_TEST_ALL OR OP_API_UT AND NOT TARGET ${host_name}_opapi_l0_obj)
+        message(STATUS "=== Debug<add_optest_modules>: ${host_name}_opapi_l0_obj")
+        add_library(${host_name}_opapi_l0_obj OBJECT)
+        target_compile_definitions(${host_name}_opapi_l0_obj PRIVATE TEST_OPS_MOD_NAME="OPAPI_L0")
+        target_compile_options(${host_name}_opapi_l0_obj PRIVATE
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer -g>
+            -Dgoogle=ascend_private
+            -fno-access-control
+            -fprofile-arcs -ftest-coverage --coverage -fPIC -g -O0
+        )
+        target_include_directories(${host_name}_opapi_l0_obj PRIVATE
+            ${GTEST_INCLUDE}
+            ${OP_TEST_OPAPI_INCLUDE}
+            ${JSON_INCLUDE}
+            ${OPENSDK_DIR}/gtest_shared/include/
+            ${OPS_BUILTIN_TEST_DIR}/ut/op_api_test/framework/op_api_ut_common/inc
+            )
+        target_link_directories(${host_name}_opapi_l0_obj PRIVATE
+            ${OPENSDK_DIR}/lib/stub
+            ${OPENSDK_DIR}/lib
+            ${OPENSDK_DIR}/gtest_shared/lib64
+            ${HI_PYTHON_LIBDIR}
+            ${OPENSDK_DIR}/gtest_shared/include/
+            ${OPENSDK_DIR}/include/msprof/
+            ${OPENSDK_DIR}/json/include/
+            ${OPENSDK_DIR}/include/nnopbase/
+            ${OPENSDK_DIR}/include/metadef/
+            ${OPENSDK_DIR}/include/metadef/external/
+            ${OPENSDK_DIR}/include/air/external/
+            ${HI_PYTHON_INC}
+            ${OPENSDK_DIR}/include/runtime/
+            ${ASCEND_PATH}/runtime/include/acl
+            ${ASCEND_PATH}/runtime/include
+            ${OPENSDK_DIR}/include/adump/external/
+            )
+        target_link_libraries(${host_name}_opapi_l0_obj PRIVATE
+            $<BUILD_INTERFACE:intf_pub_cxx17>
+            -Wl,--whole-archive
+            -Wl,--as-needed
+            op_api_ut_common_inc
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+            -Wl,--no-as-needed
+            -Wl,--no-whole-archive
+            PUBLIC
+            gcov
+            )
+        target_sources(TEST_opapi_l0_obj PRIVATE $<TARGET_OBJECTS:${host_name}_opapi_l0_obj>)
+    endif()
+    if (UT_TEST_ALL OR OP_API_UT AND NOT TARGET ${host_name}_opapi_l2_obj)
+        message(STATUS "=== Debug<add_optest_modules>: ${host_name}_opapi_l2_obj")
+        add_library(${host_name}_opapi_l2_obj OBJECT)
+        target_compile_definitions(${host_name}_opapi_l2_obj PRIVATE TEST_OPS_MOD_NAME="OPAPI_L2")
+        target_compile_options(${host_name}_opapi_l2_obj PRIVATE
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer -g>
+            -Dgoogle=ascend_private
+            -fno-access-control
+            -fprofile-arcs -ftest-coverage --coverage -fPIC -g -O0
+        )
+        target_include_directories(${host_name}_opapi_l2_obj PRIVATE
+            ${GTEST_INCLUDE}
+            ${OPENSDK_DIR}/gtest_shared/include/
+            ${JSON_INCLUDE}
+            ${OP_TEST_OPAPI_INCLUDE}
+            ${HI_PYTHON_LIB}
+            ${OPS_BUILTIN_TEST_DIR}/ut/op_api_test/framework/op_api_ut_common/inc
+            ${HI_PYTHON_LIBDIR}
+            ${OPENSDK_DIR}/include/msprof/
+            ${OPENSDK_DIR}/json/include/
+            ${OPENSDK_DIR}/include/nnopbase/
+            ${OPENSDK_DIR}/include/metadef/
+            ${OPENSDK_DIR}/include/metadef/external/
+            ${OPENSDK_DIR}/include/air/external/
+            ${HI_PYTHON_INC}
+            ${OPENSDK_DIR}/include/runtime/
+            ${ASCEND_PATH}/runtime/include/acl
+            ${ASCEND_PATH}/runtime/include
+            ${OPENSDK_DIR}/include/adump/external/
+            )
+        target_link_libraries(${host_name}_opapi_l2_obj PRIVATE
+            $<BUILD_INTERFACE:intf_pub_cxx17>
+            -Wl,--whole-archive
+            -Wl,--as-needed
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+            -Wl,--no-as-needed
+            -Wl,--no-whole-archive
+            PUBLIC
+            gcov
+            )
+        target_sources(TEST_opapi_l2_obj PRIVATE $<TARGET_OBJECTS:${host_name}_opapi_l2_obj>)
+    endif()
+    if (UT_TEST_ALL OR PROTO_UT AND NOT TARGET ${host_name}_ophost_infer_obj)
+        message(STATUS "=== Debug<add_optest_modules>: ${host_name}_ophost_infer_obj")
+        add_library(${host_name}_ophost_infer_obj OBJECT)
+        target_compile_definitions(${host_name}_ophost_infer_obj PRIVATE
+            TEST_OPS_MOD_NAME="OPHOST_INFER"
+            _GLIBCXX_USE_CXX11_ABI=0)
+        target_compile_options(${host_name}_ophost_infer_obj PRIVATE
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer -g>
+            -Dgoogle=ascend_private
+            -fno-access-control
+            -fprofile-arcs -ftest-coverage --coverage -fPIC -g -O0
+        )
+        target_include_directories(${host_name}_ophost_infer_obj PRIVATE
+            ${GTEST_INCLUDE}
+            ${OPENSDK_DIR}/gtest_shared/include/
+            ${OPS_BUILTIN_TEST_DIR}/common/utils_plugin_and_op_proto
+            ${OPS_BUILTIN_TEST_DIR}
+            ${OPS_BUILTIN_TEST_DIR}/common/utils
+            ${OPS_BUILTIN_TEST_DIR}/../op_proto/inc
+            ${OPS_BUILTIN_TEST_DIR}/../op_proto/
+            ${OPS_BUILTIN_TEST_DIR}/../op_proto/utils
+            ${OPS_BUILTIN_TEST_DIR}/framework/graph_dsl/include
+            ${OPS_BUILTIN_TEST_DIR}/framework/easy_graph/include
+            )
+        target_link_libraries(${host_name}_ophost_infer_obj
+            PRIVATE $<BUILD_INTERFACE:intf_pub_cxx14>
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+            $<BUILD_INTERFACE:ascend_protobuf>
+            $<BUILD_INTERFACE:metadef_headers>
+            $<BUILD_INTERFACE:opsproto_llt>
+            GTest::gtest
+            GTest::gtest_main
+            alog_a
+            PUBLIC
+            gcov
+            )
+        target_sources(TEST_ophost_infer_obj PRIVATE $<TARGET_OBJECTS:${host_name}_ophost_infer_obj>)
+    endif()
+    if (UT_TEST_ALL OR TILING_UT AND NOT TARGET ${host_name}_ophost_tiling_obj)
+        message(STATUS "=== Debug<add_optest_modules>: ${host_name}_ophost_tiling_obj")
+        add_library(${host_name}_ophost_tiling_obj OBJECT)
+        target_compile_definitions(${host_name}_ophost_tiling_obj PRIVATE TEST_OPS_MOD_NAME="OPHOST_TILING"
+                OPS_UTILS_LOG_SUB_MOD_NAME="OP_TILING")
+        target_compile_options(${host_name}_ophost_tiling_obj PRIVATE
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer -g>
+            -Dgoogle=ascend_private
+            -fno-access-control
+            -fprofile-arcs -ftest-coverage --coverage -fPIC -g -O0
+        )
+        target_include_directories(${host_name}_ophost_tiling_obj PRIVATE
+            ${GTEST_INCLUDE}
+            ${OPS_DIR}/built-in/tests/ut/op_tiling_test
+            ${OPENSDK_DIR}/gtest_shared/include/
+            ${OPENSDK_DIR}/include/slog/toolchain/
+            ${OP_TEST_TILING_INCLUDE}
+            ${OP_TEST_TILING_COMMON_INCLUDE}
+            ${OPENSDK_DIR}/include/slog/toolchain/
+            ${OPS_DIR}/built-in/op_tiling/runtime/elementwise_template
+            )
+        target_link_libraries(${host_name}_ophost_tiling_obj
+            PRIVATE $<BUILD_INTERFACE:intf_pub_cxx14>
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+            alog_a
+            GTest::gtest
+            PUBLIC
+            gcov
+            )
+        target_sources(TEST_ophost_tiling_obj PRIVATE $<TARGET_OBJECTS:${host_name}_ophost_tiling_obj>)
+    endif()
+    if (UT_TEST_ALL OR PASS_UT AND NOT TARGET ${host_name}_fusion_pass_obj)
+        message(STATUS "=== Debug<add_optest_modules>: ${host_name}_fusion_pass_obj")
+        add_library(${host_name}_fusion_pass_obj OBJECT)
+        target_compile_definitions(${host_name}_fusion_pass_obj PRIVATE TEST_OPS_MOD_NAME="FUSION_PASS")
+        target_compile_options(${host_name}_fusion_pass_obj PRIVATE
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer -g>
+            -Dgoogle=ascend_private
+            -fno-access-control
+            -fprofile-arcs -ftest-coverage --coverage -fPIC -g -O0
+        )
+        target_include_directories(${host_name}_fusion_pass_obj PRIVATE
+            ${GTEST_INCLUDE}
+            ${OPENSDK_DIR}/gtest_shared/include/
+            ${OP_TEST_GRAPH_FUSION_INCLUDE})
+        target_link_libraries(${host_name}_fusion_pass_obj
+            PRIVATE $<BUILD_INTERFACE:intf_pub_cxx14>
+            $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+            alog_a
+            PUBLIC
+            gcov
+            )
+        target_sources(TEST_fusion_pass_obj PRIVATE $<TARGET_OBJECTS:${host_name}_fusion_pass_obj>)
+    endif()
+endfunction()
+
+
+function(add_modules_llt_sources)
+    set(options OPTION_RESERVED)
+    set(oneValueArgs HOSTNAME MODE DIR)
+    set(multiValueArgs MULIT_RESERVED)
+
+    cmake_parse_arguments(MODULE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    message(STATUS "=== Debug<add_modules_llt_sources>: ${MODULE_HOSTNAME} ${MODULE_MODE} ${MODULE_DIR}")
+
+    if (TARGET ${MODULE_HOSTNAME}_opapi_l0_obj)
+        file(GLOB ACLNN_L0_SRCS ${MODULE_DIR}/test_*_aclnn_l0.cpp)
+        target_sources(${MODULE_HOSTNAME}_opapi_l0_obj ${MODULE_MODE} ${ACLNN_L0_SRCS})
+        message(STATUS "=== Debug<add_modules_llt_sources>: ${MODULE_HOSTNAME}_opapi_l0_obj ${ACLNN_L0_SRCS}")
+    endif ()
+    if (TARGET ${MODULE_HOSTNAME}_opapi_l2_obj)
+        file(GLOB ACLNN_L2_SRCS ${MODULE_DIR}/test_aclnn_*.cpp)
+        target_sources(${MODULE_HOSTNAME}_opapi_l2_obj ${MODULE_MODE} ${ACLNN_L2_SRCS})
+        message(STATUS "=== Debug<add_modules_llt_sources>: ${MODULE_HOSTNAME}_opapi_l2_obj ${ACLNN_L2_SRCS}")
+    endif ()
+    if (TARGET ${MODULE_HOSTNAME}_ophost_infer_obj)
+        file(GLOB OPHOST_INFER_SRCS ${MODULE_DIR}/test_*_infershape.cpp)
+        target_sources(${MODULE_HOSTNAME}_ophost_infer_obj ${MODULE_MODE} ${OPHOST_INFER_SRCS})
+        message(STATUS "=== Debug<add_modules_llt_sources>: ${MODULE_HOSTNAME}_ophost_infer_obj ${OPHOST_INFER_SRCS}")
+    endif ()
+    if (TARGET ${MODULE_HOSTNAME}_ophost_tiling_obj)
+        if (EXISTS "${CANN_ROOT}/matched_tiling_files_new.txt")
+            file(STRINGS "${CANN_ROOT}/matched_tiling_files_new.txt" OP_TILING_ADD_FILES_STR)
+            file(GLOB OP_TILING_ADD_FILES ${OP_TILING_ADD_FILES_STR})
+            message(STATUS "=== Debug<add_modules_llt_sources_test>: ${OP_TILING_ADD_FILES}")
+            target_sources(${MODULE_HOSTNAME}_ophost_tiling_obj ${MODULE_MODE} ${OP_TILING_ADD_FILES})
+        else ()
+            file(GLOB OPHOST_TILING_SRCS ${MODULE_DIR}/test_*_tiling.cpp)
+            target_sources(${MODULE_HOSTNAME}_ophost_tiling_obj ${MODULE_MODE} ${OPHOST_TILING_SRCS})
+            message(STATUS "=== Debug<add_modules_llt_sources>: ${MODULE_HOSTNAME}_ophost_tiling_obj ${OPHOST_TILING_SRCS}")
+        endif ()
+    endif ()
+    if (TARGET ${MODULE_HOSTNAME}_fusion_pass_obj)
+        file(GLOB OPHOST_FUSTION_PASS_SRCS ${MODULE_DIR}/test_*_fusion_pass.cpp)
+        target_sources(${MODULE_HOSTNAME}_fusion_pass_obj ${MODULE_MODE} ${OPHOST_FUSTION_PASS_SRCS})
+        message(STATUS "=== Debug<add_modules_llt_sources>: ${MODULE_HOSTNAME}_fusion_pass_obj ${OPHOST_FUSTION_PASS_SRCS}")
+    endif ()
+    if (TARGET ${MODULE_HOSTNAME}_def_obj)
+        # file(GLOB OPHOST_DEF_SRCS ${MODULE_DIR}/test_*_def.cpp)
+        # target_sources(${MODULE_HOSTNAME}_def_obj ${MODULE_MODE} ${OPHOST_DEF_SRCS})
+    endif ()
+endfunction()
+
+if(ENABLE_TEST OR BENCHMARK)
+    set(OPTEST_NAME optest_${PKG_NAME})
+    include(${OPS_DIR}/built-in/tests/ut/fast_op_test/FastOpTest.cmake)
+    add_optest_modules(${OPTEST_NAME})
+endif()
+
+add_subdirectory(utils)
+add_subdirectory(built-in)
+add_subdirectory(common/op_common)
+add_subdirectory(common/ophost_comm)
+
+foreach(pkg_name ${PACKAGE_LISTS})
+    if(ENABLE_TEST STREQUAL "")
+        if(NOT LEGACY_PKG OR ${pkg_name} STREQUAL "inner")
+            add_modules(TARGETS "opsproto" "opsproto_rt2.0" "opsproto_static_rt2.0"
+                        MODE PRIVATE SUB_LIBS "ophost_${pkg_name}_infer_obj")
+            add_modules(TARGETS "opsproto"
+                        MODE PRIVATE SUB_LIBS "ophost_${pkg_name}_v1_infer_obj")
+            if (TARGET graph_plugin_${pkg_name}_obj)
+                add_modules(TARGETS "opsproto" "opsproto_rt2.0" "opsproto_static_rt2.0"
+                        MODE PRIVATE SUB_LIBS "graph_plugin_${pkg_name}_obj")
+            endif()
+            add_modules(TARGETS "optiling" "opmaster_rt2.0" "opmaster_static_rt2.0"
+                        MODE PRIVATE SUB_LIBS "ophost_${pkg_name}_tiling_obj")
+
+            if (TARGET ${pkg_name}_opmaster_ct_tilingsink_obj)
+                add_modules(TARGETS "opmaster_ct" MODE PRIVATE SUB_LIBS "${pkg_name}_opmaster_ct_tilingsink_obj")
+            endif()
+            if(TARGET "ophost_${pkg_name}_opmaster_ct_gentask_obj")
+                add_modules(TARGETS "opmaster_ct" MODE PRIVATE SUB_LIBS "ophost_${pkg_name}_opmaster_ct_gentask_obj")
+            endif()
+        endif()
+        add_modules(TARGETS "opapi"
+            MODE PRIVATE SUB_LIBS "ophost_${pkg_name}_opapi_obj")
+    else()
+        if(UT_TEST_ALL OR OP_API_UT)
+            if (TARGET ophost_${pkg_name}_opapi_obj)
+                get_target_property(opapi_obj_src ophost_${pkg_name}_opapi_obj SOURCES)
+                if (opapi_obj_src)
+                    target_sources(opapi_llt PRIVATE ${opapi_obj_src})
+                endif()
+            endif()
+        endif()
+        if(UT_TEST_ALL OR TILING_UT)
+            if (TARGET ophost_${pkg_name}_tiling_obj)
+                get_target_property(optiling_obj_src ophost_${pkg_name}_tiling_obj SOURCES)
+                if (optiling_obj_src)
+                    target_sources(optiling_llt PRIVATE ${optiling_obj_src})
+                endif()
+            endif()
+        endif()
+        if(UT_TEST_ALL OR PROTO_UT OR PASS_UT OR PLUGIN_UT OR ONNX_PLUGIN_UT)
+            if (TARGET ophost_${pkg_name}_v1_infer_obj)
+                get_target_property(v1_infer_obj_src ophost_${pkg_name}_v1_infer_obj SOURCES)
+                if (v1_infer_obj_src)
+                    target_sources(opsproto_llt PRIVATE ${v1_infer_obj_src})
+                    if (UT_TEST_ALL OR PASS_UT)
+                        target_sources(opsproto_rt2.0 PRIVATE ${v1_infer_obj_src}) # for infershape and dtype for pass ut
+                    endif()
+                endif()
+            endif()
+            if (TARGET ophost_${pkg_name}_infer_obj)
+                get_target_property(infer_obj_src ophost_${pkg_name}_infer_obj SOURCES)
+                if (infer_obj_src)
+                    target_sources(opsproto_llt PRIVATE ${infer_obj_src})
+                    if (UT_TEST_ALL OR PASS_UT)
+                        target_sources(opsproto_rt2.0 PRIVATE ${infer_obj_src}) # for infershape and dtype for pass ut
+                    endif()
+                endif()
+            endif()
+
+            if (TARGET graph_plugin_${pkg_name}_obj)
+                get_target_property(graph_plugin_obj_src graph_plugin_${pkg_name}_obj SOURCES)
+                if (infer_obj_src)
+                    target_sources(opsproto_llt PRIVATE ${graph_plugin_obj_src})
+                    if (UT_TEST_ALL OR PASS_UT)
+                        target_sources(opsproto_rt2.0 PRIVATE ${graph_plugin_obj_src}) # for infershape and dtype for pass ut
+                    endif()
+                endif()
+            endif()
+        endif()
+    endif()
+endforeach()
+
+if(LEGACY_PKG)
+    get_target_property(opsproto_rt2.0_src opsproto_rt2.0 SOURCES)
+    list(APPEND ophost_legacy_src ${opsproto_rt2.0_src})
+    get_target_property(opmaster_rt2.0_src opmaster_rt2.0 SOURCES)
+    list(APPEND ophost_legacy_src ${opmaster_rt2.0_src})
+    list(REMOVE_DUPLICATES ophost_legacy_src)
+    message(STATUS "=== Debug add library ophost_legacy, ophost_legacy_src : ${ophost_legacy_src}")
+    set_source_files_properties(${ophost_legacy_src} PROPERTIES GENERATED TRUE)
+    add_library(ophost_legacy SHARED
+        ${ophost_legacy_src}
+        $<TARGET_OBJECTS:${OPHOST_NAME}_tiling_obj>
+        $<TARGET_OBJECTS:${OPHOST_NAME}_infer_obj>
+    )
+
+    add_custom_command(TARGET ophost_legacy POST_BUILD
+                       COMMAND ${HI_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/built-in/kernel/binary_script/build_opp_kernel_static.py GenerateSymbol -l $<TARGET_FILE:ophost_legacy> -s ${CMAKE_CURRENT_BINARY_DIR}/ophost_legacy.txt
+                       VERBATIM)
+
+    target_include_directories(ophost_legacy PRIVATE
+        ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling
+        $<TARGET_PROPERTY:opsproto_rt2.0,INCLUDE_DIRECTORIES>
+        $<TARGET_PROPERTY:opmaster_rt2.0,INCLUDE_DIRECTORIES>
+    )
+    target_link_directories(ophost_legacy PRIVATE
+        $<TARGET_PROPERTY:opsproto_rt2.0,LINK_DIRECTORIES>
+        $<TARGET_PROPERTY:opmaster_rt2.0,LINK_DIRECTORIES>
+    )
+    target_compile_options(ophost_legacy PRIVATE
+        $<TARGET_PROPERTY:opsproto_rt2.0,COMPILE_OPTIONS>
+        $<TARGET_PROPERTY:opmaster_rt2.0,COMPILE_OPTIONS>
+    )
+    target_link_libraries(ophost_legacy PRIVATE
+        $<BUILD_INTERFACE:intf_pub_cxx17>
+        $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+        $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+        -Wl,--whole-archive
+        rt2_registry_static
+        -Wl,--no-whole-archive
+        -Wl,--no-as-needed
+        exe_graph
+        graph
+        graph_base
+        alog
+        error_manager
+        platform
+        static_turbojpeg
+        ops_utils_proto
+        -Wl,--as-needed
+        c_sec
+        json
+        ops_utils_tiling
+        tiling_api
+        mmpa
+        -Wl,-Bsymbolic
+    )
+    if(BUILD_OPEN_PROJECT)
+        set(OP_HOST_LEGACY_PATH "${INSTALL_PATH}/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/${CMAKE_SYSTEM_PROCESSOR}")
+        cann_install(
+        TARGET      ophost_legacy
+        FILES       $<TARGET_FILE:ophost_legacy>
+        DESTINATION "${OP_HOST_LEGACY_PATH}"
+        )
+    else()
+        install(
+            TARGETS ophost_legacy OPTIONAL
+            EXPORT  ophost_legacy-targets
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}/${CMAKE_SYSTEM_PROCESSOR}
+        )
+        install(
+            FILES ${CMAKE_CURRENT_BINARY_DIR}/ophost_legacy.txt
+            DESTINATION ${INSTALL_LIBRARY_DIR}/${CMAKE_SYSTEM_PROCESSOR} OPTIONAL
+        )
+    endif()
+
+    if(TARGET ${OPHOST_NAME}_graph_plugin_obj)
+        add_library(opgraph_legacy SHARED 
+            $<TARGET_OBJECTS:${OPHOST_NAME}_graph_plugin_obj> 
+            ${opsproto_rt2.0_src} 
+            # add hccl_gen_task_superkernel_src
+            ${TOP_DIR}/asl/ops/cann/ops/built-in/op_proto/runtime/hccl_gen_task_superkernel.cc
+            ${hccl_sk_proto_h}
+        )
+        add_dependencies(opgraph_legacy hccl_sk_proto)
+        message(STATUS "=== Debug add_library opgraph_legacy, OPHOST_NAME : ${OPHOST_NAME}")
+
+        target_compile_definitions(opgraph_legacy
+            PRIVATE OPS_UTILS_LOG_SUB_MODE_NAME="OP_PROTO")
+        target_compile_options(opgraph_legacy PRIVATE
+            $<TARGET_PROPERTY:opsproto_rt2.0,COMPILE_OPTIONS>
+        )
+
+        target_include_directories(opgraph_legacy
+            PRIVATE ${OP_PROTO_INCLUDE}
+            ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling
+            $<TARGET_PROPERTY:opsproto_rt2.0,INCLUDE_DIRECTORIES>
+            ${CMAKE_BINARY_DIR}/proto/hccl_sk_proto
+        )
+        if(UT_TEST_ALL OR PROTO_UT OR PASS_UT OR PLUGIN_UT OR ONNX_PLUGIN_UT)
+            target_compile_definitions(opgraph_legacy PRIVATE ASCEND_OPSPROTO_UT)
+            target_compile_options(opgraph_legacy PRIVATE
+                ${COMPILE_OP_MODE}
+                -Dgoogle=ascend_private)
+            target_link_libraries(opgraph_legacy
+                $<BUILD_INTERFACE:intf_pub_cxx17>
+                $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+                -Wl,--whole-archive
+                rt2_registry_static
+                -Wl,--no-whole-archive
+                -Wl,--no-as-needed
+                exe_graph
+                graph
+                graph_base
+                alog
+                error_manager
+                platform
+                static_turbojpeg
+                ops_utils_proto
+                -Wl,--as-needed
+                c_sec
+                json
+                ops_utils_tiling
+                mmpa
+                -Wl,-Bsymbolic
+                )
+        else()
+            target_compile_options(opgraph_legacy PRIVATE
+                ${COMPILE_OP_MODE}
+                -Dgoogle=ascend_private
+                -DDISABLE_COMPILE_V1
+                -fvisibility=hidden
+                -fPIC
+                -fno-common)
+            target_link_libraries(opgraph_legacy
+                $<BUILD_INTERFACE:intf_pub_cxx17>
+                $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+                $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+                -Wl,--whole-archive
+                rt2_registry_static
+                -Wl,--no-whole-archive
+                -Wl,--no-as-needed
+                exe_graph
+                graph
+                graph_base
+                alog
+                error_manager
+                platform
+                static_turbojpeg
+                ops_utils_proto
+                -Wl,--as-needed
+                c_sec
+                json
+                ops_utils_tiling
+                mmpa
+                -Wl,-Bsymbolic
+                )
+        endif()
+        if(BUILD_OPEN_PROJECT)
+            set(OP_GRAPH_LEGACY_PATH "${INSTALL_PATH}/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/${CMAKE_SYSTEM_PROCESSOR}")
+            cann_install(
+            TARGET      opgraph_legacy
+            FILES       $<TARGET_FILE:opgraph_legacy>
+            DESTINATION "${OP_GRAPH_LEGACY_PATH}"
+            )
+        else()
+            install(
+                TARGETS opgraph_legacy OPTIONAL
+                EXPORT  opgraph_legacy-targets
+                LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}/${CMAKE_SYSTEM_PROCESSOR}
+            )
+        endif()
+    endif()
+
+    # 打包 *_op_resource.cpp
+    file(GLOB op_resource_src CONFIGURE_DEPENDS "${TOP_DIR}/output/${PRODUCT}/aclnnop_resource/*.cpp")
+    # 打包kernel
+    file(GLOB op_kernel_files CONFIGURE_DEPENDS "${TOP_DIR}/vendor/hisi/build/delivery/${PRODUCT}/lib/host/bin_tmp/${PRODUCT}/*.o")
+    # 构建 legacy 静态库
+    add_library(cann_legacy_static STATIC
+        ${ophost_legacy_src}
+        $<TARGET_OBJECTS:${OPHOST_NAME}_tiling_obj>
+        $<TARGET_OBJECTS:${OPHOST_NAME}_infer_obj>
+        ${op_resource_src}
+        ${op_kernel_files}
+        $<TARGET_OBJECTS:legecy_l0_white_list_obj>
+    )
+    target_include_directories(cann_legacy_static PRIVATE
+        ${TOP_DIR}/asl/ops/cann/ops/built-in/op_tiling
+        $<TARGET_PROPERTY:opsproto_rt2.0,INCLUDE_DIRECTORIES>
+        $<TARGET_PROPERTY:opmaster_rt2.0,INCLUDE_DIRECTORIES>
+    )
+    target_link_directories(cann_legacy_static PRIVATE
+        $<TARGET_PROPERTY:opsproto_rt2.0,LINK_DIRECTORIES>
+        $<TARGET_PROPERTY:opmaster_rt2.0,LINK_DIRECTORIES>
+    )
+    target_compile_options(cann_legacy_static PRIVATE
+        $<TARGET_PROPERTY:opsproto_rt2.0,COMPILE_OPTIONS>
+        $<TARGET_PROPERTY:opmaster_rt2.0,COMPILE_OPTIONS>
+    )
+    target_link_libraries(cann_legacy_static PRIVATE
+        $<BUILD_INTERFACE:intf_pub_cxx17>
+        $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+        $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+        -Wl,--whole-archive
+        rt2_registry_static
+        -Wl,--no-whole-archive
+        -Wl,--no-as-needed
+        exe_graph
+        graph
+        graph_base
+        alog
+        error_manager
+        platform
+        static_turbojpeg
+        ops_utils_proto
+        -Wl,--as-needed
+        c_sec
+        json
+        ops_utils_tiling
+        tiling_api
+        mmpa
+    )
+    if(BUILD_OPEN_PROJECT)
+        set(CANN_LEGACY_PATH "${INSTALL_PATH}/opp/built-in/op_impl/ai_core/tbe/op_api/lib/linux/${CMAKE_SYSTEM_PROCESSOR}")
+        cann_install(
+        TARGET      cann_legacy_static
+        FILES       $<TARGET_FILE:cann_legacy_static>
+        DESTINATION "${CANN_LEGACY_PATH}"
+        )
+    else()
+        install(
+            TARGETS cann_legacy_static OPTIONAL
+            EXPORT  cann_legacy_static-targets
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}/${CMAKE_SYSTEM_PROCESSOR}
+        )
+    endif()
+endif()
+
+if(ENABLE_TEST OR BENCHMARK)
+    add_subdirectory(built-in/tests)
+endif()
