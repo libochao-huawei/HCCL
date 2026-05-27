@@ -9,11 +9,10 @@
  */
 
 #include "channel.h"
-#include "ccu_assist_pub.h"
+#include "ccu_launch.h"
 #include "alg_template_base.h"
 #include "kernel/ccu_kernel_all_to_all_mesh1d_multi_jetty.h"
 #include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
-#include "ccu_control_api.h"
 
 namespace ops_hccl {
 constexpr uint32_t STUB_JETTY_NUM = 1;
@@ -82,15 +81,16 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, con
     HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] start");
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
 
-    constexpr u32 inputIdx = 0;
-    constexpr u32 outputIdx = 1;
-    uint64_t argSize = 11 + 2 * templateRankSize_;
-    uint64_t inputOffsetIdx = 11 + 2 * templateRankSize_;
-    uint64_t outputOffsetIdx = 12 + 2 * templateRankSize_;
+    constexpr u32 inputIdx = 1;
+    constexpr u32 outputIdx = 2;
+    const uint64_t savedTempRankSize = args[0];
+    uint64_t argSize = 11 + 2 * savedTempRankSize;  // 不包含savedTempRankSize
+    uint64_t inputOffsetIdx = 12 + 2 * savedTempRankSize;
+    uint64_t outputOffsetIdx = 13 + 2 * savedTempRankSize;
     args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
     args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
 
-    void *taskArgs = reinterpret_cast<void*>(args);
+    void *taskArgs = reinterpret_cast<void*>(args + 1); // 跳过args[0]
     CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
                                                tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
                                                taskArgs, argSize);
@@ -167,6 +167,7 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     uint32_t idx = 0;
+    submitInfo.cachedArgs[idx++] = templateRankSize_;
     submitInfo.cachedArgs[idx++] = inputAddr;
     submitInfo.cachedArgs[idx++] = outputAddr;
     submitInfo.cachedArgs[idx++] = token;

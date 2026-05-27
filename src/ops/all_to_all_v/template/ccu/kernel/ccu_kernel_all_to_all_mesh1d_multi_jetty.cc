@@ -9,7 +9,6 @@
  */
 
 #include "ccu_kernel_all_to_all_mesh1d_multi_jetty.h"
-#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -35,32 +34,19 @@ static CcuResult InitResource(AllToAllMesh1DMultiJettyContext &ctx)
 
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         if (peerId == arg->rankId) {
-            ctx.peerInput[peerId] = ccu::CreateVariable();
-            ctx.peerOutput[peerId] = ccu::CreateVariable();
-            ctx.peerToken[peerId] = ccu::CreateVariable();
-        } else {
-            HCCL_DEBUG("[CcuKernelAllToAllMesh1DMultiJetty] MyRank[%u], PeerId[%u], ChannelId[%u]",
-                       arg->rankId, peerId, channelIdx);
-            ctx.peerInput[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], INPUT_XN_ID);
-            ctx.peerOutput[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.peerToken[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
-            channelIdx++;
+            continue;
         }
+        HCCL_DEBUG("[CcuKernelAllToAllMesh1DMultiJetty] MyRank[%u], PeerId[%u], ChannelId[%u]",
+                    arg->rankId, peerId, channelIdx);
+        ctx.peerInput[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], INPUT_XN_ID);
+        ctx.peerOutput[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+        ctx.peerToken[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
+        channelIdx++;
     }
-
-    ctx.sliceSize   = ccu::CreateVariable();
-    ctx.srcStride   = ccu::CreateVariable();
-    ctx.srcOffset   = ccu::CreateVariable();
-    ctx.dstOffset   = ccu::CreateVariable();
 
     ctx.eventList.resize(arg->rankSize);
     ctx.jettySlice.resize(arg->rankSize);
     ctx.jettySliceTail.resize(arg->rankSize);
-    for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
-        ctx.eventList[peerId] = ccu::CreateEvent();
-        ctx.jettySlice[peerId] = ccu::CreateVariable();
-        ctx.jettySliceTail[peerId] = ccu::CreateVariable();
-    }
 
     ctx.resourceAllocated = false;
     HCCL_INFO("[CcuKernelAllToAllMesh1DMultiJetty] InitResource success!");
