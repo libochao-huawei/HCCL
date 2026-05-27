@@ -29,7 +29,7 @@
     └── Makefile                        # 编译/构建配置文件
 ```
 
-> 自定义算子编译工程依赖 HCCL 代码仓中的 [cmake](../../cmake) 配置和编译脚本 [build.sh](../../build.sh)，其中：
+> 自定义算子编译工程依赖 HCCL 代码仓中的 [cmake](../../../cmake) 配置和编译脚本 [build.sh](../../../build.sh)，其中：
 > 
 > - cmake 包含 CMake 配置、MakeSelf 打包配置等内容
 > - build.sh 是工程编译入口
