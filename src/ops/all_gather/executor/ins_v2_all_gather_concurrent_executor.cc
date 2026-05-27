@@ -17,6 +17,7 @@
 // AICPU template 头文件
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_mesh_clos_v2.h"
 
 #ifndef AICPU_COMPILE
 // CCU template 头文件
@@ -445,5 +446,9 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConc
                                CcuTempAllGatherNHR1DMultiJettyMem2Mem);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherConcurrentMesh1DMeshClosV2,
+                               InsV2AllGatherConcurrentExecutor, TopoMatchUBX,
+                               InsTempAllGatherMesh1D, InsTempAllGatherMeshClosV2);
 
 }  // namespace
