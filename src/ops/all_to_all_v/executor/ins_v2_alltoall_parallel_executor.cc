@@ -446,6 +446,9 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter0.buffInfo.outputSize = param.outputSize;
 
     tempAlgParamsInter0.buffInfo.inBuffBaseOff = scratchOffset;
+    // v1.12 Fix B: dataOffset (= dataOffset0 = 0 for first loop iteration) happens
+    // to equal the correct interleaved X-data offset (0 within each peer output chunk).
+    // X-data starts at offset 0 within each peer chunk in the interleaved output layout.
     tempAlgParamsInter0.buffInfo.outBuffBaseOff = dataOffset;
     tempAlgParamsInter0.buffInfo.hcclBuffBaseOff = scratchOffset;
     tempAlgParamsInter0.sliceSize = dataCountPerLoopAxis0 * dataTypeSize_;
@@ -454,7 +457,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
 
     tempAlgParamsInter0.inputSliceStride = dataSize_ * rankSizeLevel0_;
     u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
-    u64 perPeerOutputChunkSize = (param.outputSize + totalRankCount - 1) / totalRankCount;
+    u64 perPeerOutputChunkSize = (dataSize_ + totalRankCount - 1) / totalRankCount;
     tempAlgParamsInter0.outputSliceStride = perPeerOutputChunkSize;
     tempAlgParamsInter0.repeatNum = 1;
     tempAlgParamsInter0.inputRepeatStride = 0;
@@ -477,7 +480,15 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra1.buffInfo.outputPtr = param.outputPtr;
     tempAlgParamsIntra1.buffInfo.hcclBuff = resCtx.cclMem;
     tempAlgParamsIntra1.buffInfo.inBuffBaseOff = 0;
-    tempAlgParamsIntra1.buffInfo.outBuffBaseOff = dataOffset;
+
+    // v1.12 Fix A: Interleaved output layout — Y-data within each peer chunk
+    // is at perPeerOutputChunkSize/2 offset, NOT dataOffset (blocked-layout midpoint).
+    // dataSize_ reflects total send data; perPeerOutputChunkSize computed from dataSize_
+    // (not param.outputSize) to match the actual data distribution for asymmetric AlltoAllV.
+    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 perPeerOutputChunkSize = (dataSize_ + totalRankCount - 1) / totalRankCount;
+    tempAlgParamsIntra1.buffInfo.outBuffBaseOff = perPeerOutputChunkSize / 2;
+
     tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff = scratchOffset;
     tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsIntra1.buffInfo.outBuffType = BufferType::OUTPUT;
@@ -489,8 +500,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra1.tailSize = tempAlgParamsIntra1.sliceSize;
 
     tempAlgParamsIntra1.inputSliceStride = dataSize_;
-    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
-    u64 perPeerOutputChunkSize = (param.outputSize + totalRankCount - 1) / totalRankCount;
+    // totalRankCount and perPeerOutputChunkSize already computed above (v1.12 Fix A)
     tempAlgParamsIntra1.outputSliceStride = perPeerOutputChunkSize;
     tempAlgParamsIntra1.repeatNum = 1;
     tempAlgParamsIntra1.inputRepeatStride = 0;
@@ -551,6 +561,10 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         // AlltoAllV has per-peer counts; compute total dataCount by summing sendCounts
         // For AlltoAll (uniform), sendCounts[i] == sendCount for all i
         u64* sendCounts = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts);
+        if (!sendCounts) {
+            HCCL_ERROR("[Orchestrate] FATAL: all2AllVDataDes.sendCounts is NULL");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
         u64 totalRanks = resCtx.topoInfo.userRankSize;
         u64 totalCount = 0;
         for (u64 i = 0; i < totalRanks; i++) {
@@ -821,6 +835,13 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         dataCountPerLoopAxis1 = dataCountPerLoopAxis1 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
     }
     maxCountPerLoop = dataCountPerLoopAxis0 + dataCountPerLoopAxis1;
+
+    if (maxCountPerLoop == 0) {
+        HCCL_ERROR("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] FATAL: maxCountPerLoop is 0. "
+                   "scratchMemBlockSize=%llu dataTypeSize_=%u",
+                   scratchMemBlockSize, dataTypeSize_);
+        return HcclResult::HCCL_E_INTERNAL;
+    }
 
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
 

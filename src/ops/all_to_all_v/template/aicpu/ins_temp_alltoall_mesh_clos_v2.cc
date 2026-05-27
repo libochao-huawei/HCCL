@@ -159,8 +159,21 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
                   totalLinksToNeighbor, threads.size(),
                   enableRemoteMemAccess_, isPcie);
 
+        if (linkIdx >= channels.at(connectedRank).size()) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] channel index OOB: linkIdx[%u] >= "
+                       "channels[%u].size()=%zu. myRank=%d templateRank=%u",
+                       linkIdx, connectedRank, channels.at(connectedRank).size(), myRank_, templateRankSize_);
+            return HCCL_E_INTERNAL;
+        }
+
         const ChannelInfo &linkRemote = it->second[linkIdx];
         void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
+        if (!remoteCclBuffAddr) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] remoteCclMem.addr is NULL for peer %u. "
+                       "myRank=%d connectedRank=%u linkIdx=%u templateRank=%u",
+                       connectedRank, myRank_, connectedRank, linkIdx, templateRankSize_);
+            return HCCL_E_INTERNAL;
+        }
 
         std::vector<DataSlice> txSrcSlicesAll;
         std::vector<DataSlice> txDstSlicesAll;
@@ -196,14 +209,18 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
             u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txSrcInputOffset;
 
             u64 rxOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
-            if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
+            // v1.12 Fix C: extend OOB guard to BufferType::OUTPUT (Stage 2 writes to user output buffer)
+            if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER ||
+                tempAlgParams_.buffInfo.outBuffType == BufferType::OUTPUT) {
                 u64 maxRxWritePos = rxOutOffset + actualChunkSize;
                 if (maxRxWritePos > tempAlgParams_.buffInfo.outputSize) {
                     HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos] RX destination OOB! "
                         "rxOutOffset=%llu + actualChunkSize=%llu = %llu > outputSize=%llu "
-                        "myAlgRank=%u myRank=%d",
+                        "myAlgRank=%u myRank=%d outBuffBaseOff=%llu outputSliceStride=%llu",
                         rxOutOffset, actualChunkSize, maxRxWritePos,
-                        tempAlgParams_.buffInfo.outputSize, myAlgRank, myRank_);
+                        tempAlgParams_.buffInfo.outputSize, myAlgRank, myRank_,
+                        tempAlgParams_.buffInfo.outBuffBaseOff,
+                        tempAlgParams_.outputSliceStride);
                     return HcclResult::HCCL_E_INTERNAL;
                 }
             }
@@ -405,6 +422,19 @@ HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHand
                                 sy * perPeerSize + dx * cellSize;
             u64 outOffset = tempAlgParams_.buffInfo.outBuffBaseOff +
                             tempAlgParams_.outputSliceStride * d;
+
+            // v1.12 Fix D: OOB guard for PostLocalCopy output writes
+            u64 maxWritePos = outOffset + actualChunkSize;
+            if (maxWritePos > tempAlgParams_.buffInfo.outputSize) {
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] Output OOB! "
+                    "outOffset=%llu + actualChunkSize=%llu = %llu > outputSize=%llu "
+                    "d=%u rank=%d outBuffBaseOff=%llu outputSliceStride=%llu",
+                    outOffset, actualChunkSize, maxWritePos,
+                    tempAlgParams_.buffInfo.outputSize, d, myRank_,
+                    tempAlgParams_.buffInfo.outBuffBaseOff,
+                    tempAlgParams_.outputSliceStride);
+                return HCCL_E_INTERNAL;
+            }
 
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset,
                                actualChunkSize, chunkCount);
