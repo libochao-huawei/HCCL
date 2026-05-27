@@ -931,8 +931,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     // etc.
     bool enables1 = true;
     bool enables2 = false;
-    bool runMesh = false;
-    bool runClos = false;
+    bool runMesh = true;
+    bool runClos = true;
 
     // Skip ALL: return immediately to test baseline
     return HCCL_SUCCESS;
