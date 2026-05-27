@@ -930,7 +930,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     // Step 3: enables2=true → test Stage2 only
     // etc.
     bool enables1 = true;
-    bool enables2 = false;
+    bool enables2 = true;
     bool runMesh = true;
     bool runClos = true;
     // enables 1 + runMesh + runClos false
@@ -1061,8 +1061,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                 return HcclResult::HCCL_E_INTERNAL;
             }
         }
-        
-        return HCCL_SUCCESS;
+
+        // return HCCL_SUCCESS;
 #ifndef AICPU_COMPILE
         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
             ccuKernelLaunchNumIntra0_ = intraTempAlgRes.submitInfos.size();
@@ -1096,10 +1096,10 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                           reinterpret_cast<uint64_t>(intraBuf),
                           reinterpret_cast<uint64_t>(interBuf),
                           needIntraToInter, needInterToIntra);
-                HcclResult reorgRet = ReorganizeScratches(mainThread_,
-                    intraBuf, interBuf, rankSizeLevel0_, rankSizeLevel1_,
-                    meshSliceSize, closSliceSize, perPeerMesh, perPeerClos);
-                CHK_RET(reorgRet);
+                // HcclResult reorgRet = ReorganizeScratches(mainThread_,
+                //     intraBuf, interBuf, rankSizeLevel0_, rankSizeLevel1_,
+                //     meshSliceSize, closSliceSize, perPeerMesh, perPeerClos);
+                // CHK_RET(reorgRet);
                 HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Reorganization complete.");
             } else {
                 HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Skipping reorganization: rankSize0=%llu rankSize1=%llu "
