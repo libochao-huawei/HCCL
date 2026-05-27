@@ -979,7 +979,7 @@ HcclResult ParseDfsConfig()
     dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
     std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
 
-    constexpr std::size_t DFS_CONFIG_ITEM_NUM = 2;
+    constexpr std::size_t DFS_CONFIG_ITEM_NUM = 3;
     const std::array<std::string, DFS_CONFIG_ITEM_NUM> dfsConfigItems = {"task_exception", "inconsistent_check",
         "cluster_heartbeat"};
     auto items = SplitDfsConfig(dfsConfigEnv, ',');
