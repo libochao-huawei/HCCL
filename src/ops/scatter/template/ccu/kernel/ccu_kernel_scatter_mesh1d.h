@@ -83,10 +83,10 @@ public:
           repeatNum_(repeatNum),
           isInputOutputEqual_(isInputOutputEqual)
     {
-        HCCL_DEBUG("[CcuTaskArgScatterMesh1D] inputAddr: %lu, outputAddr: %lu, token: %lu, "
+        HCCL_DEBUG("[CcuTaskArgScatterMesh1D] inputAddr: %lu, outputAddr: %lu, "
                    "inputSliceStride: %lu, outputSliceStride: %lu,inputRepeatStride: %lu, outputRepeatStride: %lu, normalSliceSize: %lu, "
                    "lastSliceSize: %lu, repeatNum: %lu",
-                   inputAddr_, outputAddr_, token_, inputSliceStride_, outputSliceStride_, inputRepeatStride_, outputRepeatStride_,
+                   inputAddr_, outputAddr_, inputSliceStride_, outputSliceStride_, inputRepeatStride_, outputRepeatStride_,
                    normalSliceSize_, lastSliceSize_, repeatNum_);
     }
 
@@ -118,6 +118,7 @@ private:
     void PostSync();
     void DoRepeatScatter();
     void DoScatter();
+	void DoScatterLocalCopy();
 
     uint64_t rankSize_{0};
     uint32_t rankId_{0};

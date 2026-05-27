@@ -87,6 +87,15 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    //重新赋值 isInputOutputEqual
+    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + args[0];
+    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + args[1];
+    uint64_t inputSliceStride   = args[6];
+    uint64_t outputSliceStride  = args[7];
+    uint64_t mySubCommRank      = args[13];
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank == outputAddr + outputSliceStride * mySubCommRank);
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+    
     // 前流同步
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
@@ -96,9 +105,8 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
 
     for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
         CcuTaskArgAllGatherNHR1D taskArg(
-            PointerToAddr(buffInfo_.inputPtr) + args[0],
-            PointerToAddr(buffInfo_.outputPtr) + args[1],
-            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
+            inputAddr, outputAddr, args[2], args[3], args[4], args[5], 
+            args[6], args[7], args[8], args[9], isInputOutputEqual, args[11], args[12]);
 
         void* taskArgPointer = static_cast<void*>(&taskArg);
 
@@ -273,7 +281,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     CcuKernelSubmitInfo submitInfo;
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, die0Size, die1Size,
         repeatNum, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
-        isInputOutputEqual, die0LastSize, die1LastSize));
+        isInputOutputEqual, die0LastSize, die1LastSize, mySubCommRank_));
     for (u32 i = 0; i < kernelNum; i++) {
         // 2个kernel的TaskArg相同
         submitInfo.kernelHandle = templateResource.ccuKernels[i];

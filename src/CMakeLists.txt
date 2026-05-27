@@ -41,6 +41,7 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/wrapper
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/aiv
     # ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/hostdpu
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/dpu
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/ccu
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/ccu/kernel
 
@@ -233,6 +234,8 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/common/adapter_error_manager_pub.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/common/alg_env_config.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/common/device_compat.cc
+
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/omnipipe_data_slice_calc.cc
         
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/exec_timeout_manager.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel.cc
@@ -249,6 +252,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/aicpu/dfx/task_exception_fun.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/registry/alg_template_register.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/wrapper/alg_data_trans_wrapper.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/dpu/kernel_launch.cc
 
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo.cc
@@ -277,11 +281,16 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_concurrent_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_omnipipe_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_meshchunk.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_aicpu_reduce_nhr.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_omnipipe_mesh_1d_dpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_omnipipe_mesh_1D.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_omnipipe_nhr.cc
+ 
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor/ins_v2_broadcast_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor/ins_v2_broadcast_sole_executor.cc
@@ -294,9 +303,13 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sequence_executor_aicpu.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_concurrent_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_omnipipe_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_omnipipe_mesh_1D.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_omnipipe_nhr_dpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_omnipipe_nhr.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/executor/reduce_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/executor/reduce_parallel_executor.cc
@@ -319,6 +332,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor_aicpu.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_two_shot_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_concurrent_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_omnipipe_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_nhr.cc
@@ -604,6 +618,46 @@ set(AIV_TARGETS
     hccl_aiv_scatter_op_910_95
     hccl_aiv_send_op_910_95
     hccl_aiv_recv_op_910_95
+    hccl_ar_superkernel_mesh_1d_oneshot_int8_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_int16_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_int32_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_float16_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_float32_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_bfloat16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int8_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int32_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_float16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_float32_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_bfloat16_v2
+    hccl_rs_superkernel_mesh_1d_int8_v2
+    hccl_rs_superkernel_mesh_1d_int16_v2
+    hccl_rs_superkernel_mesh_1d_int32_v2
+    hccl_rs_superkernel_mesh_1d_float16_v2
+    hccl_rs_superkernel_mesh_1d_float32_v2
+    hccl_rs_superkernel_mesh_1d_bfloat16_v2
+    hccl_ag_superkernel_mesh_1d_int8_v2
+    hccl_ag_superkernel_mesh_1d_int16_v2
+    hccl_ag_superkernel_mesh_1d_int32_v2
+    hccl_ag_superkernel_mesh_1d_float16_v2
+    hccl_ag_superkernel_mesh_1d_float32_v2
+    hccl_ag_superkernel_mesh_1d_bfloat16_v2
+    hccl_ag_superkernel_mesh_1d_uint8_v2
+    hccl_ag_superkernel_mesh_1d_uint16_v2
+    hccl_ag_superkernel_mesh_1d_uint32_v2
+    hccl_ag_superkernel_mesh_1d_int64_v2
+    hccl_ag_superkernel_mesh_1d_uint64_v2
+    hccl_a2a_superkernel_mesh_1d_int8_v2
+    hccl_a2a_superkernel_mesh_1d_int16_v2
+    hccl_a2a_superkernel_mesh_1d_int32_v2
+    hccl_a2a_superkernel_mesh_1d_float16_v2
+    hccl_a2a_superkernel_mesh_1d_float32_v2
+    hccl_a2a_superkernel_mesh_1d_bfloat16_v2
+    hccl_a2a_superkernel_mesh_1d_uint8_v2
+    hccl_a2a_superkernel_mesh_1d_uint16_v2
+    hccl_a2a_superkernel_mesh_1d_uint32_v2
+    hccl_a2a_superkernel_mesh_1d_int64_v2
+    hccl_a2a_superkernel_mesh_1d_uint64_v2
 )
 
 add_custom_target(aiv_all_targets)
