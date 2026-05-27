@@ -206,16 +206,16 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     std::vector<HcclChannelDesc> allChannels;
         // 1. 先放 meshChannels_[meshDieId]
     allChannels.insert(allChannels.end(), meshChannels_[meshDieId].begin(), meshChannels_[meshDieId].end());
-    HCCL_INFO("meshChannels_[meshDieId].size() = %llu",meshChannels_[meshDieId].size());
+    HCCL_INFO("meshChannels_[meshDieId].size() = %llu",meshChannels_[meshDieId].size());/////////7
 
     // 2. 再放 closChannels_[closDieId]
     uint32_t closDieId = 1 - meshDieId;
     allChannels.insert(allChannels.end(), closChannels_[closDieId].begin(), closChannels_[closDieId].end());
-    HCCL_INFO("closChannels_[closDieId].size() = %llu",closChannels_[closDieId].size());
+    HCCL_INFO("closChannels_[closDieId].size() = %llu",closChannels_[closDieId].size());/////////////8
 
     // 3. 最后放 closChannels_[meshDieId]
     allChannels.insert(allChannels.end(), closChannels_[meshDieId].begin(), closChannels_[meshDieId].end());
-    HCCL_INFO("closChannels_[meshDieId].size() = %llu",closChannels_[meshDieId].size());
+    HCCL_INFO("closChannels_[meshDieId].size() = %llu",closChannels_[meshDieId].size());//////////15
 
     HCCL_INFO("allChannels.size() = %llu",allChannels.size());
     resourceRequest.channels.emplace_back(allChannels);
@@ -283,9 +283,12 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
         u32 remoteRank = rankToChannels.first;
         std::vector<HcclChannelDesc>& meshChannel_list = rankToChannels.second[0];//mesh
         std::vector<HcclChannelDesc>& closChannel_list = rankToChannels.second[1];//clos
+        //多机场景，遍历remoterank时，从机可能会先遍历clos，再遍历mesh，此时没有meshDieId，无法直接筛选，需先暂存，后筛选
+        std::map<uint32_t, std::vector<HcclChannelDesc>> closTempToSelect;
 
         using DieIdType = uint32_t;
         const uint32_t dieIdTypeSize = sizeof(DieIdType);
+        bool isSetMeshDieId = flase;
         //mesh链路
         if (!meshChannel_list.empty()){//该rank有mesh链路，取meshChannels_和meshDieId
             DieIdType dieId = 0;
@@ -295,9 +298,11 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
             meshChannels_[dieId].emplace_back(meshChannel_list.front());
             rankGroup_[dieId].push_back(meshChannel_list.front().remoteRank);
             meshDieId = dieId;
+            isSetMeshDieId = true; 
         }
-        HCCL_INFO("meshDieId = %llu", meshDieId);
+        HCCL_INFO("meshDieId = %llu ,isSetMeshDieId = %d", meshDieId, isSetMeshDieId);
         HCCL_INFO("meshChannels_[dieId].size() = %llu", meshChannels_[meshDieId].size());
+        HCCL_INFO("rankGroup_[dieId].size() = %llu", rankGroup_[meshDieId].size());
         //clos链路
         if (!closChannel_list.empty()) {
             for (const auto &channel : closChannel_list) {
@@ -305,28 +310,34 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
                 EndpointDesc localEndpoint = channel.localEndpoint;
                 HcclResult ret = HcclRankGraphGetEndpointInfo(comm, myRank_, &localEndpoint, ENDPOINT_ATTR_DIE_ID,
                     dieIdTypeSize, static_cast<void*>(&dieId));
-                if (dieId == meshDieId) {
-                    closChannels_[dieId].emplace_back(channel);//2port走mesh1d，需要所有channel
-                    HCCL_INFO("closChannels_[dieId].size() = %llu", closChannels_[dieId].size());
-                    HCCL_INFO("channel.remoteRank = %llu", channel.remoteRank);
-                    HCCL_INFO("rankGroup_[dieId].size() = %llu", rankGroup_[dieId].size());
-                } else if (meshChannel_list.empty()) {
-                    closChannels_[dieId].emplace_back(channel);//6port走mesh2die，只需要跨框channel
-                    rankGroup_[dieId].push_back(channel.remoteRank);
-                    HCCL_INFO("closChannels_[dieId].size() = %llu", closChannels_[dieId].size());
-                    HCCL_INFO("channel.remoteRank = %llu", channel.remoteRank);
-                    HCCL_INFO("rankGroup_[dieId].size() = %llu", rankGroup_[dieId].size());
+                if ((!isSetMeshDieId) || (isSetMeshDieId && dieId == meshDieId)) {
+                    closTempToSelect[dieId].emplace_back(channel);
                 }
             }
         }
-         HCCL_INFO("closChannel_list.size() = %llu", closChannel_list.size());
+        HCCL_INFO("dieId = %llu", dieId);
+        HCCL_INFO("closTempToSelect[0].size() = %llu", closTempToSelect[0].size());
+        HCCL_INFO("closTempToSelect[1].size() = %llu", closTempToSelect[1].size());
     }
-    HCCL_INFO("meshDieId = %llu", meshDieId);
 
+    for (auto& channels: closTempToSelect) {
+        u32 dieId = channels.first; 
+        std::vector<HcclChannelDesc>& channel_list = channels.second; 
+        HCCL_INFO("DIEID[%u], meshDieId[%u]", dieId, meshDieId); 
+        for (auto& channel: channel_list) {
+            closChannels_[dieId].emplace_back(channel);
+            if (dieId != meshDieId) {
+                rankGroup_[dieId].push_back(channel.remoteRank); 
+            }
+        }
+    }
     HCCL_INFO("closChannels_[0][%llu], closChannels_[1][%llu]", closChannels_[0].size(), closChannels_[1].size());
+    HCCL_INFO("rankGroup_[0].size() = %llu, rankGroup_[1].size() = %llu", rankGroup_[0].size(), rankGroup_[1].size());
+    HCCL_INFO("meshDieId = %llu", meshDieId);
 
     rankGroup_[0].push_back(myRank_);   // keep myRank_ at last, sync with kernel
     rankGroup_[1].push_back(myRank_);
+    HCCL_INFO("rankGroup_[0].size() = %llu, rankGroup_[1].size() = %llu", rankGroup_[0].size(), rankGroup_[1].size());
     
     return HcclResult::HCCL_SUCCESS;
 }
@@ -380,7 +391,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     uint64_t outputAddr1d = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff + sliceSizeMesh2die;
 
     // uint64_t inputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
-    uint64_t outputSliceStride = templateDataParams.outputSliceStride;
+    // uint64_t outputSliceStride = templateDataParams.outputSliceStride;
+    uint64_t outputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
     uint64_t inputSliceStride = outputSliceStride;
     uint64_t outBuffBaseOff =  buffInfo_.outBuffBaseOff;
     HCCL_INFO("[CcuTempAllToAllMesh1D2Die][KernelRun] begin. Rank[%d], input[%#llx/%#llx], output[%#llx/%#llx], "
