@@ -12,6 +12,7 @@
 #define CCU_LOG_H
 
 #include "log.h"
+#include "ccu_types.h"
 #if CANN_VERSION_NUM < 90000000
 #include "ccu_types.h"
 #endif /* CANN_VERSION_NUM < 90000000 */
