@@ -45,6 +45,8 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
     uint64_t sendCount = *sendCountPtr;
     uint64_t dataSize = sendCount * dataTypeSize * topoInfo->userRankSize;
     if (topoInfo->topoLevelNums > 1) {
+        selectAlgName = "CcuAllToAllMesh1D2Die";
+        return SelectorStatus::MATCH;
         if (topoInfo->level0Topo == Level0Shape::MESH_1D && topoInfo->userRankSize <= 64 && dataSize < A2A_CCU_64P_MAX_DATA_SIZE) {
             selectAlgName = "CcuAllToAllMesh1D2Die";
         } 
