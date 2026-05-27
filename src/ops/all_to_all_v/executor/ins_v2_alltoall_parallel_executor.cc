@@ -1003,25 +1003,23 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         }
         CHK_RET(syncRet1);
 
-        // v1.14 C-R2-3 fix: Fence all template threads to guarantee Stage 1 SDMA
-        // completion before ReorganizeScratches reads scratch memory.
-        // PostSyncInterThreads only synchronizes notify counters between the executor's
-        // main thread and template main threads; it does NOT fence the SDMA queues
-        // on template sub-threads. Without this fence, Stage 2 may read partially
-        // written scratch data, corrupting DMA descriptors and producing src:[0x0] dst:[0x0].
+        // v1.18 Fix: Replace HcommFenceOnThread with HcommThreadSynchronize
+        // HcommFenceOnThread → HcommFlushV2() may interact poorly with AICPU-managed threads
+        // HcommThreadSynchronize is a per-thread stream sync that catches hardware errors
+        // and ensures all DMA on the thread's stream is complete before ReorganizeScratches.
         for (auto &thread : intraThreads_) {
-            int32_t fenceRet = HcommFenceOnThread(thread);
-            if (fenceRet != 0) {
-                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 fence on intra thread[0x%016llx] failed: %d",
-                           static_cast<u64>(thread), fenceRet);
+            int32_t syncRet = HcommThreadSynchronize(thread);
+            if (syncRet != 0) {
+                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 intra thread[0x%016llx] sync failed: %d",
+                           static_cast<u64>(thread), syncRet);
                 return HcclResult::HCCL_E_INTERNAL;
             }
         }
         for (auto &thread : interThreads_) {
-            int32_t fenceRet = HcommFenceOnThread(thread);
-            if (fenceRet != 0) {
-                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 fence on inter thread[0x%016llx] failed: %d",
-                           static_cast<u64>(thread), fenceRet);
+            int32_t syncRet = HcommThreadSynchronize(thread);
+            if (syncRet != 0) {
+                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 inter thread[0x%016llx] sync failed: %d",
+                           static_cast<u64>(thread), syncRet);
                 return HcclResult::HCCL_E_INTERNAL;
             }
         }

@@ -125,6 +125,19 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
     }
     u32 lastPeerIndex = templateRankSize_ - 1;
 
+    for (u32 peer = 0; peer < subCommRanks_[0].size(); ++peer) {
+        u32 rankInSubcomm = subCommRanks_[0][peer];
+        if (rankInSubcomm == myRank_) {
+            continue;
+        }
+        if (channels.count(rankInSubcomm) == 0 || channels.at(rankInSubcomm).empty()) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] Peer %u has no channels. "
+                       "myRank=%d linkIdx=%u channels.size=%zu templateRank=%u",
+                       rankInSubcomm, myRank_, linkIdx, channels.size(), templateRankSize_);
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+    }
+
     for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
         u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
         u32 connectedAlgRank = 0;
@@ -146,6 +159,20 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
 
         u32 totalLinksToNeighbor = it->second.size();
         u32 selectedLinkIdx = (myAlgRank + connectedAlgRank) % threads.size();
+
+        if (selectedLinkIdx >= it->second.size()) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] selectedLinkIdx OOB: "
+                       "selectedLinkIdx=%u >= channels[%u].size()=%zu. myRank=%d connectedRank=%u",
+                       selectedLinkIdx, connectedRank, it->second.size(), myRank_, connectedRank);
+            continue;
+        }
+
+        if (!it->second[selectedLinkIdx].remoteCclMem.addr) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] remoteCclMem.addr is NULL at selectedLinkIdx: "
+                       "selectedLinkIdx=%u connectedRank=%u myRank=%d",
+                       selectedLinkIdx, connectedRank, myRank_);
+            continue;
+        }
 
         if (selectedLinkIdx != linkIdx) {
             continue;
