@@ -111,8 +111,9 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS) {
-        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
-        uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
+        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllVDataDes.sendType];
+        u64* sendCounts = reinterpret_cast<u64*>(opParam.all2AllVDataDes.sendCounts);
+        uint64_t dataSize = sendCounts[0] * dataTypeSize;
         if (dataSize * topoInfo->userRankSize > ENABLE_MULTI_CHANNEL_DATA_SIZE_LIMIT) {
             selectAlgName = "InsAlltoAllMesh1DMultiChannel";
         } else {
