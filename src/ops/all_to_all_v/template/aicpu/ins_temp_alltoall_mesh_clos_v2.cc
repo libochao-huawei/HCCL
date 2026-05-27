@@ -267,6 +267,11 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
             rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, actualChunkSize, chunkCount);
             rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, actualChunkSize, chunkCount);
 
+            void *writeDst = static_cast<uint8_t *>(txDstPtr) + txDstOffset;
+            void *writeSrc = static_cast<uint8_t *>(txSrcPtr) + txSrcOffset;
+            HCCL_ERROR("[ALLTOALL_V2_DIAG][MeshClos][RunAlltoAllOnLink] linkIdx=%u connectedRank=%u txDstPtr=%p txSrcPtr=%p txDstOff=%llu txSrcOff=%llu writeDst=%p writeSrc=%p",
+                       linkIdx, connectedRank, txDstPtr, txSrcPtr, txDstOffset, txSrcOffset, writeDst, writeSrc);
+
             HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] rank[%d]->peer[%d] linkIdx[%u] rpt[%u] "
                       "txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu "
                       "actualSz=%llu fromScratch=%d",

@@ -1132,6 +1132,24 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             return templateErr;
         }
         CHK_RET(syncRet2);
+
+        // v3.0 Fix: Synchronize all intra/inter threads after Stage 2
+        // to catch hardware faults immediately instead of waiting for
+        // HcommBatchModeEnd flush (which produces 30-minute timeout).
+        for (auto &thread : intraThreads_) {
+            int32_t syncRet = HcommThreadSynchronize(thread);
+            if (syncRet != 0) {
+                HCCL_ERROR("[OrchestrateLoop] Stage2 intra thread sync failed, ret=%d", syncRet);
+                return HcclResult::HCCL_E_INTERNAL;
+            }
+        }
+        for (auto &thread : interThreads_) {
+            int32_t syncRet = HcommThreadSynchronize(thread);
+            if (syncRet != 0) {
+                HCCL_ERROR("[OrchestrateLoop] Stage2 inter thread sync failed, ret=%d", syncRet);
+                return HcclResult::HCCL_E_INTERNAL;
+            }
+        }
     }
 
 #ifndef AICPU_COMPILE

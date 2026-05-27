@@ -310,6 +310,11 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
             rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, actualChunkSize, chunkCount);
             rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, actualChunkSize, chunkCount);
 
+            void *writeDst = static_cast<uint8_t *>(txDstPtr) + txDstOffset;
+            void *writeSrc = static_cast<uint8_t *>(txSrcPtr) + txSrcOffset;
+            HCCL_ERROR("[ALLTOALL_V2_DIAG][Mesh2D][RunAlltoAllMesh] connectedRank=%u writeDst=%p writeSrc=%p size=%llu",
+                       connectedRank, writeDst, writeSrc, actualChunkSize);
+
             HCCL_WARNING("[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMesh] rank[%d]->peer[%d] rpt[%u] "
                       "txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu "
                       "actualSz=%llu fromScratch=%d",
