@@ -7,7 +7,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
-
+set(ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/..")
 # =============================================================================
 # Function: pack_targets_and_files
 #
@@ -149,7 +149,7 @@ function(sign_file)
     cmake_parse_arguments(
         ARG
         ""
-        "INPUT;CONFIG;RESULT_VAR"
+        "OUTPUT_TARGET;CONFIG;RESULT_VAR"
         "DEPENDS"
         ${ARGN}
     )
