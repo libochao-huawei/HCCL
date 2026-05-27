@@ -405,6 +405,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         for (auto& ins : *queue) {
             AivOpArgs newArgs = ins.opArgs;
             newArgs.stream = param.stream;
+            newArgs.hcclComm = param.hcclComm;
+            newArgs.comm = param.commName;
 
             // Update addresses
             newArgs.input = (u64)param.inputPtr + ins.inputOffset;
