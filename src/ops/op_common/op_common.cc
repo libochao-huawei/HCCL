@@ -394,8 +394,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
             newArgs.stream = param.stream;
 
             // Update addresses
-            newArgs.input = static_cast<u64>param.inputPtr + ins.inputOffset;
-            newArgs.output = static_cast<u64>param.outputPtr + ins.outputOffset;
+            newArgs.input = static_cast<u64>(param.inputPtr) + ins.inputOffset;
+            newArgs.output = static_cast<u64>(param.outputPtr) + ins.outputOffset;
 
             CHK_RET(ExecuteKernelLaunch(newArgs));
         }
@@ -403,8 +403,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         // Miss
         if (useCache) {
             g_recordingQueue = std::make_shared<InsQueue>();
-            g_baseInputAddr = static_cast<u64>param.inputPtr;
-            g_baseOutputAddr = static_cast<u64>param.outputPtr;
+            g_baseInputAddr = static_cast<u64>(param.inputPtr);
+            g_baseOutputAddr = static_cast<u64>(param.outputPtr);
         }
 
         CHK_RET(executor->Orchestrate(param, resCtxHost));
@@ -1390,7 +1390,7 @@ HcclResult HcclAllocAlgResourceAivGraphMode(
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, const void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
+HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
 {
     CHK_PTR_NULL(memHandle);
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
