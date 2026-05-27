@@ -83,7 +83,7 @@ hccl代码仓提供了自定义算子编译打包工程，该工程依赖代码�
 git clone https://gitcode.com/cann/hccl.git
 
 # 编译自定义算子包
-bash build.sh --vendor=cust --ops=allgather_ccu --custom_ops_path=./examples/07_custom_ops_allgather_ccu
+bash build.sh --vendor=cust --ops=allgather_ccu --custom_ops_path=./examples/05_custom_ops_allgather/ccu
 ```
 
 > 其中：
@@ -114,7 +114,7 @@ bash build.sh --vendor=cust --ops=allgather_ccu --custom_ops_path=./examples/07_
 
 ### 1. 编译样例
 
-在 `examples/07_custom_ops_allgather_ccu/testcase` 代码目录下执行如下命令：
+在 `examples/05_custom_ops_allgather/ccu/testcase` 代码目录下执行如下命令：
 
 ```bash
 # 编译样例
