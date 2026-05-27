@@ -27,6 +27,7 @@
 #include "hccl_device_comm_dl.h"
 #include "exec_timeout_manager.h"
 #include "alg_data_trans_wrapper.h"
+#include "aipcu_task_cache_key.h"
 
 using namespace ops_hccl;
 namespace {
@@ -400,12 +401,40 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
         // 设置执行超时时间
         ExecTimeoutManager::Instance().SetExecTimeout(param->opConfig.execTimeout);
+
         // 设置BatchTransfer是否可行
         CHK_RET(InitHcommBatchTransferOnThreadSupported(resCtxPtr->isHcommBatchTransferOnThreadSupported));
-        // 执行算法编排
-        if (executor->Orchestrate(*param, *resCtxPtr) != HCCL_SUCCESS) {
-            HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
-            return 1;
+
+        // TODO: AR4 检查aicpu task cache使能约束
+        bool enableCache = false;
+        
+        std::string cacheTag = "";
+        bool isCacheMiss = true;
+        if (enableCache) { // 如果使能aicpu task cache
+            // 组装aicpu task cache tag
+            AicpuTaskCacheKey::GetAicpuTaskCacheTag(*param, cacheTag);
+
+            // 查询aicpu task cache
+            CHK_RET(static_cast<HcclResult>(HcommAicpuTsCacheLookup(cacheTag.c_str(), &isCacheMiss)));
+        }
+
+        if (!enableCache || isCacheMiss) { // 如果不使能aicpu task cache, 或者cache miss
+            // 执行算法编排
+            if (executor->Orchestrate(*param, *resCtxPtr) != HCCL_SUCCESS) {
+                HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
+                return 1;
+            }
+        }
+
+        if (enableCache) { // 如果使能aicpu task cache
+            // 准备地址信息 (当前rank的userIn和userOut)
+            constexpr uint32_t ADDRS_COUNT = 2;
+            void* addrs[ADDRS_COUNT] = {param->inputPtr, param->outputPtr};
+            uint64_t sizes[ADDRS_COUNT] = {param->inputSize, param->outputSize};
+
+            // 提交aicpu task cache
+            // cache miss会缓存地址信息; cache hit会刷新缓存的task并下发
+            CHK_RET(static_cast<HcclResult>(HcommAicpuTsTaskCacheSubmit(cacheTag.c_str(), addrs, sizes, ADDRS_COUNT)));
         }
 
         // 上报mainstream数据,最后一个任务
