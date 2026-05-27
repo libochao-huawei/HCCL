@@ -11,7 +11,7 @@
 #include "ins_v2_alltoall_parallel_executor.h"
 #include <cmath>
 #include <cstdlib>
-#include <string>
+#include <cstring>
 #include "hcomm_primitives.h"
 #include "alg_data_trans_wrapper.h"
 #include "ins_temp_alltoall_mesh_2d_v2.h"
@@ -932,18 +932,29 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     //   "clos"   = clos path only (Inter1 + Inter0)
     //   "none"   = skip all stages (baseline test)
     const char *stageEnv = getenv("HCCL_ALLTOALL_V2_STAGES");
-    std::string stageMode = stageEnv ? stageEnv : "all";
-    bool runS1 = (stageMode == "all" || stageMode == "s1" || stageMode == "mesh" || stageMode == "clos");
-    bool runS2 = (stageMode == "all" || stageMode == "s2" || stageMode == "mesh" || stageMode == "clos");
-    bool runMesh = (stageMode == "all" || stageMode == "s1" || stageMode == "mesh" || stageMode == "s2");
-    bool runClos = (stageMode == "all" || stageMode == "s1" || stageMode == "clos" || stageMode == "s2");
+    bool runS1 = (!stageEnv || strcmp(stageEnv, "all") == 0 ||
+                  strcmp(stageEnv, "s1") == 0 ||
+                  strcmp(stageEnv, "mesh") == 0 ||
+                  strcmp(stageEnv, "clos") == 0);
+    bool runS2 = (!stageEnv || strcmp(stageEnv, "all") == 0 ||
+                  strcmp(stageEnv, "s2") == 0 ||
+                  strcmp(stageEnv, "mesh") == 0 ||
+                  strcmp(stageEnv, "clos") == 0);
+    bool runMesh = (!stageEnv || strcmp(stageEnv, "all") == 0 ||
+                   strcmp(stageEnv, "s1") == 0 ||
+                   strcmp(stageEnv, "mesh") == 0 ||
+                   strcmp(stageEnv, "s2") == 0);
+    bool runClos = (!stageEnv || strcmp(stageEnv, "all") == 0 ||
+                   strcmp(stageEnv, "s1") == 0 ||
+                   strcmp(stageEnv, "clos") == 0 ||
+                   strcmp(stageEnv, "s2") == 0);
 
-    if (stageMode != "all") {
+    if (stageEnv && strcmp(stageEnv, "all") != 0) {
         HCCL_WARNING("[OrchestrateLoop] DEBUG MODE: stageMode=%s runS1=%d runS2=%d runMesh=%d runClos=%d",
-                     stageMode.c_str(), runS1, runS2, runMesh, runClos);
+                     stageEnv, (int)runS1, (int)runS2, (int)runMesh, (int)runClos);
     }
 
-    if (stageMode == "none") {
+    if (stageEnv && strcmp(stageEnv, "none") == 0) {
         HCCL_WARNING("[OrchestrateLoop] DEBUG: skipping ALL stages");
         return HCCL_SUCCESS;
     }
