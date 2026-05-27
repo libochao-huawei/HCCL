@@ -140,7 +140,7 @@ public:
           die0TailSize_(die0TailSize),
           die1TailSize_(die1TailSize)
     {
-        HCCL_DEBUG("[CcuTaskArgScatterNHRMem2Mem1D] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, token: %lu, "
+        HCCL_DEBUG("[CcuTaskArgScatterNHRMem2Mem1D] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
                    "sliceSize: %lu, die0Size: %lu, die1Size: %lu, inputSliceStride: %lu, outputSliceStride:%lu, "
                    "inputRepeatStride: %lu, outputRepeatStride: %lu, repeatNum: %lu, isOutputScratch: %lu, isInputOutputEqual: %lu"
                    "die0TailSize: %lu, die1TailSize: %lu",
