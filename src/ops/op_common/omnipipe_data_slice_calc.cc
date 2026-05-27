@@ -1412,11 +1412,11 @@ OmniPipeSliceInfo CalcRSOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
             xInCornerStep = 1;  // 步数为1的时候只走一步，否则走innerStepNum-1步
             yInCornerStep = innerStepNum - finStepMark;  // 步数为1的时候只走一步，否则走innerStepNum-2步
         }
-        scratchSizexyz = CalScratchSize(static_cast<u64 *>(xRSDataSize)[maxDataPieceId], static_cast<u64 *>(yRSDataSize)[maxDataPieceId],
+        scratchSizexyz = CalScratchSize(static_cast<u64 *>(xRSDataSize[maxDataPieceId]), static_cast<u64 *>(yRSDataSize[maxDataPieceId]),
                                         zRSDataSize[maxDataPieceId], levelRankSize, zConnerStep, outerStepNum,
                                         innerStepNum, maxStepNum, omniPipeSliceParam.levelAlgType,
                                         omniPipeSliceParam.engine);
-        xyzDataSizeStep = CalRSDataSizeStep(static_cast<u64 *>(xRSDataSize)[maxDataPieceId], static_cast<u64 *>(yRSDataSize)[maxDataPieceId],
+        xyzDataSizeStep = CalRSDataSizeStep(static_cast<u64 *>(xRSDataSize[maxDataPieceId]), static_cast<u64 *>(yRSDataSize[maxDataPieceId]),
                                             zRSDataSize[maxDataPieceId], levelRankSize, zConnerStep, outerStepNum,
                                             innerStepNum, maxStepNum);
     } else {
@@ -1440,11 +1440,11 @@ OmniPipeSliceInfo CalcRSOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
             xInCornerStep = 1;  // 步数为1的时候只走一步，否则走innerStepNum-1步
             yInCornerStep = innerStepNum - finStepMark;  // 步数为1的时候只走一步，否则走innerStepNum-2步
         }
-        scratchSizexyz = CalScratchSize(static_cast<u64 *>(xRSDataSize)[maxDataPieceId], static_cast<u64 *>(yRSDataSize)[maxDataPieceId],
+        scratchSizexyz = CalScratchSize(static_cast<u64 *>(xRSDataSize[maxDataPieceId]), static_cast<u64 *>(yRSDataSize[maxDataPieceId]),
                                         zRSDataSize[maxDataPieceId], levelRankSize, zConnerStep, outerStepNum,
                                         innerStepNum, maxStepNum, omniPipeSliceParam.levelAlgType,
                                         omniPipeSliceParam.engine);
-        xyzDataSizeStep = CalRSDataSizeStep(static_cast<u64 *>(xRSDataSize)[maxDataPieceId], static_cast<u64 *>(yRSDataSize)[maxDataPieceId],
+        xyzDataSizeStep = CalRSDataSizeStep(static_cast<u64 *>(xRSDataSize[maxDataPieceId]), static_cast<u64 *>(yRSDataSize[maxDataPieceId]),
                                             zRSDataSize[maxDataPieceId], levelRankSize, zConnerStep, outerStepNum,
                                             innerStepNum, maxStepNum);
     }
