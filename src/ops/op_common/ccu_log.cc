@@ -9,6 +9,7 @@
  */
 
 #include "ccu_log.h"
+#include "ccu_types.h"
 
 HcclResult ConvertCcuToHccl(CcuResult ccuResult) {
     switch (ccuResult) {
