@@ -15,7 +15,10 @@
 
 DEFINE_WEAK_FUNC(HcclResult, HcclCommQueryCcuIns, HcclComm comm, CcuInsHandle *insHandles, uint32_t *insNum);
 
-// 初始化
 void HcclCcuDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcclCommQueryCcuIns);
+}
+
+void HcclCcuResDlInit(void* libHcommHandle) {
+    HcclCcuDlInit(libHcommHandle);
 }

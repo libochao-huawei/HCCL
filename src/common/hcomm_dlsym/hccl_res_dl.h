@@ -19,9 +19,9 @@
 #endif
 
 /* 8.5.0 桩: hccl_res.h / hcomm_res_defs.h / hccl_res_expt.h 中 9.0.0 新增类型 */
+typedef int32_t (Callback)(uint64_t, int32_t);
 #if CANN_VERSION_NUM < 90000000
 typedef void *HcclMemHandle;
-typedef int32_t (Callback)(uint64_t, int32_t);
 
 typedef enum {
     COMM_MEM_TYPE_INVALID = -1,

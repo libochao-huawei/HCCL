@@ -9,8 +9,7 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
+#include "ccu_launch.h"
 #include "ccu_kernel_broadcast_mesh1d_mem2mem.h"
 #include "ccu/ccu_temp_broadcast_mesh_1D_mem2mem.h"
 
@@ -53,9 +52,8 @@ HcclResult CcuTempBroadcastMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
 
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelBroadcastMesh1DMem2Mem>(arg);
-                         };
+    strcpy(kernelInfo.kernelFuncName, "CcuBroadcastMesh1DMem2MemKernel");
+    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuBroadcastMesh1DMem2MemKernel);
     std::vector<HcclChannelDesc> channelDescs;
     if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         std::vector<HcclChannelDesc> myChannelDescs;
@@ -69,11 +67,13 @@ HcclResult CcuTempBroadcastMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
     } else {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
     }
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgBroadcastMesh1DMem2Mem>(subCommRanks_[0].size(),
-                                                                                    mySubCommRank_,
-                                                                                    subCommRootId_ ,
-                                                                                    param,
-                                                                                    subCommRanks_);
+    auto kernelArg = std::make_shared<CcuKernelArgBroadcastMesh1DMem2Mem>();
+    kernelArg->rankSize = subCommRanks_[0].size();
+    kernelArg->rankId = mySubCommRank_;
+    kernelArg->rootId = subCommRootId_;
+    kernelArg->opParam = param;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelInfo.setKernelArg(kernelArg);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -87,22 +87,21 @@ HcclResult CcuTempBroadcastMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
 
 HcclResult CcuTempBroadcastMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
-    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
-        HCCL_INFO("[CcuTempBroadcastMesh1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
-        return HCCL_SUCCESS;
-    }
     HCCL_INFO("[CcuTempBroadcastMesh1DMem2Mem::FastLaunch] start");
-    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    CcuTaskArgBroadcastMesh1DMem2Mem taskArg(
-        PointerToAddr(buffInfo_.inputPtr) + args[0],
-        PointerToAddr(buffInfo_.outputPtr) + args[1],
-        args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
-
-    void* taskArgPtr = static_cast<void*>(&taskArg);
-
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+    constexpr u32 inputIdx = 0;
+    constexpr u32 outputIdx = 1;
+    args[inputIdx] = PointerToAddr(buffInfo_.inputPtr) + args[inputIdx];
+    args[outputIdx] = PointerToAddr(buffInfo_.outputPtr) + args[outputIdx];
+    void *taskArgs = reinterpret_cast<void*>(args);
+    uint64_t argSize = 11;
+    CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgs, argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempBroadcastMesh1DMem2Mem::FastLaunch] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
 
     HCCL_INFO("[CcuTempBroadcastMesh1DMem2Mem::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
@@ -127,19 +126,33 @@ HcclResult CcuTempBroadcastMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t normalSliceSize = curSliceSize / templateRankSize_;
     uint64_t lastSliceSize   = curSliceSize % templateRankSize_ + normalSliceSize;
     uint64_t repeatNumVar       = UINT64_MAX - repeatNum;
+    uint64_t currentRankSliceInputOffset  = inputSliceStride * mySubCommRank_;
+    uint64_t currentRankSliceOutputOffset = outputSliceStride * mySubCommRank_;
+    uint64_t allgatherOffset              = normalSliceSize * mySubCommRank_;
 
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgBroadcastMesh1DMem2Mem>(
-        inputAddr, outputAddr, token, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
-        normalSliceSize, lastSliceSize, repeatNumVar);
-
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
-
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, currentRankSliceInputOffset, currentRankSliceOutputOffset,
+        inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, allgatherOffset, repeatNumVar};
+    uint64_t argSize = 11;
+    CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0],
+        taskArgs.data(), argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempBroadcastMesh1DMem2Mem::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
 
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride,
-        outputSliceStride, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, repeatNumVar));
+    submitInfo.cachedArgs[0]=buffInfo_.inBuffBaseOff;
+    submitInfo.cachedArgs[1]=buffInfo_.outBuffBaseOff;
+    submitInfo.cachedArgs[2]=token;
+    submitInfo.cachedArgs[3]=currentRankSliceInputOffset;
+    submitInfo.cachedArgs[4]=currentRankSliceOutputOffset;
+    submitInfo.cachedArgs[5]=inputRepeatStride;
+    submitInfo.cachedArgs[6]=outputRepeatStride;
+    submitInfo.cachedArgs[7]=normalSliceSize;
+    submitInfo.cachedArgs[8]=lastSliceSize;
+    submitInfo.cachedArgs[9]=allgatherOffset;
+    submitInfo.cachedArgs[10]=repeatNumVar;
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempBroadcastMesh1DMem2Mem::KernelRun] end");

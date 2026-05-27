@@ -12,6 +12,7 @@
 #define HCCL_CCU_TEMP_BROADCAST_NHR_1D_MEM2MEM_H
 
 #include "ccu_alg_template_base.h"
+#include "ccu_kernel_alg_base.h"
 #include "ccu_kernel_broadcast_nhr1d_mem2mem.h"
 #include "utils.h"
 

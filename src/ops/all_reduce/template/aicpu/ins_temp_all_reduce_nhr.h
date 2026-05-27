@@ -17,7 +17,9 @@
 
 namespace ops_hccl {
 
-struct NHRStepInfo {
+#ifndef NHR_STEP_INFO_DEFINED
+#define NHR_STEP_INFO_DEFINED
+using NHRStepInfo = struct NHRStepInfoDef {
     u32 step = 0;
     u32 myRank = 0;
     u32 nSlices;
@@ -26,8 +28,9 @@ struct NHRStepInfo {
     std::vector<u32> txSliceIdxs;
     std::vector<u32> rxSliceIdxs;
 
-    NHRStepInfo() : nSlices(0) {}
+    NHRStepInfoDef() : nSlices(0) {}
 };
+#endif
 
 struct NHRSliceInfo {
     u64 offset{0};
