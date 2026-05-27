@@ -698,7 +698,7 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
 }
 
 HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
-    AlgResourceCtxSerializable &resCtxHost) const
+    AlgResourceCtxSerializable &resCtxHost)
 {
     (void) topoInfo;
     HCCL_INFO("[%s] algTag[%s] commModeTag[%s] resCtx(Host)[%p] aivCommInfoPtr(Device)[%p]", __func__,
@@ -1381,7 +1381,7 @@ HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest 
 }
 
 HcclResult HcclAllocAlgResourceAivGraphMode(
-    HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost) const
+    HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost)
 {
     (void) comm;
     (void) param;
@@ -1390,7 +1390,7 @@ HcclResult HcclAllocAlgResourceAivGraphMode(
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, const void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle) const
+HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, const void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
 {
     CHK_PTR_NULL(memHandle);
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
@@ -1899,7 +1899,7 @@ bool HcclCheckAicpuEnableOpen()
     return true;
 }
 
-HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle) const
+HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
 {
     CHK_PTR_NULL(memHandle);
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
