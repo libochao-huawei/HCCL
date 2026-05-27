@@ -415,12 +415,7 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
             g_baseOutputAddr = (u64)param.outputPtr;
         }
 
-        g_aivCurrentComm = param.hcclComm;
-        g_aivCurrentCommName = param.commName;
-        HcclResult orchestrateRet = executor->Orchestrate(param, resCtxHost);
-        g_aivCurrentComm = nullptr;
-        g_aivCurrentCommName.clear();
-        CHK_RET(orchestrateRet);
+        CHK_RET(executor->Orchestrate(param, resCtxHost));
 
         if (useCache && g_recordingQueue) {
             g_hcclCacheMap[cacheKey] = g_recordingQueue;
@@ -1747,7 +1742,7 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
     param.commOpExpansionMode = finalMode;
 
     // 第二步：应用选择的模式到param
-    ret = ApplyOpExpansionMode(comm, param, finalMode);
+    ret = ApplyOpExpansionMode(param, finalMode);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
         return ret;
@@ -1809,7 +1804,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
 #endif
 }
 
-HcclResult ApplyOpExpansionMode(HcclComm comm, OpParam &param, HcclOpExpansionMode finalMode)
+HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
 {
 #if CANN_VERSION_NUM >= 90000000
     switch (finalMode) {
@@ -1851,7 +1846,7 @@ HcclResult ApplyOpExpansionMode(HcclComm comm, OpParam &param, HcclOpExpansionMo
     }
     return HcclResult::HCCL_SUCCESS;
 #else
-    (void)comm; (void)param; (void)finalMode;
+    (void)param; (void)finalMode;
     return HCCL_E_NOT_SUPPORT;
 #endif
 }
