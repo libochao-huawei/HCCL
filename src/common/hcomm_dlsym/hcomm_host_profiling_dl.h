@@ -13,6 +13,7 @@
 
 #include "dlsym_common.h"
 #include "hccl_res_dl.h"
+#include "acl/acl_rt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +49,9 @@ DECL_WEAK_FUNC(HcclResult, HcclDfxRegOpInfoByCommId, char* commId, void* hcclDfx
 DECL_WEAK_FUNC(HcclResult, HcclProfilingReportOp, HcclComm comm, uint64_t beginTime);
 DECL_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginTime, char *kernelName);
 DECL_WEAK_FUNC(HcclResult, HcclReportAivKernel, HcclComm comm, uint64_t beginTime);
+typedef void (*HcclTaskExceptionCallback)(aclrtExceptionInfo *exceptionInfo);
+DECL_WEAK_FUNC(HcclResult, HcclTaskExceptionRegCallBack, HcclComm comm, HcclTaskExceptionCallback callback);
+DECL_WEAK_FUNC(HcclResult, HcomGetCommHandleByGroup, const char *group, HcclComm *commHandle);
 DECL_SUPPORT_FLAG(HcommProfilingRegThread);
 DECL_SUPPORT_FLAG(HcommProfilingUnRegThread);
 DECL_SUPPORT_FLAG(HcommProfilingReportKernel);
@@ -57,6 +61,8 @@ DECL_SUPPORT_FLAG(HcclDfxRegOpInfoByCommId);
 DECL_SUPPORT_FLAG(HcclProfilingReportOp);
 DECL_SUPPORT_FLAG(HcclReportAicpuKernel);
 DECL_SUPPORT_FLAG(HcclReportAivKernel);
+DECL_SUPPORT_FLAG(HcclTaskExceptionRegCallBack);
+DECL_SUPPORT_FLAG(HcomGetCommHandleByGroup);
 
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);

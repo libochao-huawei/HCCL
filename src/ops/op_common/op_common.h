@@ -157,7 +157,7 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
 
 HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMod);
 
-HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode);
+HcclResult ApplyOpExpansionMode(HcclComm comm, OpParam &param, HcclOpExpansionMode finalMode);
 
 HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std::vector<ThreadHandle>& threads);
 

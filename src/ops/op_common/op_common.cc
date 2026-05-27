@@ -405,6 +405,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         for (auto& ins : *queue) {
             AivOpArgs newArgs = ins.opArgs;
             newArgs.stream = param.stream;
+            newArgs.hcclComm = param.hcclComm;
+            newArgs.comm = param.commName;
 
             // Update addresses
             newArgs.input = (u64)param.inputPtr + ins.inputOffset;
@@ -420,7 +422,12 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
             g_baseOutputAddr = (u64)param.outputPtr;
         }
 
-        CHK_RET(executor->Orchestrate(param, resCtxHost));
+        g_aivCurrentComm = param.hcclComm;
+        g_aivCurrentCommName = param.commName;
+        HcclResult orchestrateRet = executor->Orchestrate(param, resCtxHost);
+        g_aivCurrentComm = nullptr;
+        g_aivCurrentCommName.clear();
+        CHK_RET(orchestrateRet);
 
         if (useCache && g_recordingQueue) {
             g_hcclCacheMap[cacheKey] = g_recordingQueue;
@@ -1937,7 +1944,7 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
     param.commOpExpansionMode = finalMode;
 
     // 第二步：应用选择的模式到param
-    ret = ApplyOpExpansionMode(param, finalMode);
+    ret = ApplyOpExpansionMode(comm, param, finalMode);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
         return ret;
@@ -1999,7 +2006,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
 #endif
 }
 
-HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
+HcclResult ApplyOpExpansionMode(HcclComm comm, OpParam &param, HcclOpExpansionMode finalMode)
 {
 #if CANN_VERSION_NUM >= 90000000
     switch (finalMode) {
@@ -2012,13 +2019,13 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV:
             param.opExecuteConfig = OpExecuteConfig::AIV;
             param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel());
+            CHK_RET(RegisterKernel(comm));
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
             param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
             param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel());
+            CHK_RET(RegisterKernel(comm));
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
             break;
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
@@ -2041,7 +2048,7 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
     }
     return HcclResult::HCCL_SUCCESS;
 #else
-    (void)param; (void)finalMode;
+    (void)comm; (void)param; (void)finalMode;
     return HCCL_E_NOT_SUPPORT;
 #endif
 }
