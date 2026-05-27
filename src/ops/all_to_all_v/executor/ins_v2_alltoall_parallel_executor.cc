@@ -453,7 +453,9 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter0.tailSize = tempAlgParamsInter0.sliceSize;
 
     tempAlgParamsInter0.inputSliceStride = dataSize_ * rankSizeLevel0_;
-    tempAlgParamsInter0.outputSliceStride = dataSize_;
+    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 perPeerOutputChunkSize = (param.outputSize + totalRankCount - 1) / totalRankCount;
+    tempAlgParamsInter0.outputSliceStride = perPeerOutputChunkSize;
     tempAlgParamsInter0.repeatNum = 1;
     tempAlgParamsInter0.inputRepeatStride = 0;
     tempAlgParamsInter0.outputRepeatStride = 0;
@@ -487,7 +489,9 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra1.tailSize = tempAlgParamsIntra1.sliceSize;
 
     tempAlgParamsIntra1.inputSliceStride = dataSize_;
-    tempAlgParamsIntra1.outputSliceStride = dataSize_;
+    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 perPeerOutputChunkSize = (param.outputSize + totalRankCount - 1) / totalRankCount;
+    tempAlgParamsIntra1.outputSliceStride = perPeerOutputChunkSize;
     tempAlgParamsIntra1.repeatNum = 1;
     tempAlgParamsIntra1.inputRepeatStride = 0;
     tempAlgParamsIntra1.outputRepeatStride = 0;
