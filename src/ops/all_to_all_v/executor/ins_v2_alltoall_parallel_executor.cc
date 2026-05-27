@@ -923,41 +923,19 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
     u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
 
-    // v3.0 DIAG: Stage skip switch for binary search debugging
-    // Set HCCL_ALLTOALL_V2_STAGES to control which stages run:
-    //   "all"    = all stages (default)
-    //   "s1"     = Stage1 only (Intra0 + Inter1)
-    //   "s2"     = Stage2 only (Intra1 + Inter0)
-    //   "mesh"   = mesh path only (Intra0 + Intra1)
-    //   "clos"   = clos path only (Inter1 + Inter0)
-    //   "none"   = skip all stages (baseline test)
-    const char *stageEnv = getenv("HCCL_ALLTOALL_V2_STAGES");
-    bool runS1 = (!stageEnv || strcmp(stageEnv, "all") == 0 ||
-                  strcmp(stageEnv, "s1") == 0 ||
-                  strcmp(stageEnv, "mesh") == 0 ||
-                  strcmp(stageEnv, "clos") == 0);
-    bool runS2 = (!stageEnv || strcmp(stageEnv, "all") == 0 ||
-                  strcmp(stageEnv, "s2") == 0 ||
-                  strcmp(stageEnv, "mesh") == 0 ||
-                  strcmp(stageEnv, "clos") == 0);
-    bool runMesh = (!stageEnv || strcmp(stageEnv, "all") == 0 ||
-                   strcmp(stageEnv, "s1") == 0 ||
-                   strcmp(stageEnv, "mesh") == 0 ||
-                   strcmp(stageEnv, "s2") == 0);
-    bool runClos = (!stageEnv || strcmp(stageEnv, "all") == 0 ||
-                   strcmp(stageEnv, "s1") == 0 ||
-                   strcmp(stageEnv, "clos") == 0 ||
-                   strcmp(stageEnv, "s2") == 0);
+    // v3.0 DIAG: Hardcoded stage skip for binary search debugging
+    // MANUAL: change =false/=true to control which stages run
+    // Step 1: all=false → verify baseline (no crash)
+    // Step 2: enables1=true → test Stage1 only
+    // Step 3: enables2=true → test Stage2 only
+    // etc.
+    bool enables1 = false;
+    bool enables2 = false;
+    bool runMesh = false;
+    bool runClos = false;
 
-    if (stageEnv && strcmp(stageEnv, "all") != 0) {
-        HCCL_WARNING("[OrchestrateLoop] DEBUG MODE: stageMode=%s runS1=%d runS2=%d runMesh=%d runClos=%d",
-                     stageEnv, (int)runS1, (int)runS2, (int)runMesh, (int)runClos);
-    }
-
-    if (stageEnv && strcmp(stageEnv, "none") == 0) {
-        HCCL_WARNING("[OrchestrateLoop] DEBUG: skipping ALL stages");
-        return HCCL_SUCCESS;
-    }
+    // Skip ALL: return immediately to test baseline
+    return HCCL_SUCCESS;
 
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAxis0 : dataCountPerLoopAxis0;
@@ -1010,7 +988,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             tempAlgParamsIntra0.buffInfo.inBuffBaseOff, tempAlgParamsIntra0.buffInfo.outBuffBaseOff,
             tempAlgParamsIntra0.sliceSize, rankSizeLevel0_, rankSizeLevel1_);
         HcclResult intra0Ret = HCCL_SUCCESS;
-        if (runS1 && runMesh && currCountPart0 > 0 && tempAlgParamsIntra0.sliceSize > 0) {
+        if (enables1 && runMesh && currCountPart0 > 0 && tempAlgParamsIntra0.sliceSize > 0) {
             intra0Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes);
         } else {
             HCCL_INFO("[OrchestrateLoop] Stage1-Intra0 skipped: currPart0=%llu sliceSize=%llu",
@@ -1019,7 +997,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         HCCL_INFO("[OrchestrateLoop] Stage1-Intra0: ret=0x%x", intra0Ret);
 
         HcclResult inter1Ret = HCCL_SUCCESS;
-        if (runS1 && runClos && hasInterComm && currCountPart1 > 0) {
+        if (enables1 && runClos && hasInterComm && currCountPart1 > 0) {
             GenTemplateAlgParamsInter1(param, resCtx, dataOffset1, currCountPart1, interScratchOffset,
                                        tempAlgParamsInter1);
             HCCL_INFO("[OrchestrateLoop] Stage1-Inter1: sliceSize=%llu count=%llu dataOffset=%llu scratchOff=%llu hasInterComm=%d",
@@ -1141,13 +1119,13 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                   tempAlgParamsIntra1.sliceSize, tempAlgParamsIntra1.count,
                   tempAlgParamsIntra1.buffInfo.inBuffBaseOff);
         HcclResult intra1Ret = HCCL_SUCCESS;
-        if (runS2 && runMesh) {
+        if (enables2 && runMesh) {
             intra1Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes);
         }
         HCCL_INFO("[OrchestrateLoop] Stage2-Intra1: ret=0x%x", intra1Ret);
 
         HcclResult inter0Ret = HCCL_SUCCESS;
-        if (runS2 && runClos && hasInterComm && currCountPart0 > 0) {
+        if (enables2 && runClos && hasInterComm && currCountPart0 > 0) {
             GenTemplateAlgParamsInter0(param, resCtx, dataOffset0, currCountPart0, interScratchOffset,
                                        tempAlgParamsInter0);
             HCCL_INFO("[OrchestrateLoop] Stage2-Inter0: sliceSize=%llu count=%llu scratchOff=%llu hasInterComm=%d",
