@@ -44,7 +44,7 @@ namespace ops_hccl {
  */
 static HcclResult ReorganizeScratches(
     ThreadHandle thread,
-    void *intraBuf, void *interBuf,
+    void *intraBuf, void *interBuf, void *cclBufEnd,
     u32 xSize, u32 ySize,
     u64 intraSliceSize, u64 interSliceSize,
     u64 perPeerMesh, u64 perPeerClos)
@@ -70,17 +70,18 @@ static HcclResult ReorganizeScratches(
         return HCCL_E_INTERNAL;
     }
 
-    // Dual-save: need 2× the max cell for temp1+temp2
+    // Dual-save: need 2× maxCell for temp1+temp2 in device-accessible memory.
+    // Use tail of cclMem (past inter scratch, guaranteed within cclBufEnd).
     u64 maxCellSize = std::max(intraCellSize, interCellSize);
     if (maxCellSize == 0) return HCCL_SUCCESS;
-    std::vector<uint8_t> tempBuf(2 * maxCellSize);
-    uint8_t *temp = tempBuf.data();
+    u64 tempSize = 2 * maxCellSize;
+    uint8_t *temp = static_cast<uint8_t*>(cclBufEnd) - tempSize;
     uint8_t *temp1 = temp;
     uint8_t *temp2 = temp + maxCellSize;
     HCCL_WARNING("[ALLTOALL_V2_DEBUG][ReorganizeScratches] xSize=%u ySize=%u intraSlice=%llu interSlice=%llu "
-                 "perPeerMesh=%llu perPeerClos=%llu intraCell=%llu interCell=%llu maxCell=%llu temp=%zu",
+                 "perPeerMesh=%llu perPeerClos=%llu intraCell=%llu interCell=%llu maxCell=%llu temp=%p",
                  xSize, ySize, intraSliceSize, interSliceSize,
-                 perPeerMesh, perPeerClos, intraCellSize, interCellSize, maxCellSize, tempBuf.size());
+                 perPeerMesh, perPeerClos, intraCellSize, interCellSize, maxCellSize, (void*)temp);
 
     for (u32 sx = 0; sx < xSize; sx++) {
         // Intra block info for source row sx
@@ -1098,6 +1099,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             if (needIntraToInter || needInterToIntra) {
                 uint8_t *intraBuf = static_cast<uint8_t*>(resCtx.cclMem.addr) + intraScratchOffset;
                 uint8_t *interBuf = static_cast<uint8_t*>(resCtx.cclMem.addr) + interScratchOffset;
+                uint8_t *cclBufEnd = static_cast<uint8_t*>(resCtx.cclMem.addr) + resCtx.cclMem.size;
 
                 HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] ReorganizeScratches: "
                           "meshSliceSize=%llu closSliceSize=%llu perPeerMesh=%llu perPeerClos=%llu "
@@ -1109,7 +1111,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                           reinterpret_cast<uint64_t>(interBuf),
                           needIntraToInter, needInterToIntra);
                 HcclResult reorgRet = ReorganizeScratches(mainThread_,
-                    intraBuf, interBuf, rankSizeLevel0_, rankSizeLevel1_,
+                    intraBuf, interBuf, cclBufEnd,
+                    rankSizeLevel0_, rankSizeLevel1_,
                     meshSliceSize, closSliceSize, perPeerMesh, perPeerClos);
                 CHK_RET(reorgRet);
                 HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Reorganization complete.");
