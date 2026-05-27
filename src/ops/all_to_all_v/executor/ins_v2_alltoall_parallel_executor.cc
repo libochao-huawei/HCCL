@@ -933,7 +933,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     bool enables2 = false;
     bool runMesh = true;
     bool runClos = true;
-    // enables 1 + runMesh + runClos 
+    // enables 1 + runMesh + runClos false
     // enables 2 + runMesh + runClos 
     // enables 1 + enables 2 + runMesh + runClos 
 
@@ -1061,7 +1061,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                 return HcclResult::HCCL_E_INTERNAL;
             }
         }
-
+        
+        return HCCL_SUCCESS;
 #ifndef AICPU_COMPILE
         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
             ccuKernelLaunchNumIntra0_ = intraTempAlgRes.submitInfos.size();
