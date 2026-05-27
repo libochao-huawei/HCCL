@@ -98,7 +98,7 @@ private:
     std::array<std::array<std::shared_ptr<CommonAlgTemplateBase>, dataSplitPart_>, stageSize_> algTemplatePtrArr_{{}};
 
     OpParam param_;
-    AlgResourceCtxSerializable resCtx_{0};
+    AlgResourceCtxSerializable resCtx_;
     std::array<TemplateResource, 4> tempAlgResArr_{};
     std::array<u64, dataSplitPart_> dataOffsetPerLoop_{0, 0};
     std::array<u64, dataSplitPart_> dataCountPerLoop_{0, 0};
