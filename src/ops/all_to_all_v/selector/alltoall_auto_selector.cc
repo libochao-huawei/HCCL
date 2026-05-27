@@ -52,6 +52,8 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
         } 
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            selectAlgName = "CcuAlltoAllMesh1D";
+            return SelectorStatus::MATCH;
             if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
                 selectAlgName = "CcuAllToAllMesh2Die";
             } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
