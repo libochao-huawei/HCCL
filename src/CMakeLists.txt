@@ -24,6 +24,7 @@ set(INCLUDE_LIST
     ${OPS_BASE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym
+    ${CMAKE_CURRENT_SOURCE_DIR}/op_graph
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common
@@ -673,3 +674,119 @@ if(DEVICE_MODE AND KERNEL_MODE)
         COMMENT "Copying libscatter_aicpu_kernel.so to ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so"
     )
 endif()
+
+set(_op_proto_link_libs
+    -Wl,--no-as-needed
+    exe_graph
+    graph
+    graph_base
+    register
+    alog
+    error_manager
+    platform
+    static_turbojpeg
+    ops_utils_proto
+    op_common
+    -Wl,--as-needed
+    c_sec
+    json
+    ascend_protobuf
+)
+
+set(OP_PROTO_INCLUDE
+    ${ASCEND_DIR}/include # for BUILD_OPEN_PROJECT
+    ${OPS_INCLUDE}
+    ${C_SEC_INCLUDE}
+    ${RUNTIME_INCLUDE}
+    ${MSPROF_INCLUDE}
+    ${FWKACLLIB_INCLUDE}
+    ${OPS_DIR}
+    ${OPS_DIR}/built-in/op_proto/util
+    ${OPS_DIR}/built-in/op_proto/inc
+    ${OPS_DIR}/built-in/op_proto/runtime
+    ${OPS_DIR}/matmul/common/op_host/
+    ${METADEF_DIR}
+    ${METADEF_DIR}/pkg_inc
+    ${METADEF_DIR}/third_party/transformer/inc
+    ${CANN_INSTALL_INCLUDE}
+    ${CANN_INSTALL_INCLUDE}/graph
+    ${CANN_INSTALL_INCLUDE}/exe_graph
+    ${METADEF_INCLUDE}
+    ${METADEF_INCLUDE}/external
+    ${METADEF_INCLUDE}/external/ge
+    ${METADEF_INCLUDE}/external/exe_graph
+    ${METADEF_INCLUDE}/external/graph
+    ${METADEF_INCLUDE}/exe_graph
+    ${TOP_DIR}/runtime/pkg_inc
+    ${GRAPHENGINE_INCLUDE}
+    ${GRAPHENGINE_INCLUDE}/external
+    ${CMAKE_BINARY_DIR}/proto/opp
+    ${CMAKE_BINARY_DIR}/proto/op_proto
+    ${Protobuf_INCLUDE}
+    ${OPS_DIR}/common/op_common
+    ${TOP_DIR}/runtime/include/external
+    ${TOP_DIR}/runtime/include/dfx
+    ${AIR_DIR}
+    ${AIR_INCLUDE}
+    ${AIR_INCLUDE}/external
+    ${AIR_INCLUDE}/external/ge
+    ${AIR_INCLUDE}/external/exe_graph
+    ${AIR_INCLUDE}/external/graph
+    ${AIR_INCLUDE}/exe_graph
+)
+
+add_library(opgraph_hccl SHARED)
+
+target_include_directories(opgraph_hccl PRIVATE
+    ${OP_PROTO_INCLUDE}
+    ${INCLUDE_LIST}
+)
+if(NOT ${CMAKE_BUILD_MODE} STREQUAL "FALSE")
+    set(compile_opt_mode ${CMAKE_BUILD_MODE})
+else()
+    set(compile_opt_mode -O2)
+endif()
+target_compile_options(opgraph_hccl PRIVATE
+    ${compile_opt_mode}
+    -Dgoogle=ascend_private
+    -fno-common
+)
+target_link_libraries(opgraph_hccl PRIVATE
+    $<BUILD_INTERFACE:intf_pub>
+    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
+    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
+    ${_op_proto_link_libs}
+    -Wl,--whole-archive
+    rt2_registry_static
+    -Wl,--no-whole-archive
+    -Wl,-Bsymbolic
+)
+
+target_link_directories(opgraph_hccl PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64
+)
+
+if(STATIC_MODE)
+    install(TARGETS opgraph_hccl
+        ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT opgraph_hccl
+    )
+else()
+    install(TARGETS opgraph_hccl
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT opgraph_hccl
+    )
+endif()
+
+#生成ES API
+list(APPEND CMAKE_MODULE_PATH "${ASCEND_HOME_PATH}/include/ge/cmake")
+
+find_package(GenerateEsPackage REQUIRED)
+
+add_es_library(
+    ES_LINKABLE_AND_ALL_TARGET es_math
+    OPP_PROTO_TARGET opgraph_hccl
+    OUTPUT_PATH ${CMAKE_BINARY_DIR}/es_output
+)
