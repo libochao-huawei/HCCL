@@ -145,7 +145,7 @@ message(STATUS "config.cmake KERNEL_MODE=${KERNEL_MODE} BUILD_OPEN_PROJECT=${BUI
 # 有可能会影响build_custom 和 build_static
 # 目前评判 默认为host侧 device侧需要构建会在子项目里自行更新参数
 set(PRODUCT_SIDE host)
-endif()
+
 #Device 构建安装目录
 set(HCCL_DEVICE_BUILD_PATH ${CMAKE_BIN})
 
