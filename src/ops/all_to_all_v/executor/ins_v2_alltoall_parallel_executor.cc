@@ -352,7 +352,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra0.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsIntra0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsIntra0.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsIntra0.buffInfo.outputSize = param.outputSize;
+    tempAlgParamsIntra0.buffInfo.outputSize = resCtx.cclMem.size;
 
     tempAlgParamsIntra0.buffInfo.inBuffBaseOff = dataOffset;
     tempAlgParamsIntra0.buffInfo.outBuffBaseOff = scratchOffset;
@@ -392,7 +392,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter1.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsInter1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsInter1.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsInter1.buffInfo.outputSize = param.outputSize;
+    tempAlgParamsInter1.buffInfo.outputSize = resCtx.cclMem.size;
 
     tempAlgParamsInter1.buffInfo.inBuffBaseOff = dataOffset;
     tempAlgParamsInter1.buffInfo.outBuffBaseOff = scratchOffset;

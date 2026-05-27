@@ -189,25 +189,6 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
                 ? tempAlgParams_.inputSliceStride : tempAlgParams_.outputSliceStride;
             u64 txSrcInputOffset = tempAlgParams_.buffInfo.inBuffBaseOff +
                                    actualInputStride * connectedAlgRank;
-            if (actualInputStride == tempAlgParams_.outputSliceStride && !readingFromScratch) {
-                HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] inputSliceStride=0 fallback: "
-                    "using outputSliceStride=%llu as input stride. connectedAlgRank=%u txSrcInputOffset=%llu "
-                    "templateRankSize_=%u inBuffBaseOff=%llu myRank=%d",
-                    actualInputStride, connectedAlgRank, txSrcInputOffset,
-                    templateRankSize_, tempAlgParams_.buffInfo.inBuffBaseOff, myRank_);
-            }
-
-            if (!readingFromScratch) {
-                u64 maxTxReadPos = txSrcInputOffset + actualChunkSize;
-                if (maxTxReadPos > tempAlgParams_.buffInfo.inputSize) {
-                    HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos] TX source OOB! "
-                        "txSrcInputOffset=%llu + actualChunkSize=%llu = %llu > inputSize=%llu "
-                        "connectedAlgRank=%u",
-                        txSrcInputOffset, actualChunkSize, maxTxReadPos,
-                        tempAlgParams_.buffInfo.inputSize, connectedAlgRank);
-                    return HcclResult::HCCL_E_INTERNAL;
-                }
-            }
 
             u64 txSrcScratchOffset = tempAlgParams_.buffInfo.inBuffBaseOff +
                                      perPeerChunkSize * connectedAlgRank;
