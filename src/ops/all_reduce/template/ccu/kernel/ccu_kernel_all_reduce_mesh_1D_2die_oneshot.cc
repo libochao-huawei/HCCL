@@ -17,9 +17,9 @@ using namespace hcomm;
 
 constexpr int INPUT_XN_ID    = 0;
 constexpr int TOKEN_XN_ID    = 1;
-constexpr int POST_SYNC_ID   = 2;
-constexpr int MISSION_SYNC_ID_0 = 3;
-constexpr int MISSION_SYNC_ID_1 = 4;
+constexpr int POST_SYNC_ID   = 3;
+constexpr int MISSION_SYNC_ID_0 = 4;
+constexpr int MISSION_SYNC_ID_1 = 5;
 
 constexpr int CKE_IDX_0     = 0;
 constexpr int CKE_IDX_1     = 1;

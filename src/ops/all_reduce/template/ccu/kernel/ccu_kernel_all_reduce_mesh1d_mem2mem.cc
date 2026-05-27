@@ -17,9 +17,8 @@ namespace ops_hccl {
 using namespace hcomm;
 constexpr int INPUT_XN_ID   = 0;
 constexpr int OUTPUT_XN_ID  = 1;
-constexpr int SCRATCH_XN_ID = 2;
-constexpr int TOKEN_XN_ID   = 3;
-constexpr int POST_SYNC_ID   = 4;
+constexpr int TOKEN_XN_ID   = 2;
+constexpr int POST_SYNC_ID   = 3;
 constexpr int CKE_IDX_0     = 0;
 constexpr uint16_t BIT_NUM_PER_CKE = 16;
 constexpr uint16_t GROUP_REDUCE_MAX_PIECE_CNT = 8;
