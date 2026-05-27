@@ -22,6 +22,7 @@ endif()
 
 set(INCLUDE_LIST
     ${OPS_BASE_DIR}/include
+
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym
 
@@ -272,7 +273,6 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu/ins_temp_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu/ins_temp_scatter_nhr.cc
 
-
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
@@ -396,6 +396,10 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         target_compile_definitions(scatter_aicpu_kernel PRIVATE HCCL_CANN_COMPAT_850)
     endif()
 
+    if(ENABLE_EXPERIMENTAL)
+        target_compile_definitions(scatter_aicpu_kernel PRIVATE ENABLE_EXPERIMENTAL)
+    endif()
+
     target_link_directories(scatter_aicpu_kernel PRIVATE
       ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
   )
@@ -463,6 +467,10 @@ target_compile_definitions(${TARGET_NAME} PRIVATE
 
 if(HCCL_CANN_COMPAT_850)
     target_compile_definitions(hccl PRIVATE HCCL_CANN_COMPAT_850)
+endif()
+
+if(ENABLE_EXPERIMENTAL)
+    target_compile_definitions(hccl PRIVATE ENABLE_EXPERIMENTAL)
 endif()
 
 target_compile_options(hccl PRIVATE
