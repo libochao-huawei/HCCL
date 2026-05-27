@@ -115,9 +115,9 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
         u64* sendCounts = reinterpret_cast<u64*>(opParam.all2AllVDataDes.sendCounts);
         uint64_t dataSize = sendCounts[0] * dataTypeSize;
         if (dataSize * topoInfo->userRankSize > ENABLE_MULTI_CHANNEL_DATA_SIZE_LIMIT) {
-            selectAlgName = "InsAlltoAllMesh1DMultiChannel";
-        } else {
             selectAlgName = "InsAlltoAllMesh1D";
+        } else {
+            selectAlgName = "InsAlltoAllMesh1DSingleChannel";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // PCIE-SW定制机型，使用mesh1d算法
