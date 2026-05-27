@@ -366,7 +366,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         // 要在下第一个task之前上报
-        HcclDfxOpInfo dfxOpInfo{};
+        HcclDfxOpInfoCompat dfxOpInfo{};
         if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
             return 1;
