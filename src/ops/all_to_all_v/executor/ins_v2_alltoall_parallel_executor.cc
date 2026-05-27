@@ -930,14 +930,15 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     // Step 3: enables2=true → test Stage2 only
     // etc.
     bool enables1 = true;
-    bool enables2 = true;
+    bool enables2 = false;
     bool runMesh = true;
     bool runClos = true;
-    // enables 1 + runMesh + runClos 可以跑 
-    // enables 2 + runMesh + runClos 可以跑
+    // enables 1 + runMesh + runClos 
+    // enables 2 + runMesh + runClos 
+    // enables 1 + enables 2 + runMesh + runClos 
 
     // Skip ALL: return immediately to test baseline
-    return HCCL_SUCCESS;
+    // return HCCL_SUCCESS;
 
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAxis0 : dataCountPerLoopAxis0;
