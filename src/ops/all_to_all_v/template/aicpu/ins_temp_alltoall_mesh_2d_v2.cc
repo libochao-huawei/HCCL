@@ -386,19 +386,44 @@ HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle
               cellSize, perPeerMeshSize,
               myXRank_, myYRank_);
 
+    bool readingFromInput = (tempAlgParams_.buffInfo.inBuffType == BufferType::INPUT &&
+                              !tempAlgParams_.sendCounts.empty());
+    u64 perPeerInputChunkSize = 0;
+    if (readingFromInput) {
+        u64 totalCount = 0;
+        for (auto c : tempAlgParams_.sendCounts) {
+            totalCount += c;
+        }
+        perPeerInputChunkSize = (totalCount > 0 && totalRankSize_ > 0)
+            ? (totalCount * dataTypeSize / totalRankSize_) : 0;
+    }
+
     for (u32 d = 0; d < totalRankSize_; d++) {
         u32 dx = d % xRankSize_;
         u32 dy = d / xRankSize_;
 
-        u64 offsetInSlice = cellSize * d;
-        u64 remainingAtOffset = (offsetInSlice < totalSliceSize) ? (totalSliceSize - offsetInSlice) : 0;
-        u64 actualChunkSize = std::min(cellSize, remainingAtOffset);
+        u64 inOff;
+        u64 actualChunkSize;
+        u64 chunkCount;
+
+        if (readingFromInput) {
+            u64 peerStartInInput = perPeerInputChunkSize * d;
+            u64 inputBase = tempAlgParams_.buffInfo.inBuffBaseOff;
+            inOff = inputBase + peerStartInInput;
+            u64 sliceEndInInput = inputBase + totalSliceSize;
+            u64 available = (inOff < sliceEndInInput)
+                ? std::min(sliceEndInInput - inOff, perPeerInputChunkSize) : 0;
+            actualChunkSize = std::min(cellSize, available);
+        } else {
+            u64 offsetInSlice = cellSize * d;
+            u64 remainingAtOffset = (offsetInSlice < totalSliceSize) ? (totalSliceSize - offsetInSlice) : 0;
+            actualChunkSize = std::min(cellSize, remainingAtOffset);
+            inOff = tempAlgParams_.buffInfo.inBuffBaseOff + offsetInSlice;
+        }
         if (actualChunkSize == 0) {
             continue;
         }
-        u64 chunkCount = actualChunkSize / dataTypeSize;
-
-        u64 inOff = tempAlgParams_.buffInfo.inBuffBaseOff + offsetInSlice;
+        chunkCount = actualChunkSize / dataTypeSize;
 
         DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inOff, actualChunkSize, chunkCount);
 

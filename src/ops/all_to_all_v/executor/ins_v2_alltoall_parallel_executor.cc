@@ -361,12 +361,19 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra0.count = dataCountPerLoopAxis0;
     tempAlgParamsIntra0.tailSize = tempAlgParamsIntra0.sliceSize;
 
-    tempAlgParamsIntra0.inputSliceStride = dataSize_;
+    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
+    tempAlgParamsIntra0.inputSliceStride = perPeerInputChunkSize * rankSizeLevel0_;
     tempAlgParamsIntra0.outputSliceStride = dataSize_;
     tempAlgParamsIntra0.repeatNum = 1;
     tempAlgParamsIntra0.inputRepeatStride = 0;
     tempAlgParamsIntra0.outputRepeatStride = 0;
     tempAlgParamsIntra0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+
+    u64* sendCountsData = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts);
+    tempAlgParamsIntra0.sendCounts.assign(sendCountsData, sendCountsData + totalRankCount);
+    u64* sdisplsData = reinterpret_cast<u64*>(param.all2AllVDataDes.sdispls);
+    tempAlgParamsIntra0.sdispls.assign(sdisplsData, sdisplsData + totalRankCount);
 
     HCCL_INFO(
         "[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsIntra0] rank[%d] inBuffBaseOff[%llu] "
@@ -401,12 +408,19 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter1.count = dataCountPerLoopAxis1;
     tempAlgParamsInter1.tailSize = tempAlgParamsInter1.sliceSize;
 
-    tempAlgParamsInter1.inputSliceStride = dataSize_ * rankSizeLevel0_;
+    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
+    tempAlgParamsInter1.inputSliceStride = perPeerInputChunkSize;
     tempAlgParamsInter1.outputSliceStride = dataSize_;
     tempAlgParamsInter1.repeatNum = 1;
     tempAlgParamsInter1.inputRepeatStride = 0;
     tempAlgParamsInter1.outputRepeatStride = 0;
     tempAlgParamsInter1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+
+    u64* sendCountsData = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts);
+    tempAlgParamsInter1.sendCounts.assign(sendCountsData, sendCountsData + totalRankCount);
+    u64* sdisplsData = reinterpret_cast<u64*>(param.all2AllVDataDes.sdispls);
+    tempAlgParamsInter1.sdispls.assign(sdisplsData, sdisplsData + totalRankCount);
 
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsInter1] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu]",
