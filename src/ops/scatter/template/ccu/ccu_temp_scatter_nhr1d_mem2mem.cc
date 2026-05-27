@@ -10,6 +10,7 @@
 
 #include "channel.h"
 // #include "hccl_ccu_res.h"
+#include "ccu_launch.h"
 #include "ccu_kernel_scatter_nhr1d_mem2mem.h"
 #include "ccu_temp_scatter_nhr1d_mem2mem.h"
 // #include "ccu_control_api.h"
