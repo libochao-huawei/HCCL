@@ -689,16 +689,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
 
 HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldThread)
 {
-    std::string kernelName;
-#ifdef MACRO_DEV_TYPE_NEW
-    if (param.deviceType == DevType::DEV_TYPE_950) {
-#else
-    if (param.deviceType == DevType::DEV_TYPE_910_95) {
-#endif
-        kernelName = "HcclLaunchAicpuKernel";
-    } else {
-        kernelName = "HcclLaunchAicpuKernelA3";
-    }
+    std::string kernelName = "HcclLaunchAicpuKernel";
     aclrtFuncHandle funcHandle;
     aclrtArgsHandle argsHandle;
     // 注意，目前开源HCCL加载AICPU kernel使用的是从json文件加载
