@@ -120,7 +120,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 }
 
 namespace ops_hccl {
-
+    
 constexpr u32 DEVICE_EIGHT = 8;
 constexpr u32 DEVICE_FOUR = 4;
 constexpr u32 DEVICE_TWO = 2;
