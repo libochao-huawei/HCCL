@@ -497,13 +497,13 @@ std::vector<u64> CalcOmniPipeScratchInfo(OmniPipeScratchParam &omniPipeScratchPa
         if (outerStepNum > finStepMark) {
             zConnerStep = outerStepNum - finStepMark;
         }
-        scratchSize = CalScratchSize(static_cast<u64 *>(xRSDataSize), static_cast<u64 *>(yRSDataSize), zRSDataSize, levelRankSize, zConnerStep,
+        scratchSize = CalScratchSize((u64 *)xRSDataSize, (u64 *)yRSDataSize, zRSDataSize, levelRankSize, zConnerStep,
                                      outerStepNum, innerStepNum, maxStepNum, levelAlgType, engine);
     } else {
         if (outerStepNum > finStepMark) {
             zConnerStep = 1;
         }
-        scratchSize = CalScratchSize(static_cast<u64 *>(xRSDataSize), static_cast<u64 *>(yRSDataSize), zRSDataSize, levelRankSize, zConnerStep,
+        scratchSize = CalScratchSize((u64 *)xRSDataSize, (u64 *)yRSDataSize, zRSDataSize, levelRankSize, zConnerStep,
                                      outerStepNum, innerStepNum, maxStepNum, levelAlgType, engine);
     }
 
@@ -556,11 +556,11 @@ std::vector<u64> CalcOmniPipeScratchInfo(OmniPipeScratchParam &omniPipeScratchPa
             HCCL_INFO("[CalcOmniPipeScratchInfo] innerStepNum=[%llu]", innerStepNum);
         }
         if (zB > xyB) {
-            scratchSize = CalScratchSize(static_cast<u64 *>(xRSDataSize), static_cast<u64 *>(yRSDataSize), zRSDataSize, levelRankSize,
+            scratchSize = CalScratchSize((u64 *)xRSDataSize, (u64 *)yRSDataSize, zRSDataSize, levelRankSize,
                                          zConnerStep, outerStepNum, innerStepNum, maxStepNum, levelAlgType, engine);
             HCCL_INFO("[CalcOmniPipeScratchInfo] zB>xyB,scratchSize=[%llu]", scratchSize);
         } else {
-            scratchSize = CalScratchSize(static_cast<u64 *>(xRSDataSize), static_cast<u64 *>(yRSDataSize), zRSDataSize, levelRankSize,
+            scratchSize = CalScratchSize((u64 *)xRSDataSize, (u64 *)yRSDataSize, zRSDataSize, levelRankSize,
                                          zConnerStep, outerStepNum, innerStepNum, maxStepNum, levelAlgType, engine);
             HCCL_INFO("[CalcOmniPipeScratchInfo] zB<=xyB,scratchSize=[%llu]", scratchSize);
         }
