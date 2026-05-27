@@ -162,28 +162,40 @@ static HcclResult ReorganizeScratches(
 
             // ③ MOVE INTER(sx,dy) → INTRA(dy,sx) (if INTER source & INTRA dest valid)
             if (sz_inter_sxdy > 0 && dy < xSize) {
-                rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_dysx, inter + interSrcOff_sxdy,
-                                             sz_inter_sxdy);
-                if (rc != 0) return HCCL_E_INTERNAL;
+                u64 copySz3 = std::min(sz_inter_sxdy, sz_intra_dysx);
+                if (copySz3 > 0) {
+                    rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_dysx, inter + interSrcOff_sxdy,
+                                                 copySz3);
+                    if (rc != 0) return HCCL_E_INTERNAL;
+                }
             }
 
             // ④ MOVE INTER(dy,sx) → INTRA(sx,dy) (if INTER source has data)
             if (sz_inter_dysx > 0) {
-                rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_sxdy, inter + interSrcOff_dysx,
-                                             sz_inter_dysx);
-                if (rc != 0) return HCCL_E_INTERNAL;
+                u64 copySz4 = std::min(sz_inter_dysx, sz_intra_sxdy);
+                if (copySz4 > 0) {
+                    rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_sxdy, inter + interSrcOff_dysx,
+                                                 copySz4);
+                    if (rc != 0) return HCCL_E_INTERNAL;
+                }
             }
 
             // ⑤ RESTORE temp1 → INTER(dy,sx)
             if (sz_intra_sxdy > 0) {
-                rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_dysx, temp1, sz_intra_sxdy);
-                if (rc != 0) return HCCL_E_INTERNAL;
+                u64 copySz5 = std::min(sz_intra_sxdy, sz_inter_dysx);
+                if (copySz5 > 0) {
+                    rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_dysx, temp1, copySz5);
+                    if (rc != 0) return HCCL_E_INTERNAL;
+                }
             }
 
             // ⑥ RESTORE temp2 → INTER(sx,dy) (only if INTER dest exists: sx < ySize)
             if (sz_intra_dysx > 0 && interValid) {
-                rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_sxdy, temp2, sz_intra_dysx);
-                if (rc != 0) return HCCL_E_INTERNAL;
+                u64 copySz6 = std::min(sz_intra_dysx, sz_inter_sxdy);
+                if (copySz6 > 0) {
+                    rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_sxdy, temp2, copySz6);
+                    if (rc != 0) return HCCL_E_INTERNAL;
+                }
             }
         }
     }
@@ -933,9 +945,9 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     bool enables2 = true;
     bool runMesh = true;
     bool runClos = true;
-    // enables 1 + runMesh + runClos false
-    // enables 2 + runMesh + runClos 
-    // enables 1 + enables 2 + runMesh + runClos 
+    // enables 1 + runMesh + runClos + ReorganizeScratches false
+    // enables 1 + runMesh + runClos without ReorganizeScratches true
+    // enables 1 + enables 2 + runMesh + runClos without ReorganizeScratches true
 
     // Skip ALL: return immediately to test baseline
     // return HCCL_SUCCESS;
@@ -1096,10 +1108,10 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                           reinterpret_cast<uint64_t>(intraBuf),
                           reinterpret_cast<uint64_t>(interBuf),
                           needIntraToInter, needInterToIntra);
-                // HcclResult reorgRet = ReorganizeScratches(mainThread_,
-                //     intraBuf, interBuf, rankSizeLevel0_, rankSizeLevel1_,
-                //     meshSliceSize, closSliceSize, perPeerMesh, perPeerClos);
-                // CHK_RET(reorgRet);
+                HcclResult reorgRet = ReorganizeScratches(mainThread_,
+                    intraBuf, interBuf, rankSizeLevel0_, rankSizeLevel1_,
+                    meshSliceSize, closSliceSize, perPeerMesh, perPeerClos);
+                CHK_RET(reorgRet);
                 HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Reorganization complete.");
             } else {
                 HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Skipping reorganization: rankSize0=%llu rankSize1=%llu "
