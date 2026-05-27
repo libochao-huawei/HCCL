@@ -14,13 +14,17 @@
 
 namespace ops_hccl {
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
+constexpr u32 MAX_RANK_NUM_FOR_REDUCE_MS_ALGO = 8;
 constexpr u64 RS_AICPU_1D_MAX_DATA_SIZE = 16 * 1024 * 1024;
 constexpr u64 RS_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 RS_AICPU_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
 constexpr u64 RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 1536 * 1024 * 1024;
 
 constexpr u64 RS_CCU_CLOS_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
+constexpr u64 RS_CCU_64P_MIN_DATA_SIZE = 128 * 1024 * 1024;
+constexpr u64 RS_CCU_8P_MIN_DATA_SIZE = 64 * 1024 * 1024;
 constexpr u64 RS_AICPU_SEQUENCE_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
+constexpr u64 OMNI_PCIE_RS_DATA_SIZE = 4 * 1024 * 1024;
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -95,8 +99,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWith
         } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             HCCL_WARNING("[%s] MESH_1D_CLOS not match.", __func__);
             return SelectorStatus::NOT_MATCH;
-        } else {
+        } else if (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_REDUCE_MS_ALGO) {
             selectAlgName = "CcuReduceScatterMesh1D";
+        } else {
+            HCCL_DEBUG("[ReduceScatterAutoSelector] level0Topo[%u] is not supported mesh yet.",
+                topoInfo->level0Topo);
+            return SelectorStatus::NOT_MATCH;       
         }
     } else {
         HCCL_WARNING("[ReduceScatterAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
@@ -139,7 +147,10 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 if ((dataSize * topoInfo->userRankSize) <= RS_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64) {
                     selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
                     return SelectorStatus::MATCH;
-                } else if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
+                } else if (dataSize * topoInfo->userRankSize <= RS_CCU_64P_MIN_DATA_SIZE && topoInfo->userRankSize == 64){
+                    selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
+                    return SelectorStatus::MATCH;
+                } else if (dataSize * topoInfo->userRankSize <= RS_CCU_8P_MIN_DATA_SIZE) {
                     selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
                     return SelectorStatus::MATCH;
                 } else {
@@ -236,6 +247,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
             selectAlgName = "CcuReduceScatterNhr1DMem2MemMultiJetty";
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (topoInfo->level0PcieMix) {
+            // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+            HCCL_WARNING("[ReduceScatterAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         if (dataSize > RS_CCU_CLOS_1D_MIN_DATA_SIZE) {
             selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
         } else {
@@ -398,7 +414,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuForMesh1DClos(const
         } else if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";
         } else {
-            selectAlgName = "InsReduceScatterParallelMesh1DNHRPcie";
+            if (dataSize < OMNI_PCIE_RS_DATA_SIZE) {
+                selectAlgName = "InsReduceScatterParallelMesh1DNHRPcie";
+            } else {
+                selectAlgName = "InsV2ReduceScatterOmniPipePcie";
+            }
         }
     } else if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
         // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
