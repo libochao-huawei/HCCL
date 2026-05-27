@@ -174,34 +174,18 @@ struct TaskParamAiv {
 static mutex g_aivTaskMutex;
 static std::unordered_map<u64, std::deque<TaskParamAiv>> g_aivTaskByStream;
 
-thread_local HcclComm g_aivCurrentComm = nullptr;
-thread_local std::string g_aivCurrentCommName;
-
-static void RegisterAivExceptionCallback(HcclComm comm)
+static void RegisterAivExceptionCallback()
 {
-    static mutex callbackMutex;
-    static std::unordered_map<HcclComm, bool> callbackRegistered;
-    if (comm == nullptr || !HcommIsSupportHcclTaskExceptionRegCallBack()) {
-        HCCL_RUN_INFO("[AIV][RegisterAivExceptionCallback] skip, comm[%p], supported[%d].", comm,
+    if (!HcommIsSupportHcclTaskExceptionRegCallBack()) {
+        HCCL_RUN_INFO("[AIV][RegisterAivExceptionCallback] skip, supported[%d].", 
             HcommIsSupportHcclTaskExceptionRegCallBack());
         return;
     }
-    {
-        std::lock_guard<mutex> lock(callbackMutex);
-        auto it = callbackRegistered.find(comm);
-        if (it != callbackRegistered.end() && it->second) {
-            HCCL_DEBUG("[AIV][RegisterAivExceptionCallback] already registered, comm[%p].", comm);
-            return;
-        }
-        callbackRegistered[comm] = true;
-    }
-    HcclResult ret = HcclTaskExceptionRegCallBack(comm, ProcessAivExceptionCallBack);
+    HcclResult ret = HcclTaskExceptionRegCallBack(ProcessAivExceptionCallBack);
     if (ret != HCCL_SUCCESS) {
-        std::lock_guard<mutex> lock(callbackMutex);
-        callbackRegistered[comm] = false;
-        HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, comm[%p], ret[%d].", comm, ret);
+        HCCL_ERROR("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", ret);
     } else {
-        HCCL_INFO("[AIV][RegisterAivExceptionCallback] register callback success, comm[%p].", comm);
+        HCCL_INFO("[AIV][RegisterAivExceptionCallback] register callback success.");
     }
 }
 
@@ -306,9 +290,6 @@ void ProcessAivExceptionCallBack(aclrtExceptionInfo *exceptionInfo)
     HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
         "TaskId[%u], flag: %s", deviceId, streamId, taskId,
         SerializeAivFlag(taskInfo).c_str());
-
-    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
-        "TaskId[%u], task info before failed task is:", deviceId, streamId, taskId);
 
     u32 printed = 0;
     for (auto it = taskQueue.rbegin(); it != taskQueue.rend() && printed < AIV_TASK_CONTEXT_SIZE; ++it) {
