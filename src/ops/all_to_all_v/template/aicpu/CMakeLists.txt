@@ -10,6 +10,8 @@
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_to_all_v_mesh_1D.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_alltoall_mesh_2d_v2.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_alltoall_mesh_clos_v2.cc
 )
 if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list
