@@ -99,8 +99,7 @@ private:
 
     OpParam param_;
     AlgResourceCtxSerializable resCtx_{0};
-    u32 tempAlgConst = 4;
-    std::array<TemplateResource, tempAlgConst> tempAlgResArr_{};
+    std::array<TemplateResource, 4> tempAlgResArr_{};
     std::array<u64, dataSplitPart_> dataOffsetPerLoop_{0, 0};
     std::array<u64, dataSplitPart_> dataCountPerLoop_{0, 0};
     std::vector<std::vector<u32>> temp0HierarchyInfo_;
