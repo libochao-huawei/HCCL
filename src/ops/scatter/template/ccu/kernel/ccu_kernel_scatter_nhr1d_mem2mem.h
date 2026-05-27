@@ -21,7 +21,9 @@
 
 namespace ops_hccl {
 
-using NHRStepInfo = struct NHRStepInfo {
+#ifndef NHR_STEP_INFO_DEFINED
+#define NHR_STEP_INFO_DEFINED
+using NHRStepInfo = struct NHRStepInfoDef {
     u32 step = 0;
     u32 myRank = 0;
     u32 nSlices;
@@ -30,10 +32,11 @@ using NHRStepInfo = struct NHRStepInfo {
     std::vector<u32> txSliceIdxs;
     std::vector<u32> rxSliceIdxs;
 
-    NHRStepInfo() : nSlices(0)
+    NHRStepInfoDef() : nSlices(0)
     {
     }
 };
+#endif
 
 struct CcuKernelArgScatterNHRMem2Mem1D : CcuKernelArgBase {
     uint64_t rankSize;
