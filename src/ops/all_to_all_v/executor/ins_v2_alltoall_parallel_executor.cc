@@ -929,8 +929,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     // Step 2: enables1=true → test Stage1 only
     // Step 3: enables2=true → test Stage2 only
     // etc.
-    bool enables1 = true;
-    bool enables2 = false;
+    bool enables1 = false;
+    bool enables2 = true;
     bool runMesh = true;
     bool runClos = true;
 
