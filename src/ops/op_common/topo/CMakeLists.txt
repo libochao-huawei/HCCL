@@ -12,6 +12,8 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/topo_host.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_1d.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_base.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_clos_mesh_2d_v2.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_clos_mesh_2d_ubx_v2.cc
 )
 if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list
