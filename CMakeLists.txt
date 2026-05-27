@@ -108,6 +108,7 @@ elseif(BUILD_OPEN_PROJECT)
     add_version_info_targets()
     pack_built_in()
     add_subdirectory(src)
+    add_subdirectory(experimental/ops/)
 
     if(DEVICE_MODE)
         set(CCL_KERNEL_TAR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build_device/ccl_kernel_tar_pkg/)
