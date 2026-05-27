@@ -60,6 +60,14 @@ static HcclResult ReorganizeScratches(
     u64 intraCellSize = (intraSliceSize + totalRanks - 1) / totalRanks;
     u64 interCellSize = (interSliceSize + totalRanks - 1) / totalRanks;
 
+    if (intraCellSize != interCellSize) {
+        HCCL_ERROR("[ReorganizeScratches] splitRatio violation: intraCell[%llu] != interCell[%llu] "
+                  "intraSlice[%llu] interSlice[%llu] totalRanks[%llu]",
+                  intraCellSize, interCellSize,
+                  intraSliceSize, interSliceSize, static_cast<u64>(totalRanks));
+        return HCCL_E_INTERNAL;
+    }
+
     // Dual-save: need 2× the max cell for temp1+temp2
     u64 maxCellSize = std::max(intraCellSize, interCellSize);
     if (maxCellSize == 0) return HCCL_SUCCESS;
@@ -364,7 +372,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
     u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
     tempAlgParamsIntra0.inputSliceStride = perPeerInputChunkSize;
-    tempAlgParamsIntra0.outputSliceStride = dataSize_;
+    tempAlgParamsIntra0.outputSliceStride = tempAlgParamsIntra0.sliceSize;
     tempAlgParamsIntra0.repeatNum = 1;
     tempAlgParamsIntra0.inputRepeatStride = 0;
     tempAlgParamsIntra0.outputRepeatStride = 0;
@@ -411,7 +419,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter1.tailSize = tempAlgParamsInter1.sliceSize;
 
     tempAlgParamsInter1.inputSliceStride = perPeerInputChunkSize * rankSizeLevel0_;
-    tempAlgParamsInter1.outputSliceStride = dataSize_;
+    tempAlgParamsInter1.outputSliceStride = tempAlgParamsInter1.sliceSize;
     tempAlgParamsInter1.repeatNum = 1;
     tempAlgParamsInter1.inputRepeatStride = 0;
     tempAlgParamsInter1.outputRepeatStride = 0;
@@ -458,7 +466,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter0.inputSliceStride = dataSize_ * rankSizeLevel0_;
     u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
     u64 perPeerOutputChunkSize = (dataSize_ + totalRankCount - 1) / totalRankCount;
-    tempAlgParamsInter0.outputSliceStride = perPeerOutputChunkSize;
+    tempAlgParamsInter0.outputSliceStride = rankSizeLevel0_ * perPeerOutputChunkSize;
     tempAlgParamsInter0.repeatNum = 1;
     tempAlgParamsInter0.inputRepeatStride = 0;
     tempAlgParamsInter0.outputRepeatStride = 0;
@@ -963,7 +971,13 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             tempAlgParamsIntra0.inputSliceStride, tempAlgParamsIntra0.outputSliceStride,
             tempAlgParamsIntra0.buffInfo.inBuffBaseOff, tempAlgParamsIntra0.buffInfo.outBuffBaseOff,
             tempAlgParamsIntra0.sliceSize, rankSizeLevel0_, rankSizeLevel1_);
-        HcclResult intra0Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes);
+        HcclResult intra0Ret = HCCL_SUCCESS;
+        if (currCountPart0 > 0 && tempAlgParamsIntra0.sliceSize > 0) {
+            intra0Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes);
+        } else {
+            HCCL_INFO("[OrchestrateLoop] Stage1-Intra0 skipped: currPart0=%llu sliceSize=%llu",
+                      currCountPart0, tempAlgParamsIntra0.sliceSize);
+        }
         HCCL_INFO("[OrchestrateLoop] Stage1-Intra0: ret=0x%x", intra0Ret);
 
         HcclResult inter1Ret = HCCL_SUCCESS;
@@ -980,7 +994,12 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                 tempAlgParamsInter1.inputSliceStride, tempAlgParamsInter1.outputSliceStride,
                 tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.outBuffBaseOff,
                 tempAlgParamsInter1.sliceSize, rankSizeLevel0_, rankSizeLevel1_);
-            inter1Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes);
+            if (tempAlgParamsInter1.sliceSize > 0) {
+                inter1Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes);
+            } else {
+                HCCL_INFO("[OrchestrateLoop] Stage1-Inter1 skipped: sliceSize=%llu",
+                          tempAlgParamsInter1.sliceSize);
+            }
             HCCL_INFO("[OrchestrateLoop] Stage1-Inter1: ret=0x%x", inter1Ret);
         }
 

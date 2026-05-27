@@ -431,6 +431,7 @@ HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHand
     u64 totalSliceSize = tempAlgParams_.sliceSize;
     u64 cellSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
     u64 perPeerSize = (totalSliceSize + yRankSize_ - 1) / yRankSize_;
+    u64 perPeerOutputStride = (tempAlgParams_.buffInfo.outputSize + totalRankSize_ - 1) / totalRankSize_;
 
     HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] Start: templateRank=%u xRank=%u yRank=%u totalRank=%u "
               "sliceSize=%llu cellSize=%llu perPeerSize=%llu",
@@ -460,7 +461,7 @@ HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHand
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff +
                                 sy * perPeerSize + dx * cellSize;
             u64 outOffset = tempAlgParams_.buffInfo.outBuffBaseOff +
-                            tempAlgParams_.outputSliceStride * d;
+                            perPeerOutputStride * d;
 
             // v1.12 Fix D: OOB guard for PostLocalCopy output writes
             u64 maxWritePos = outOffset + actualChunkSize;
