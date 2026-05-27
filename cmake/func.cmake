@@ -149,7 +149,7 @@ function(sign_file)
     cmake_parse_arguments(
         ARG
         ""
-        "OUTPUT_TARGET;CONFIG;RESULT_VAR"
+        "INPUT;CONFIG;RESULT_VAR"
         "DEPENDS"
         ${ARGN}
     )
@@ -193,7 +193,7 @@ function(sign_file)
         if(${EXT} STREQUAL ".sh")
             set(sign_cmd bash ${SIGN_SCRIPT} ${output_sig} ${ARG_CONFIG} ${sign_flag})
         elseif(${EXT} STREQUAL ".py")
-            set(root_dir ${CMAKE_SOURCE_DIR})
+            set(root_dir ${ROOT_DIR})
             message(STATUS "Detected +++VERSION_INFO: ${VERSION_INFO}")
             set(sign_cmd python3 ${root_dir}/scripts/sign/add_header_sign.py ${signatures_dir} ${sign_flag} --bios_check_cfg=${ARG_CONFIG} --sign_script=${SIGN_SCRIPT} --version=${VERSION_INFO})
         endif()
