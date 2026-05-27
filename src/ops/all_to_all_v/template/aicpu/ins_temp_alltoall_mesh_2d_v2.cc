@@ -452,6 +452,14 @@ HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle
         bool skipCclCopy = (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr &&
                             inOff == cclOff);
         if (!skipCclCopy) {
+            // v1.14 C-R2-4 fix: protect against null hcclBuff.addr that
+            // produces a fake non-null address when offset is added
+            if (!tempAlgParams_.buffInfo.hcclBuff.addr) {
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][Mesh2D][LocalDataCopy] hcclBuff.addr is NULL. "
+                           "d=%u dx=%u dy=%u myXRank=%u myYRank=%u myRank=%u",
+                           d, dx, dy, myXRank_, myYRank_, myRank_);
+                return HCCL_E_INTERNAL;
+            }
             DataSlice cclDstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, cclOff, actualChunkSize, chunkCount);
             LocalCopy(threads[0], srcSlice, cclDstSlice);
         }
@@ -521,6 +529,13 @@ HcclResult InsTempAlltoAllMesh2DV2::PostLocalCopy(const std::vector<ThreadHandle
                 return HCCL_E_INTERNAL;
             }
 
+            // v1.14 C-R2-4 fix: protect against null hcclBuff.addr
+            if (!tempAlgParams_.buffInfo.hcclBuff.addr) {
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][Mesh2D][PostLocalCopy] hcclBuff.addr is NULL. "
+                           "d=%u rank=%d outBuffBaseOff=%llu",
+                           d, myRank_, tempAlgParams_.buffInfo.outBuffBaseOff);
+                return HCCL_E_INTERNAL;
+            }
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset,
                                actualChunkSize, chunkCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset,

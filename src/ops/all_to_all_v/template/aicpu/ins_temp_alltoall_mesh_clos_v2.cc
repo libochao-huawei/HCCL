@@ -12,6 +12,7 @@
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
 #include "channel.h"
+#include "hcomm_primitives.h"
 
 namespace ops_hccl {
 
@@ -275,6 +276,18 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
                        linkIdx, connectedRank, dmaResult, myRank_, templateRankSize_, actualChunkSize);
             return dmaResult;
         }
+
+        // v1.14 C-R2-1 fix: When two peers hash to the same linkIdx, their
+        // SDMA operations are serialized on the same thread. Fence the thread
+        // queue after each peer's DMA to prevent the next peer's descriptor
+        // submission from corrupting in-flight DMA hardware state.
+        int32_t fenceRetClos = HcommFenceOnThread(threads[linkIdx]);
+        if (fenceRetClos != 0) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos] Fence on linkIdx[%u] after peer %u failed: %d. "
+                       "myRank=%d templateRank=%u",
+                       linkIdx, connectedRank, fenceRetClos, myRank_, templateRankSize_);
+            return HcclResult::HCCL_E_INTERNAL;
+        }
     }
 
     return HCCL_SUCCESS;
@@ -367,6 +380,14 @@ HcclResult InsTempAlltoAllMeshClosV2::LocalDataCopy(const std::vector<ThreadHand
         bool skipCclCopy = (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr &&
                             inOff == cclOff);
         if (!skipCclCopy) {
+            // v1.14 C-R2-4 fix: protect against null hcclBuff.addr that
+            // produces a fake non-null address when offset is added
+            if (!tempAlgParams_.buffInfo.hcclBuff.addr) {
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][LocalDataCopy] hcclBuff.addr is NULL. "
+                           "d=%u sx=%u sy=%u myXRank=%u myYRank=%u myRank=%d",
+                           d, sx, sy, myXRank_, myYRank_, myRank_);
+                return HCCL_E_INTERNAL;
+            }
             DataSlice cclDstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, cclOff, actualChunkSize, chunkCount);
             LocalCopy(threads[0], srcSlice, cclDstSlice);
         }
@@ -436,6 +457,13 @@ HcclResult InsTempAlltoAllMeshClosV2::PostLocalCopy(const std::vector<ThreadHand
                 return HCCL_E_INTERNAL;
             }
 
+            // v1.14 C-R2-4 fix: protect against null hcclBuff.addr
+            if (!tempAlgParams_.buffInfo.hcclBuff.addr) {
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][PostLocalCopy] hcclBuff.addr is NULL. "
+                           "d=%u rank=%d outBuffBaseOff=%llu",
+                           d, myRank_, tempAlgParams_.buffInfo.outBuffBaseOff);
+                return HCCL_E_INTERNAL;
+            }
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset,
                                actualChunkSize, chunkCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset,

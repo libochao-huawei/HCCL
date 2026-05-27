@@ -443,7 +443,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter0.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParamsInter0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsInter0.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsInter0.buffInfo.outputSize = param.outputSize;
+    tempAlgParamsInter0.buffInfo.outputSize = param.outputSize * dataTypeSize_;
 
     tempAlgParamsInter0.buffInfo.inBuffBaseOff = scratchOffset;
     // v1.12 Fix B: dataOffset (= dataOffset0 = 0 for first loop iteration) happens
@@ -494,7 +494,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra1.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParamsIntra1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsIntra1.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsIntra1.buffInfo.outputSize = param.outputSize;
+    tempAlgParamsIntra1.buffInfo.outputSize = param.outputSize * dataTypeSize_;
     tempAlgParamsIntra1.sliceSize = dataCountPerLoopAxis1 * dataTypeSize_;
     tempAlgParamsIntra1.count = dataCountPerLoopAxis1;
     tempAlgParamsIntra1.tailSize = tempAlgParamsIntra1.sliceSize;
@@ -1002,6 +1002,29 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             return templateErr;
         }
         CHK_RET(syncRet1);
+
+        // v1.14 C-R2-3 fix: Fence all template threads to guarantee Stage 1 SDMA
+        // completion before ReorganizeScratches reads scratch memory.
+        // PostSyncInterThreads only synchronizes notify counters between the executor's
+        // main thread and template main threads; it does NOT fence the SDMA queues
+        // on template sub-threads. Without this fence, Stage 2 may read partially
+        // written scratch data, corrupting DMA descriptors and producing src:[0x0] dst:[0x0].
+        for (auto &thread : intraThreads_) {
+            int32_t fenceRet = HcommFenceOnThread(thread);
+            if (fenceRet != 0) {
+                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 fence on intra thread[0x%016llx] failed: %d",
+                           static_cast<u64>(thread), fenceRet);
+                return HcclResult::HCCL_E_INTERNAL;
+            }
+        }
+        for (auto &thread : interThreads_) {
+            int32_t fenceRet = HcommFenceOnThread(thread);
+            if (fenceRet != 0) {
+                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 fence on inter thread[0x%016llx] failed: %d",
+                           static_cast<u64>(thread), fenceRet);
+                return HcclResult::HCCL_E_INTERNAL;
+            }
+        }
 
 #ifndef AICPU_COMPILE
         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
