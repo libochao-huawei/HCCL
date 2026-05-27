@@ -12,8 +12,6 @@
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
 #include "channel.h"
-#include "hcomm_primitives.h"
-
 namespace ops_hccl {
 
 InsTempAlltoAllMeshClosV2::InsTempAlltoAllMeshClosV2(const OpParam &param, const u32 rankId,
@@ -277,17 +275,10 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
             return dmaResult;
         }
 
-        // v1.14 C-R2-1 fix: When two peers hash to the same linkIdx, their
-        // SDMA operations are serialized on the same thread. Fence the thread
-        // queue after each peer's DMA to prevent the next peer's descriptor
-        // submission from corrupting in-flight DMA hardware state.
-        int32_t fenceRetClos = HcommFenceOnThread(threads[linkIdx]);
-        if (fenceRetClos != 0) {
-            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos] Fence on linkIdx[%u] after peer %u failed: %d. "
-                       "myRank=%d templateRank=%u",
-                       linkIdx, connectedRank, fenceRetClos, myRank_, templateRankSize_);
-            return HcclResult::HCCL_E_INTERNAL;
-        }
+        // v1.17 FIX: Removed HcommFenceOnThread(threads[linkIdx]) — not supported
+        // on AICPU (returns HCCL_E_NOT_SUPPORT=5) and unnecessary in the clos ring
+        // because each peer maps to a unique linkIdx via (myAlgRank+connectedAlgRank)%threads.size(),
+        // and SendRecvWrite/SendRecvRead already provide notify-based DMA serialization.
     }
 
     return HCCL_SUCCESS;
