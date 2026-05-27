@@ -363,7 +363,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
 
     u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
     u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
-    tempAlgParamsIntra0.inputSliceStride = perPeerInputChunkSize * rankSizeLevel0_;
+    tempAlgParamsIntra0.inputSliceStride = perPeerInputChunkSize;
     tempAlgParamsIntra0.outputSliceStride = dataSize_;
     tempAlgParamsIntra0.repeatNum = 1;
     tempAlgParamsIntra0.inputRepeatStride = 0;
@@ -401,16 +401,16 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter1.buffInfo.inputSize = param.inputSize;
     tempAlgParamsInter1.buffInfo.outputSize = resCtx.cclMem.size;
 
-    tempAlgParamsInter1.buffInfo.inBuffBaseOff = dataOffset;
+    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
+    tempAlgParamsInter1.buffInfo.inBuffBaseOff = perPeerInputChunkSize / 2;
     tempAlgParamsInter1.buffInfo.outBuffBaseOff = scratchOffset;
     tempAlgParamsInter1.buffInfo.hcclBuffBaseOff = scratchOffset;
     tempAlgParamsInter1.sliceSize = dataCountPerLoopAxis1 * dataTypeSize_;
     tempAlgParamsInter1.count = dataCountPerLoopAxis1;
     tempAlgParamsInter1.tailSize = tempAlgParamsInter1.sliceSize;
 
-    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
-    u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
-    tempAlgParamsInter1.inputSliceStride = perPeerInputChunkSize;
+    tempAlgParamsInter1.inputSliceStride = perPeerInputChunkSize * rankSizeLevel0_;
     tempAlgParamsInter1.outputSliceStride = dataSize_;
     tempAlgParamsInter1.repeatNum = 1;
     tempAlgParamsInter1.inputRepeatStride = 0;
