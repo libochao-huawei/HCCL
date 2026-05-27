@@ -236,16 +236,15 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
                 "does not exist in channels map!", remoteRank);
             return HCCL_E_PARA;
         }
-        std::vector<ChannelInfo> curValidChannels;
-        u32 curValidChannelsSize = 1;
-        GetCurValidChannels(channels, remoteRank, curValidChannels, curValidChannelsSize);
+        const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
+        u32 curValidChannelsSize = std::min(curChannels.size(), channelsPerRank_);
         // send数据按照channel分片
-        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curValidChannels,
+        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curChannels,
             sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_, curValidChannelsSize));
         // recv数据按照channel分片
-        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.recvCounts[remoteRank], dataTypeSize_, curValidChannels,
+        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.recvCounts[remoteRank], dataTypeSize_, curChannels,
             recvCountsSplit_, recvSizeSplit_, recvOffsetSplit_, curValidChannelsSize));
-        CHK_RET(RunSendRecvByChannel(tempAlgParams, roundIdx, curValidChannelsSize, curValidChannels, remoteRank, threads, commLoops));
+        CHK_RET(RunSendRecvByChannel(tempAlgParams, roundIdx, curValidChannelsSize, curChannels, remoteRank, threads, commLoops));
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -272,22 +271,8 @@ HcclResult InsTempAlltoAllVMesh1D::PostSyncInterThreadsPerRank(const ThreadHandl
     return HcclResult::HCCL_SUCCESS;
 }
 
-void InsTempAlltoAllVMesh1D::GetCurValidChannels(const std::map<u32, std::vector<ChannelInfo>> &channels,
-    const u32 remoteRank, std::vector<ChannelInfo> &curValidChannels, u32 &curValidChannelsSize) const
-{
-    curValidChannels.clear();
-    if (channelsPerRank_ == 1) {
-        curValidChannels = {channels.at(remoteRank)[0]};
-        curValidChannelsSize = 1;
-    } else {
-        curValidChannels = channels.at(remoteRank);
-        curValidChannelsSize = curValidChannels.size();
-    }
-    return;
-}
-
 HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx, const u32 curValidChannelsSize,
-    const std::vector<ChannelInfo> &curValidChannels, const u32 remoteRank, const std::vector<ThreadHandle> &threads, const u32 commLoops) const
+    const std::vector<ChannelInfo> &curChannels, const u32 remoteRank, const std::vector<ThreadHandle> &threads, const u32 commLoops) const
 {
     u32 myRankCclBuffIdx = 0; // myRank与remoteRank交互时myRank提供的cclbuffer index
     u32 remoteCclBuffIdx = 0; // myRank与remoteRank交互时remoteRank提供的cclbuffer index
@@ -304,8 +289,8 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
             CHK_RET(static_cast<HcclResult>(PreCopy(tempAlgParams, threads[queIdx], myRankCclBuffIdx, remoteRank,
                 sendSizeSplit_[channelId], sendCountsSplit_[channelId], sendOffsetSplit_[channelId])));
         }
-        const ChannelInfo &channelSend = curValidChannels[channelId]; // 发给哪个rank
-        const ChannelInfo &channelRecv = curValidChannels[channelId]; // 收哪个rank的数据
+        const ChannelInfo &channelSend = curChannels[channelId]; // 发给哪个rank
+        const ChannelInfo &channelRecv = curChannels[channelId]; // 收哪个rank的数据
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
         std::vector<DataSlice> rxSrcSlices;
@@ -406,11 +391,10 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopyByLoop(const std::vector<u32> &commRan
                 remoteRank);
             return HCCL_E_PARA;
         }
-        std::vector<ChannelInfo> curValidChannels;
-        u32 curValidChannelsSize = 1;
-        GetCurValidChannels(channels, remoteRank, curValidChannels, curValidChannelsSize);
+        const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
+        u32 curValidChannelsSize = std::min(curChannels.size(), channelsPerRank_);
         // send数据按照channel分片
-        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curValidChannels,
+        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curChannels,
             sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_, curValidChannelsSize));
         for (u32 channelId = 0; channelId < curValidChannelsSize; channelId++) {
             if (sendSizeSplit_[channelId] > 0) {
