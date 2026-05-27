@@ -279,16 +279,16 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     std::map<u32, std::vector<std::vector<HcclChannelDesc>>>& rankIdToChannelDesc)
 {   // 目前channelDescs传入的是level0的
     // layer 0 -> mesh layer 1 -> clos 在mesh的时候查一下dieId，选择另外一个dieId的就是6口clos
+    std::map<uint32_t, std::vector<HcclChannelDesc>> closTempToSelect;
     for (auto& rankToChannels: rankIdToChannelDesc){
         u32 remoteRank = rankToChannels.first;
         std::vector<HcclChannelDesc>& meshChannel_list = rankToChannels.second[0];//mesh
         std::vector<HcclChannelDesc>& closChannel_list = rankToChannels.second[1];//clos
         //多机场景，遍历remoterank时，从机可能会先遍历clos，再遍历mesh，此时没有meshDieId，无法直接筛选，需先暂存，后筛选
-        std::map<uint32_t, std::vector<HcclChannelDesc>> closTempToSelect;
 
         using DieIdType = uint32_t;
         const uint32_t dieIdTypeSize = sizeof(DieIdType);
-        bool isSetMeshDieId = flase;
+        bool isSetMeshDieId = false;
         //mesh链路
         if (!meshChannel_list.empty()){//该rank有mesh链路，取meshChannels_和meshDieId
             DieIdType dieId = 0;
@@ -315,7 +315,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
                 }
             }
         }
-        HCCL_INFO("dieId = %llu", dieId);
+        HCCL_INFO("meshDieId = %llu", dieId);
         HCCL_INFO("closTempToSelect[0].size() = %llu", closTempToSelect[0].size());
         HCCL_INFO("closTempToSelect[1].size() = %llu", closTempToSelect[1].size());
     }
