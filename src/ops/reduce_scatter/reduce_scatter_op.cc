@@ -34,6 +34,11 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
 #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
 #endif
+    if (deviceType == DevType::DEV_TYPE_910_93 && ops_hccl_experimental::MatchBIRS())
+    {
+        HCCL_INFO("BIRS mode enabled for ReduceScatter");
+        return ops_hccl_experimental::ReduceScatterExperimental(sendBuf, recvBuf, recvCount, dataType, op, comm, stream); 
+    } 
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内

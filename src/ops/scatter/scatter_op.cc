@@ -121,6 +121,8 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 
 namespace ops_hccl {
 
+thread_local aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
+
 constexpr u32 DEVICE_EIGHT = 8;
 constexpr u32 DEVICE_FOUR = 4;
 constexpr u32 DEVICE_TWO = 2;
