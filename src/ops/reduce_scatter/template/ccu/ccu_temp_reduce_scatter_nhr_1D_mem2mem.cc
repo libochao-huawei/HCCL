@@ -168,12 +168,25 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
         uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].cachedArgs);
         constexpr u32 inputIdx = 0;
         constexpr u32 outputIdx = 1;
-        constexpr u32 inputOffsetIdx = 8;
-        constexpr u32 outputOffsetIdx = 14;
+        constexpr u32 currentRankSliceOutputOffsetIdx = 8;
+        constexpr u32 isInputOutputEqualIdx = 12;
+        constexpr u32 inputOffsetIdx = 13;   // inBuffBaseOff
+        constexpr u32 outputOffsetIdx = 14;  // outBuffBaseOff
+        constexpr u32 currentRankSliceInputOffsetIdx = 15;  // cached currentRankSliceInputOffset
         uint64_t argSize = 13;
 
-        args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
-        args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+        uint64_t inputAddr = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+        uint64_t outputAddr = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+        // 参考AllGather FastLaunch: 动态刷新isInputOutputEqual
+        // currentRankSliceInputOffset已由KernelRun cache到FillCachedArgs中
+        uint64_t currentRankSliceInputOffset = args[currentRankSliceInputOffsetIdx];
+        uint64_t currentRankSliceOutputOffset = args[currentRankSliceOutputOffsetIdx];
+        bool inputOutputEqual = (inputAddr + currentRankSliceInputOffset == outputAddr + currentRankSliceOutputOffset);
+        uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+
+        args[inputIdx] = inputAddr;
+        args[outputIdx] = outputAddr;
+        args[isInputOutputEqualIdx] = isInputOutputEqual;
 
         void *taskArgs = reinterpret_cast<void*>(args);
         CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[kernelIdx],
@@ -251,7 +264,10 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t inputRepeatStride = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t repeatNumVar = UINT64_MAX - repeatNum;
-    uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
+    uint64_t currentRankSliceInputOffset = inputSliceStride * mySubCommRank_;
+    uint64_t currentRankSliceOutputOffset = outputSliceStride * mySubCommRank_;
+    uint64_t isInputOutputEqual =  
+        (inputAddr + currentRankSliceInputOffset == outputAddr + currentRankSliceOutputOffset) ? 1 : 0;
     HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem] TaskArgs: dimSize[%llu], die0Size[%llu], die1Size[%llu],"
         "die0LastSliceSize[%llu], die1LastSliceSize[%llu], inputAddr[%llu],"
         "outputAddr[%llu], repeatNum[%llu], inputSliceStride[%llu], outputSliceStride[%llu],"
@@ -272,9 +288,6 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
             // 数据长度为0的kernel不下发
             continue;
         }
-        
-        // currentRankSliceOutputOffset = outputSliceStride * mySubCommRank_
-        uint64_t currentRankSliceOutputOffset = outputSliceStride * mySubCommRank_;
         
         std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, die0Size, die1Size,
                                           die0LastSliceSize, die1LastSliceSize,
@@ -298,12 +311,11 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
     }
     // 所有task下发完后再保存参数信息
-    uint64_t currentRankSliceOutputOffset = outputSliceStride * mySubCommRank_;
     CcuKernelSubmitInfo submitInfo;
     CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, die0Size, die1Size,
         die0LastSliceSize, die1LastSliceSize, inputSliceStride, currentRankSliceOutputOffset, inputRepeatStride,
         outputRepeatStride, repeatNumVar, isInputOutputEqual,
-        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
+        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, currentRankSliceInputOffset));
     for (u32 i = 0; i < kernelNum; i++) { 
         // 2个kernel的TaskArg相同
         submitInfo.kernelHandle = templateResource.ccuKernels[i];
