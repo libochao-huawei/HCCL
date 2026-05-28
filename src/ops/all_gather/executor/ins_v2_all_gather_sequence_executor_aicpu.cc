@@ -12,6 +12,7 @@
 #include "topo_match_multilevel.h"
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_mesh_clos_v2.h"
 #include "coll_alg_v2_exec_registry.h"
 
 namespace ops_hccl {
@@ -260,4 +261,11 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                TopoMatchMultilevel,
                                InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
+                               InsAllGatherSequenceMeshClosV2Mesh1D,
+                               InsV2AllGatherSequenceExecutorAicpu,
+                               TopoMatchMultilevel,
+                               InsTempAllGatherMesh1D1DZAxisDetour,
+                               InsTempAllGatherMeshClosV2);
 }
