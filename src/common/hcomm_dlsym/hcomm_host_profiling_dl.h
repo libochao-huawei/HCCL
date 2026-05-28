@@ -61,6 +61,8 @@ DECL_SUPPORT_FLAG(HcclDfxRegOpInfoByCommId);
 DECL_SUPPORT_FLAG(HcclProfilingReportOp);
 DECL_SUPPORT_FLAG(HcclReportAicpuKernel);
 DECL_SUPPORT_FLAG(HcclReportAivKernel);
+DECL_SUPPORT_FLAG(HcclTaskExceptionRegCallBack);
+DECL_SUPPORT_FLAG(HcomGetCommHandleByGroup);
 
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);
