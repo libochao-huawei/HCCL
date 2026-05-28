@@ -82,4 +82,6 @@ private:
     std::vector<u64> recvOffsetSplit_;
 };
 
-}
+} // namespace Hccl
+
+#endif
