@@ -41,10 +41,8 @@ CcuTempAllToAllMesh1D2Die::~CcuTempAllToAllMesh1D2Die()
 {
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(const HcclComm comm, u32 myRank, u32 rank,
-                                                            uint32_t netLayer, u32 idx, const CommLink& link,
-                                                            const std::string& funcName,
-                                                            std::vector<HcclChannelDesc>& channels) const
+HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
+    const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels)
 {
     (void) comm;
     HcclChannelDesc channelDesc;
@@ -96,8 +94,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocolNhr(HcclComm comm, c
         netLayer, channels, protocolFound, std::string("[CalcLevel1ChannelRequestNhr]"));
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::CalcNHRChannelConnect(u32 rank, u32 rankSize,
-                                                            u32 root, std::set<u32> &connectRanks) const
+HcclResult CcuTempAllToAllMesh1D2Die::CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks)
 {
     (void)root;
     connectRanks.clear();
@@ -221,13 +218,13 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
         closDieId, channels_[closDieId].size(), rankSize, resourceRequest.ccuKernelInfos.size());
 
+
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId,
                                                         std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {   // 目前channelDescs传入的是level0的
-    (void) channelDescs;
     // layer 0 -> mesh layer 1 -> clos 在mesh的时候查一下dieId，选择另外一个dieId的就是6口clos
     std::map<uint32_t, std::vector<HcclChannelDesc>> clos_channels; // key is DieId
     for (auto& rankToChannels: rankIdToChannelDesc){
@@ -237,8 +234,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
         using DieIdType = uint32_t;
         const uint32_t dieIdTypeSize = sizeof(DieIdType);
         // clos 链路
-        uint32_t channelSize = 2;
-        if (channel_list.size() == channelSize) {
+        if(channel_list.size() == 2) {
             for (const auto &channel : channel_list) {
                 DieIdType dieId = 0;
                 EndpointDesc localEndpoint = channel.localEndpoint;
@@ -270,6 +266,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
             channels_[dieId].emplace_back(channel);
             rankGroup_[dieId].push_back(channel.remoteRank);
         }
+        
     }
 
     rankGroup_[0].push_back(myRank_);   // keep myRank_ at last, sync with kernel
