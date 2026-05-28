@@ -107,7 +107,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult
 InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::CalcResLevel(
     HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-    std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest& resourceRequest)
+    std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest& resourceRequest) const
 {
     AlgResourceRequest resReqlevel;
     CHK_RET(tempAlg->CalcRes(comm, param, topoInfo, resReqlevel));
@@ -224,6 +224,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1,
                                           InsAlgTemplate2>::InitExectorInfo(const OpParam& param)
 {
+    (void) param;
     rankSizeLevel_.resize(OMNIPIPE_LEVEL_NUM);
     rankIdxLevel_.resize(OMNIPIPE_LEVEL_NUM);
     // 处理分层
@@ -247,7 +248,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult
 InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1,
                                InsAlgTemplate2>::GenTemplateAlgParamsByDimData(TemplateDataParams& tempAlgParams,
-                                                                               StepSliceInfo& stepSliceInfo)
+                                                                               StepSliceInfo& stepSliceInfo) const
 {
     // tempAlgParams.buffInfo.hcclBuff 已在外部赋值
     tempAlgParams.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
@@ -273,7 +274,8 @@ InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, I
     HCCL_INFO("[InsV2AllGatherOmniPipeExecutor][OrchestrateLoop] Start");
     // 1、计算带宽
     std::vector<std::vector<EndpointAttrBwCoeff>> endpointAttrBw;
-    CHK_RET(CalAllLevelEndpointAttrBwCoeff(param.hcclComm, myRank_, 3, endpointAttrBw));
+    u32 levelSize = 3;
+    CHK_RET(CalAllLevelEndpointAttrBwCoeff(param.hcclComm, myRank_, levelSize, endpointAttrBw));
     std::vector<EndpointAttrBwCoeff> endpointAttrBwNew;
     endpointAttrBwNew.resize(endpointAttrBw.size());
     u64 index = 0;

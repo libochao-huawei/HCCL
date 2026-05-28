@@ -28,7 +28,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2AllGatherOmniPipeExecutor : public InsCollAlgBase {
 public:
     explicit InsV2AllGatherOmniPipeExecutor();
-    ~InsV2AllGatherOmniPipeExecutor() = default;
+    ~InsV2AllGatherOmniPipeExecutor() override = default;
     /* *************** 资源计算 *************** */
     // 这些函数为ExecutorBase纯虚函数，必须重写
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
@@ -41,7 +41,7 @@ public:
 
 protected:
     HcclResult InitExectorInfo(const OpParam &param);
-    HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, StepSliceInfo &stepSliceInfo);
+    HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, StepSliceInfo &stepSliceInfo) const;
 
     HcclResult InitCommInfo(const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                             const AlgHierarchyInfoForAllLevel& algHierarchyInfo);
@@ -51,7 +51,7 @@ protected:
         std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const override;
     HcclResult PrepareResForTemplateLevel(u32 level, std::shared_ptr<InsAlgTemplateBase> &tempBase);
     HcclResult CalcResLevel(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
-        std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest &resourceRequest);
+        std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest &resourceRequest) const;
 
 private:
 
@@ -59,7 +59,7 @@ private:
     std::vector<uint64_t> rankIdxLevel_;
     OpMode opMode_;
 
-    ThreadHandle controlThread_;
+    ThreadHandle controlThread_ = 0;
     std::vector<ThreadHandle> templateMainThreads_;
     std::vector<ThreadHandle> threads_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;

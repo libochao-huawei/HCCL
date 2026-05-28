@@ -534,7 +534,7 @@ std::vector<u64> CalcOmniPipeScratchInfo(OmniPipeScratchParam &omniPipeScratchPa
     if (bufferRatio < 1) {
         maxDataSizePerLoop = dataSize;
     } else {
-        maxDataSizePerLoop = dataSize / bufferRatio;
+        maxDataSizePerLoop = static_cast<u64>(dataSize / bufferRatio);
         maxDataSizePerLoop = maxDataSizePerLoop / justifyLen * justifyLen;
     }
 
@@ -572,7 +572,7 @@ std::vector<u64> CalcOmniPipeScratchInfo(OmniPipeScratchParam &omniPipeScratchPa
                            scratchSize[OmniPipeLevel::OMNIPIPE_LEVEL1] + scratchSize[OmniPipeLevel::OMNIPIPE_LEVEL2];
         HCCL_INFO("[CalcOmniPipeScratchInfo] allCclBufferSize=[%llu],", allCclBufferSize);
         if (allCclBufferSize > maxTmpMemSize) {
-            maxDataSizePerLoop = maxDataSizePerLoop * LOOP_SCALING_FACTOR;  // 大了就小一点
+            maxDataSizePerLoop = static_cast<u64>(maxDataSizePerLoop * LOOP_SCALING_FACTOR);  // 大了就小一点
             maxDataSizePerLoop = maxDataSizePerLoop / justifyLen * justifyLen;
         }
     }

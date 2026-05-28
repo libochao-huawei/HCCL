@@ -21,7 +21,7 @@ using namespace ops_hccl;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
 HcclResult HcclRecvNext(
-    void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
+    void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, const HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclRecv] Start.");
     HcclUs startut = TIME_NOW(); // 走老流程的判断时间不统计在内
@@ -52,7 +52,8 @@ HcclResult HcclRecv(
         return HcclRecvNext(recvBuf, count, dataType, srcRank, comm, stream);
     }
 
-    if (GetHcommVersion() < 90000000) {
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
 

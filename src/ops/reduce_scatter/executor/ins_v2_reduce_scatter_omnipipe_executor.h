@@ -33,7 +33,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2ReduceScatterOmniPipeExecutor : public InsCollAlgBase {
 public:
     explicit InsV2ReduceScatterOmniPipeExecutor();
-    ~InsV2ReduceScatterOmniPipeExecutor() = default;
+    ~InsV2ReduceScatterOmniPipeExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -45,7 +45,7 @@ public:
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
     HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
-        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo);
+        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
 protected:
     /* *************** 算法编排 *************** */
@@ -55,9 +55,10 @@ protected:
     HcclResult InitCommInfo(
         const OpParam &param, const TopoInfo *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
     HcclResult PrepareResForTemplateLevel(u32 level, std::shared_ptr<InsAlgTemplateBase> &tempBase);
-    HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, const StepSliceInfo &stepSliceInfo);
+    HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams,
+                                             const StepSliceInfo &stepSliceInfo) const;
     HcclResult CalcResLevel(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
-        std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest &resourceRequest);
+        std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest &resourceRequest) const;
 
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
@@ -68,7 +69,7 @@ protected:
     uint64_t rankIdxLevel2_{0};
     std::vector<uint64_t> rankSizeLevel_;
     std::vector<uint64_t> rankIdxLevel_;
-    ThreadHandle              controlThread_;
+    ThreadHandle              controlThread_ = 0;
     std::vector<std::vector<ThreadHandle>> levelThreads_;
     // xy两轴间同步使用
     std::vector<u32>          notifyIdxCtrlToTempLevel01_;

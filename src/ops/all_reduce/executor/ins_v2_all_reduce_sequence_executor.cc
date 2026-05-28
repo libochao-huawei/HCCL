@@ -245,7 +245,6 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         tempAlgParamsStepOne.inputSliceStride = 0; // 没用到
         tempAlgParamsStepOne.outputSliceStride = 0; // 没用到
 
-        
         HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%u] tempAlgParamsStepOne.inputSliceStride [%u],"
             "tempAlgParamsStepOne.outputSliceStride [%u] tempAlgParamsStepOne.sliceSize [%u]",
             loop, tempAlgParamsStepOne.inputSliceStride, tempAlgParamsStepOne.outputSliceStride, tempAlgParamsStepOne.sliceSize);

@@ -53,7 +53,7 @@ HcclResult CalcLevel0ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     return HCCL_SUCCESS;
 }
 
-HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
+HcclResult ProcessMeshInfo(const HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
                         std::map<u32, u32>& rank2ChannelIdx, u32 myRank,
                         std::vector<std::vector<HcclChannelDesc>>& channelsPerDie,
                         u32 enableDieNum, u32 enableDieId,
@@ -242,10 +242,10 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
     channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
     channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-    HCCL_DEBUG("%s local device phyId: %u, remote device phyId: %u.",
+    HCCL_DEBUG("[CreateChannelFromLink]%s local device phyId: %u, remote device phyId: %u.",
                 funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
                 channelDesc.remoteEndpoint.loc.device.devPhyId);
-    HCCL_INFO("%s Add channel request between %zu and %zu, netLayerIdx %u, "
+    HCCL_INFO("[CreateChannelFromLink]%s Add channel request between %zu and %zu, netLayerIdx %u, "
               "linkListIdx %u, protocol %zu",
               funcName.c_str(), myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
     channelDesc.channelProtocol = link.linkAttr.linkProtocol;
@@ -384,7 +384,6 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
         bool protocolFound = false;
         CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, curNetLayer, channels, protocolFound,
             std::string("[CalcChannelRequestMesh1D]")));
-
     }
     if (curNetLayer != 0) { // 通过端口数划分channel，适配跨框die0连die1的场景，避免建链失败
         HCCL_INFO("curNetLayer = %lld",curNetLayer);
@@ -645,7 +644,6 @@ static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
             (endPoint0.commAddr.type == endPoint1.commAddr.type) &&
             (memcmp(endPoint0.commAddr.eid, endPoint1.commAddr.eid, sizeof(endPoint0.commAddr.eid)) == 0);
     }
-
 }
 #endif /* CANN_VERSION_NUM >= 90000000 */
 

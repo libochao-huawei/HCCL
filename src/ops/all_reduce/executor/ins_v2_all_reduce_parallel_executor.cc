@@ -478,7 +478,6 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::PrepareResForTemplate23(
     InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1)
 {
-
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest1;
     AlgResourceRequest intraTempRequest1;
@@ -749,9 +748,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     u32 multipleIntra = tempAlgIntra.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
     u32 multipleInter = tempAlgInter.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
+    u32 defaultMultiple = 3;
     if (multipleIntra > 0 || multipleInter > 0) {
-        multipleIntra = 3;
-        multipleInter = 3;
+        multipleIntra = defaultMultiple;
+        multipleInter = defaultMultiple;
     }
 
     // 按照intraData0+interData1，以及intraData1+interData0两种方式分别计算，取multiple最大需求
@@ -971,8 +971,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     }
     return HcclResult::HCCL_SUCCESS;
 }
-
-
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::RunTemplateInter01(
