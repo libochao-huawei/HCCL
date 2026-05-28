@@ -16,6 +16,18 @@
 
 /* 8.5.0 桩: hccl_comm.h 中 9.0.0 新增类型 */
 #if CANN_VERSION_NUM < 90000000
+typedef HcclOpExpansionMode HcclConfigTypeOpExpansionMode;
+
+extern HcclResult HcclConfigGetInfo(HcclComm comm, HcclConfigType cfgType,
+    uint32_t infoLen, void *info) __attribute__((weak));
+#endif /* CANN_VERSION_NUM < 90000000 */
+
+#if CANN_VERSION_NUM < 90100000
+typedef enum {
+    HCCL_CONFIG_TYPE_INVALID = -1,
+    HCCL_CONFIG_TYPE_OP_EXPANSION_MODE = 0
+} HcclConfigType;
+
 typedef enum {
     HCCL_OP_EXPANSION_MODE_INVALID = -1,
     HCCL_OP_EXPANSION_MODE_AI_CPU = 0,
@@ -26,17 +38,7 @@ typedef enum {
     HCCL_OP_EXPANSION_CCU_SCHED = 5,
     HCCL_OP_EXPANSION_AIV_ONLY = 6
 } HcclOpExpansionMode;
-
-typedef enum {
-    HCCL_CONFIG_TYPE_INVALID = -1,
-    HCCL_CONFIG_TYPE_OP_EXPANSION_MODE = 0
-} HcclConfigType;
-
-typedef HcclOpExpansionMode HcclConfigTypeOpExpansionMode;
-
-extern HcclResult HcclConfigGetInfo(HcclComm comm, HcclConfigType cfgType,
-    uint32_t infoLen, void *info) __attribute__((weak));
-#endif /* CANN_VERSION_NUM < 90000000 */
+#endif /* CANN_VERSION_NUM < 90100000 */
 
 #ifdef __cplusplus
 extern "C" {

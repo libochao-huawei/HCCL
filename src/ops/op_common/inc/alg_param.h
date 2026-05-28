@@ -31,8 +31,6 @@
 #include "binary_stream.h"
 #if CANN_VERSION_NUM >= 90100000
 #include "ccu_types.h"
-#else
-typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
 #endif
 
 namespace ops_hccl {

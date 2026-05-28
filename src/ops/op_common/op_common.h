@@ -20,7 +20,7 @@
 #include "alg_type.h"
 #include "execute_selector.h"
 #include "acl/acl_rt.h"
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_primitives.hpp"
 #endif
 #include "ccu_log.h"

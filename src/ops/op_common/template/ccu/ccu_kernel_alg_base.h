@@ -17,7 +17,9 @@
 #include <memory>
 
 #include "log.h"
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_primitives.hpp"
+#endif
 #include "ccu_log.h"
 // #include "ccu_kernel.h"
 namespace ccu = ::AscendC::ccu;
