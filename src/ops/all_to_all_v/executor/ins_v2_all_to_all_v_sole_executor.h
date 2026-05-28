@@ -37,18 +37,19 @@ public:
 #ifndef AICPU_COMPILE
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes,
                u32 notifyNumOnMainThread) const;
+
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *fastLaunchCtx) override;
 #endif
 
 protected:
     /* *************** 算法编排 *************** */
-    HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
-
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;
     A2ASendRecvInfo localSendRecvInfo_;
     u64 sendTypeSize_{0};
-    u64 recvTypeSize_{0};             
+    u64 recvTypeSize_{0};
+
+    HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
 };
 }
 
