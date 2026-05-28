@@ -58,6 +58,11 @@ static HcclResult ReorganizeScratches(
     // Future redesign (v1.4) will remove this constraint by clamping copy sizes.
     uint8_t *intra = static_cast<uint8_t*>(intraBuf);
     uint8_t *inter = static_cast<uint8_t*>(interBuf);
+    (void)intra; (void)inter; (void)cclBufEnd; (void)xSize; (void)ySize;
+    (void)intraSliceSize; (void)interSliceSize; (void)perPeerMesh; (void)perPeerClos;
+    HCCL_ERROR("[DIAG] ReorganizeScratches ENTRY — SKIPPING (no-op test)");
+    return HCCL_SUCCESS;
+#if 0
     u64 totalRanks = xSize * ySize;
     u64 intraCellSize = (intraSliceSize + totalRanks - 1) / totalRanks;
     u64 interCellSize = (interSliceSize + totalRanks - 1) / totalRanks;
@@ -163,40 +168,28 @@ static HcclResult ReorganizeScratches(
 
             // ③ MOVE INTER(sx,dy) → INTRA(dy,sx) (if INTER source & INTRA dest valid)
             if (sz_inter_sxdy > 0 && dy < xSize) {
-                u64 copySz3 = std::min(sz_inter_sxdy, sz_intra_dysx);
-                if (copySz3 > 0) {
-                    rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_dysx, inter + interSrcOff_sxdy,
-                                                 copySz3);
-                    if (rc != 0) return HCCL_E_INTERNAL;
-                }
+                rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_dysx, inter + interSrcOff_sxdy,
+                                             sz_inter_sxdy);
+                if (rc != 0) return HCCL_E_INTERNAL;
             }
 
             // ④ MOVE INTER(dy,sx) → INTRA(sx,dy) (if INTER source has data)
             if (sz_inter_dysx > 0) {
-                u64 copySz4 = std::min(sz_inter_dysx, sz_intra_sxdy);
-                if (copySz4 > 0) {
-                    rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_sxdy, inter + interSrcOff_dysx,
-                                                 copySz4);
-                    if (rc != 0) return HCCL_E_INTERNAL;
-                }
+                rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_sxdy, inter + interSrcOff_dysx,
+                                             sz_inter_dysx);
+                if (rc != 0) return HCCL_E_INTERNAL;
             }
 
             // ⑤ RESTORE temp1 → INTER(dy,sx)
             if (sz_intra_sxdy > 0) {
-                u64 copySz5 = std::min(sz_intra_sxdy, sz_inter_dysx);
-                if (copySz5 > 0) {
-                    rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_dysx, temp1, copySz5);
-                    if (rc != 0) return HCCL_E_INTERNAL;
-                }
+                rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_dysx, temp1, sz_intra_sxdy);
+                if (rc != 0) return HCCL_E_INTERNAL;
             }
 
             // ⑥ RESTORE temp2 → INTER(sx,dy) (only if INTER dest exists: sx < ySize)
             if (sz_intra_dysx > 0 && interValid) {
-                u64 copySz6 = std::min(sz_intra_dysx, sz_inter_sxdy);
-                if (copySz6 > 0) {
-                    rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_sxdy, temp2, copySz6);
-                    if (rc != 0) return HCCL_E_INTERNAL;
-                }
+                rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_sxdy, temp2, sz_intra_dysx);
+                if (rc != 0) return HCCL_E_INTERNAL;
             }
         }
     }
@@ -1097,6 +1090,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             bool needInterToIntra = (rankSizeLevel0_ > 1 && rankSizeLevel1_ > 1 && currCountPart1 > 0);
 
             if (needIntraToInter || needInterToIntra) {
+                HCCL_ERROR("[DIAG] ENTERING ReorganizeScratches block");
                 uint8_t *intraBuf = static_cast<uint8_t*>(resCtx.cclMem.addr) + intraScratchOffset;
                 uint8_t *interBuf = static_cast<uint8_t*>(resCtx.cclMem.addr) + interScratchOffset;
                 uint8_t *cclBufEnd = static_cast<uint8_t*>(resCtx.cclMem.addr) + resCtx.cclMem.size;
@@ -1214,8 +1208,9 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumIntra0_ + ccuKernelLaunchNumInter1_;
     if (ccuKernelNum < 1) {
         HCCL_INFO("[InsV2AlltoAllParallelExecutor] ccu kernel num is 0, no need to save.");
-        return HCCL_SUCCESS;
-    }
+    return HCCL_SUCCESS;
+#endif
+}
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][FastLaunchSaveCtx] threadNum[%llu], ccuKernelNum[%llu]", threadNum,
               ccuKernelNum);
 
