@@ -234,17 +234,14 @@ HcclResult CcuAlgTemplateBase::GetToken(const BuffInfo &buffinfo, uint64_t &toke
         ret = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffinfo.inputPtr),
                                      static_cast<uint64_t>(buffinfo.inputSize), token);
         CHK_RET(ret);
-        return token;
     } else if (buffinfo.outputPtr != nullptr && buffinfo.outputSize != 0) {
         ret = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffinfo.outputPtr),
                                      static_cast<uint64_t>(buffinfo.outputSize), token);
         CHK_RET(ret);
-        return token;
     } else if (buffinfo.hcclBuff.addr != nullptr && buffinfo.hcclBuff.size != 0) {
         ret = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffinfo.hcclBuff.addr),
                                      static_cast<uint64_t>(buffinfo.hcclBuff.size), token);
         CHK_RET(ret);
-        return token;
     }
     HCCL_WARNING("[GetToken] inputMem, outputMem and hcclBuff are all null");
     return HCCL_E_PTR;
