@@ -370,43 +370,40 @@ aclError aclrtGetOpTimeOutInterval(uint64_t *interval)
     return ACL_SUCCESS;
 }
 
-aclError aclrtGetTaskIdFromExceptionInfo(aclrtExceptionInfo *exceptionInfo, uint32_t *taskId)
+uint32_t aclrtGetTaskIdFromExceptionInfo(const aclrtExceptionInfo *info)
 {
-    if (exceptionInfo == nullptr || taskId == nullptr) {
-        return ACL_ERROR_INVALID_PARAM;
+    if (info == nullptr) {
+        return 0;
     }
-    rtExceptionInfo_t *info = reinterpret_cast<rtExceptionInfo_t *>(exceptionInfo);
-    *taskId = info->taskid;
-    return ACL_SUCCESS;
+    const rtExceptionInfo_t *exceptionInfo = reinterpret_cast<const rtExceptionInfo_t *>(info);
+    return exceptionInfo->taskid;
 }
 
-aclError aclrtGetStreamIdFromExceptionInfo(aclrtExceptionInfo *exceptionInfo, uint32_t *streamId)
+uint32_t aclrtGetStreamIdFromExceptionInfo(const aclrtExceptionInfo *info)
 {
-    if (exceptionInfo == nullptr || streamId == nullptr) {
-        return ACL_ERROR_INVALID_PARAM;
+    if (info == nullptr) {
+        return 0;
     }
-    rtExceptionInfo_t *info = reinterpret_cast<rtExceptionInfo_t *>(exceptionInfo);
-    *streamId = info->streamid;
-    return ACL_SUCCESS;
+    const rtExceptionInfo_t *exceptionInfo = reinterpret_cast<const rtExceptionInfo_t *>(info);
+    return exceptionInfo->streamid;
 }
 
-aclError aclrtGetDeviceIdFromExceptionInfo(aclrtExceptionInfo *exceptionInfo, uint32_t *deviceId)
+uint32_t aclrtGetDeviceIdFromExceptionInfo(const aclrtExceptionInfo *info)
 {
-    if (exceptionInfo == nullptr || deviceId == nullptr) {
-        return ACL_ERROR_INVALID_PARAM;
+    if (info == nullptr) {
+        return 0;
     }
-    rtExceptionInfo_t *info = reinterpret_cast<rtExceptionInfo_t *>(exceptionInfo);
-    *deviceId = info->deviceid;
-    return ACL_SUCCESS;
+    const rtExceptionInfo_t *exceptionInfo = reinterpret_cast<const rtExceptionInfo_t *>(info);
+    return exceptionInfo->deviceid;
 }
 
-rtError_t rtGetTaskIdAndStreamID(rtExceptionInfo_t *exceptionInfo, uint32_t *taskId, uint32_t *streamId)
+rtError_t rtGetTaskIdAndStreamID(uint32_t *taskId, uint32_t *streamId)
 {
-    if (exceptionInfo == nullptr || taskId == nullptr || streamId == nullptr) {
-        return RT_ERROR_INVALID_PARAM;
+    if (taskId == nullptr || streamId == nullptr) {
+        return RT_ERROR_INVALID_VALUE;
     }
-    *taskId = exceptionInfo->taskid;
-    *streamId = exceptionInfo->streamid;
+    *taskId = 0;
+    *streamId = 0;
     return RT_ERROR_NONE;
 }
 
