@@ -15,7 +15,7 @@
 #include "template_utils.h"
 #include "kernel/ccu_kernel_all_to_all_v_mesh1d.h"
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
-#include "ccu_control_api.h"
+#include "ccu_launch.h"
 
 #define CONST_ZERO 0
 #define CONST_ONE 1
