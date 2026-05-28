@@ -106,17 +106,18 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
     bool isPcie = IsPcieProtocol(channels);
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     u64 totalSliceSize = tempAlgParams_.sliceSize;
-    u64 perPeerChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+    u64 actualChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+    u64 chunkCount = actualChunkSize / dataTypeSize;
     HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] Stride config: "
         "inputSliceStride=%llu outputSliceStride=%llu inBuffType=%d outBuffType=%d "
-        "inBuffBaseOff=%llu outBuffBaseOff=%llu outputSize=%llu perPeerChunk=%llu",
+        "inBuffBaseOff=%llu outBuffBaseOff=%llu outputSize=%llu actualChunkSize=%llu",
         tempAlgParams_.inputSliceStride, tempAlgParams_.outputSliceStride,
         static_cast<int>(tempAlgParams_.buffInfo.inBuffType),
         static_cast<int>(tempAlgParams_.buffInfo.outBuffType),
         tempAlgParams_.buffInfo.inBuffBaseOff,
         tempAlgParams_.buffInfo.outBuffBaseOff,
         tempAlgParams_.buffInfo.outputSize,
-        perPeerChunkSize);
+        actualChunkSize);
 
     // v3.0 Fix B: per-link lastPeerSize for ceiling over-shoot
     u64 lastPeerSize = totalSliceSize - perPeerChunkSize * (templateRankSize_ - 1);
@@ -206,8 +207,6 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         std::vector<DataSlice> rxDstSlicesAll;
         std::vector<DataSlice> rxSrcSlicesAll;
 
-        u64 actualChunkSize = perPeerChunkSize;
-        u64 chunkCount = actualChunkSize / dataTypeSize;
         u64 offsetInSlice = connectedAlgRank * perPeerChunkSize;
 
         const u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + tempAlgParams_.sliceSize;
