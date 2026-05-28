@@ -9,13 +9,14 @@
  */
 #include "exec_timeout_manager.h"
 #include "log.h"
+#include "alg_param.h"
 
 namespace ops_hccl {
 
 ExecTimeoutManager::ExecTimeoutManager() 
-    : execTimeout_(1800), // 默认值，与 CUSTOM_TIMEOUT 一致
+    : execTimeout_(CUSTOM_TIMEOUT),
       timeoutSet_(false) {
-    HCCL_INFO("[ExecTimeoutManager] Initialized with default timeout: 1800 seconds");
+    HCCL_INFO("[ExecTimeoutManager] Initialized with default timeout: %u seconds", CUSTOM_TIMEOUT);
 }
 
 ExecTimeoutManager::~ExecTimeoutManager() {
@@ -35,7 +36,7 @@ void ExecTimeoutManager::SetExecTimeout(u32 execTimeout) {
 
 u32 ExecTimeoutManager::GetExecTimeout() {
     bool isSet = timeoutSet_.load(std::memory_order_relaxed);
-    u32 timeout = isSet ? execTimeout_.load(std::memory_order_relaxed) : 1800;
+    u32 timeout = isSet ? execTimeout_.load(std::memory_order_relaxed) : CUSTOM_TIMEOUT;
     HCCL_DEBUG("[ExecTimeoutManager] Getting exec timeout: %u seconds.", timeout);
     return timeout;
 }

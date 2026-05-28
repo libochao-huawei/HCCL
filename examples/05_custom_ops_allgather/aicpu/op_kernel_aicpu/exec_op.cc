@@ -16,7 +16,7 @@
 namespace ops_hccl_allgather {
 constexpr uint64_t HCCL_MIN_SLICE_ALIGN = 128;
 constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024;
-constexpr uint32_t CUSTOM_TIMEOUT = 1800;
+constexpr uint32_t CUSTOM_TIMEOUT = 1836;
 constexpr uint32_t NOTIFY_IDX_ACK = 0;
 constexpr uint32_t NOTIFY_IDX_DATA_SIGNAL = 1;
 constexpr uint32_t NOTIFY_IDX_FIN_ACK = 2;

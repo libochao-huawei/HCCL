@@ -93,6 +93,13 @@ HcclResult ParseExecTimeout()
         return HCCL_E_PARA;
     }
 
+    if (execTimeOut > static_cast<double>(UINT32_MAX)) {
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] is too large, use default.",
+            execTimeOutEnv.c_str());
+        return HCCL_E_PARA;
+    }
     g_algEnvConfig.execTimeOutSet = true;
     g_algEnvConfig.execTimeout = execTimeOut;
     return HCCL_SUCCESS;

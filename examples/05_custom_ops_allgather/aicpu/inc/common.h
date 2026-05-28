@@ -21,7 +21,7 @@
 
 constexpr uint32_t NOTIFY_IDX_ACK = 0;
 constexpr uint32_t NOTIFY_IDX_DATA_SIGNAL = 1;
-constexpr uint32_t CUSTOM_TIMEOUT = 1800;
+constexpr uint32_t CUSTOM_TIMEOUT = 1836;
 
 constexpr uint32_t COMM_INDENTIFIER_MAX_LENGTH = 128;
 constexpr uint32_t OP_NAME_LENGTH = 32;

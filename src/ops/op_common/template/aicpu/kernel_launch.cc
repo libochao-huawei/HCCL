@@ -17,6 +17,7 @@
 #include "coll_alg_exec_registry.h"
 #include "coll_alg_v2_exec_registry.h"
 #include "hcomm_primitives.h"
+#include "hcomm_primitives_dl.h"
 #include "dfx/task_exception_fun.h"
 #include "kernel_launch.h"
 #include "hcomm_diag_dl.h"
@@ -388,9 +389,15 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 maxNotifyNum = resCtxPtr->notifyNumPerThread[i];
             }
         }
+        if (HcommIsSupportHcommThreadResAcquireTimeOut()) {
+            CHK_RET(HcclThreadResAcquireTimeOut(resCtxPtr->fullTimeout));
+        }
+        if (HcommIsSupportHcommSetNotifyWaitTimeOut()) {
+            CHK_RET(HcclSetNotifyWaitTimeOut(resCtxPtr->waitTimeout));
+        }
         HCCL_DEBUG("[%s]Notify wait on thread[%llu], maxNotifyNum[%u], timeout[%u]", __func__, thread,
-            maxNotifyNum, CUSTOM_TIMEOUT);
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, maxNotifyNum, CUSTOM_TIMEOUT)));
+            maxNotifyNum, resCtxPtr->waitTimeout);
+        CHK_RET(HcclThreadNotifyWaitOnThreadDefault(thread, maxNotifyNum, resCtxPtr->waitTimeout));
 
         std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
         if (executor.get() == nullptr) {
