@@ -64,7 +64,7 @@ namespace ops_hccl {
         return HcclResult::HCCL_SUCCESS;
     }
 
-    HcclResult InsV2RecvExecutor::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit) const
+    HcclResult InsV2RecvExecutor::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit)
     {
         (void)dataSize;
 
