@@ -308,3 +308,83 @@ void TableBasedAlgoSelector::Initialize() {
 }
 
 } // namespace ops_hccl
+
+/*
+## src/ops 目录下算法选择条件总结
+
+通过分析 src/ops 目录下所有 selector 文件夹中的算法选择文件（共 15 个文件），总结出共有 **15 种主要条件类型** 用于算法选择：
+
+### 一、拓扑相关条件（7种）
+
+1. **拓扑层级数 (topoLevelNums)**
+   - 判断是否跨多个层级（单层级 vs 多层级）
+   - 例如：`topoInfo->topoLevelNums > 1`
+
+2. **Level0 拓扑类型 (level0Topo)**
+   - `MESH_1D`: 一维 Mesh 拓扑
+   - `MESH_1D_CLOS`: Mesh + Clos 混合拓扑
+   - `CLOS`: Clos 拓扑
+
+3. **Level0 Mesh 类型 (level0MeshType)**
+   - `TWO_DIE_REGULAR`: 双 Die 规则 Mesh
+   - `TWO_DIE_NOT_REGULAR`: 双 Die 非规则 Mesh
+
+4. **PCIE 混合拓扑标志 (level0PcieMix)**
+   - 判断是否为 PCIE-SW 定制机型
+
+5. **两 Die 全连接 Mesh (is2DieFullMesh)**
+   - 判断是否为双 Die 全连接 Mesh 拓扑
+
+6. **Mesh 数量与 Clos 数量关系**
+   - `isMeshNumEqualToClosNum`: Mesh 数量是否等于 Clos 数量
+   - `isClosNumMultipleOfMeshNum`: Clos 数量是否为 Mesh 数量的倍数
+
+7. **网络层详情 (netLayerDetails)**
+   - `localNetInsSizeOfLayer[0]`: 第一层的本地网络实例大小
+   - `Level1Nhr`: Level1 是否为 NHR 拓扑
+
+### 二、数据相关条件（2种）
+
+8. **数据大小 (dataSize)**
+   - 小数据量：< 512KB (SMALL_COUNT_512KB)
+   - 大数据量：>= 1024KB (LARGE_COUNT_1024KB)
+   - CCU 并行最大数据量：<= 64MB
+
+9. **数据类型 (dataType)**
+   - 64 位数据类型：`INT64, UINT64, FP64`
+   - 特殊类型：`INT8`
+
+### 三、操作相关条件（2种）
+
+10. **归约操作类型 (reduceType)**
+    - 特别关注 `HCCL_REDUCE_PROD` (乘法归约)
+
+11. **操作类型 (opType)**
+    - 如 `HCCL_CMD_ALLTOALL`, `HCCL_CMD_ALLTOALLV` 等
+
+### 四、执行模式条件（1种）
+
+12. **执行配置 (opExecuteConfig)**
+    - `CCU_MS`: CCU Mesh 模式
+    - `CCU_SCHED`: CCU Schedule 模式
+    - `AICPU_TS`: AICPU 模式
+    - `AIV / AIV_ONLY`: AIV 模式
+    - `HOSTCPU`: 主机 CPU 模式
+
+### 五、其他条件（3种）
+
+13. **Rank 数量 (userRankSize)**
+    - 判断是否在 4P 范围内（<= 4）
+    - 用于选择并发算法
+
+14. **输入输出内存重叠 (IsInputOutputOverlap)**
+    - 判断输入输出缓冲区是否重叠（inplace 场景）
+
+15. **链路端点位置类型 (locType)**
+    - `ENDPOINT_LOC_TYPE_HOST`: 主机端
+    - `ENDPOINT_LOC_TYPE_DEVICE`: 设备端
+    - 用于 Send/Recv 选择 Host DPU 或 Device DPU 算法
+
+### 总结
+
+算法选择系统采用**多层次决策树结构**，按优先级依次检查上述条件，为不同硬件配置和操作参数自动选择最优通信算法。*/
