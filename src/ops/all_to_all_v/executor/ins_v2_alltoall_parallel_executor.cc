@@ -23,178 +23,6 @@
 
 namespace ops_hccl {
 
-/**
- * Reorganize INTRA↔INTER scratch buffers with dual-save DMA cell swap.
- * Processes the upper triangle (dy > sx) only to avoid RAW hazards.
- * Both INTRA(sx,dy) and INTRA(dy,sx) are saved to temp1/temp2 BEFORE
- * any writes occur, eliminating the symmetric-pair corruption bug (D-1).
- *
- * INTRA: column-major source-by-dx → dest-by-dx
- * INTER: row-major source-by-dy → dest-by-dy
- *
- * Uses per-direction cellSize (D-2 fix): intraCellSize vs interCellSize.
- *
- * Steps per pair (sx,dy):
- *   ① SAVE temp1 = INTRA(sx,dy)
- *   ② SAVE temp2 = INTRA(dy,sx)  (if dy < xSize)
- *   ③ MOVE INTER(sx,dy) → INTRA(dy,sx)  (if sx < ySize && dy < xSize)
- *   ④ MOVE INTER(dy,sx) → INTRA(sx,dy)  (if sz_inter_dysx > 0)
- *   ⑤ RESTORE temp1 → INTER(dy,sx)
- *   ⑥ RESTORE temp2 → INTER(sx,dy)  (if sx < ySize && dy < xSize)
- */
-static HcclResult ReorganizeScratches(
-    ThreadHandle thread,
-    void *intraBuf, void *interBuf, void *cclBufEnd,
-    u32 xSize, u32 ySize,
-    u64 intraSliceSize, u64 interSliceSize,
-    u64 perPeerMesh, u64 perPeerClos)
-{
-    // CONSTRAINT: splitRatio MUST be 0.5 for this function to produce correct
-    // results. When intraCellSize ≠ interCellSize (splitRatio ≠ 0.5), the MOVE
-    // and RESTORE DMA copy sizes differ from destination cell capacities, causing
-    // buffer overflow. This is a known limitation (tracked as D-3).
-    // The executor's GetParallelDataSplit hardcodes splitRatio=0.5, guaranteeing
-    // intraCellSize == interCellSize at all call sites.
-    // Future redesign (v1.4) will remove this constraint by clamping copy sizes.
-    uint8_t *intra = static_cast<uint8_t*>(intraBuf);
-    uint8_t *inter = static_cast<uint8_t*>(interBuf);
-    (void)intra; (void)inter; (void)cclBufEnd; (void)xSize; (void)ySize;
-    (void)intraSliceSize; (void)interSliceSize; (void)perPeerMesh; (void)perPeerClos;
-    HCCL_ERROR("[DIAG] ReorganizeScratches ENTRY — SKIPPING (no-op test)");
-    return HCCL_SUCCESS;
-    u64 totalRanks = xSize * ySize;
-    u64 intraCellSize = (intraSliceSize + totalRanks - 1) / totalRanks;
-    u64 interCellSize = (interSliceSize + totalRanks - 1) / totalRanks;
-
-    if (intraCellSize != interCellSize) {
-        HCCL_ERROR("[ReorganizeScratches] splitRatio violation: intraCell[%llu] != interCell[%llu] "
-                  "intraSlice[%llu] interSlice[%llu] totalRanks[%llu]",
-                  intraCellSize, interCellSize,
-                  intraSliceSize, interSliceSize, static_cast<u64>(totalRanks));
-        return HCCL_E_INTERNAL;
-    }
-
-    // Dual-save: need 2× maxCell for temp1+temp2 in device-accessible memory.
-    // Use tail of cclMem (past inter scratch, guaranteed within cclBufEnd).
-    u64 maxCellSize = std::max(intraCellSize, interCellSize);
-    if (maxCellSize == 0) return HCCL_SUCCESS;
-    u64 tempSize = 2 * maxCellSize;
-    uint8_t *temp = static_cast<uint8_t*>(cclBufEnd) - tempSize;
-    uint8_t *temp1 = temp;
-    uint8_t *temp2 = temp + maxCellSize;
-    HCCL_WARNING("[ALLTOALL_V2_DEBUG][ReorganizeScratches] xSize=%u ySize=%u intraSlice=%llu interSlice=%llu "
-                 "perPeerMesh=%llu perPeerClos=%llu intraCell=%llu interCell=%llu maxCell=%llu temp=%p",
-                 xSize, ySize, intraSliceSize, interSliceSize,
-                 perPeerMesh, perPeerClos, intraCellSize, interCellSize, maxCellSize, (void*)temp);
-
-    for (u32 sx = 0; sx < xSize; sx++) {
-        // Intra block info for source row sx
-        u64 intraBlockSize = (sx == xSize - 1)
-            ? intraSliceSize - perPeerMesh * (xSize - 1) : perPeerMesh;
-        if (intraBlockSize <= 0) intraBlockSize = perPeerMesh;
-
-        // Inter block info for source row sx (valid only if sx < ySize)
-        u64 interBlockSize = 0;
-        bool interValid = (sx < ySize);
-        if (interValid) {
-            interBlockSize = (sx == ySize - 1)
-                ? interSliceSize - perPeerClos * (ySize - 1) : perPeerClos;
-            if (interBlockSize <= 0) interBlockSize = perPeerClos;
-        }
-
-        // Upper triangle only — avoids RAW hazard on symmetric pairs
-        for (u32 dy = sx + 1; dy < ySize; dy++) {
-            if (sx >= ySize && dy >= xSize) continue;
-
-            // Intra block info for source row dy (for INTRA(dy,sx) cell)
-            u64 dyIntraBlockSize = (dy == xSize - 1)
-                ? intraSliceSize - perPeerMesh * (xSize - 1) : perPeerMesh;
-            if (dyIntraBlockSize <= 0) dyIntraBlockSize = perPeerMesh;
-
-            // ===== INTRA(sx,dy) size (always valid: sx < xSize) =====
-            u64 intraSrcOff_sxdy = sx * perPeerMesh + dy * intraCellSize;
-            u64 intraRemaining_sxdy = (intraSrcOff_sxdy < sx * perPeerMesh + intraBlockSize)
-                ? (sx * perPeerMesh + intraBlockSize - intraSrcOff_sxdy) : 0;
-            u64 sz_intra_sxdy = std::min(intraCellSize, intraRemaining_sxdy);
-
-            // ===== INTRA(dy,sx) size (valid only if dy < xSize) =====
-            u64 sz_intra_dysx = 0;
-            u64 intraSrcOff_dysx = 0;
-            if (dy < xSize) {
-                intraSrcOff_dysx = dy * perPeerMesh + sx * intraCellSize;
-                u64 intraRemaining_dysx = (intraSrcOff_dysx < dy * perPeerMesh + dyIntraBlockSize)
-                    ? (dy * perPeerMesh + dyIntraBlockSize - intraSrcOff_dysx) : 0;
-                sz_intra_dysx = std::min(intraCellSize, intraRemaining_dysx);
-            }
-
-            // Skip if both INTRA cells are empty
-            if (sz_intra_sxdy == 0 && sz_intra_dysx == 0) continue;
-
-            // ===== INTER(sx,dy) size (valid only if sx < ySize) =====
-            u64 sz_inter_sxdy = 0;
-            u64 interSrcOff_sxdy = 0;
-            if (interValid) {
-                interSrcOff_sxdy = sx * perPeerClos + dy * interCellSize;
-                u64 interRemaining_sxdy = (interSrcOff_sxdy < sx * perPeerClos + interBlockSize)
-                    ? (sx * perPeerClos + interBlockSize - interSrcOff_sxdy) : 0;
-                sz_inter_sxdy = std::min(interCellSize, interRemaining_sxdy);
-            }
-
-            // ===== INTER(dy,sx) size (valid: dy < ySize from loop bound) =====
-            u64 sz_inter_dysx = 0;
-            u64 interSrcOff_dysx = 0;
-            u64 dyInterBlockSize = (dy == ySize - 1)
-                ? interSliceSize - perPeerClos * (ySize - 1) : perPeerClos;
-            if (dyInterBlockSize <= 0) dyInterBlockSize = perPeerClos;
-            interSrcOff_dysx = dy * perPeerClos + sx * interCellSize;
-            u64 interRemaining_dysx = (interSrcOff_dysx < dy * perPeerClos + dyInterBlockSize)
-                ? (dy * perPeerClos + dyInterBlockSize - interSrcOff_dysx) : 0;
-            sz_inter_dysx = std::min(interCellSize, interRemaining_dysx);
-
-            int32_t rc;
-
-            // ① SAVE temp1 = INTRA(sx, dy) — first save before any writes
-            if (sz_intra_sxdy > 0) {
-                rc = HcommLocalCopyOnThread(thread, temp1, intra + intraSrcOff_sxdy, sz_intra_sxdy);
-                if (rc != 0) return HCCL_E_INTERNAL;
-            }
-
-            // ② SAVE temp2 = INTRA(dy, sx) — second save before any writes
-            if (sz_intra_dysx > 0) {
-                rc = HcommLocalCopyOnThread(thread, temp2, intra + intraSrcOff_dysx, sz_intra_dysx);
-                if (rc != 0) return HCCL_E_INTERNAL;
-            }
-
-            // ③ MOVE INTER(sx,dy) → INTRA(dy,sx) (if INTER source & INTRA dest valid)
-            if (sz_inter_sxdy > 0 && dy < xSize) {
-                rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_dysx, inter + interSrcOff_sxdy,
-                                             sz_inter_sxdy);
-                if (rc != 0) return HCCL_E_INTERNAL;
-            }
-
-            // ④ MOVE INTER(dy,sx) → INTRA(sx,dy) (if INTER source has data)
-            if (sz_inter_dysx > 0) {
-                rc = HcommLocalCopyOnThread(thread, intra + intraSrcOff_sxdy, inter + interSrcOff_dysx,
-                                             sz_inter_dysx);
-                if (rc != 0) return HCCL_E_INTERNAL;
-            }
-
-            // ⑤ RESTORE temp1 → INTER(dy,sx)
-            if (sz_intra_sxdy > 0) {
-                rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_dysx, temp1, sz_intra_sxdy);
-                if (rc != 0) return HCCL_E_INTERNAL;
-            }
-
-            // ⑥ RESTORE temp2 → INTER(sx,dy) (only if INTER dest exists: sx < ySize)
-            if (sz_intra_dysx > 0 && interValid) {
-                rc = HcommLocalCopyOnThread(thread, inter + interSrcOff_sxdy, temp2, sz_intra_dysx);
-                if (rc != 0) return HCCL_E_INTERNAL;
-            }
-        }
-    }
-    return HCCL_SUCCESS;
-}
-
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AlltoAllParallelExecutor()
 {
@@ -352,183 +180,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
     return HCCL_SUCCESS;
 }
-
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParamsIntra0(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-    const u64 dataCountPerLoopAxis0, const u64 scratchOffset, TemplateDataParams &tempAlgParamsIntra0) const
-{
-    // Stage 1: input → INTRA scratch. Ring exchange writes received data to scratch,
-    // not user output, so Stage 2 can read it back.
-    tempAlgParamsIntra0.buffInfo.inputPtr = param.inputPtr;
-    tempAlgParamsIntra0.buffInfo.outputPtr = resCtx.cclMem.addr;
-    tempAlgParamsIntra0.buffInfo.hcclBuff = resCtx.cclMem;
-    tempAlgParamsIntra0.buffInfo.inBuffType = BufferType::INPUT;
-    tempAlgParamsIntra0.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsIntra0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsIntra0.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsIntra0.buffInfo.outputSize = resCtx.cclMem.size;
-
-    tempAlgParamsIntra0.buffInfo.inBuffBaseOff = dataOffset;
-    tempAlgParamsIntra0.buffInfo.outBuffBaseOff = scratchOffset;
-    tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff = scratchOffset;
-    tempAlgParamsIntra0.sliceSize = dataCountPerLoopAxis0 * dataTypeSize_;
-    tempAlgParamsIntra0.count = dataCountPerLoopAxis0;
-    tempAlgParamsIntra0.tailSize = tempAlgParamsIntra0.sliceSize;
-
-    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
-    u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
-    tempAlgParamsIntra0.inputSliceStride = perPeerInputChunkSize;
-    tempAlgParamsIntra0.outputSliceStride = tempAlgParamsIntra0.sliceSize;
-    tempAlgParamsIntra0.repeatNum = 1;
-    tempAlgParamsIntra0.inputRepeatStride = 0;
-    tempAlgParamsIntra0.outputRepeatStride = 0;
-    tempAlgParamsIntra0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-
-    u64* sendCountsData = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts);
-    tempAlgParamsIntra0.sendCounts.assign(sendCountsData, sendCountsData + totalRankCount);
-    u64* sdisplsData = reinterpret_cast<u64*>(param.all2AllVDataDes.sdispls);
-    tempAlgParamsIntra0.sdispls.assign(sdisplsData, sdisplsData + totalRankCount);
-
-    HCCL_INFO(
-        "[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsIntra0] rank[%d] inBuffBaseOff[%llu] "
-        "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu] "
-        "rankSizeLevel0[%u] rankSizeLevel1[%u] rankIdxLevel0[%u] rankIdxLevel1[%u]",
-        myRank_, tempAlgParamsIntra0.buffInfo.inBuffBaseOff, tempAlgParamsIntra0.buffInfo.outBuffBaseOff,
-        tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff, tempAlgParamsIntra0.sliceSize,
-        rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
-    return;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParamsInter1(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-    const u64 dataCountPerLoopAxis1, const u64 scratchOffset, TemplateDataParams &tempAlgParamsInter1) const
-{
-    // Stage 1: input → INTER scratch. Ring exchange writes received data to scratch,
-    // not user output, so Stage 2 can read it back.
-    tempAlgParamsInter1.buffInfo.inputPtr = param.inputPtr;
-    tempAlgParamsInter1.buffInfo.outputPtr = resCtx.cclMem.addr;
-    tempAlgParamsInter1.buffInfo.hcclBuff = resCtx.cclMem;
-    tempAlgParamsInter1.buffInfo.inBuffType = BufferType::INPUT;
-    tempAlgParamsInter1.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsInter1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsInter1.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsInter1.buffInfo.outputSize = resCtx.cclMem.size;
-
-    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
-    u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
-    tempAlgParamsInter1.buffInfo.inBuffBaseOff = perPeerInputChunkSize / 2;
-    tempAlgParamsInter1.buffInfo.outBuffBaseOff = scratchOffset;
-    tempAlgParamsInter1.buffInfo.hcclBuffBaseOff = scratchOffset;
-    tempAlgParamsInter1.sliceSize = dataCountPerLoopAxis1 * dataTypeSize_;
-    tempAlgParamsInter1.count = dataCountPerLoopAxis1;
-    tempAlgParamsInter1.tailSize = tempAlgParamsInter1.sliceSize;
-
-    tempAlgParamsInter1.inputSliceStride = perPeerInputChunkSize * rankSizeLevel0_;
-    tempAlgParamsInter1.outputSliceStride = tempAlgParamsInter1.sliceSize;
-    tempAlgParamsInter1.repeatNum = 1;
-    tempAlgParamsInter1.inputRepeatStride = 0;
-    tempAlgParamsInter1.outputRepeatStride = 0;
-    tempAlgParamsInter1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-
-    u64* sendCountsData = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts);
-    tempAlgParamsInter1.sendCounts.assign(sendCountsData, sendCountsData + totalRankCount);
-    u64* sdisplsData = reinterpret_cast<u64*>(param.all2AllVDataDes.sdispls);
-    tempAlgParamsInter1.sdispls.assign(sdisplsData, sdisplsData + totalRankCount);
-
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsInter1] rank[%u] inBuffBaseOff[%llu] "
-               "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu]",
-               myRank_, tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.outBuffBaseOff,
-               tempAlgParamsInter1.buffInfo.hcclBuffBaseOff, tempAlgParamsInter1.sliceSize);
-    return;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParamsInter0(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-    const u64 dataCountPerLoopAxis0, const u64 scratchOffset, TemplateDataParams &tempAlgParamsInter0) const
-{
-    // Stage 2: READS from INTRA scratch → writes to user output buffer.
-    // inputPtr = scratch (where Stage 1 Intra0 wrote), outputPtr = user output.
-    tempAlgParamsInter0.buffInfo.inputPtr = resCtx.cclMem.addr;
-    tempAlgParamsInter0.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsInter0.buffInfo.hcclBuff = resCtx.cclMem;
-    tempAlgParamsInter0.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsInter0.buffInfo.outBuffType = BufferType::OUTPUT;
-    tempAlgParamsInter0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsInter0.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsInter0.buffInfo.outputSize = param.outputSize * dataTypeSize_;
-
-    tempAlgParamsInter0.buffInfo.inBuffBaseOff = scratchOffset;
-    // v1.12 Fix B: dataOffset (= dataOffset0 = 0 for first loop iteration) happens
-    // to equal the correct interleaved X-data offset (0 within each peer output chunk).
-    // X-data starts at offset 0 within each peer chunk in the interleaved output layout.
-    tempAlgParamsInter0.buffInfo.outBuffBaseOff = dataOffset;
-    tempAlgParamsInter0.buffInfo.hcclBuffBaseOff = scratchOffset;
-    tempAlgParamsInter0.sliceSize = dataCountPerLoopAxis0 * dataTypeSize_;
-    tempAlgParamsInter0.count = dataCountPerLoopAxis0;
-    tempAlgParamsInter0.tailSize = tempAlgParamsInter0.sliceSize;
-
-    tempAlgParamsInter0.inputSliceStride = dataSize_ * rankSizeLevel0_;
-    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
-    u64 perPeerOutputChunkSize = (dataSize_ + totalRankCount - 1) / totalRankCount;
-    tempAlgParamsInter0.outputSliceStride = rankSizeLevel0_ * perPeerOutputChunkSize;
-    tempAlgParamsInter0.repeatNum = 1;
-    tempAlgParamsInter0.inputRepeatStride = 0;
-    tempAlgParamsInter0.outputRepeatStride = 0;
-    tempAlgParamsInter0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsInter0] rank[%u] inBuffBaseOff[%llu] "
-               "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu]",
-               myRank_, tempAlgParamsInter0.buffInfo.inBuffBaseOff, tempAlgParamsInter0.buffInfo.outBuffBaseOff,
-               tempAlgParamsInter0.buffInfo.hcclBuffBaseOff, tempAlgParamsInter0.sliceSize);
-    return;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParamsIntra1(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-    const u64 dataCountPerLoopAxis1, const u64 scratchOffset, TemplateDataParams &tempAlgParamsIntra1) const
-{
-    tempAlgParamsIntra1.buffInfo.inputPtr = static_cast<uint8_t*>(resCtx.cclMem.addr) + scratchOffset;
-    tempAlgParamsIntra1.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsIntra1.buffInfo.hcclBuff = resCtx.cclMem;
-    tempAlgParamsIntra1.buffInfo.inBuffBaseOff = 0;
-
-    // v1.12 Fix A: Interleaved output layout — Y-data within each peer chunk
-    // is at perPeerOutputChunkSize/2 offset, NOT dataOffset (blocked-layout midpoint).
-    // dataSize_ reflects total send data; perPeerOutputChunkSize computed from dataSize_
-    // (not param.outputSize) to match the actual data distribution for asymmetric AlltoAllV.
-    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
-    u64 perPeerOutputChunkSize = (dataSize_ + totalRankCount - 1) / totalRankCount;
-    tempAlgParamsIntra1.buffInfo.outBuffBaseOff = perPeerOutputChunkSize / 2;
-
-    tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff = scratchOffset;
-    tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsIntra1.buffInfo.outBuffType = BufferType::OUTPUT;
-    tempAlgParamsIntra1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsIntra1.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsIntra1.buffInfo.outputSize = param.outputSize * dataTypeSize_;
-    tempAlgParamsIntra1.sliceSize = dataCountPerLoopAxis1 * dataTypeSize_;
-    tempAlgParamsIntra1.count = dataCountPerLoopAxis1;
-    tempAlgParamsIntra1.tailSize = tempAlgParamsIntra1.sliceSize;
-
-    tempAlgParamsIntra1.inputSliceStride = dataSize_;
-    // totalRankCount and perPeerOutputChunkSize already computed above (v1.12 Fix A)
-    tempAlgParamsIntra1.outputSliceStride = perPeerOutputChunkSize;
-    tempAlgParamsIntra1.repeatNum = 1;
-    tempAlgParamsIntra1.inputRepeatStride = 0;
-    tempAlgParamsIntra1.outputRepeatStride = 0;
-    tempAlgParamsIntra1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsIntra1] rank[%u] inBuffBaseOff[%llu] "
-               "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu]",
-               myRank_, tempAlgParamsIntra1.buffInfo.inBuffBaseOff, tempAlgParamsIntra1.buffInfo.outBuffBaseOff,
-               tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff, tempAlgParamsIntra1.sliceSize);
-    return;
-}
-
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 uint64_t InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetRankSize(
     const std::vector<std::vector<u32>> &vTopo) const
@@ -778,8 +429,8 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetParallelDataSplit(
     std::vector<float> &splitDataSize) const
 {
-    double splitData = multipleDimensionSplitRatio_;
-
+    // double splitData = multipleDimensionSplitRatio_;
+    double splitData = 0.5;
     // v2.0 Fix 6: adaptive splitRatio for degenerate topologies
     if (rankSizeLevel0_ == 1) {
         splitDataSize.push_back(0.0f);
@@ -812,63 +463,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         GetParallelDataSplit(splitDataSize);
     }
 
-    u32 intraScratchMultipleStage0 = tempAlgIntra.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
-    u32 interScratchMultipleStage0 = tempAlgInter.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
-    u32 intraScratchMultipleStage1 = tempAlgIntra.CalcScratchMultiple(BufferType::HCCL_BUFFER, BufferType::OUTPUT);
-    u32 interScratchMultipleStage1 = tempAlgInter.CalcScratchMultiple(BufferType::HCCL_BUFFER, BufferType::OUTPUT);
-
-    u32 scratchMultipleIntra =
-        static_cast<u32>(std::max(std::ceil(splitDataSize[0] * intraScratchMultipleStage0),
-                                  std::ceil(splitDataSize[1] * intraScratchMultipleStage1)));
-    u32 scratchMultipleInter =
-        static_cast<u32>(std::max(std::ceil(splitDataSize[1] * interScratchMultipleStage0),
-                                  std::ceil(splitDataSize[0] * interScratchMultipleStage1)));
-    u32 totalScratchMultiple = scratchMultipleIntra + scratchMultipleInter;
-
-    u64 scratchMemBlockSize = maxTmpMemSize_;
-    u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
-    if (totalScratchMultiple > 0) {
-        scratchMemBlockSize = (maxTmpMemSize_ / HCCL_MIN_SLICE_ALIGN / totalScratchMultiple) * HCCL_MIN_SLICE_ALIGN;
-        scratchMemBlockSize = std::min(scratchMemBlockSize, transportBoundDataSize);
-    }
-    u64 intraScratchOffset = 0;
-    u64 interScratchOffset = scratchMultipleIntra * scratchMemBlockSize;
-
-    u64 maxCountPerLoop =
-        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_ / 10) *
-        10;
-
-    u64 alignSize = AICPU_ALIGN_SIZE;
-
-    u64 dataCountPerLoopAxis0 = static_cast<u64>(splitDataSize[0] * maxCountPerLoop);
-    u64 dataCountPerLoopAxis1 = maxCountPerLoop - dataCountPerLoopAxis0;
-
-    if (dataCountPerLoopAxis0 * dataTypeSize_ >= alignSize) {
-        dataCountPerLoopAxis0 = dataCountPerLoopAxis0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
-    }
-    if (dataCountPerLoopAxis1 * dataTypeSize_ >= alignSize) {
-        dataCountPerLoopAxis1 = dataCountPerLoopAxis1 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
-    }
-    maxCountPerLoop = dataCountPerLoopAxis0 + dataCountPerLoopAxis1;
-
-    if (maxCountPerLoop == 0) {
-        HCCL_ERROR("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] FATAL: maxCountPerLoop is 0. "
-                   "scratchMemBlockSize=%llu dataTypeSize_=%u",
-                   scratchMemBlockSize, dataTypeSize_);
-        return HcclResult::HCCL_E_INTERNAL;
-    }
-
-    u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
-
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] scratch: intraMulti=%u interMulti=%u total=%u "
-              "scratchBlock=%llu intraOff=%llu interOff=%llu intraSz=%llu interSz=%llu",
-              scratchMultipleIntra, scratchMultipleInter, totalScratchMultiple,
-              scratchMemBlockSize, intraScratchOffset, interScratchOffset,
-              scratchMultipleIntra * scratchMemBlockSize, scratchMultipleInter * scratchMemBlockSize);
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] loop: maxCountPerLoop=%llu axis0=%llu axis1=%llu "
-              "loopTimes=%u",
-              maxCountPerLoop, dataCountPerLoopAxis0, dataCountPerLoopAxis1, loopTimes);
-
     TemplateResource interTempAlgRes;
     interTempAlgRes.channels = interLinkMap_;
     interTempAlgRes.threads = interThreads_;
@@ -879,412 +473,200 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     intraTempAlgRes.threads = intraThreads_;
     intraTempAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
 
+    // Stage 0 
     TemplateDataParams tempAlgParamsIntra0;
     TemplateDataParams tempAlgParamsInter0;
-    TemplateDataParams tempAlgParamsInter1;
+    // Stage 1
     TemplateDataParams tempAlgParamsIntra1;
+    TemplateDataParams tempAlgParamsInter1;
+ 
+    intraTempAlgRes.channels = intraLinkMap_;
+    interTempAlgRes.channels = interLinkMap_;
+    
+    // Stage 0 的 Full-Mesh 数据量 和 Stage 0 的 Clos 数据量
+    u64 finalDataCountPerLoopAxis0 = static_cast<u64>(splitDataSize[0] * dataCount_);;
+    u64 finalDataCountPerLoopAxis1 = dataCount_ - finalDataCountPerLoopAxis0;;
 
-    // v2.0 Fix 4: scratch size verification assertion
-    u64 totalSliceSize = dataSize_;
-    u64 intraScratchSize = scratchMultipleIntra * scratchMemBlockSize;
-    u64 interScratchSize = scratchMultipleInter * scratchMemBlockSize;
-    if (splitDataSize[0] > 0 &&
-        intraScratchSize < static_cast<u64>(splitDataSize[0] * totalSliceSize)) {
-        HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Intra scratch[%llu] insufficient for routed data[%llu]",
-                   intraScratchSize, static_cast<u64>(splitDataSize[0] * totalSliceSize));
-        return HcclResult::HCCL_E_INTERNAL;
-    }
-    if (splitDataSize[1] > 0 &&
-        interScratchSize < static_cast<u64>(splitDataSize[1] * totalSliceSize)) {
-        HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Inter scratch[%llu] insufficient for routed data[%llu]",
-                   interScratchSize, static_cast<u64>(splitDataSize[1] * totalSliceSize));
-        return HcclResult::HCCL_E_INTERNAL;
-    }
-
-    if (param.engine == COMM_ENGINE_CCU) {
-        intraTempAlgRes.ccuKernels.insert(intraTempAlgRes.ccuKernels.end(),
-                                          resCtx.ccuKernels.begin(),
-                                          resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0]);
-        interTempAlgRes.ccuKernels.insert(interTempAlgRes.ccuKernels.end(),
-                                          resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0],
-                                          resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0] +
-                                              resCtx.ccuKernelNum[1]);
-    } else {
-        intraTempAlgRes.channels = intraLinkMap_;
-        interTempAlgRes.channels = interLinkMap_;
-    }
-
-    u64 finalDataCountPerLoopAxis0 = dataCountPerLoopAxis0;
-    u64 finalDataCountPerLoopAxis1 = dataCountPerLoopAxis1;
-
-    if (loopTimes > 1) {
-        u64 finalCount = dataCount_ - (loopTimes - 1) * maxCountPerLoop;
-        finalDataCountPerLoopAxis0 = static_cast<u64>(splitDataSize[0] * finalCount);
-        finalDataCountPerLoopAxis1 = finalCount - finalDataCountPerLoopAxis0;
-    } else {
-        finalDataCountPerLoopAxis0 = static_cast<u64>(splitDataSize[0] * dataCount_);
-        finalDataCountPerLoopAxis1 = dataCount_ - finalDataCountPerLoopAxis0;
-    }
-
+    // 总 rank 数
     u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
 
-    // v3.0 DIAG: Hardcoded stage skip for binary search debugging
-    // MANUAL: change =false/=true to control which stages run
-    // Step 1: all=false → verify baseline (no crash)
-    // Step 2: enables1=true → test Stage1 only
-    // Step 3: enables2=true → test Stage2 only
-    // etc.
-    bool enables1 = true;
-    bool enables2 = true;
-    bool runMesh = true;
-    bool runClos = true;
-    // enables 1 + runMesh + runClos + ReorganizeScratches false
-    // enables 1 + runMesh + runClos without ReorganizeScratches true
-    // enables 1 + enables 2 + runMesh + runClos without ReorganizeScratches true
+    HcclMem hcclBuff = resCtx.cclMem;
+    u64 hcclBuffSize = resCtx.cclMem.size;
 
-    // Skip ALL: return immediately to test baseline
-    // return HCCL_SUCCESS;
+    // 只支持 all to all 场景， 也就是 发送量 = 接受量
 
-    for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
-        u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAxis0 : dataCountPerLoopAxis0;
-        u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAxis1 : dataCountPerLoopAxis1;
+    u64 scratchBufferIntraOffset0 = 0;
+    u64 scratchBufferIntraSize0 = finalDataCountPerLoopAxis0 * dataTypeSize_;
 
-        HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Loop[%u/%u] start: currPart0=%llu currPart1=%llu "
-                  "splitData=[%.4f,%.4f]",
-                  loopIndex, loopTimes, currCountPart0, currCountPart1,
-                  splitDataSize[0], splitDataSize[1]);
+    u64 scratchBufferInterOffset0 = scratchBufferIntraOffset0 + 2 * scratchBufferIntraSize0;
+    u64 scratchBufferInterSize0 = finalDataCountPerLoopAxis1 * dataTypeSize_;
+    
+    u64 scratchBufferIntraOffset1 = scratchBufferInterOffset0 + 2 * scratchBufferInterSize0;
+    u64 scratchBufferIntraSize1 = scratchBufferIntraSize0;
 
-        // Stage 1 PreSync
-        CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+    u64 scratchBufferInterOffset1 = scratchBufferIntraOffset1 + 2 * scratchBufferIntraSize1;
+    u64 scratchBufferInterSize1 = scratchBufferIntraSize0;
 
-        u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
-        u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
-
-        // v3.0 Fix A: element-level guard for small data
-        u64 currPerPeerChunkSize0 =
-            (currCountPart0 * dataTypeSize_ + totalRankCount - 1) / totalRankCount;
-        u64 currPerPeerChunkSize1 =
-            (currCountPart1 * dataTypeSize_ + totalRankCount - 1) / totalRankCount;
-
-        if (currPerPeerChunkSize0 < dataTypeSize_ && currCountPart0 > 0) {
-            currPerPeerChunkSize0 = currCountPart0 * dataTypeSize_;
-        }
-        if (currPerPeerChunkSize1 < dataTypeSize_ && currCountPart1 > 0) {
-            currPerPeerChunkSize1 = currCountPart1 * dataTypeSize_;
-        }
-
-        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] loop[%u/%u] Stage1 start. "
-                  "currPart0=%llu currPart1=%llu dataOff0=%llu dataOff1=%llu "
-                  "peerChunk0=%llu peerChunk1=%llu",
-                  loopIndex, loopTimes, currCountPart0, currCountPart1,
-                  dataOffset0, dataOffset1, currPerPeerChunkSize0, currPerPeerChunkSize1);
-
-        // Stage 1: Intra0 (X-axis mesh) + Inter1 (Y-axis clos)
-        // Executed sequentially on the orchestrator's main thread.
-        // The templates run their internal sub-thread PreSync/PostSync in parallel,
-        // but KernelRun calls are sequential by-design (same pattern as AllGather executor).
-        // Future optimization: thread-pool dispatch for true intra-template parallelism.
-        GenTemplateAlgParamsIntra0(param, resCtx, dataOffset0, currCountPart0, intraScratchOffset,
-                                   tempAlgParamsIntra0);
-        HCCL_INFO("[OrchestrateLoop] Stage1-Intra0: sliceSize=%llu count=%llu dataOffset=%llu scratchOff=%llu",
-                  tempAlgParamsIntra0.sliceSize, tempAlgParamsIntra0.count,
-                  tempAlgParamsIntra0.buffInfo.inBuffBaseOff, tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff);
-        HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Stage1 Intra0: "
-            "inputSliceStride=%llu outputSliceStride=%llu inBuffBase=%llu outBuffBase=%llu "
-            "sliceSize=%llu rankSize0=%llu rankSize1=%llu",
-            tempAlgParamsIntra0.inputSliceStride, tempAlgParamsIntra0.outputSliceStride,
-            tempAlgParamsIntra0.buffInfo.inBuffBaseOff, tempAlgParamsIntra0.buffInfo.outBuffBaseOff,
-            tempAlgParamsIntra0.sliceSize, rankSizeLevel0_, rankSizeLevel1_);
-        HcclResult intra0Ret = HCCL_SUCCESS;
-        if (enables1 && runMesh && currCountPart0 > 0 && tempAlgParamsIntra0.sliceSize > 0) {
-            intra0Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes);
-        } else {
-            HCCL_INFO("[OrchestrateLoop] Stage1-Intra0 skipped: currPart0=%llu sliceSize=%llu",
-                      currCountPart0, tempAlgParamsIntra0.sliceSize);
-        }
-        HCCL_INFO("[OrchestrateLoop] Stage1-Intra0: ret=0x%x", intra0Ret);
-
-        HcclResult inter1Ret = HCCL_SUCCESS;
-        if (enables1 && runClos && hasInterComm && currCountPart1 > 0) {
-            GenTemplateAlgParamsInter1(param, resCtx, dataOffset1, currCountPart1, interScratchOffset,
-                                       tempAlgParamsInter1);
-            HCCL_INFO("[OrchestrateLoop] Stage1-Inter1: sliceSize=%llu count=%llu dataOffset=%llu scratchOff=%llu hasInterComm=%d",
-                      tempAlgParamsInter1.sliceSize, tempAlgParamsInter1.count,
-                      tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.hcclBuffBaseOff,
-                      hasInterComm);
-            HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Stage1 Inter1: "
-                "inputSliceStride=%llu outputSliceStride=%llu inBuffBase=%llu outBuffBase=%llu "
-                "sliceSize=%llu rankSize0=%llu rankSize1=%llu",
-                tempAlgParamsInter1.inputSliceStride, tempAlgParamsInter1.outputSliceStride,
-                tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.outBuffBaseOff,
-                tempAlgParamsInter1.sliceSize, rankSizeLevel0_, rankSizeLevel1_);
-            if (tempAlgParamsInter1.sliceSize > 0) {
-                inter1Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes);
-            } else {
-                HCCL_INFO("[OrchestrateLoop] Stage1-Inter1 skipped: sliceSize=%llu",
-                          tempAlgParamsInter1.sliceSize);
-            }
-            HCCL_INFO("[OrchestrateLoop] Stage1-Inter1: ret=0x%x", inter1Ret);
-        }
-
-        // Stage 1 PostSync — MUST always execute, even on template errors.
-        // The RAII guard in KernelRun guarantees template main threads signal notify,
-        // so this PostSync will not hang regardless of intra0Ret/inter1Ret.
-        HcclResult syncRet1 = PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_);
-
-        // v2.0 Fix 3: Error aggregation AFTER PostSync per design §10.2
-        // Check template errors first (root cause), then sync errors (framework).
-        if (intra0Ret != HCCL_SUCCESS || inter1Ret != HCCL_SUCCESS) {
-            if (syncRet1 != HCCL_SUCCESS) {
-                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 PostSync also failed: 0x%016llx",
-                           HCCL_ERROR_CODE(syncRet1));
-            }
-            HcclResult templateErr = (intra0Ret != HCCL_SUCCESS) ? intra0Ret : inter1Ret;
-            HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 template failed: 0x%016llx",
-                       HCCL_ERROR_CODE(templateErr));
-            return templateErr;
-        }
-        CHK_RET(syncRet1);
-
-        // v1.18 Fix: Replace HcommFenceOnThread with HcommThreadSynchronize
-        // HcommFenceOnThread → HcommFlushV2() may interact poorly with AICPU-managed threads
-        // HcommThreadSynchronize is a per-thread stream sync that catches hardware errors
-        // and ensures all DMA on the thread's stream is complete before ReorganizeScratches.
-        for (auto &thread : intraThreads_) {
-            int32_t syncRet = HcommThreadSynchronize(thread);
-            if (syncRet != 0) {
-                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 intra thread[0x%016llx] sync failed: %d",
-                           static_cast<u64>(thread), syncRet);
-                return HcclResult::HCCL_E_INTERNAL;
-            }
-        }
-        for (auto &thread : interThreads_) {
-            int32_t syncRet = HcommThreadSynchronize(thread);
-            if (syncRet != 0) {
-                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 1 inter thread[0x%016llx] sync failed: %d",
-                           static_cast<u64>(thread), syncRet);
-                return HcclResult::HCCL_E_INTERNAL;
-            }
-        }
-
-        // return HCCL_SUCCESS;
-#ifndef AICPU_COMPILE
-        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-            ccuKernelLaunchNumIntra0_ = intraTempAlgRes.submitInfos.size();
-            ccuKernelLaunchNumInter1_ = interTempAlgRes.submitInfos.size();
-        }
-#endif
-
-        // v1.3 C-8 fix: Cross-copy reorganization between Stage 1 and Stage 2.
-        // Transforms scratch regions: INTRA (source-by-dx) → INTER (dest-by-dy),
-        // INTER (source-by-dy) → INTRA (dest-by-dx).
-        // This swaps ownership so Stage 2 rings read from the correct layout.
-        {
-            u64 meshSliceSize = currCountPart0 * dataTypeSize_;
-            u64 closSliceSize = currCountPart1 * dataTypeSize_;
-            u64 perPeerMesh = (meshSliceSize + rankSizeLevel0_ - 1) / rankSizeLevel0_;
-            u64 perPeerClos = (closSliceSize + rankSizeLevel1_ - 1) / rankSizeLevel1_;
-
-            bool needIntraToInter = (rankSizeLevel0_ > 1 && rankSizeLevel1_ > 1 && currCountPart0 > 0);
-            bool needInterToIntra = (rankSizeLevel0_ > 1 && rankSizeLevel1_ > 1 && currCountPart1 > 0);
-
-            if (needIntraToInter || needInterToIntra) {
-                HCCL_ERROR("[DIAG] ENTERING ReorganizeScratches block");
-                uint8_t *intraBuf = static_cast<uint8_t*>(resCtx.cclMem.addr) + intraScratchOffset;
-                uint8_t *interBuf = static_cast<uint8_t*>(resCtx.cclMem.addr) + interScratchOffset;
-                uint8_t *cclBufEnd = static_cast<uint8_t*>(resCtx.cclMem.addr) + resCtx.cclMem.size;
-
-                HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] ReorganizeScratches: "
-                          "meshSliceSize=%llu closSliceSize=%llu perPeerMesh=%llu perPeerClos=%llu "
-                          "rankSize0=%llu rankSize1=%llu intraBuf@0x%llx interBuf@0x%llx "
-                          "needIntraToInter=%d needInterToIntra=%d",
-                          meshSliceSize, closSliceSize, perPeerMesh, perPeerClos,
-                          rankSizeLevel0_, rankSizeLevel1_,
-                          reinterpret_cast<uint64_t>(intraBuf),
-                          reinterpret_cast<uint64_t>(interBuf),
-                          needIntraToInter, needInterToIntra);
-                HcclResult reorgRet = ReorganizeScratches(mainThread_,
-                    intraBuf, interBuf, cclBufEnd,
-                    rankSizeLevel0_, rankSizeLevel1_,
-                    meshSliceSize, closSliceSize, perPeerMesh, perPeerClos);
-                CHK_RET(reorgRet);
-                HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Reorganization complete.");
-            } else {
-                HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Skipping reorganization: rankSize0=%llu rankSize1=%llu "
-                          "currPart0=%llu currPart1=%llu",
-                          rankSizeLevel0_, rankSizeLevel1_, currCountPart0, currCountPart1);
-            }
-        }
-
-        // Stage 2 PreSync
-        CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
-
-        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] loop[%u/%u] Stage2 start. "
-                  "Intra1 reads INTRA scratch (dest-by-dx), Inter0 reads INTER scratch (dest-by-dy).",
-                  loopIndex, loopTimes);
-
-        // v1.3 C-8 fix: cross-copy swaps scratch ownership.
-        // Intra1 reads from INTRA (now dest-by-dx), Inter0 reads from INTER (now dest-by-dy).
-        GenTemplateAlgParamsIntra1(param, resCtx, dataOffset1, currCountPart1, intraScratchOffset,
-                                   tempAlgParamsIntra1);
-        HCCL_INFO("[OrchestrateLoop] Stage2-Intra1: sliceSize=%llu count=%llu scratchOff=%llu",
-                  tempAlgParamsIntra1.sliceSize, tempAlgParamsIntra1.count,
-                  tempAlgParamsIntra1.buffInfo.inBuffBaseOff);
-        HcclResult intra1Ret = HCCL_SUCCESS;
-        if (enables2 && runMesh) {
-            intra1Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes);
-        }
-        HCCL_INFO("[OrchestrateLoop] Stage2-Intra1: ret=0x%x", intra1Ret);
-
-        HcclResult inter0Ret = HCCL_SUCCESS;
-        if (enables2 && runClos && hasInterComm && currCountPart0 > 0) {
-            GenTemplateAlgParamsInter0(param, resCtx, dataOffset0, currCountPart0, interScratchOffset,
-                                       tempAlgParamsInter0);
-            HCCL_INFO("[OrchestrateLoop] Stage2-Inter0: sliceSize=%llu count=%llu scratchOff=%llu hasInterComm=%d",
-                      tempAlgParamsInter0.sliceSize, tempAlgParamsInter0.count,
-                      tempAlgParamsInter0.buffInfo.inBuffBaseOff, hasInterComm);
-            inter0Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter0, interTempAlgRes);
-            HCCL_INFO("[OrchestrateLoop] Stage2-Inter0: ret=0x%x", inter0Ret);
-        }
-
-        // Stage 2 PostSync — MUST always execute, even on template errors
-        HcclResult syncRet2 = PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_);
-
-        // v2.0 Fix 3: Error aggregation AFTER PostSync per design §10.2
-        // Check template errors first (root cause), then sync errors (framework).
-        if (inter0Ret != HCCL_SUCCESS || intra1Ret != HCCL_SUCCESS) {
-            if (syncRet2 != HCCL_SUCCESS) {
-                HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 2 PostSync also failed: 0x%016llx",
-                           HCCL_ERROR_CODE(syncRet2));
-            }
-            HcclResult templateErr = (inter0Ret != HCCL_SUCCESS) ? inter0Ret : intra1Ret;
-            HCCL_ERROR("[InsV2AlltoAllParallelExecutor] Stage 2 template failed: 0x%016llx",
-                       HCCL_ERROR_CODE(templateErr));
-            return templateErr;
-        }
-        CHK_RET(syncRet2);
-
-        // v3.0 Fix: Synchronize all intra/inter threads after Stage 2
-        // to catch hardware faults immediately instead of waiting for
-        // HcommBatchModeEnd flush (which produces 30-minute timeout).
-        for (auto &thread : intraThreads_) {
-            int32_t syncRet = HcommThreadSynchronize(thread);
-            if (syncRet != 0) {
-                HCCL_ERROR("[OrchestrateLoop] Stage2 intra thread sync failed, ret=%d", syncRet);
-                return HcclResult::HCCL_E_INTERNAL;
-            }
-        }
-        for (auto &thread : interThreads_) {
-            int32_t syncRet = HcommThreadSynchronize(thread);
-            if (syncRet != 0) {
-                HCCL_ERROR("[OrchestrateLoop] Stage2 inter thread sync failed, ret=%d", syncRet);
-                return HcclResult::HCCL_E_INTERNAL;
-            }
-        }
+    if (2 * dataSize_ > hcclBuffSize) {
+        HCCL_ERROR("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] FATAL: HCCL buffer too small for double buffering. "
+                   "dataSize=%llu hcclBuffSize=%llu", dataSize_, hcclBuffSize);
+        return HcclResult::HCCL_E_INTERNAL;
+    } else {
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] HCCL buffer size=%llu sufficient for double buffering dataSize=%llu",
+                  hcclBuffSize, dataSize_);
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Scratch buffer offsets and sizes: "
+                  "intra0 off=%llu size=%llu inter0 off=%llu size=%llu "
+                  "intra1 off=%llu size=%llu inter1 off=%llu size=%llu",
+                  scratchBufferIntraOffset0, scratchBufferIntraSize0,
+                  scratchBufferInterOffset0, scratchBufferInterSize0,
+                  scratchBufferIntraOffset1, scratchBufferIntraSize1,
+                  scratchBufferInterOffset1, scratchBufferInterSize1);
     }
 
-#ifndef AICPU_COMPILE
-    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
-        CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, resCtx.notifyNumOnMainThread));
-    }
-#endif
+    // Stage 0 数据预处理和模板参数准备
+    // 00 01 10 11 20 21 30 31 40 41 50 51 60 61 70 71
+    // tempAlgParamsIntra0 输入是 inputPtr， LocalCopy 到 scratchBufferIntra0，输出是 scratchBufferIntra0 + scratchBufferIntraSize0
+    // 00 40 10 50 20 60 30 70 是 intra0 的输入
+    {
+        tempAlgParamsIntra0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsIntra0.count = totalRankCount;
 
+        tempAlgParamsIntra0.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsIntra0.buffInfo.inBuffType = BufferType::INPUT;
+        tempAlgParamsIntra0.buffInfo.inputSize = param.inputSize;
+        tempAlgParamsIntra0.buffInfo.inBuffBaseOff = 0;
+        tempAlgParamsIntra0.inputSliceStride = perPeerInputChunkSize;
+
+        tempAlgParamsIntra0.buffInfo.hcclBuff = resCtx.cclMem;
+        tempAlgParamsIntra0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
+        tempAlgParamsIntra0.buffInfo.hcclBuffSize = 2 * scratchBufferIntraSize0;
+        tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff = scratchBufferIntraOffset0;
+
+        // 不需要 copy out
+        tempAlgParamsIntra0.buffInfo.outputPtr = nullptr;
+
+        tempAlgParamsIntra0.sliceSize = scratchBufferIntraSize0;
+        tempAlgParamsIntra0.count = dataCountPerLoopAxis0;
+    }
+    
+    // tempAlgParamsInter0 输入是 inputPtr， LocalCopy 到 scratchBufferInter0，输出是 scratchBufferInter0 + scratchBufferInterSize0
+    {
+        tempAlgParamsInter0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsInter0.count = totalRankCount;
+
+        tempAlgParamsInter0.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsInter0.buffInfo.inBuffType = BufferType::INPUT;
+        tempAlgParamsInter0.buffInfo.inputSize = param.inputSize;
+        tempAlgParamsInter0.buffInfo.inBuffBaseOff = static_cast<u64>(splitDataSize[0] * perPeerInputChunkSize);
+        tempAlgParamsInter0.inputSliceStride = perPeerInputChunkSize;
+
+        tempAlgParamsInter0.buffInfo.hcclBuff = resCtx.cclMem;
+        tempAlgParamsInter0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
+        tempAlgParamsInter0.buffInfo.hcclBuffSize = 2 * scratchBufferInterSize0;
+        tempAlgParamsInter0.buffInfo.hcclBuffBaseOff = scratchBufferInterOffset0;
+
+        // 不需要 copy out
+        tempAlgParamsInter0.buffInfo.outputPtr = nullptr;
+
+        tempAlgParamsInter0.sliceSize = scratchBufferInterSize0;
+        tempAlgParamsInter0.count = dataCountPerLoopAxis0;
+    }
+
+    // 开始 Stage 0，Presync，确保所有线程和模板同步准备好进行第一阶段的计算。
+    CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+
+    if (splitDataSize[0] > 0.0f) {
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Running intra template for Stage 0 with dataCount=%llu",
+                  dataCountPerLoopAxis0);
+         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes));
+    }
+   
+    if (splitDataSize[1] > 0.0f) {
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Running inter template for Stage 0 with dataCount=%llu",
+                  dataCountPerLoopAxis1);
+        CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter0, interTempAlgRes));
+    }
+
+    // 结束 Stage 0，Postync，确保所有线程和模板同步结束第一阶段的计算。
+    CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+
+
+    // Stage 1 数据预处理和模板参数准备
+    // tempAlgParamsIntra1 输入是 inputPtr， LocalCopy 到 scratchBufferIntra0，输出是 scratchBufferIntra0 + scratchBufferIntraSize0
+    {
+        tempAlgParamsIntra1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsIntra1.count = totalRankCount;
+
+        tempAlgParamsIntra1.buffInfo.inputPtr = resCtx.cclMem.addr;
+        tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
+        tempAlgParamsIntra1.buffInfo.inputSize = scratchBufferInterSize0;
+        tempAlgParamsIntra1.buffInfo.inBuffBaseOff = scratchBufferInterOffset0 + scratchBufferInterSize0; // double buffer: read from the other half of the HCCL buffer
+        tempAlgParamsIntra1.inputSliceStride = perPeerInputChunkSize - static_cast<u64>(splitDataSize[0] * perPeerInputChunkSize);
+
+        tempAlgParamsIntra1.buffInfo.hcclBuff = resCtx.cclMem;
+        tempAlgParamsIntra1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
+        tempAlgParamsIntra1.buffInfo.hcclBuffSize = 2 * scratchBufferIntraSize1
+        tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff = scratchBufferIntraOffset1;
+
+        tempAlgParamsIntra1.buffInfo.outputPtr = param.outputPtr;
+        tempAlgParamsIntra1.buffInfo.outBuffType = BufferType::OUTPUT;
+        tempAlgParamsIntra1.buffInfo.outputSize = param.outputSize;
+        tempAlgParamsIntra1.buffInfo.outBuffBaseOff = static_cast<u64>(splitDataSize[0] * perPeerInputChunkSize);
+        tempAlgParamsIntra1.outputSliceStride = perPeerInputChunkSize;
+
+        tempAlgParamsIntra1.sliceSize = scratchBufferIntraSize1;
+        tempAlgParamsIntra1.count = dataCountPerLoopAxis1;
+    }
+    
+    // tempAlgParamsInter1 输入是 inputPtr， LocalCopy 到 scratchBufferInter0，输出是 scratchBufferInter0 + scratchBufferInterSize0
+    {
+        tempAlgParamsInter1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsInter1.count = totalRankCount;
+
+        tempAlgParamsInter1.buffInfo.inputPtr = resCtx.cclMem.addr;
+        tempAlgParamsInter1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
+        tempAlgParamsInter1.buffInfo.inputSize = scratchBufferIntraSize0;
+        tempAlgParamsInter1.buffInfo.inBuffBaseOff = scratchBufferIntraOffset0 + scratchBufferIntraSize0; // double buffer: read from the other half of the HCCL buffer
+        tempAlgParamsInter1.inputSliceStride = static_cast<u64>(splitDataSize[0] * perPeerInputChunkSize);
+
+        tempAlgParamsInter1.buffInfo.hcclBuff = resCtx.cclMem;
+        tempAlgParamsInter1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
+        tempAlgParamsInter1.buffInfo.hcclBuffSize = 2 * scratchBufferInterSize0;
+        tempAlgParamsInter1.buffInfo.hcclBuffBaseOff = scratchBufferInterOffset0;
+
+        // 不需要 copy out
+        tempAlgParamsInter1.buffInfo.outputPtr = param.outputPtr;
+        tempAlgParamsInter1.buffInfo.outBuffType = BufferType::OUTPUT;
+        tempAlgParamsInter1.buffInfo.outputSize = param.outputSize;
+        tempAlgParamsInter1.buffInfo.outBuffBaseOff = 0;
+        tempAlgParamsInter1.outputSliceStride = perPeerInputChunkSize;
+
+        tempAlgParamsInter1.sliceSize = scratchBufferInterSize0;
+        tempAlgParamsInter1.count = dataCountPerLoopAxis1;
+    }
+
+    // 开始 Stage 1，Presync，确保所有线程和模板同步准备好进行第一阶段的计算。
+    CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+
+    if (splitDataSize[1] > 0.0f) {
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Running intra template for Stage 1 with dataCount=%llu",
+                  dataCountPerLoopAxis1);
+         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes));
+    }
+   
+    if (splitDataSize[0] > 0.0f) {
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Running inter template for Stage 1 with dataCount=%llu",
+                  dataCountPerLoopAxis0);
+        CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes));
+    }
+    
+    // 结束 Stage 1，Postync，确保所有线程和模板同步结束第一阶段的计算。
+    CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+    
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] End.");
     return HcclResult::HCCL_SUCCESS;
 }
-
-#ifndef AICPU_COMPILE
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter,
-    u32 notifyNumOnMainThread)
-{
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor] loopTimes==1, save fast launch ctx.");
-    ccuKernelLaunchNumIntra1_ = templateAlgResIntra.submitInfos.size() - ccuKernelLaunchNumIntra0_;
-    ccuKernelLaunchNumInter0_ = templateAlgResInter.submitInfos.size() - ccuKernelLaunchNumInter1_;
-    u32 threadNum = threads_.size();
-    u32 ccuKernelNum =
-        ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumIntra0_ + ccuKernelLaunchNumInter1_;
-    if (ccuKernelNum < 1) {
-        HCCL_INFO("[InsV2AlltoAllParallelExecutor] ccu kernel num is 0, no need to save.");
-        return HCCL_SUCCESS;
-    }
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][FastLaunchSaveCtx] threadNum[%llu], ccuKernelNum[%llu]", threadNum,
-              ccuKernelNum);
-
-    std::vector<u32> ccuKernelNumList = {ccuKernelLaunchNumIntra0_, ccuKernelLaunchNumInter1_,
-                                         ccuKernelLaunchNumInter0_, ccuKernelLaunchNumIntra1_};
-    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos,
-                                                                     templateAlgResInter.submitInfos};
-    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList,
-                                        notifyNumOnMainThread);
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
-    const OpParam &param, const CcuFastLaunchCtx *ctx)
-{
-    InsAlgTemplate0 intraTempAlg{};
-    InsAlgTemplate1 interTempAlg{};
-
-    TemplateFastLaunchCtx tempFastLaunchCtxIntra0, tempFastLaunchCtxInter0;
-    TemplateFastLaunchCtx tempFastLaunchCtxInter1, tempFastLaunchCtxIntra1;
-
-    TemplateResource templateAlgResIntra, templateAlgResInter;
-    ThreadHandle *threads = ctx->GetThreadHandlePtr();
-    threads_.assign(threads, threads + ctx->threadNum);
-    PrepareResForTemplate(intraTempAlg, interTempAlg);
-
-    CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
-
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
-    CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
-
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra0, param.inputPtr, param.outputPtr, param.hcclBuff));
-    tempFastLaunchCtxIntra0.threads = intraThreads_;
-    tempFastLaunchCtxIntra0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos,
-                                                        ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
-    ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
-    if (ctx->ccuKernelNum[0] > 0) {
-        CHK_RET(intraTempAlg.FastLaunch(param, tempFastLaunchCtxIntra0));
-    }
-
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter1, param.inputPtr, param.outputPtr, param.hcclBuff));
-    tempFastLaunchCtxInter1.threads = interThreads_;
-    tempFastLaunchCtxInter1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos,
-                                                        ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
-    ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
-    if (ctx->ccuKernelNum[1] > 0) {
-        CHK_RET(interTempAlg.FastLaunch(param, tempFastLaunchCtxInter1));
-    }
-
-    CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
-
-    CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
-
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter0, param.outputPtr, param.outputPtr, param.hcclBuff));
-    tempFastLaunchCtxInter0.threads = interThreads_;
-    tempFastLaunchCtxInter0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos,
-                                                        ccuKernelSubmitInfos + ctx->ccuKernelNum[2]);
-    ccuKernelSubmitInfos += ctx->ccuKernelNum[2];
-    if (ctx->ccuKernelNum[2] > 0) {
-        CHK_RET(interTempAlg.FastLaunch(param, tempFastLaunchCtxInter0));
-    }
-
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra1, param.outputPtr, param.outputPtr, param.hcclBuff));
-    tempFastLaunchCtxIntra1.threads = intraThreads_;
-    tempFastLaunchCtxIntra1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos,
-                                                        ccuKernelSubmitInfos + ctx->ccuKernelNum[3]);
-    if (ctx->ccuKernelNum[3] > 0) {
-        CHK_RET(intraTempAlg.FastLaunch(param, tempFastLaunchCtxIntra1));
-    }
-
-    CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
-
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor][FastLaunch] End.");
-    return HCCL_SUCCESS;
-}
-#endif
 
 // UBX topology (8-card boards) — Mesh intra, Clos inter
 REGISTER_EXECUTOR_BY_TWO_TEMPS(
