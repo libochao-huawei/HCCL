@@ -229,7 +229,7 @@ HcclResult CcuKernelReduceScatterMesh1D2DieMem2Mem::DoReduceScatter()
             scratchMem_[rankIdx].addr += currentRankSliceInputOffset_;
             scratchMem_[rankIdx].token = token_[myRankIdx_];
         } else {
-            CHK_RET(ReadNb(channels_[channelId], scratchMem_[rankIdx], remoteInput_[rankIdx], sliceSize_, event_));
+            CHK_RET(ccu::Read(channels_[channelId], scratchMem_[rankIdx], remoteInput_[rankIdx], sliceSize_, event_));
             channelId++;
         }
     }
