@@ -25,6 +25,12 @@ public:
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes,
+               u32 notifyNumOnMainThread) const;
+
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *fastLaunchCtx) override;
+#endif
     /*  **************** 资源计算 ****************  */
 
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
@@ -33,14 +39,6 @@ public:
 
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-
-#ifndef AICPU_COMPILE
-    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes,
-               u32 notifyNumOnMainThread) const;
-
-    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *fastLaunchCtx) override;
-#endif
-
 protected:
     /* *************** 算法编排 *************** */
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
