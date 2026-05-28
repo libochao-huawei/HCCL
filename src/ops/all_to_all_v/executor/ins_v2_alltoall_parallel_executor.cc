@@ -606,7 +606,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
         tempAlgParamsIntra1.buffInfo.hcclBuff = resCtx.cclMem;
         tempAlgParamsIntra1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-        tempAlgParamsIntra1.buffInfo.hcclBuffSize = 2 * scratchBufferIntraSize1
+        tempAlgParamsIntra1.buffInfo.hcclBuffSize = 2 * scratchBufferIntraSize1;
         tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff = scratchBufferIntraOffset1;
 
         tempAlgParamsIntra1.buffInfo.outputPtr = param.outputPtr;
@@ -651,13 +651,13 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
     if (splitDataSize[1] > 0.0f) {
         HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Running intra template for Stage 1 with dataCount=%llu",
-                  dataCountPerLoopAxis1);
+                  finalDataCountPerLoopAxis1);
          CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes));
     }
    
     if (splitDataSize[0] > 0.0f) {
         HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Running inter template for Stage 1 with dataCount=%llu",
-                  dataCountPerLoopAxis0);
+                  finalDataCountPerLoopAxis0);
         CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes));
     }
     
