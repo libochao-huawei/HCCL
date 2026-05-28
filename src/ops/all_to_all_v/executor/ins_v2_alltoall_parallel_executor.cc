@@ -62,7 +62,6 @@ static HcclResult ReorganizeScratches(
     (void)intraSliceSize; (void)interSliceSize; (void)perPeerMesh; (void)perPeerClos;
     HCCL_ERROR("[DIAG] ReorganizeScratches ENTRY — SKIPPING (no-op test)");
     return HCCL_SUCCESS;
-#if 0
     u64 totalRanks = xSize * ySize;
     u64 intraCellSize = (intraSliceSize + totalRanks - 1) / totalRanks;
     u64 interCellSize = (interSliceSize + totalRanks - 1) / totalRanks;
