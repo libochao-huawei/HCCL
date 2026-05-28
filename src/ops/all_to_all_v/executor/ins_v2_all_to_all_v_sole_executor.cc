@@ -58,7 +58,11 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         return HCCL_E_PARA;
     }
 
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+    if (algHierarchyInfo.infos.size() >= COMM_LAYER_SIZE_2 &&
+        algHierarchyInfo.infos[0].size() == 1 && algHierarchyInfo.infos[1].size() >= 1) {
+        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][0]);
+        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
                     HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
                         "with Level0Topo[%u] is not %u",
@@ -250,7 +254,11 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     }
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
-    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
+    if (resCtx.algHierarchyInfo.infos.size() >= COMM_LAYER_SIZE_2 &&
+        resCtx.algHierarchyInfo.infos[0].size() == 1 && resCtx.algHierarchyInfo.infos[1].size() >= 1) {
+        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[0][0]);
+        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[1][0]);
+    } else if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         if (resCtx.topoInfo.topoLevelNums == 1 ) {
             tempAlgHierachyInfo = {resCtx.algHierarchyInfo.infos[0][1]};
         } else {
