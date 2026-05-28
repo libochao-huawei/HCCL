@@ -218,15 +218,6 @@ namespace {
 
     //全局缓存管理器实例
     thread_local CommDomainCacheManager g_cacheManager;
-
-    std::unique_ptr<AlgResourceCtxSerializable> DeserializeResCtx(const OpParam *param)
-    {
-        std::unique_ptr<AlgResourceCtxSerializable> resCtx(new AlgResourceCtxSerializable());
-        char *ctx = static_cast<char *>(param->resCtx);
-        std::vector<char> seq(ctx, ctx + param->ctxSize);
-        resCtx->DeSerialize(seq);
-        return resCtx;
-    }
 }
 
 namespace ops_hccl {
@@ -312,33 +303,34 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
             cachedResCtxHolder = g_cacheManager.Get(param->algTag, param->commName);
-            if (cachedResCtxHolder != nullptr && IsResCtxCacheReusable(*cachedResCtxHolder, *param)) {
+            if (cachedResCtxHolder != nullptr) {
                 HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
                 std::string commName = g_cacheManager.ExtractCommName(param->algTag);
                 if (commName.empty()) commName = param->commName;
 
                 CacheStats stats;
                 size_t cacheSize;
+                u32 hitRateNum = 100;
                 if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
-                    HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
-                    __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
+                    HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu", __func__,
+                               commName.c_str(), stats.hitRate() * hitRateNum, cacheSize);
                 }
                 resCtxPtr = cachedResCtxHolder.get();
             } else {
-                bool isStaleCache = (cachedResCtxHolder != nullptr);
-                //未命中或者通信域恢复后缓存失效，进行反序列化并存入缓存
-                resCtx = DeserializeResCtx(param);
+                //未命中，进行反序列化并存入缓存
+                resCtx.reset(new AlgResourceCtxSerializable());
+                char *ctx = static_cast<char *>(param->resCtx);
+                std::vector<char> seq(ctx, ctx + param->ctxSize);
+                resCtx->DeSerialize(seq);
                 g_cacheManager.Put(param->algTag, *resCtx, param->commName);
                 resCtxPtr = resCtx.get();
-                if (isStaleCache) {
-                    HCCL_INFO("[%s] Cache STALE and refreshed for algTag[%s], cachedComm[%p], currentComm[%p]",
-                        __func__, param->algTag, cachedResCtxHolder->commInfoPtr, param->hcclComm);
-                } else {
-                    HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
-                }
+                HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
             }
         } else {
-            resCtx = DeserializeResCtx(param);
+            resCtx.reset(new AlgResourceCtxSerializable());
+            char *ctx = static_cast<char *>(param->resCtx);
+            std::vector<char> seq(ctx, ctx + param->ctxSize);
+            resCtx->DeSerialize(seq);
             resCtxPtr = resCtx.get();
         }
 

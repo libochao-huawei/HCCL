@@ -132,7 +132,7 @@ HcclResult InsTempRecvHostNicDpu::DPUKernelRun(const TemplateDataParams &tempAlg
         if (rankIdx == myRank) {
             continue;
         }
-
+        uint64_t notifyNum = 2;
         uint64_t sizePerRound = 0;
         uint64_t offset = 0;
 
@@ -154,7 +154,7 @@ HcclResult InsTempRecvHostNicDpu::DPUKernelRun(const TemplateDataParams &tempAlg
                 CUSTOM_TIMEOUT)));
 
             // 后同步，通知发送端数据接收完成
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, channels.at(rankIdx)[0].handle, 2)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, channels.at(rankIdx)[0].handle, notifyNum)));
 
             CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, channels.at(rankIdx)[0].handle)));
         }

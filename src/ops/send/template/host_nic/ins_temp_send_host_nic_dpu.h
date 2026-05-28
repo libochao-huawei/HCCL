@@ -38,9 +38,9 @@ public:
         AlgResourceRequest &resourceRequest) override;
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
         TemplateResource &resource) override;
-    HcclResult DPUKernelRun(const TemplateDataParams &tempAlgParam,
+    HcclResult DPUKernelRun(const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
-        const std::vector<std::vector<uint32_t>> &subCommRanks);
+        const std::vector<std::vector<uint32_t>> &subCommRanks) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override{};
 

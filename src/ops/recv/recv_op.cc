@@ -52,7 +52,8 @@ HcclResult HcclRecv(
         return HcclRecvNext(recvBuf, count, dataType, srcRank, comm, stream);
     }
 
-    if (GetHcommVersion() < 90000000) {
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
 

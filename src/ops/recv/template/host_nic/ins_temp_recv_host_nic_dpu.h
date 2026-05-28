@@ -39,7 +39,7 @@ public:
     HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         AlgResourceRequest &resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType) override;
-    HcclResult DPUKernelRun(const TemplateDataParams &tempAlgParam,
+    HcclResult DPUKernelRun(const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
         const std::vector<std::vector<uint32_t>> &subCommRanks);
     

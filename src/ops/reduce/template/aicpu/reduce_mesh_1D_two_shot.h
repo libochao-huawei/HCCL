@@ -58,7 +58,7 @@ private:
     HcclResult RunGatherToRoot(const TemplateDataParams &tempAlgParam, const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads);
 
-    HcclResult GatherLocalData(const TemplateDataParams &tempAlgParam, const std::vector<ThreadHandle> &threads);
+    HcclResult GatherLocalData(const TemplateDataParams &tempAlgParam, const std::vector<ThreadHandle> &threads) const;
     HcclResult GatherRemoteData(const TemplateDataParams &tempAlgParam,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
     HcclResult SendToRoot(const TemplateDataParams &tempAlgParam,
