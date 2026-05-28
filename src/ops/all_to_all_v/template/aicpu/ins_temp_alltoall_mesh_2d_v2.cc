@@ -180,8 +180,8 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
 
     HCCL_INFO("[InsTempAlltoAllMesh2DV2][RunAlltoAllMesh] start. templateRankSize=%u isPcie=%d myAlgRank=%u "
-              "perPeerChunk=%llu totalSlice=%llu",
-              templateRankSize_, isPcie, myAlgRank, perPeerChunkSize, totalSliceSize);
+              "actualChunkSize=%llu totalSlice=%llu",
+              templateRankSize_, isPcie, myAlgRank, actualChunkSize, totalSliceSize);
 
     for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
         u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
@@ -217,7 +217,7 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
         std::vector<DataSlice> rxDstSlicesAll;
         std::vector<DataSlice> rxSrcSlicesAll;
 
-        u64 offsetInSlice = connectedAlgRank * perPeerChunkSize;
+        u64 offsetInSlice = connectedAlgRank * actualChunkSize;
 
         const u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + tempAlgParams_.sliceSize;
         const u64 scratchOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff;
@@ -327,7 +327,7 @@ HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle
             u64 inputOffset = tempAlgParams_.buffInfo.inBuffBaseOff + inputStride * (i + j * xRankSize_);
 
             u64 scratchOffset = 0;
-            if (tempAlgParams_.buffInfo.inBuffType == BufferType::INPUT && tempAlgParamsInter0.buffInfo.inBuffBaseOff != 0) {
+            if (tempAlgParams_.buffInfo.inBuffType == BufferType::INPUT && tempAlgParams_.buffInfo.inBuffBaseOff != 0) {
                 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (i + j * xRankSize_);
             } else {
                 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (i * yRankSize_ + j);

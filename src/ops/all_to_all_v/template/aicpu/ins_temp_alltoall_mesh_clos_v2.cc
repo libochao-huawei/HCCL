@@ -120,9 +120,9 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         actualChunkSize);
 
     // v3.0 Fix B: per-link lastPeerSize for ceiling over-shoot
-    u64 lastPeerSize = totalSliceSize - perPeerChunkSize * (templateRankSize_ - 1);
+    u64 lastPeerSize = totalSliceSize - actualChunkSize * (templateRankSize_ - 1);
     if (lastPeerSize <= 0) {
-        lastPeerSize = perPeerChunkSize;
+        lastPeerSize = actualChunkSize;
     }
     u32 lastPeerIndex = templateRankSize_ - 1;
 
@@ -207,7 +207,7 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         std::vector<DataSlice> rxDstSlicesAll;
         std::vector<DataSlice> rxSrcSlicesAll;
 
-        u64 offsetInSlice = connectedAlgRank * perPeerChunkSize;
+        u64 offsetInSlice = connectedAlgRank * actualChunkSize;
 
         const u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + tempAlgParams_.sliceSize;
         const u64 scratchOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff;
