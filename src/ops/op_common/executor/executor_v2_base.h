@@ -22,6 +22,7 @@
 #include "sal.h"
 #include "executor_base.h"
 #include "template_utils.h"
+#include "order_preserved_common.h"
 
 namespace ops_hccl {
 
@@ -56,6 +57,18 @@ public:
                                             const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList, u32 notifyNumOnMainThread) const;
 #endif
 protected:
+    inline void SetOrderPreservedBaseParams(const OrderPreservedBaseParams& params) {
+        myRank_ = params.myRank;
+        rankSize_ = params.rankSize;
+        devType_ = params.devType;
+        dataCount_ = params.dataCount;
+        dataTypeSize_ = params.dataTypeSize;
+        dataSize_ = params.dataSize;
+        dataType_ = params.dataType;
+        reduceOp_ = params.reduceOp;
+        maxTmpMemSize_ = params.maxTmpMemSize;
+    }
+
     // CollAlg base params
     u32           myRank_   = INVALID_VALUE_RANKID;
     u32           rankSize_ = 0;
