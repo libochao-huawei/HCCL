@@ -400,7 +400,7 @@ uint32_t aclrtGetDeviceIdFromExceptionInfo(const aclrtExceptionInfo *info)
 rtError_t rtGetTaskIdAndStreamID(uint32_t *taskId, uint32_t *streamId)
 {
     if (taskId == nullptr || streamId == nullptr) {
-        return RT_ERROR_INVALID_VALUE;
+        return RT_ERROR_NONE;
     }
     *taskId = 0;
     *streamId = 0;
