@@ -246,7 +246,8 @@ InsV2ReduceScatterOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2>
 HcclResult
 InsV2ReduceScatterOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::RestoreChannelMap(
-    const AlgResourceCtxSerializable& resCtx, std::vector<std::map<u32, std::vector<ChannelInfo>>>& rankIdToChannelInfo)
+    const AlgResourceCtxSerializable& resCtx,
+    std::vector<std::map<u32, std::vector<ChannelInfo>>>& rankIdToChannelInfo) const
 {
     rankIdToChannelInfo.resize(OMNIPIPE_LEVEL_NUM);
     u32 level = 0;
@@ -277,8 +278,8 @@ InsV2ReduceScatterOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2>
 HcclResult
 InsV2ReduceScatterOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1,
-                                   InsAlgTemplate2>::GenTemplateAlgParamsByDimData(TemplateDataParams& tempAlgParams,
-                                                                                   const StepSliceInfo& stepSliceInfo)
+                                   InsAlgTemplate2>::GenTemplateAlgParamsByDimData(
+                                   TemplateDataParams& tempAlgParams, const StepSliceInfo& stepSliceInfo) const
 {
     // rs特殊处理，过程中的所有step都在ccl中进行数据搬运，在template中只使用ccl的起始地址就可以了，in和out不用赋值
     tempAlgParams.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
@@ -306,7 +307,8 @@ InsV2ReduceScatterOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     HCCL_DEBUG("Start Step Calc!");
     // 1、计算带宽，平均带宽还是总带宽，如果是总带宽这边要处理成平均带宽
     std::vector<std::vector<EndpointAttrBwCoeff>> endpointAttrBw;
-    CHK_RET(CalAllLevelEndpointAttrBwCoeff(param.hcclComm, myRank_, 3, endpointAttrBw));
+    u32 levelSize = 3;
+    CHK_RET(CalAllLevelEndpointAttrBwCoeff(param.hcclComm, myRank_, levelSize, endpointAttrBw));
     // 需要转化成平均带宽
     std::vector<EndpointAttrBwCoeff> endpointAttrBwNew;
     endpointAttrBwNew.resize(endpointAttrBw.size());

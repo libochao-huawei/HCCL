@@ -200,6 +200,7 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoReduceScatter()
 void CcuKernelReduceScatterMesh1DMem2Mem::PairwiseLocalReduce(CcuRep::LocalAddr myOutput, std::vector<CcuRep::LocalAddr> &inputVec,
     CcuRep::Variable sliceSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
 {
+    (void) outputDataType;
     CcuRep::Variable len = CreateVariable();
 
     // 每轮将数据划分为2组做规约，总规约次数log2(n)

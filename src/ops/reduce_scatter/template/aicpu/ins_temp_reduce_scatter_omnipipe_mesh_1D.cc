@@ -62,7 +62,7 @@ u64 InsTempReduceScatterOmniPipeMesh1D::CalcScratchMultiple(BufferType inBuffTyp
 }
 
 // 这个也不用，计算scratch、对齐、loop信息封装在雪松接口里
-u64 InsTempReduceScatterOmniPipeMesh1D::CalcScratchSlice(u64 dataSize)
+u64 InsTempReduceScatterOmniPipeMesh1D::CalcScratchSlice(u64 dataSize) const
 {
     // mesh直接乘rankSize
     u64 scratchMultiple = templateRankSize_ * dataSize;
