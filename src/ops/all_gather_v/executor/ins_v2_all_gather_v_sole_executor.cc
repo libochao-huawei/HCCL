@@ -10,6 +10,7 @@
 
 #include "ins_v2_all_gather_v_sole_executor.h"
 #include "topo_match_1d.h"
+#include "topo_match_multilevel_mesh1d.h"
 #include "ins_temp_all_gather_v_mesh_1D.h"
 
 #ifndef AICPU_COMPILE
@@ -194,6 +195,10 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
 
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER_V, InsAllGatherVMesh1D, InsV2AllGatherVSoleExecutor, TopoMatch1D,
     InsTempAllGatherVMesh1D);
+#if !defined(HCCL_CANN_COMPAT_850)
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER_V, InsAllGatherVMultilevelMesh1D, InsV2AllGatherVSoleExecutor,
+    TopoMatchMultilevelMesh1D, InsTempAllGatherVMesh1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER_V, CcuAllGatherVMesh1D, InsV2AllGatherVSoleExecutor, TopoMatch1D,
