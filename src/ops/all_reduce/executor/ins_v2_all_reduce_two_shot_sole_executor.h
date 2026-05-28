@@ -21,7 +21,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2AllReduceTwoShotSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsV2AllReduceTwoShotSoleExecutor();
-    ~InsV2AllReduceTwoShotSoleExecutor() = default;
+    ~InsV2AllReduceTwoShotSoleExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable& resCtx) override;
 
