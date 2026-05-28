@@ -77,7 +77,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
                 return SelectorStatus::NOT_MATCH;
             }
         } else {
-                HCCL_INFO("RRRRRRRRRRRRRRRR");
+                HCCL_INFO("RRRRRRRRRRRRRRRRR");
                 selectAlgName = "CcuAllGatherMesh1D";
                 return SelectorStatus::MATCH;
             }
