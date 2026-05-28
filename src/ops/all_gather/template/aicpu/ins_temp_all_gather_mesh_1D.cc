@@ -171,7 +171,6 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
         CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threadIdx]),
                     HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
-
         }
     return HcclResult::HCCL_SUCCESS;
 }

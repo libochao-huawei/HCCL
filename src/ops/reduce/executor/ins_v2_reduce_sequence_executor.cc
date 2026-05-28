@@ -243,7 +243,6 @@ HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
         tempAlgParamsReduceScatterMesh1D.inputSliceStride = 0; // 没用到
         tempAlgParamsReduceScatterMesh1D.outputSliceStride = 0; // 没用到
 
-        
         HCCL_INFO("[InsV2ReduceSequenceExecutor] loop [%u] tempAlgParamsReduceScatterMesh.inputSliceStride [%u],"
             "tempAlgParamsReduceScatterMesh.outputSliceStride [%u] tempAlgParamsReduceScatterMesh.sliceSize [%u]",
             loop, tempAlgParamsReduceScatterMesh1D.inputSliceStride, tempAlgParamsReduceScatterMesh1D.outputSliceStride, tempAlgParamsReduceScatterMesh1D.sliceSize);
