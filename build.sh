@@ -12,6 +12,7 @@ set -e
 
 CURRENT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 BUILD_DIR=${CURRENT_DIR}/build
+#这里是否需要删除
 BUILD_DEVICE_DIR="${CURRENT_DIR}/build_device"
 OUTPUT_DIR=${CURRENT_DIR}/build_out
 OUTPUT_PATH=${CURRENT_DIR}/output
@@ -162,6 +163,197 @@ function build_test() {
     ${BUILD_DIR}/test:${ASCEND_HOME_PATH}/lib64:"
 }
 
+#这个需要整改吗
+function build_static() {
+    log "Info: Starting static library build"
+
+    # 初始化交叉编译工具链
+    init_toolchain
+
+    # 步骤1: 构建设备端AICPU包
+    log "Info: Building device-side AICPU package"
+    mkdir -p ${BUILD_DEVICE_DIR}
+    cd ${BUILD_DEVICE_DIR}
+    CURRENT_CUSTOM_OPTION="${CUSTOM_OPTION}"
+    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DFULL_MODE=ON -DDEVICE_MODE=ON -DKERNEL_MODE=ON -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT} -DENABLE_SIGN=${ENABLE_SIGN} -DVERSION_INFO=${VERSION_INFO}"
+    build_device
+
+    # 检查AICPU tar包是否生成
+    local AICPU_TAR="${BUILD_DEVICE_DIR}/aicpu_hccl.tar.gz"
+    if [ ! -f "${AICPU_TAR}" ]; then
+        log "Error: AICPU tar package not found: ${AICPU_TAR}"
+        exit 1
+    fi
+    log "Info: AICPU tar package generated: ${AICPU_TAR}"
+
+    # 步骤2: 构建主机端静态库
+    log "Info: Building host-side static library"
+    cd "${CURRENT_DIR}" && cd "${BUILD_DIR}"
+    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF -DSTATIC_MODE=ON"
+    cmake_config
+
+    # 构建hccl静态库目标
+    build hccl
+
+    # 同步构建AIV设备kernel目标，产出 hccl_aiv_*_op_910_95.o
+    log "Info: Building AIV device kernels (aiv_all_targets)"
+    build aiv_all_targets
+
+    # 检查静态库是否生成
+    local STATIC_LIB="${BUILD_DIR}/src/libhccl_static.a"
+    if [ ! -f "${STATIC_LIB}" ]; then
+        log "Error: Static library not found at expected location: ${STATIC_LIB}"
+        exit 1
+    fi
+    log "Info: Static library generated: ${STATIC_LIB}"
+
+    # 步骤3: 解压静态库为.o文件
+    log "Info: Extracting object files from static library"
+    local EXTRACT_DIR="${BUILD_DIR}/static_extract"
+    mkdir -p ${EXTRACT_DIR}
+    cd ${EXTRACT_DIR}
+
+    # 解压静态库中的所有.o文件
+    if ! ${AR} -x "${STATIC_LIB}"; then
+        log "Error: Failed to extract object files from static library"
+        exit 1
+    fi
+
+    local OBJ_COUNT=0
+    if ls -1 *.o 1>/dev/null 2>&1; then
+        OBJ_COUNT=$(ls -1 *.o | wc -l)
+    fi
+    log "Info: Extracted ${OBJ_COUNT} object files"
+
+    # 步骤4: 将AICPU tar包转换为二进制对象文件
+    # 必须用纯文件名调用 ld，否则路径会嵌入符号名
+    # (如 _binary__root_xxx_aicpu_hccl_tar_gz_start 而非 _binary_aicpu_hccl_tar_gz_start)
+    log "Info: Converting AICPU tar package to binary object"
+    local AICPU_OBJ="${EXTRACT_DIR}/aicpu_hccl_tar.o"
+    cp "${AICPU_TAR}" "${EXTRACT_DIR}/aicpu_hccl.tar.gz"
+    if ! (cd "${EXTRACT_DIR}" && ${LD} -r -b binary -o aicpu_hccl_tar.o aicpu_hccl.tar.gz); then
+        log "Error: Failed to convert AICPU tar to binary object"
+        exit 1
+    fi
+
+    # 步骤5: 将AIV设备kernel .o 转成binary embed对象，注入符号
+    # _binary_hccl_aiv_<op>_op_910_95_bin_start/end/size
+    # 用 .bin 后缀是为了避开和后续 ar 的 *.o 冲突，并让符号名干净
+    log "Info: Embedding AIV device kernel objects as binary"
+    local AIV_EMBED_COUNT=0
+    while IFS= read -r -d '' AIV_O; do
+        local AIV_BASENAME=$(basename "${AIV_O}")
+        local AIV_STEM="${AIV_BASENAME%.o}"
+        cp "${AIV_O}" "${EXTRACT_DIR}/${AIV_STEM}.bin"
+        if ! (cd "${EXTRACT_DIR}" && ${LD} -r -b binary \
+                -o "${AIV_STEM}_embed.o" "${AIV_STEM}.bin"); then
+            log "Error: Failed to embed AIV kernel: ${AIV_BASENAME}"
+            exit 1
+        fi
+        rm -f "${EXTRACT_DIR}/${AIV_STEM}.bin"
+        AIV_EMBED_COUNT=$((AIV_EMBED_COUNT + 1))
+        log "Info: Embedded AIV kernel: ${AIV_BASENAME}"
+    done < <(find "${BUILD_DIR}/src/ops" -type f \
+                -name 'hccl_aiv_*_op_910_95.o' -print0)
+    log "Info: Total AIV kernels embedded: ${AIV_EMBED_COUNT}"
+
+    # 步骤6: 将所有.o文件打包成最终的静态库
+    log "Info: Creating final static library libhccl_static.a"
+    cd ${EXTRACT_DIR}
+    local FINAL_STATIC_LIB="${OUTPUT_DIR}/lib/libhccl_static_final.a"
+    mkdir -p $(dirname ${FINAL_STATIC_LIB})
+
+    # 创建最终的静态库
+    if ! ${AR} rcs ${FINAL_STATIC_LIB} *.o; then
+        log "Error: Failed to create final static library"
+        exit 1
+    fi
+
+    # 验证最终静态库
+    local FINAL_OBJ_COUNT=$(${AR} t ${FINAL_STATIC_LIB} | wc -l)
+    log "Info: Final static library created: ${FINAL_STATIC_LIB}"
+    log "Info: Contains ${FINAL_OBJ_COUNT} object files"
+
+    # 步骤7: 复制到标准输出位置
+    local OUTPUT_STATIC_LIB="${OUTPUT_DIR}/lib/libhccl_static.a"
+    mkdir -p $(dirname ${OUTPUT_STATIC_LIB})
+    if ! cp ${FINAL_STATIC_LIB} ${OUTPUT_STATIC_LIB}; then
+        log "Error: Failed to copy final static library to output location"
+        exit 1
+    fi
+    log "Info: Static library copied to: ${OUTPUT_STATIC_LIB}"
+
+    # 步骤8: 清理临时目录
+    log "Info: Cleaning up temporary files"
+    rm -rf ${EXTRACT_DIR}
+
+    # 清理build_device目录
+    [ -n "${BUILD_DEVICE_DIR}" ] && rm -rf ${BUILD_DEVICE_DIR}
+
+    log "Info: Static library build completed successfully"
+    log "Info: Output: ${OUTPUT_STATIC_LIB}"
+}
+
+function package_static_tar() {
+    log "Info: Starting static package creation"
+    cd ${CURRENT_DIR}
+    # 检查静态库是否存在
+    local static_lib="${OUTPUT_DIR}/lib/libhccl_static.a"
+    local include_dir="${CURRENT_DIR}/include"
+
+    if [ ! -f "${static_lib}" ]; then
+        log "Error: Static library not found: ${static_lib}"
+        exit 1
+    fi
+
+    # 确定架构：交叉编译时优先使用 BUILD_AARCH，否则取 uname -m
+    local TAR_ARCH=""
+    if [ "${BUILD_AARCH}" == "true" ]; then
+        TAR_ARCH="aarch64"
+    else
+        local ARCH=$(uname -m)
+        case "$ARCH" in
+            x86_64|i386|i686)
+                TAR_ARCH="x86_64"
+                ;;
+            aarch64|armv8l|armv7l)
+                TAR_ARCH="aarch64"
+                ;;
+            *)
+                log "Error: Unsupported architecture: $ARCH"
+                exit 1
+                ;;
+        esac
+    fi
+
+    # 创建临时打包目录
+    local temp_dir="${OUTPUT_DIR}/static_package_temp"
+    mkdir -p "${temp_dir}/include"
+    mkdir -p "${temp_dir}/lib64"
+
+    # 复制文件
+    cp -r "${include_dir}/." "${temp_dir}/include/"
+    cp "${static_lib}" "${temp_dir}/lib64/"
+
+    # 创建tar包
+    local tar_name="cann-hccl-static_${VERSION_INFO}_linux-${TAR_ARCH}.tar.gz"
+    local tar_path="${OUTPUT_DIR}/${tar_name}"
+
+    cd "${temp_dir}" && tar -czf "${tar_path}" include lib64
+
+    # 验证和清理
+    if [ -f "${tar_path}" ]; then
+        local tar_size=$(stat -c%s "${tar_path}" 2>/dev/null || stat -f%z "${tar_path}")
+        log "Info: Static package created: ${tar_name} (${tar_size} bytes)"
+        rm -rf "${temp_dir}"
+    else
+        log "Error: Failed to create tar package"
+        exit 1
+    fi
+
+    log "Info: Static package location: ${tar_path}"
+}
+
 function mk_dir() {
   local create_dir="$1"  # the target to make
   mkdir -pv "${create_dir}"
@@ -230,7 +422,7 @@ function run_st() {
   fi
 }
 
-# 这个需要整改吗
+#这个需要整改吗
 function build_custom() {
     # 编译 Device 包
     log "Info: build_custom_device"
@@ -471,8 +663,6 @@ fi
 
 if [ "${STATIC_MODE}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DSTATIC_MODE=ON"
-else
-    CUSTOM_OPTION="${CUSTOM_OPTION} -DSTATIC_MODE=OFF"
 fi
 
 if [ "${ASAN}" == "true" ];then
@@ -505,9 +695,12 @@ fi
 CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}"
 CUSTOM_OPTION="${CUSTOM_OPTION} -DASCEND_INSTALL_PATH=${ASCEND_CANN_PACKAGE_PATH}"
 CUSTOM_OPTION="${CUSTOM_OPTION} -DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}"
+
 CUSTOM_OPTION="${CUSTOM_OPTION} -DCMAKE_BUILD_TYPE=${BUILD_TYPE}"
 CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_BUILD_DEVICE=${ENABLE_BUILD_DEVICE}"
 CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_BUILD_AARCH=${ENABLE_BUILD_AARCH}"
+
+
 CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT}"
 CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_SIGN=${ENABLE_SIGN}"
 CUSTOM_OPTION="${CUSTOM_OPTION} -DVERSION_INFO=${VERSION_INFO}"
@@ -537,6 +730,9 @@ elif [ "${BUILD_CB_TEST}" == "true" ]; then
     else
         log "Info: Building cb_test_verify success"
     fi
+elif [ "${STATIC_MODE}" == "true" ]; then
+    build_static
+    package_static_tar
 else
     build_hccl
     if [ $? -ne 0 ]; then

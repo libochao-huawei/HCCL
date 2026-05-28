@@ -14,11 +14,7 @@ option(ENABLE_BUILD_DEVICE "Build hccl device project." OFF)
 option(ENABLE_BUILD_AARCH "Build hccl aarch project." OFF)
 message(STATUS "STATIC_MODE=${STATIC_MODE}")
 
-if(STATIC_MODE)
-    set(ENABLE_BUILD_DEVICE ON)
-endif()
-
-# 默认只编译 host 侧
+ # 默认只编译 host 侧
 if(NOT DEFINED PRODUCT_SIDE)
     set(PRODUCT_SIDE "host")
 endif()
@@ -38,20 +34,6 @@ message(STATUS "ENABLE_BUILD_DEVICE=${ENABLE_BUILD_DEVICE}")
 message(STATUS "ENABLE_BUILD_AARCH=${ENABLE_BUILD_AARCH}")
 
 set(HCCL_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
-set(HCC_TOOLCHAIN_DIR "${CUSTOM_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
-set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
-set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
-set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
-
-if(ENABLE_BUILD_AARCH)
-    message(STATUS "TOOLCHAIN_DIR=${HCC_TOOLCHAIN_DIR}")
-    set(CMAKE_SYSTEM_NAME Linux)
-    set(CMAKE_SYSTEM_PROCESSOR aarch64)
-    set(TOOLCHAIN_DIR      ${HCC_TOOLCHAIN_DIR})
-    set(CMAKE_CXX_COMPILER ${HCC_CXX_COMPILER})
-    set(CMAKE_C_COMPILER   ${HCC_C_COMPILER})
-endif()
 
 # 引入CANN/cmake库
 include(cmake/fetch_cann_cmake.cmake)
@@ -123,18 +105,17 @@ elseif(BUILD_OPEN_PROJECT)
     include(cmake/func.cmake)
     include(version.cmake)
 
-    # 依赖config.cmake中对ASCEND_CANN_PACKAGE_PATH定义
+    # Device 侧交叉编译工具链变量（依赖 config.cmake 设置的 ASCEND_CANN_PACKAGE_PATH）
     set(HCC_TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
     set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
     set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
     set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
-    
-    # 检查构建依赖
+    #检查构建依赖
     check_pkg_build_deps("hccl")
     add_version_info_targets()
-    # 配置打包
+    #配置打包
     pack_built_in()
-    # 添加子目录
+    #添加子目录
     add_subdirectory(src)
 
     # Device 侧编译构建
@@ -164,7 +145,7 @@ elseif(BUILD_OPEN_PROJECT)
             BUILD_ALWAYS TRUE
         )
 
-        # 安装 device 侧编译产物
+        # 安装 device 侧编译产物（makeself.cmake 期望文件名 device-hccl.tar.gz）
         install(FILES
             ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
             DESTINATION .
@@ -172,10 +153,6 @@ elseif(BUILD_OPEN_PROJECT)
             OPTIONAL
             COMPONENT hccl
         )
-    endif()
-
-    if(STATIC_MODE)
-        include(cmake/static_postprocess.cmake)
     endif()
 
     set(HCCL_HEAD
