@@ -11,6 +11,8 @@
 #include "all_reduce_auto_selector.h"
 #include "selector_registry.h"
 #include "hccl_aiv_utils.h"
+#include "ins_v2_all_reduce_order_preserved_executor.h"
+#include "order_preserved_common.h"
 
 namespace ops_hccl {
 constexpr u64 RS_MAX_DATA_SIZE = 16 * 1024 * 1024;
@@ -26,6 +28,8 @@ constexpr u64 AR_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_CCU_CLOS_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_SEQUENCE_DATA_SIZE = 1 * 1024 * 1024 * 1024;
 constexpr u64 OMNI_PCIE_AR_DATA_SIZE = 32 * 1024 * 1024;
+
+
 
 SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -299,6 +303,12 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
     HCCL_DEBUG("[AllReduceAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
+
+    if (IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize)) {
+        selectAlgName = "AllReduceOrderPreserved";
+        HCCL_INFO("[AllReduceAutoSelector] DETERMINISTIC_STRICT mode, select [%s]", selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
 
     bool isDataTypeOrReduceTypeSpecial = 
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
