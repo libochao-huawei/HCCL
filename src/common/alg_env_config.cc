@@ -295,6 +295,12 @@ HcclResult InitEnvConfig()
             HCCL_ERROR_CODE(ret),
             ret),
         ret);
+    
+    ret = ParseCcuSelectMode();
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] parse ccuSelectMode failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret), ret),
+        ret);
 
     g_algEnvConfig.initialized = true;
 
@@ -1032,6 +1038,35 @@ HcclResult ParseInconsistentCheckSwitch(const std::string &inconsistentCheckSwit
     HCCL_INFO("[ParseInconsistentCheckSwitch] set by environment to [%s], inconsistentCheckSwitch[%d]",
         inconsistentCheckSwitch.c_str(), g_algEnvConfig.inconsistentCheckSwitch);
     return HCCL_SUCCESS;
+}
+
+HcclResult ParseCcuSelectMode()
+{
+    std::string ccuSelectMode = GetEnv("CCU_SELECT_MODE");
+    if (ccuSelectMode == "EmptyString") {
+        HCCL_INFO("CCU_SELECT_MODE set by default to [2]");
+        return HCCL_SUCCESS;
+    }
+    if (ccuSelectMode != "0" && ccuSelectMode != "1" && ccuSelectMode != "2") {
+        HCCL_ERROR("[Parser][CcuSelectMode]environmental variable CCU_SELECT_MODE [%s] is invalid, set by "
+                   "default to [2]",
+            ccuSelectMode.c_str());
+        return HCCL_E_PARA;
+    }
+    if (ccuSelectMode == "0") {
+        g_algEnvConfig.ccuSelectMode = 0;
+    } else if (ccuSelectMode == "1") {
+        g_algEnvConfig.ccuSelectMode = 1;
+    } else if (ccuSelectMode == "2") {
+        g_algEnvConfig.ccuSelectMode = 2;
+    }
+    HCCL_INFO("CCU_SELECT_MODE set by environment to [%u]", g_algEnvConfig.ccuSelectMode);
+    return HCCL_SUCCESS;
+}
+
+const u32 &GetExternalInputCcuSelectMode()
+{
+    return g_algEnvConfig.ccuSelectMode;
 }
 
 const u32 &GetExternalInputIntraRoceSwitch()

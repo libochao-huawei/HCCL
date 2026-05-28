@@ -798,7 +798,7 @@ HcclResult ProcessLinksForChannelClosV2(HcclComm comm, u32 myRank, u32 rank, std
         CommTopo topoType;
         u32 fixedIdx = 0;
         bool useFixedIdx = true;
-        if (useFixedIdx && GetFixedLinkIdxForRankPairClosV2(myRank, rank, fixedIdx) && fixedIdx < listSize) {
+        if (GetExternalInputCcuSelectMode() == 2 && GetFixedLinkIdxForRankPairClosV2(myRank, rank, fixedIdx) && fixedIdx < listSize) {
             priorityLink = fixedIdx;
             CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[priorityLink], topoType));
             HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV2] Use fixed link idx[%u] for rank pair[%u, %u], topoType[%u].",
