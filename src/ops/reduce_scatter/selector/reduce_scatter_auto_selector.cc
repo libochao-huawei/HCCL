@@ -144,7 +144,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                     selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
                     return SelectorStatus::MATCH;
                 } else if (dataSize * topoInfo->userRankSize <= RS_CCU_64P_MIN_DATA_SIZE &&
-                           topoInfo->userRankSize == ccuSize){
+                           topoInfo->userRankSize == ccuSize) {
                     selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
                     return SelectorStatus::MATCH;
                 } else if (dataSize * topoInfo->userRankSize <= RS_CCU_8P_MIN_DATA_SIZE) {

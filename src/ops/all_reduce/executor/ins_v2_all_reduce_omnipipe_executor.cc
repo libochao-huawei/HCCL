@@ -69,10 +69,8 @@ template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTe
 HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ,
                                           InsAgAlgTemplateX, InsAgAlgTemplateY,
                                           InsAgAlgTemplateZ>::CalcResLevel(HcclComm comm, const OpParam& param,
-                                                              const TopoInfoWithNetLayerDetails* topoInfo,
-                                                              const std::shared_ptr<InsAlgTemplateBase> tempAlg,
-                                                              AlgResourceRequest& resourceRequest,
-                                                              bool addChannel) const
+            const TopoInfoWithNetLayerDetails* topoInfo, const std::shared_ptr<InsAlgTemplateBase> tempAlg,
+            AlgResourceRequest& resourceRequest, bool addChannel) const
 {
     AlgResourceRequest resReqlevel;
     CHK_RET(tempAlg->CalcRes(comm, param, topoInfo, resReqlevel));
