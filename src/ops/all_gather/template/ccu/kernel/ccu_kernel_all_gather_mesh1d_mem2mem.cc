@@ -156,7 +156,8 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
         if (i == (rankSize_ + BIT_NUM_PER_CKE - 1)/BIT_NUM_PER_CKE - 1) {
             if(rankSize_ % BIT_NUM_PER_CKE == 0){
                 event_[i].SetMask((1 << BIT_NUM_PER_CKE) - 1);
-            } else {event_[i].SetMask((1 << (rankSize_ % BIT_NUM_PER_CKE)) - 1);
+            } else {
+                event_[i].SetMask((1 << (rankSize_ % BIT_NUM_PER_CKE)) - 1);
             }
         } else {
             event_[i].SetMask((1 << BIT_NUM_PER_CKE) - 1);

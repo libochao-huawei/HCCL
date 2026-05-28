@@ -84,21 +84,21 @@ private:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra0,
                           InsAlgTemplate1 &tempAlgInter0, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
     HcclResult FastLaunchTemplateIntra0(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra) const;
+                                TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra) const;
     HcclResult FastLaunchTemplateInter1(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate1 &tempAlgInter) const;
+                                TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate1 &tempAlgInter) const;
     HcclResult FastLaunchTemplateInter0(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate1 &tempAlgInter) const;
+                                TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate1 &tempAlgInter) const;
     HcclResult FastLaunchTemplateIntra1(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra) const;
+                                TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra) const;
     HcclResult FastLaunchTemplateInter01(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate3 &tempAlgInter1) const;
+                                TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate3 &tempAlgInter1) const;
     HcclResult FastLaunchTemplateIntra11(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra1) const;
+                                TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra1) const;
     HcclResult FastLaunchTemplateIntra01(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra1) const;
+                                TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra1) const;
     HcclResult FastLaunchTemplateInter11(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate3 &tempAlgInter1) const;
+                                TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate3 &tempAlgInter1) const;
     // rounddown func for uint
     inline u64 RoundDown(u64 dividend, u64 divisor) const
     {

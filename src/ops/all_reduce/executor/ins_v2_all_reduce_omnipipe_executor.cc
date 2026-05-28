@@ -69,10 +69,10 @@ template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTe
 HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ,
                                           InsAgAlgTemplateX, InsAgAlgTemplateY,
                                           InsAgAlgTemplateZ>::CalcResLevel(HcclComm comm, const OpParam& param,
-                                                                           const TopoInfoWithNetLayerDetails* topoInfo,
-                                                                           const std::shared_ptr<InsAlgTemplateBase> tempAlg,
-                                                                           AlgResourceRequest& resourceRequest,
-                                                                           bool addChannel) const
+                                                              const TopoInfoWithNetLayerDetails* topoInfo,
+                                                              const std::shared_ptr<InsAlgTemplateBase> tempAlg,
+                                                              AlgResourceRequest& resourceRequest,
+                                                              bool addChannel) const
 {
     AlgResourceRequest resReqlevel;
     CHK_RET(tempAlg->CalcRes(comm, param, topoInfo, resReqlevel));
@@ -229,7 +229,8 @@ template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTe
           typename InsAgAlgTemplateX, typename InsAgAlgTemplateY, typename InsAgAlgTemplateZ>
 HcclResult InsV2AllReduceOmniPipeExecutor<
     AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ, InsAgAlgTemplateX, InsAgAlgTemplateY,
-    InsAgAlgTemplateZ>::GenTemplateAlgParamsByDimData(TemplateDataParams& tempAlgParams, StepSliceInfo& stepSliceInfo) const
+    InsAgAlgTemplateZ>::GenTemplateAlgParamsByDimData(TemplateDataParams& tempAlgParams,
+                                                      StepSliceInfo& stepSliceInfo) const
 {
     // rs特殊处理，过程中的所有step都在ccl中进行数据搬运，在template中只使用ccl的起始地址就可以了，in和out不用赋值
     tempAlgParams.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
@@ -323,7 +324,8 @@ template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTe
 HcclResult InsV2AllReduceOmniPipeExecutor<
     AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ, InsAgAlgTemplateX, InsAgAlgTemplateY,
     InsAgAlgTemplateZ>::RestoreChannelMap(const AlgResourceCtxSerializable& resCtx,
-                                          std::vector<std::map<u32, std::vector<ChannelInfo>>>& rankIdToChannelInfo) const
+                                          std::vector<std::map<u32,
+                                          std::vector<ChannelInfo>>>& rankIdToChannelInfo) const
 {
     rankIdToChannelInfo.resize(OMNIPIPE_LEVEL_NUM);
     u32 level = 0;

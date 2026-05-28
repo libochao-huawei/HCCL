@@ -32,7 +32,8 @@ public:
                                     
 #ifndef AICPU_COMPILE
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *fastLaunchCtx) override;
-    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread) const;
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes,
+               u32 notifyNumOnMainThread) const;
 #endif
 
 protected:

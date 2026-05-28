@@ -53,7 +53,7 @@ HcclResult CalcLevel0ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     return HCCL_SUCCESS;
 }
 
-HcclResult ProcessMeshInfo(const HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
+HcclResult ProcessMeshInfo(const HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo,
                         std::map<u32, u32>& rank2ChannelIdx, u32 myRank,
                         std::vector<std::vector<HcclChannelDesc>>& channelsPerDie,
                         u32 enableDieNum, u32 enableDieId,

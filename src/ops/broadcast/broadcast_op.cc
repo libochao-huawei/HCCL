@@ -251,7 +251,8 @@ HcclResult BroadcastOutPlace(OpParam &param, void *buf, uint64_t count, HcclData
     return HCCL_SUCCESS;
 }
 
-HcclResult BroadcastEntryLog(const void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, const char *tag, const std::string &opName)
+HcclResult BroadcastEntryLog(const void *buf, uint64_t count, HcclDataType dataType, uint32_t root,
+                             aclrtStream stream, const char *tag, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;

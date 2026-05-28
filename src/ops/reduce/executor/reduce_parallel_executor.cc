@@ -325,17 +325,21 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
         tempAlgResArr_.at(stage * stageNum).ccuKernels.clear();
         tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.clear();
         if (stage == 0) {
-            tempAlgResArr_.at(stage * stageNum).ccuKernels.insert(tempAlgResArr_.at(stage * stageNum).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0]);
-            tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.insert(tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1]);
         } else {
-            tempAlgResArr_.at(stage * stageNum).ccuKernels.insert(tempAlgResArr_.at(stage * stageNum).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2]);
-            tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.insert(tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2] + resCtx_.ccuKernelNum[3]);
         }

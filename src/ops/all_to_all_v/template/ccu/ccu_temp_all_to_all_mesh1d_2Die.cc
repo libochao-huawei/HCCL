@@ -41,8 +41,10 @@ CcuTempAllToAllMesh1D2Die::~CcuTempAllToAllMesh1D2Die()
 {
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(const HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
-    const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels) const
+HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(const HcclComm comm, u32 myRank, u32 rank,
+                                                            uint32_t netLayer, u32 idx, const CommLink& link,
+                                                            const std::string& funcName,
+                                                            std::vector<HcclChannelDesc>& channels) const
 {
     (void) comm;
     HcclChannelDesc channelDesc;
@@ -94,7 +96,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocolNhr(HcclComm comm, c
         netLayer, channels, protocolFound, std::string("[CalcLevel1ChannelRequestNhr]"));
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks) const
+HcclResult CcuTempAllToAllMesh1D2Die::CalcNHRChannelConnect(u32 rank, u32 rankSize,
+                                                            u32 root, std::set<u32> &connectRanks) const
 {
     (void)root;
     connectRanks.clear();
@@ -235,7 +238,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
         const uint32_t dieIdTypeSize = sizeof(DieIdType);
         // clos 链路
         uint32_t channelSize = 2;
-        if(channel_list.size() == channelSize) {
+        if (channel_list.size() == channelSize) {
             for (const auto &channel : channel_list) {
                 DieIdType dieId = 0;
                 EndpointDesc localEndpoint = channel.localEndpoint;
