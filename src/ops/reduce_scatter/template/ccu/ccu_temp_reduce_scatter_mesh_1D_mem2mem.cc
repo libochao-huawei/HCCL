@@ -89,11 +89,10 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::FastLaunch(const OpParam& param, c
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
     constexpr u32 scratchIdx = 3;
-    // FillCachedArgs末尾3个位置为base offset: args[15]=inBuffBaseOff, args[16]=outBuffBaseOff, args[17]=hcclBuffBaseOff
-    constexpr u32 inputOffsetIdx = 15;   // inBuffBaseOff
-    constexpr u32 outputOffsetIdx = 16;  // outBuffBaseOff
-    constexpr u32 scratchOffsetIdx = 17; // hcclBuffBaseOff
-    uint64_t argSize = 15;
+    constexpr u32 inputOffsetIdx = 4;
+    constexpr u32 outputOffsetIdx = 5;
+    constexpr u32 scratchOffsetIdx = 18;
+    uint64_t argSize = 19;
 
     args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
     args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
