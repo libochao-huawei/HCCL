@@ -12,15 +12,8 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_recv_host_nic_dpu.cc
 )
 
-<<<<<<< HEAD
-target_sources(hccl PRIVATE
-    ${src_list}
-)
-=======
-    if(TARGET hccl)
-        target_sources(hccl PRIVATE
-            ${src_list}
-        )
-    endif()
+if(TARGET hccl)
+    target_sources(hccl PRIVATE
+        ${src_list}
+    )
 endif()
->>>>>>> 836a936 (src/CMakeList.txt实现分支判断 下层target_source()增加判断逻辑 未关心BUILD_OPEN_PROJECT的逻辑)
