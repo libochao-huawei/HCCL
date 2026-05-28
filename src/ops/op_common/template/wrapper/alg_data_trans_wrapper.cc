@@ -10,11 +10,22 @@
 
 #include "alg_data_trans_wrapper.h"
 #include "exec_timeout_manager.h"
+#include "hcomm_primitives_dl.h"
 #include <atomic>
 
 namespace ops_hccl {
 
 namespace {
+HcclResult HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, u32 localNotifyIdx, u32 timeout)
+{
+    return HcclChannelNotifyWaitOnThreadDefault(thread, channel, localNotifyIdx, timeout);
+}
+
+HcclResult HcommThreadNotifyWaitOnThread(ThreadHandle thread, u32 notifyIdx, u32 timeout)
+{
+    return HcclThreadNotifyWaitOnThreadDefault(thread, notifyIdx, timeout);
+}
+
 enum HcommBatchTransferSupportState {
     HCOMM_BATCH_TRANSFER_UNINIT = -1,
     HCOMM_BATCH_TRANSFER_UNSUPPORTED = 0,
