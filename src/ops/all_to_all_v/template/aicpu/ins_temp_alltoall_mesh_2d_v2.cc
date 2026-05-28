@@ -361,7 +361,12 @@ HcclResult InsTempAlltoAllMesh2DV2::PostLocalCopy(const std::vector<ThreadHandle
             u64 inputOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + 
                 tempAlgParams_.buffInfo.inputSize + cellSize * (i + j * xRankSize_);
 
-            u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + outputStride * (i * yRankSize_ + j);
+            u64 outputOffset = 0;
+            if (tempAlgParams_.buffInfo.outBuffBaseOff == 0) {
+                outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + outputStride * (i + j * xRankSize_);
+            } else {
+                outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + outputStride * (i * yRankSize_ + j);
+            }
 
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, inputOffset, cellSize, cellCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize, cellCount);
