@@ -23,7 +23,8 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclBatchSendRecv.");
-    if (GetHcommVersion() < 90000000) {
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
     }
 
