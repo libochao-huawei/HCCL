@@ -17,10 +17,15 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/dlhcomm_function.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/exec_timeout_manager.cc
 )
-if(NOT HCCL_CANN_COMPAT_850 AND NOT HCCL_CANN_COMPAT_900)
+if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list
         ${CMAKE_CURRENT_SOURCE_DIR}/omnipipe_data_slice_calc.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ccu_log.cc
+    )
+endif()
+
+if(NOT HCCL_CANN_COMPAT_850 AND NOT HCCL_CANN_COMPAT_900)
+    list(APPEND src_list
+            ${CMAKE_CURRENT_SOURCE_DIR}/ccu_log.cc
     )
 endif()
 
