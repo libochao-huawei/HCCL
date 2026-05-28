@@ -45,6 +45,10 @@ HcclResult AivTempBroadcastMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u3
 {
     (void) dataSize;
     numBlocks = numBlocksLimit;
+    if (numBlocks < tempRankSize_) {
+        HCCL_ERROR("numBlocks[%u] is less than tempRankSize[%u]", numBlocks, tempRankSize_);
+        return HCCL_E_INTERNAL;
+    }
     HCCL_INFO("[AivTempBroadcastMesh1D] Actually use core num[%u]", numBlocks);
     return HcclResult::HCCL_SUCCESS;
 }
