@@ -17,6 +17,9 @@ static int32_t g_enableEventCache = 0;
 
 bool HcclCheckLogLevel(int logType, int moduleId)
 {
+    if (dlog_getlevel == nullptr) {
+        return (CheckLogLevel(moduleId, logType) == 1);
+    }
     if (g_logLevelCache == HCCL_LOG_LEVEL_INVALID) {
         int32_t enableEvent = -1;
         g_logLevelCache = dlog_getlevel(moduleId, &enableEvent);
