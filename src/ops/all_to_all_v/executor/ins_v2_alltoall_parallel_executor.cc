@@ -508,7 +508,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     u64 scratchBufferInterOffset1 = scratchBufferIntraOffset1 + 2 * scratchBufferIntraSize1;
     u64 scratchBufferInterSize1 = scratchBufferIntraSize0;
 
-    if (2 * dataSize_ > hcclBuffSize) {
+    if (4 * dataSize_ > hcclBuffSize) {
         HCCL_ERROR("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] FATAL: HCCL buffer too small for double buffering. "
                    "dataSize=%llu hcclBuffSize=%llu", dataSize_, hcclBuffSize);
         return HcclResult::HCCL_E_INTERNAL;
