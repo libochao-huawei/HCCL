@@ -14,6 +14,7 @@
 #include "ccu_kernel_reduce_scatter_mesh1d_2die_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
 #include "alg_data_trans_wrapper.h"
+#include "ccu_launch.h"
  
 namespace ops_hccl {
  
@@ -27,7 +28,6 @@ CcuTempReduceScatterMeshMem2Mem1D2Die::CcuTempReduceScatterMeshMem2Mem1D2Die(con
 {
     std::vector<u32> ranks = subCommRanks[0];
     templateRankSize_ = ranks.size();
-    // 获取本卡在子通信域(如果有)中的rankid
     auto it = std::find(ranks.begin(), ranks.end(), rankId);
     if (it != ranks.end()) {
         mySubCommRank_ = std::distance(ranks.begin(), it);
@@ -41,58 +41,50 @@ CcuTempReduceScatterMeshMem2Mem1D2Die::~CcuTempReduceScatterMeshMem2Mem1D2Die()
 HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
-    resourceRequest.notifyNumOnMainThread = 1;
-    resourceRequest.slaveThreadNum = 1;
-    // 多少个kernel
+    GetRes(resourceRequest);
     resourceRequest.ccuKernelNum.push_back(DIE_NUM);
-    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
-    HCCL_DEBUG("[CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes] "
-                "notifyNumOnMainThread[%u] slaveThreadNum[%u] ccuKernelNum[%u]",
+    HCCL_DEBUG("[CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u] ccuKernelNum[%u]",
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum, resourceRequest.ccuKernelNum[0]);
     
     std::vector<HcclChannelDesc> channelDescs;
     std::vector<std::vector<HcclChannelDesc>> channelDescsVec;
     std::vector<std::vector<u32>>             subRankGroup;
-    bool isReduceToOuput = false;
+    bool isReduceToOutput = false;
  
     channelDescsVec.resize(DIE_NUM);
     subRankGroup.resize(DIE_NUM);
  
-    // 计算channel信息
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
  
-    // 根据dieId对channel分组
     for (auto channel : channelDescs) {
         uint32_t dieId = 0;
         CHK_RET(GetChannelDieId(comm, myRank_, channel, dieId));
         CHK_PRT_RET(dieId >= DIE_NUM,
-            HCCL_ERROR("[CcuTempAllReduceMesh1DMem2Mem2DieOneShot][CalcRes] dieId is invalid"), HCCL_E_INTERNAL);
+            HCCL_ERROR("[CcuTempReduceScatterMeshMem2Mem1D2Die][CalcRes] dieId is invalid"), HCCL_E_INTERNAL);
         channelDescsVec[dieId].push_back(channel);
         subRankGroup[dieId].push_back(channel.remoteRank);
     }
  
     subRankGroup[UDIE1].push_back(myRank_);
  
-    uint32_t tmpDieId   = myRank_ < subRankGroup[UDIE0].back() ? 0 : 1;
-    localReduceOffset_  = subRankGroup[1 - tmpDieId][0];
+    uint32_t tmpDieId = myRank_ < subRankGroup[UDIE0].back() ? 0 : 1;
+    localReduceOffset_ = subRankGroup[1 - tmpDieId][0];
  
-    // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     for (int dieId = 0; dieId < DIE_NUM; dieId++) {
         CcuKernelInfo kernelInfo;
-        kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                                return std::make_unique<CcuKernelReduceScatterMesh1D2DieMem2Mem>(arg);
-                            };
+        strcpy(kernelInfo.kernelFuncName, "CcuReduceScatterMesh1D2DieMem2MemKernel");
+        kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterMesh1D2DieMem2MemKernel);
  
-        isReduceToOuput = channelDescsVec[dieId].size() > channelDescsVec[1 - dieId].size() ? false : true;
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterMeshMem2Mem1D2Die>(templateRankSize_,
-                                                                                        subRankGroup[dieId].size(),
-                                                                                        isReduceToOuput,
-                                                                                        myRank_,
-                                                                                        param,
-                                                                                        subRankGroup[dieId],
-                                                                                        subCommRanks_);
-        HCCL_INFO("[CcuTempReduceScatterMeshMem2Mem1D2Die]gRankSize[%d], rankSize[%d], myRank[%d], isReduceToOuput[%d]",
-            templateRankSize_, subRankGroup[dieId].size(), myRank_, isReduceToOuput);
+        isReduceToOutput = channelDescsVec[dieId].size() > channelDescsVec[1 - dieId].size() ? false : true;
+        auto kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh1D2DieMem2Mem>();
+        kernelArg->gRankSize = templateRankSize_;
+        kernelArg->rankSize = subRankGroup[dieId].size();
+        kernelArg->isReduceToOutput = isReduceToOutput;
+        kernelArg->rankId = myRank_;
+        kernelArg->opParam = param;
+        kernelArg->subRankGroup = subRankGroup[dieId];
+        kernelArg->subCommRanks = subCommRanks_;
+        kernelInfo.setKernelArg(kernelArg);
         kernelInfo.channels = channelDescsVec[dieId];
         resourceRequest.ccuKernelInfos.push_back(kernelInfo);
     }
@@ -104,10 +96,50 @@ HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes(HcclComm comm, const O
     return HcclResult::HCCL_SUCCESS;
 }
  
+HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempReduceScatterMeshMem2Mem1D2Die::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[CcuTempReduceScatterMeshMem2Mem1D2Die::FastLaunch] start");
+
+    for (uint64_t dieIdx = 0; dieIdx < DIE_NUM; dieIdx++) {
+        uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[dieIdx].cachedArgs);
+        constexpr u32 inputIdx = 0;
+        constexpr u32 outputIdx = 1;
+        constexpr u32 scratchIdx = 3;
+        constexpr u32 inputOffsetIdx = 4;
+        constexpr u32 outputOffsetIdx = 5;
+        constexpr u32 scratchOffsetIdx = 18;
+        uint64_t argSize = 15;
+
+        args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+        args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+        args[scratchIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.hcclBuff.addr) + args[scratchOffsetIdx];
+
+        void *taskArgs = reinterpret_cast<void*>(args);
+        CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[dieIdx],
+                                                   tempFastLaunchCtx.ccuKernelSubmitInfos[dieIdx].kernelHandle,
+                                                   taskArgs, argSize);
+        if (launchRet != CCU_SUCCESS) {
+            HCCL_ERROR("[CcuTempReduceScatterMeshMem2Mem1D2Die::FastLaunch] kernel launch failed, ccuRet -> %d", launchRet);
+            return ConvertCcuToHccl(launchRet);
+        }
+    }
+
+    HCCL_DEBUG("[CcuTempReduceScatterMeshMem2Mem1D2Die::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::KernelRun(const OpParam& param,
                                                         const TemplateDataParams& templateDataParams,
                                                         TemplateResource& templateResource)
 {
+    if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
+        HCCL_INFO("[CcuTempReduceScatterMeshMem2Mem1D2Die] sliceSize is 0, no need to do, just success.");
+        return HCCL_SUCCESS;
+    }
     buffInfo_ = templateDataParams.buffInfo;
  
     uint64_t repeatNumTmp       = templateDataParams.repeatNum;
@@ -123,31 +155,59 @@ HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::KernelRun(const OpParam& param
     uint64_t lastSliceSize      = templateDataParams.tailSize;
  
     uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
+    uint64_t currentRankSliceInputOffset = inputSliceStride * mySubCommRank_;
+    uint64_t currentRankSliceOutputOffset = templateDataParams.outputSliceStride * mySubCommRank_;
+ 
+    LoopGroupConfig config{};
+    config.msInterleave = REDUCE_2DIE_MS_CNT;
+    config.loopCount    = 16;
+    config.memSlice     = CCU_MS_SIZE;
+    auto goSize = CalGoSize(normalSliceSize, config);
     
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
     std::vector<u32> notifyIdxMainToSub(1, 0);
     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
-    // 下发两个ccu kernel
-    for(uint64_t dieIdx = 0; dieIdx < DIE_NUM; dieIdx++) {
-        std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMeshMem2Mem1D2Die>(
-            inputAddr, outputAddr, token, scratchAddr, inputSliceStride, inputRepeatStride, outputRepeatStride,
-            normalSliceSize, lastSliceSize, repeatNum);
 
-        void* taskArgPtr = static_cast<void*>(taskArg.get());
-        HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[dieIdx], templateResource.ccuKernels[dieIdx], taskArgPtr);
+    for(uint64_t dieIdx = 0; dieIdx < DIE_NUM; dieIdx++) {
+        std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, scratchAddr,
+                                          currentRankSliceInputOffset, currentRankSliceOutputOffset,
+                                          inputRepeatStride, outputRepeatStride,
+                                          normalSliceSize, lastSliceSize, repeatNum,
+                                          goSize[0], goSize[1], goSize[2], goSize[3]};
+
+        HCCL_INFO("[CcuTempReduceScatterMeshMem2Mem1D2Die::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
+                  "scratchAddr[%llu], inputOffset[%llu], outputOffset[%llu], "
+                  "inputRepeatStride[%llu], outputRepeatStride[%llu], normalSliceSize[%llu], lastSliceSize[%llu], repeatNum[%llu]",
+                  inputAddr, outputAddr, scratchAddr, currentRankSliceInputOffset, currentRankSliceOutputOffset,
+                  inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, repeatNumTmp);
+
+        CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[dieIdx], templateResource.ccuKernels[dieIdx],
+                                                    taskArgs.data(), taskArgs.size());
+        if (launchRet != CCU_SUCCESS) {
+            HCCL_ERROR("[CcuTempReduceScatterMeshMem2Mem1D2Die::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+            return ConvertCcuToHccl(launchRet);
+        }
+
+        CcuKernelSubmitInfo submitInfo;
+        submitInfo.kernelHandle = templateResource.ccuKernels[dieIdx];
+        CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, scratchAddr,
+            currentRankSliceInputOffset, currentRankSliceOutputOffset, inputRepeatStride, outputRepeatStride,
+            normalSliceSize, lastSliceSize, repeatNum, goSize[0], goSize[1], goSize[2], goSize[3],
+            buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, buffInfo_.hcclBuffBaseOff));
+        templateResource.submitInfos.push_back(submitInfo);
     }
     // 后流同步
     std::vector<u32> notifyIdxSubToMain(1, 0);
     CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
-
-    // 使用SDMA inlinereduce做localcopy scratch -> output
+ 
+    // 使用SDMA inlineReduce做local copy scratch -> output
     uint64_t hcclBuffOffset = buffInfo_.hcclBuffBaseOff;
     hcclBuffOffset += normalSliceSize * (templateRankSize_ / DIE_NUM);
     DataSlice srcSlice(buffInfo_.hcclBuff.addr, hcclBuffOffset, normalSliceSize, normalSliceSize / DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
     DataSlice dstSlice(buffInfo_.outputPtr, buffInfo_.outBuffBaseOff, normalSliceSize, normalSliceSize / DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
     CHK_RET(LocalReduce(templateResource.threads[0], srcSlice, dstSlice, param.DataDes.dataType, param.reduceType));
- 
+  
     return HcclResult::HCCL_SUCCESS;
 }
  
@@ -157,5 +217,12 @@ u64 CcuTempReduceScatterMeshMem2Mem1D2Die::CalcScratchMultiple(BufferType inBuff
     (void)inBuffType;
     (void)outBuffType;
     return templateRankSize_;
+}
+
+HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::GetRes(AlgResourceRequest& resourceRequest) const
+{
+    resourceRequest.slaveThreadNum = 0;
+    resourceRequest.notifyNumOnMainThread = 0;
+    return HCCL_SUCCESS;
 }
 } // namespace ops_hccl

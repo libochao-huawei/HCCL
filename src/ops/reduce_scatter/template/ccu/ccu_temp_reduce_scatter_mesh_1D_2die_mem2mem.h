@@ -10,9 +10,10 @@
  
 #ifndef HCCL_CCU_TEMP_REDUCE_SCATTER_MESH_1D_2DIE_MEM2MEM_H
 #define HCCL_CCU_TEMP_REDUCE_SCATTER_MESH_1D_2DIE_MEM2MEM_H
-
+ 
 #include "utils.h"
 #include "ccu_alg_template_base.h"
+#include "ccu_kernel_alg_base.h"
  
 namespace ops_hccl {
  
@@ -38,7 +39,9 @@ public:
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
  
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
  
 private:
     uint32_t localReduceOffset_ = 0;

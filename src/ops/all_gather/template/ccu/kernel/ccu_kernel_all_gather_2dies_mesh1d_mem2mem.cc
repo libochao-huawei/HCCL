@@ -8,181 +8,209 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <cstdint>
 #include "ccu_kernel_all_gather_2dies_mesh1d_mem2mem.h"
-#include "ccu_kernel_alg_base.h"
+#include "ccu_kernel_utils.h"
+
 namespace ops_hccl {
-using namespace hcomm;
 
 constexpr int OUTPUT_XN_ID = 1;
 constexpr int TOKEN_XN_ID = 2;
-constexpr int POST_SYNC_ID = 3;
 constexpr int CKE_IDX_0 = 0;
-constexpr uint64_t CCU_MS_SIZE = 4096;
-constexpr uint64_t LOCAL_COPY_MS = 8;
+constexpr int POST_SYNC_ID = 3;
+constexpr uint16_t BIT_NUM_PER_CKE = 16;
 
-CcuKernelAllGather2DiesMeshMem2Mem1D::CcuKernelAllGather2DiesMeshMem2Mem1D(const hcomm::CcuKernelArg &arg)
-    : CcuKernelAlgBase(arg)
+static CcuResult ParseKernelArg(AllGather2DiesMesh1DMem2MemContext &ctx, CcuKernelArgAllGather2DiesMesh1DMem2Mem *kernelArg)
 {
-    const CcuKernelArgAllGather2DiesMeshMem2Mem1D *kernelArg
-        = dynamic_cast<const CcuKernelArgAllGather2DiesMeshMem2Mem1D*>(&arg);
-    rankId_ = kernelArg->rankId_;
-    rankSize_ = kernelArg->dimSize_;
-    rankIdGroup_ = kernelArg->rankIdGroup_;
-    ifHandleSelfRank_ = kernelArg->ifHandleSelfRank_;
-    channels_ = kernelArg->channels;
+    ctx.arg = kernelArg;
+    return CCU_SUCCESS;
 }
 
-HcclResult CcuKernelAllGather2DiesMeshMem2Mem1D::Algorithm()
+static CcuResult InitResource(AllGather2DiesMesh1DMem2MemContext &ctx)
 {
-    HCCL_INFO("[CcuKernelAllGather2DiesMeshMem2Mem1D] CcuKernelAllGather2DiesMeshMem2Mem1D run");
-    
-    if (rankIdGroup_.size() == 0) {
-        return HcclResult::HCCL_SUCCESS;
-    }
-
-    CHK_RET(InitResource());
- 
-    LoadArgs();
- 
-    PreSync();
- 
-    DoAllGather();
- 
-    PostSync();
- 
-    HCCL_INFO("[CcuKernelAllGather2DiesMeshMem2Mem1D] CcuKernelAllGather2DiesMeshMem2Mem1D end");
-    
-    return HcclResult::HCCL_SUCCESS;
-}
-
-std::vector<uint64_t> CcuKernelAllGather2DiesMeshMem2Mem1D::GeneArgs(const hcomm::CcuTaskArg &arg)
-{
-    const CcuTaskArgAllGather2DiesMeshMem2Mem1D *taskArg
-        = dynamic_cast<const CcuTaskArgAllGather2DiesMeshMem2Mem1D *>(&arg);
-    uint64_t inputAddr = taskArg->inputAddr_;
-    uint64_t outputAddr = taskArg->outputAddr_;
-    uint64_t sliceSize = taskArg->sliceSize_;
-    uint64_t offSet = taskArg->offSet_;
-    uint64_t token = taskArg->token_;
-    auto localGoSize = CalGoSize(sliceSize);
-    std::vector<uint64_t> taskArgs = {
-        inputAddr,
-        outputAddr,
-        sliceSize,
-        offSet,
-        token,
-        localGoSize[0],
-        localGoSize[1],
-        localGoSize[2],
-        localGoSize[3]
-    };
-    HCCL_INFO("[CcuKernelAllGather2DiesMeshMem2Mem1D] TaskArgs: inputAddr[%llu], outputAddr[%llu], sliceSize[%llu], offSet[%llu]",
-               inputAddr, outputAddr, sliceSize, offSet);
-    return taskArgs;
-}
-
-HcclResult CcuKernelAllGather2DiesMeshMem2Mem1D::InitResource()
-{
-    localGoSize_ = CreateGroupOpSize();
-    localCopyEvent_ = CreateCompletedEvent();
-    event_ = CreateCompletedEvent();
-    input_.push_back(CreateVariable());//两个kernel共用一个input
+    const auto *arg = ctx.arg;
     uint16_t channelIdx = 0;
-    for (uint64_t peerId = 0; peerId < rankSize_; peerId++) {
-        if (peerId == rankId_) {
-            output_.push_back(CreateVariable());
-            token_.push_back(CreateVariable());
-        } else if (peerId != rankIdGroup_[channelIdx]) {
-            output_.push_back(CreateVariable());
-            token_.push_back(CreateVariable());
-        } else {//rankId == rankIdGroup_[channelIdx]
-            HCCL_INFO("[CcuKernelArgAllGather2DiesMeshMem2Mem1D] MyRank[%u], PeerId[%llu], ChannelId[%u]",
-                rankId_, peerId, channelIdx);
 
-            CcuRep::Variable outputVar, tokenVar;
-            CHK_RET(CreateVariable(channels_[channelIdx], OUTPUT_XN_ID, &outputVar));
-            CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
-            output_.push_back(outputVar);
-            token_.push_back(tokenVar);
+    if (arg->channelCount == 0) {
+        HCCL_ERROR("[CcuKernelAllGather2DiesMesh1DMem2Mem] channels is empty!");
+        return CcuResult::CCU_E_INTERNAL;
+    }
+    HCCL_INFO("[CcuKernelAllGather2DiesMesh1DMem2Mem] channels.size: [%u]", arg->channelCount);
+
+    ctx.output.resize(arg->dimSize);
+    ctx.token.resize(arg->dimSize);
+
+    for (uint64_t peerId = 0; peerId < arg->dimSize; peerId++) {
+        if (peerId == arg->rankId) {
+            // 本地资源，后续创建
+        } else if (peerId != arg->rankIdGroup[channelIdx]) {
+            // 该peer不在本kernel的channel组中
+        } else {
+            // 对端有对应的channel
+            ctx.output[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
         }
-        if (peerId >= rankIdGroup_[channelIdx] && channelIdx < rankIdGroup_.size() - 1) {
+        if (peerId >= arg->rankIdGroup[channelIdx] && channelIdx < arg->rankIdGroup.size() - 1) {
             channelIdx++;
         }
     }
-    offSet_ = CreateVariable();
-    sliceSize_ = CreateVariable();
-    return HcclResult::HCCL_SUCCESS;
+
+    const uint32_t eventNum = (arg->dimSize + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
+    ctx.events.resize(eventNum);
+
+    ctx.resourceAllocated = false;
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAllGather2DiesMeshMem2Mem1D::LoadArgs()
+static CcuResult LoadArgs(AllGather2DiesMesh1DMem2MemContext &ctx)
 {
-    Load(input_[0]);
-    Load(output_[rankId_]);
-    Load(sliceSize_);
-    Load(offSet_);
-    Load(token_[rankId_]);
-    Load(localGoSize_);
+    const auto *arg = ctx.arg;
+    uint32_t cnt = 0;
+
+    CCU_CHK_RET(ccu::LoadArg(ctx.input, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.offSet, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, cnt++));
+
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAllGather2DiesMeshMem2Mem1D::PreSync()
+static CcuResult PreSync(AllGather2DiesMesh1DMem2MemContext &ctx)
 {
-    for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, OUTPUT_XN_ID, output_[rankId_], 1 << OUTPUT_XN_ID);
-        NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, token_[rankId_], 1 << TOKEN_XN_ID);
+    const auto *arg = ctx.arg;
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        CCU_CHK_RET(ccu::WriteVariableWithNotify(arg->channels[i], ctx.output[arg->rankId],
+            OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID));
+        CCU_CHK_RET(ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[arg->rankId],
+            TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
     }
-    uint32_t allBit = ((1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID));
-    for (ChannelHandle channel : channels_) {
-        NotifyWait(channel, CKE_IDX_0, allBit);
+
+    uint32_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        CCU_CHK_RET(ccu::NotifyWait(arg->channels[i], CKE_IDX_0, allBit));
     }
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAllGather2DiesMeshMem2Mem1D::PostSync()
+static CcuResult PostSync(AllGather2DiesMesh1DMem2MemContext &ctx)
 {
-    for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
+    const auto *arg = ctx.arg;
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        CCU_CHK_RET(ccu::NotifyRecord(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
-    for (ChannelHandle channel : channels_) {
-        NotifyWait(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        CCU_CHK_RET(ccu::NotifyWait(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAllGather2DiesMeshMem2Mem1D::DoAllGather()
-{    
-    hcomm::CcuRep::LocalAddr src = CreateLocalAddr();
-    src.addr = input_[0];
-    src.token = token_[rankId_];
-    std::vector<hcomm::CcuRep::RemoteAddr> remoteDst;
-    for (uint64_t rankIdx = 0; rankIdx < rankIdGroup_.size(); rankIdx++) {
-        remoteDst.push_back(CreateRemoteAddr());
-    }
-    for (uint64_t rankIdx = 0; rankIdx < rankIdGroup_.size(); rankIdx++) { 
-        event_.SetMask(1 << rankIdGroup_[rankIdx]); 
-        remoteDst[rankIdx].addr = output_[rankIdGroup_[rankIdx]]; 
-        remoteDst[rankIdx].addr += offSet_;
-        remoteDst[rankIdx].token = token_[rankIdGroup_[rankIdx]];
+static CcuResult DoAllGather(AllGather2DiesMesh1DMem2MemContext &ctx)
+{
+    const auto *arg = ctx.arg;
 
-        CCU_IF (sliceSize_ != 0) {
-            WriteNb(channels_[rankIdx], remoteDst[rankIdx], src, sliceSize_, event_);//write to the remote dst
+    ccu::LocalAddr src;
+    src.addr = ctx.input;
+    src.token = ctx.token[arg->rankId];
+
+    ctx.src_loccopy.addr = ctx.input;
+    ctx.src_loccopy.token = ctx.token[arg->rankId];
+
+    std::vector<ccu::RemoteAddr> remoteDst;
+    remoteDst.resize(arg->rankIdGroup.size());
+
+    for (uint64_t rankIdx = 0; rankIdx < arg->rankIdGroup.size(); rankIdx++) {
+        ctx.events[0].SetMask(1 << arg->rankIdGroup[rankIdx]);
+        remoteDst[rankIdx].addr = ctx.output[arg->rankIdGroup[rankIdx]];
+        remoteDst[rankIdx].addr += ctx.offSet;
+        remoteDst[rankIdx].token = ctx.token[arg->rankIdGroup[rankIdx]];
+    }
+
+    uint32_t channelId = 0;
+    const uint32_t eventNum = (arg->dimSize + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
+
+    for (uint64_t rankIdx = 0; rankIdx < arg->rankIdGroup.size(); rankIdx++) {
+        const uint16_t eventIdx = arg->rankIdGroup[rankIdx] / BIT_NUM_PER_CKE;
+        const uint16_t rankMask = 1 << (arg->rankIdGroup[rankIdx] % BIT_NUM_PER_CKE);
+
+        CCU_IF(ctx.sliceSize != 0) {
+            CCU_CHK_RET(ccu::Write(arg->channels[channelId], remoteDst[rankIdx],
+                src, ctx.sliceSize, ctx.events[eventIdx], rankMask));
         }
-        CCU_IF (sliceSize_ == 0) {
-            RecordEvent(event_);
+        CCU_IF(ctx.sliceSize == 0) {
+            CCU_CHK_RET(ccu::EventRecord(ctx.events[eventIdx], rankMask));
+        }
+        channelId++;
+    }
+
+    if (arg->ifHandleSelfRank) {
+        ctx.localDst.addr = ctx.output[arg->rankId];
+        ctx.localDst.addr += ctx.offSet;
+        ctx.localDst.token = ctx.token[arg->rankId];
+
+        CCU_IF(ctx.isInputOutputEqual == 0) {
+            CCU_CHK_RET(GroupCopy(ctx, ctx.localDst, ctx.src_loccopy, ctx.goSize));
         }
     }
-    localCopyEvent_.SetMask(1 << rankId_);
-    if (ifHandleSelfRank_) {
-        hcomm::CcuRep::LocalAddr localDst = CreateLocalAddr();
-        localDst.addr = output_[rankId_];
-        localDst.token = token_[rankId_];
-        localDst.addr += offSet_;
-        GroupCopy(localDst, src, localGoSize_);
-    }
-    RecordEvent(localCopyEvent_);
+
     uint16_t rankMask = 0x0000;
-    for (uint64_t rankIdx = 0; rankIdx < rankIdGroup_.size(); rankIdx++) {
-        rankMask |= (1 << rankIdGroup_[rankIdx]);
+    for (uint64_t rankIdx = 0; rankIdx < arg->rankIdGroup.size(); rankIdx++) {
+        rankMask |= (1 << arg->rankIdGroup[rankIdx]);
     }
-    event_.SetMask(rankMask);
-    WaitEvent(event_);
+
+    for (uint32_t i = 0; i < eventNum; i++) {
+        uint32_t sigNum;
+        if (arg->dimSize % BIT_NUM_PER_CKE != 0 && i == (eventNum - 1)) {
+            sigNum = arg->dimSize % BIT_NUM_PER_CKE;
+        } else {
+            sigNum = BIT_NUM_PER_CKE;
+        }
+        uint32_t allBit = (1 << sigNum) - 1;
+        CCU_CHK_RET(ccu::EventWait(ctx.events[i], allBit));
+    }
+
+    return CCU_SUCCESS;
 }
+
+CcuResult CcuAllGather2DiesMesh1DMem2MemKernel(CcuKernelArg arg)
+{
+    auto *kernelArg = static_cast<CcuKernelArgAllGather2DiesMesh1DMem2Mem *>(arg);
+
+    AllGather2DiesMesh1DMem2MemContext ctx;
+    ctx.resourceAllocated = false;
+    ctx.moConfig.msInterleave = 0;
+    ctx.moConfig.loopCount = 0;
+    ctx.moConfig.memSlice = 0;
+    ctx.moRes.eventCount = 0;
+    ctx.moRes.bufCount = 0;
+    ctx.enginePool = 0;
+
+    HCCL_INFO("[CcuKernelAllGather2DiesMesh1DMem2Mem] AllGather2DiesMesh1DMem2Mem run");
+
+    if (kernelArg->rankIdGroup.size() == 0) {
+        HCCL_INFO("[CcuKernelAllGather2DiesMesh1DMem2Mem] rankIdGroup is empty, skip.");
+        return CCU_SUCCESS;
+    }
+
+    CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
+    CCU_CHK_RET(InitResource(ctx));
+    CCU_CHK_RET(LoadArgs(ctx));
+
+    CCU_CHK_RET(PreSync(ctx));
+
+    CCU_CHK_RET(DoAllGather(ctx));
+
+    CCU_CHK_RET(PostSync(ctx));
+
+    HCCL_INFO("[CcuKernelAllGather2DiesMesh1DMem2Mem] AllGather2DiesMesh1DMem2Mem end");
+
+    return CCU_SUCCESS;
 }
+
+} // namespace ops_hccl
