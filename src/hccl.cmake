@@ -151,10 +151,14 @@ else()
 endif()
 
 if(STATIC_MODE)
-    # 后处理阶段再安装
+    install(TARGETS hccl
+        ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
+    )
 else()
     install(TARGETS hccl
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
         ${INSTALL_OPTIONAL}
         COMPONENT hccl
     )
