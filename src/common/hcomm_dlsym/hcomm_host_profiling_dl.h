@@ -13,6 +13,7 @@
 
 #include "dlsym_common.h"
 #include "hccl_res_dl.h"
+#include "acl/acl_rt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +49,9 @@ DECL_WEAK_FUNC(HcclResult, HcclDfxRegOpInfoByCommId, char* commId, void* hcclDfx
 DECL_WEAK_FUNC(HcclResult, HcclProfilingReportOp, HcclComm comm, uint64_t beginTime);
 DECL_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginTime, char *kernelName);
 DECL_WEAK_FUNC(HcclResult, HcclReportAivKernel, HcclComm comm, uint64_t beginTime);
+typedef void (*HcclTaskExceptionCallback)(aclrtExceptionInfo *exceptionInfo);
+DECL_WEAK_FUNC(HcclResult, HcclTaskExceptionRegCallBack, HcclTaskExceptionCallback callback);
+DECL_WEAK_FUNC(HcclResult, HcomGetCommHandleByGroup, const char *group, HcclComm *commHandle);
 DECL_SUPPORT_FLAG(HcommProfilingRegThread);
 DECL_SUPPORT_FLAG(HcommProfilingUnRegThread);
 DECL_SUPPORT_FLAG(HcommProfilingReportKernel);
