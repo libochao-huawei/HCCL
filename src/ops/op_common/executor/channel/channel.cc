@@ -766,6 +766,7 @@ bool GetFixedLinkIdxForRankPairClosV2(u32 myRank, u32 rank, u32 &fixedIdx)
 HcclResult ProcessLinksForChannelClosV2(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo)
 {
 #ifndef AICPU_COMPILE
+    constexpr u32 targetProtocol = static_cast<u32>(CommProtocol::COMM_PROTOCOL_UBC_CTP);
     uint32_t *netLayers;
     uint32_t netLayerNum;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
@@ -775,7 +776,18 @@ HcclResult ProcessLinksForChannelClosV2(HcclComm comm, u32 myRank, u32 rank, std
         u32 listSize;
         CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
         HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV2] netLayer=%u, linkListSize=%u", netLayer, listSize);
-
+        
+        std::vector<CommLink> filteredLinks;
+        filteredLinks.reserve(listSize);
+        for (u32 idx = 0; idx < listSize; idx++) {
+            if (linkList[idx].dstEndpointDesc.protocol == targetProtocol) {
+                filteredLinks.push_back(linkList[idx]);
+            }
+        }
+        linkList = filteredLinks.data();
+        listSize = filteredLinks.size();
+        HCCL_INFO("[ProcessLinksForChannelClosV2] netLayer=%u, targetProtocol=%u, linkListSize after protocol filter=%u", netLayer, targetProtocol, listSize);
+        
         if (listSize == 0) {
             HCCL_WARNING("[CalcChannelRequestWithPriorTopoClosV2]There is no link between rank[%u] and rank[%u].", myRank,
                          rank);
