@@ -503,7 +503,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     u64 scratchBufferInterSize0 = finalDataCountPerLoopAxis1 * dataTypeSize_;
     
     u64 scratchBufferIntraOffset1 = scratchBufferInterOffset0 + 2 * scratchBufferInterSize0;
-    u64 scratchBufferIntraSize1 = scratchBufferIntraSize0;
+    u64 scratchBufferIntraSize1 = scratchBufferInterSize0;
 
     u64 scratchBufferInterOffset1 = scratchBufferIntraOffset1 + 2 * scratchBufferIntraSize1;
     u64 scratchBufferInterSize1 = scratchBufferIntraSize0;
@@ -632,8 +632,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
         tempAlgParamsInter1.buffInfo.hcclBuff = resCtx.cclMem;
         tempAlgParamsInter1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-        tempAlgParamsInter1.buffInfo.hcclBuffSize = 2 * scratchBufferInterSize0;
-        tempAlgParamsInter1.buffInfo.hcclBuffBaseOff = scratchBufferInterOffset0;
+        tempAlgParamsInter1.buffInfo.hcclBuffSize = 2 * scratchBufferInterSize1;
+        tempAlgParamsInter1.buffInfo.hcclBuffBaseOff = scratchBufferInterOffset1;
 
         // 不需要 copy out
         tempAlgParamsInter1.buffInfo.outputPtr = param.outputPtr;
@@ -642,7 +642,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         tempAlgParamsInter1.buffInfo.outBuffBaseOff = 0;
         tempAlgParamsInter1.outputSliceStride = perPeerInputChunkSize;
 
-        tempAlgParamsInter1.sliceSize = scratchBufferInterSize0;
+        tempAlgParamsInter1.sliceSize = scratchBufferInterSize1;
         tempAlgParamsInter1.count = finalDataCountPerLoopAxis0;
     }
 
