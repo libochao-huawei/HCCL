@@ -10,23 +10,19 @@
 #include "log.h"
 
 thread_local bool g_hcclErrToWarn = false;
-
 constexpr int32_t HCCL_LOG_LEVEL_INVALID = -1;
 static int32_t g_logLevelCache = -1;
-static int32_t g_enableEventCache = 0;
+int32_t CheckLogLevel(int32_t moduleId, int32_t logLevel) __attribute((weak));
+int32_t dlog_getlevel(int32_t moduleId, int32_t *enableEvent) __attribute((weak));
 
 bool HcclCheckLogLevel(int logType, int moduleId)
 {
-    if (dlog_getlevel == nullptr) {
-        return (CheckLogLevel(moduleId, logType) == 1);
+    if ((moduleId & RUN_LOG_MASK) != 0) {
+        return true;
     }
-    if (g_logLevelCache == HCCL_LOG_LEVEL_INVALID) {
+    if (UNLIKELY(g_logLevelCache == HCCL_LOG_LEVEL_INVALID)) {
         int32_t enableEvent = -1;
         g_logLevelCache = dlog_getlevel(moduleId, &enableEvent);
-        g_enableEventCache = enableEvent;
-    }
-    if ((moduleId & RUN_LOG_MASK) != 0 && g_enableEventCache != 0) {
-        return true;
     }
     return (logType >= g_logLevelCache);
 }
