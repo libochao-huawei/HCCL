@@ -267,6 +267,10 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     algTemplatePtrArr_.at(0).at(1) = std::make_shared<AlgTemplate1>(param, myRank_, temp1HierarchyInfo_);
     algTemplatePtrArr_.at(1).at(0) = std::make_shared<AlgTemplate2>(param, myRank_, temp0HierarchyInfo_);
     algTemplatePtrArr_.at(1).at(1) = std::make_shared<AlgTemplate3>(param, myRank_, temp1HierarchyInfo_);
+    if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
+        algTemplatePtrArr_.at(0).at(1)->SetchannelsPerRank(interLinks_);
+        algTemplatePtrArr_.at(1).at(1)->SetchannelsPerRank(interLinks_);
+    }
 
     // 算法展开
     CHK_RET(OrchestrateImpl());
@@ -439,7 +443,9 @@ HcclResult
         }
     }
 
-    std::array<long double, dataSplitPart_> dataSplitSize{dataSplitSize0_, 1.0 - dataSplitSize0_};
+    multipleDimensionSplitRatio_ = param_.opConfig.multipleDimensionSplitRatio;
+    std::array<long double, dataSplitPart_> dataSplitSize{multipleDimensionSplitRatio_, 1.0 - multipleDimensionSplitRatio_};
+    HCCL_INFO("[ReduceParallelExecutor] dataSplitSize is %Lf, %Lf", dataSplitSize[0], dataSplitSize[1]);
 
     // inter模板不再需要额外的scratch，因为当input/output都在CCL BUFFER上是，NHR算法可以直接在原地进行
     const long double scratchMultipleIntra = std::max(dataSplitSize.at(0), dataSplitSize.at(1) / interLocalRankSize_);
@@ -448,7 +454,10 @@ HcclResult
 
     const u64 scratchMemBlockSize = maxTmpMemSize_ / totalScratchMultiple;
     CHK_PRT_RET(dataTypeSize_ == 0, "[ReduceParallelExecutor][OrchestrateImpl] dataTypeSize_ is 0", HCCL_E_INTERNAL);
-    const u64 maxCountPerLoop = std::min<u64>(scratchMemBlockSize, UB_MAX_DATA_SIZE) / dataTypeSize_;
+    u64 maxCountPerLoop = scratchMemBlockSize / dataTypeSize_;
+    if (param_.engine != CommEngine::COMM_ENGINE_AICPU_TS) {
+        maxCountPerLoop = std::min<u64>(scratchMemBlockSize, UB_MAX_DATA_SIZE) / dataTypeSize_;
+    }
     CHK_PRT_RET(maxCountPerLoop == 0, "[ReduceParallelExecutor][OrchestrateImpl] maxCountPerLoop is 0", HCCL_E_INTERNAL);
     const u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
 
@@ -474,7 +483,7 @@ HcclResult
     u64 processedCount = 0;
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCount = (loopIndex + 1 == loopTimes) ? (dataCount_ - loopIndex * maxCountPerLoop) : maxCountPerLoop;
-        dataCountPerLoop_.at(0) = static_cast<u64>(currCount * dataSplitSize0_);
+        dataCountPerLoop_.at(0) = static_cast<u64>(currCount * multipleDimensionSplitRatio_);
         dataCountPerLoop_.at(1) = currCount - dataCountPerLoop_.at(0);
         dataOffsetPerLoop_.at(0) = loopIndex * maxCountPerLoop * dataTypeSize_;
         dataOffsetPerLoop_.at(1) = dataOffsetPerLoop_.at(0) + dataCountPerLoop_.at(0) * dataTypeSize_;
