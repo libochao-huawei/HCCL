@@ -12,7 +12,9 @@
 #define CCU_LAUNCH_DL_H
 
 #include "dlsym_common.h"
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_launch.h"   // 原始头文件，包含所有类型和声明
+#endif
 
 #ifdef __cplusplus
 extern "C" {

@@ -8,6 +8,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 add_subdirectory(aicpu)
-if(NOT HCCL_CANN_COMPAT_850)
+if(NOT HCCL_CANN_COMPAT_850 AND NOT HCCL_CANN_COMPAT_900)
     add_subdirectory(ccu)
 endif()

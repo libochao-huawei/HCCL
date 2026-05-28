@@ -14,7 +14,7 @@
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "alg_data_trans_wrapper.h"
 #ifndef AICPU_COMPILE
-#if !defined(HCCL_CANN_COMPAT_850)
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(HCCL_CANN_COMPAT_900)
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 // #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
@@ -575,7 +575,7 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceSc
     InsReduceScatterParallelExecutor, TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
-#if !defined(HCCL_CANN_COMPAT_850)
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(HCCL_CANN_COMPAT_900)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterParallelMesh1DNHR,
     InsReduceScatterParallelExecutor, TopoMatchMultilevel, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem);
 #endif /* !HCCL_CANN_COMPAT_850 */
