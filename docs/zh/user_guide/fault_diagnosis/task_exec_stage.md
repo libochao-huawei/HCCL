@@ -41,7 +41,7 @@ HCCL会基于已有的通信域信息与邻近的rank建立起独立的维测链
     [INFO] HCCL(686,python):2025-10-23-07:52:59.191.363 [heartbeat.cc:951] [8970][TaskExecStage][HeartbeatAbnormal]local rank [127.10.0.1/1]: crimer rank [127.10.0.2/2] status[LOST] by informer rank [127.10.0.3/3]
     ```
 
-- 如果后续出现算子执行报错，并且调用了task exception回调函数通知了HCCL，HCCL会根据已经收到的异常事件，结合HCCL\_EXEC\_TIMEOUT等超时事件配置，推测出最可能的单点故障原因，打印在ERROR日志中。
+- 如果后续出现算子执行报错，并且调用了task exception回调函数通知了HCCL，HCCL会根据已经收到的异常事件，结合HCCL_EXEC_TIMEOUT等超时事件配置，推测出最可能的单点故障原因，打印在ERROR日志中。
 
     **日志格式为**：\[TaskExecStage\]\[HeartbeatAbnormal\]Cluster Exception Location\[IP/ID\], Arrival Time:\[星期 月 日 时:分:秒 年\], Discoverer:\[IP/ID\], ExceptionType:\[异常类型\], Possible Reason:可能原因。
 
@@ -58,11 +58,11 @@ HCCL会基于已有的通信域信息与邻近的rank建立起独立的维测链
     [ERROR]HCCL(835695,all_reduce_test):2025-10-23-17:28:06.049.385[task_exception_handler.cc:610][835695][TaskExecStage][HeartbeatAbnormal]Cluster Exception Location[IP/ID]:[127.10.0.1/1], Arrival Time:[Thu Oct 23 17:25:58 2025], Discoverer:[127.10.0.1/2], ExceptionType:[Heartbeat Lost Occurred], Possible Reason:1. Process has exited, 2. Network Disconnected
     ```
 
-如果超时后未伴随异常事件，则有可能为集群行为一致性问题，请优先排查脚本、版本、数据集等因素，如果有需要，可以通过开启HCCL\_ENTRY\_LOG\_ENABLE环境变量进行算子级行为跟踪。
+如果超时后未伴随异常事件，则有可能为集群行为一致性问题，请优先排查脚本、版本、数据集等因素，如果有需要，可以通过开启HCCL_ENTRY_LOG_ENABLE环境变量进行算子级行为跟踪。
 
 > [!NOTE]说明
 >
-> 1. 如果训练/推理任务被notify超时前提前杀掉，或task exception机制由于某种原因未及时调用callback函数通知HCCL，使HCCL没有打印异常信息。用户依然可以通过run日志中系统运行过程中的异常事件进行根节点定位。此时需要对异常事件进行甄别，一般我们认为，对于系统卡住时间附近的LOST/ERROR CQE事件即为导致系统停止的原因，而STUCK检测时间为（1/3\~2/3 ）\* HCCL\_EXEC\_TIMEOUT，需要注意。
+> 1. 如果训练/推理任务被notify超时前提前杀掉，或task exception机制由于某种原因未及时调用callback函数通知HCCL，使HCCL没有打印异常信息。用户依然可以通过run日志中系统运行过程中的异常事件进行根节点定位。此时需要对异常事件进行甄别，一般我们认为，对于系统卡住时间附近的LOST/ERROR CQE事件即为导致系统停止的原因，而STUCK检测时间为（1/3\~2/3 ）\* HCCL_EXEC_TIMEOUT，需要注意。
 > 2. 网络异常和进程退出均有可能会同时导致LOST和ERROR CQE事件，请结合心跳事件具体情况来看，比如：如果两端rank互报对端LOST。
 
 ### 示例：进程卡死或对端心跳丢失
@@ -193,7 +193,7 @@ run/plog/plog-2111666_20251024111652405.log:[INFO] HCCL(2111666,all_reduce_test)
 [INFO] HCCL(3015875,python):2025-03-07-11:43:32.306.413 [hccl_opbase_atrace_info.cc:56][3017183]Entry-HcclAllReduce: tag[AllReduce_127.10.0.1%eth_60000_0_1741318944927847], sendBuf[0x1244bfffe000], recvBuf[0x1244bfffb400], count[1024], dataType[float32], op[sum], localRank[0], streamId[2],comm[0xfffe380078d0], deviceLogicId[0]
 ```
 
-如上日志表明业务在127.10.0.1%eth\_60000\_0\_1741318944927847通信域中下发两个AllReduce算子，但是下发在了两条不同的stream上，streamId\[7\]和streamId\[2\]，npu上多流并发执行，若业务上没有正确的实现流执行的同步机制，这两个同一个通信域下的AllReduce算子会并发执行，由于HCCL在同一个通信域下的通信算子资源复用，两个AllReduce算子并发执行会导致notify等资源被错误的消耗，因此会有无法预期的报错产生，如执行超时报错或者精度异常等。
+如上日志表明业务在127.10.0.1%eth_60000_0_1741318944927847通信域中下发两个AllReduce算子，但是下发在了两条不同的stream上，streamId\[7\]和streamId\[2\]，npu上多流并发执行，若业务上没有正确的实现流执行的同步机制，这两个同一个通信域下的AllReduce算子会并发执行，由于HCCL在同一个通信域下的通信算子资源复用，两个AllReduce算子并发执行会导致notify等资源被错误的消耗，因此会有无法预期的报错产生，如执行超时报错或者精度异常等。
 
 ### SDMA ERROR（EI0012）
 
@@ -276,7 +276,7 @@ Solution: 1. Check whether the network devices between the two ends are abnormal
 
 其中，localIP和remoteIP分别代表了本端和远端的device ip，请基于硬件资源信息找到对应的rank所在计算节点或日志。
 
-1. 排查是否有网络问题，可通过hccn\_tool工具查询是否有网口闪断记录，如下结果表示网口在10:13:50 2025时发生了端口断链，此时若有集合通信算子执行，则会有ERROR CQE产生，需要进一步排查网口闪断的原因。
+1. 排查是否有网络问题，可通过hccn_tool工具查询是否有网口闪断记录，如下结果表示网口在10:13:50 2025时发生了端口断链，此时若有集合通信算子执行，则会有ERROR CQE产生，需要进一步排查网口闪断的原因。
 
     ```bash
     $ hccn_tool -i 0 -link_stat -g
