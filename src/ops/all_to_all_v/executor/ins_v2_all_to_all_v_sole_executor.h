@@ -25,11 +25,11 @@ public:
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
-    /* *************** 资源计算 *************** */
+    /*  **************** 资源计算 ****************  */
 
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
-                const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
-                AlgResourceRequest& resourceRequest) override;
+                       const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+                       AlgResourceRequest& resourceRequest) override;
 
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
