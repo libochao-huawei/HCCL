@@ -129,9 +129,10 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsIntra0.buffInfo.inBuffType =  BufferType::INPUT;
     tempAlgParamsIntra0.buffInfo.outBuffType = BufferType::HCCL_BUFFER; // 第一步最后的数据存储在scratch buffer上
     tempAlgParamsIntra0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
+    u64 aBaseOff = useScratchReuse_ ? scratchOffsetA_ : scratchOffVec[0];
     tempAlgParamsIntra0.buffInfo.inBuffBaseOff = dataOffset;
-    tempAlgParamsIntra0.buffInfo.outBuffBaseOff = scratchOffVec[0] + rankIdxLevel0_ * dataCountPerLoopAixs0 * dataTypeSize_;
-    tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff = scratchOffVec[0];
+    tempAlgParamsIntra0.buffInfo.outBuffBaseOff = aBaseOff + rankIdxLevel0_ * dataCountPerLoopAixs0 * dataTypeSize_;
+    tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff = aBaseOff;
     tempAlgParamsIntra0.sliceSize = dataCountPerLoopAixs0 * dataTypeSize_;
     tempAlgParamsIntra0.tailSize = tempAlgParamsIntra0.sliceSize;
     tempAlgParamsIntra0.count = dataCountPerLoopAixs0;
@@ -158,9 +159,12 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsInter0.buffInfo.inBuffType =  BufferType::HCCL_BUFFER;
     tempAlgParamsInter0.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParamsInter0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsInter0.buffInfo.inBuffBaseOff = scratchOffVec[0] + rankIdxLevel0_ * dataCountPerLoopAixs0 * dataTypeSize_;
+    u64 aInBaseOff = useScratchReuse_ ? scratchOffsetA_ : scratchOffVec[0];
+    u64 aHcclBaseOff = useScratchReuse_ ?
+        (scratchOffsetA_ + rankIdxLevel0_ * dataCountPerLoopAixs0 * dataTypeSize_) : scratchOffVec[2];
+    tempAlgParamsInter0.buffInfo.inBuffBaseOff = aInBaseOff + rankIdxLevel0_ * dataCountPerLoopAixs0 * dataTypeSize_;
     tempAlgParamsInter0.buffInfo.outBuffBaseOff = dataOffset;
-    tempAlgParamsInter0.buffInfo.hcclBuffBaseOff = scratchOffVec[2]; 
+    tempAlgParamsInter0.buffInfo.hcclBuffBaseOff = aHcclBaseOff; 
     tempAlgParamsInter0.sliceSize = dataCountPerLoopAixs0 * dataTypeSize_;
     tempAlgParamsInter0.tailSize = tempAlgParamsInter0.sliceSize;
     tempAlgParamsInter0.count = dataCountPerLoopAixs0;
@@ -187,9 +191,10 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsInter1.buffInfo.inBuffType =  BufferType::INPUT;
     tempAlgParamsInter1.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsInter1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
+    u64 bBaseOff = useScratchReuse_ ? scratchOffsetB_ : scratchOffVec[3];
     tempAlgParamsInter1.buffInfo.inBuffBaseOff = dataOffset;
-    tempAlgParamsInter1.buffInfo.outBuffBaseOff = scratchOffVec[3];
-    tempAlgParamsInter1.buffInfo.hcclBuffBaseOff = scratchOffVec[3];
+    tempAlgParamsInter1.buffInfo.outBuffBaseOff = bBaseOff;
+    tempAlgParamsInter1.buffInfo.hcclBuffBaseOff = bBaseOff;
     tempAlgParamsInter1.sliceSize = dataCountPerLoopAixs1 * dataTypeSize_;
     tempAlgParamsInter1.tailSize = tempAlgParamsInter1.sliceSize;
     tempAlgParamsInter1.count = dataCountPerLoopAixs1;
@@ -216,14 +221,21 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsIntra1.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParamsIntra1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParamsIntra1.buffInfo.inBuffBaseOff = scratchOffVec[3]; 
+    u64 bSliceBytes = dataCountPerLoopAixs1 * dataTypeSize_;
+    u64 bInBaseOff = useScratchReuse_ ? scratchOffsetB_ : scratchOffVec[3];
+    u64 bHcclBaseOff = useScratchReuse_ ?
+        (scratchOffsetB_ + bSliceBytes) : scratchOffVec[1];
+    tempAlgParamsIntra1.buffInfo.inBuffBaseOff = bInBaseOff;
     tempAlgParamsIntra1.buffInfo.outBuffBaseOff = dataOffset;
-    tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff = scratchOffVec[1];
-    tempAlgParamsIntra1.sliceSize = dataCountPerLoopAixs1 * dataTypeSize_;
+    tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff = bHcclBaseOff;
+    tempAlgParamsIntra1.sliceSize = bSliceBytes;
     tempAlgParamsIntra1.tailSize = tempAlgParamsIntra1.sliceSize;
     tempAlgParamsIntra1.count = dataCountPerLoopAixs1;
 
-    tempAlgParamsIntra1.inputSliceStride = dataCountPerLoopAixs1 * dataTypeSize_ * rankSizeLevel1_;
+    tempAlgParamsIntra1.inputSliceStride = useScratchReuse_ ?
+        (bSliceBytes * rankSizeLevel1_) : (dataCountPerLoopAixs1 * dataTypeSize_ * rankSizeLevel1_);
+    tempAlgParamsIntra1.hcclSliceStride = useScratchReuse_ ?
+        (bSliceBytes * rankSizeLevel1_) : 0;
     tempAlgParamsIntra1.outputSliceStride = 0;
     tempAlgParamsIntra1.repeatNum = 1;
     tempAlgParamsIntra1.inputRepeatStride = 0;
@@ -235,8 +247,10 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetParallelDataSplit(std::vector<float> &splitDataSize) const
 {
     double splitData = multipleDimensionSplitRatio_;
-    splitDataSize.push_back(splitData);
-    splitDataSize.push_back(1 - splitData);
+    // splitDataSize.push_back(splitData);
+    // splitDataSize.push_back(1 - splitData);
+    splitDataSize.push_back(0.625);
+    splitDataSize.push_back(1 - 0.625);
     HCCL_INFO("[InsReduceScatterParallelExecutor] splitDataSize is %f, %f", splitDataSize[0], splitDataSize[1]);
     return;
 }
@@ -353,23 +367,56 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         interScatchteMultipleStage0 = rankSizeLevel1_;
         interScatchteMultipleStage1 = rankSizeLevel1_;
     }
-    u32 scratchMultipleIntra0 = static_cast<u32>(std::ceil(dataSplitSize[0] * intraScatchteMultipleStage0 * rankSizeLevel1_));
-    u32 scratchMultipleIntra1 = static_cast<u32>(std::ceil(dataSplitSize[1] * intraScatchteMultipleStage1));
-    u32 scratchMultipleInter1 = static_cast<u32>(std::ceil(dataSplitSize[1] * interScatchteMultipleStage0 * rankSizeLevel0_));
-    u32 scratchMultipleInter0 = static_cast<u32>(std::ceil(dataSplitSize[0] * interScatchteMultipleStage1));
-    u32 totalScratchMultiple = scratchMultipleIntra0 + scratchMultipleIntra1 + scratchMultipleInter0 + scratchMultipleInter1;
+
+    useScratchReuse_ = (param.engine == CommEngine::COMM_ENGINE_AICPU_TS &&
+                        rankSizeLevel0_ > 1 && rankSizeLevel1_ > 1);
+
+    u32 totalScratchMultiple = 0;
     u64 scratchMemBlockSize = maxTmpMemSize_;
-    if (totalScratchMultiple > 0) {
-        scratchMemBlockSize = (maxTmpMemSize_ / alignedSize / totalScratchMultiple) * alignedSize;
+    std::vector<u64> scratchOffVec;
+
+    if (useScratchReuse_) {
+        u32 scratchMultipleA = static_cast<u32>(std::max(
+            std::ceil(dataSplitSize[0] * intraScatchteMultipleStage0 * rankSizeLevel1_),
+            std::ceil(dataSplitSize[0] * interScatchteMultipleStage1)));
+        u32 scratchMultipleB = static_cast<u32>(std::max(
+            std::ceil(dataSplitSize[1] * interScatchteMultipleStage0 * rankSizeLevel0_),
+            std::ceil(dataSplitSize[1] * intraScatchteMultipleStage1)));
+        totalScratchMultiple = scratchMultipleA + scratchMultipleB;
+        if (param.engine != COMM_ENGINE_AIV) {
+            scratchMemBlockSize = scratchMemBlockSize - 1 * 1024 * 1024;
+        }
+        if (totalScratchMultiple > 0) {
+            scratchMemBlockSize = (maxTmpMemSize_ / totalScratchMultiple);
+        }
+        scratchOffsetA_ = 0;
+        scratchOffsetB_ = scratchMultipleA * scratchMemBlockSize;
+        HCCL_INFO("[InsReduceScatterParallelExecutor][OrchestrateLoop] useScratchReuse=true, "
+                  "scratchMultipleA=%u, scratchMultipleB=%u, scratchOffsetA=%llu, scratchOffsetB=%llu",
+                  scratchMultipleA, scratchMultipleB, scratchOffsetA_, scratchOffsetB_);
+    } else {
+        u32 scratchMultipleIntra0 = static_cast<u32>(std::ceil(dataSplitSize[0] * intraScatchteMultipleStage0 * rankSizeLevel1_));
+        u32 scratchMultipleIntra1 = static_cast<u32>(std::ceil(dataSplitSize[1] * intraScatchteMultipleStage1));
+        u32 scratchMultipleInter1 = static_cast<u32>(std::ceil(dataSplitSize[1] * interScatchteMultipleStage0 * rankSizeLevel0_));
+        u32 scratchMultipleInter0 = static_cast<u32>(std::ceil(dataSplitSize[0] * interScatchteMultipleStage1));
+        totalScratchMultiple = scratchMultipleIntra0 + scratchMultipleIntra1 + scratchMultipleInter0 + scratchMultipleInter1;
+        if (param.engine != COMM_ENGINE_AIV) {
+            scratchMemBlockSize = scratchMemBlockSize - 1 * 1024 * 1024;
+        }
+        if (totalScratchMultiple > 0) {
+            scratchMemBlockSize = (maxTmpMemSize_ / alignedSize / totalScratchMultiple) * alignedSize;
+        }
+        u64 intra0ScratchOffset = 0;
+        u64 intra1ScratchOffset = intra0ScratchOffset + scratchMultipleIntra0 * scratchMemBlockSize;
+        u64 inter0ScratchOffset = intra1ScratchOffset + scratchMultipleIntra1 * scratchMemBlockSize;
+        u64 inter1ScratchOffset = inter0ScratchOffset + scratchMultipleInter0 * scratchMemBlockSize;
+        scratchOffVec = {intra0ScratchOffset, intra1ScratchOffset, inter0ScratchOffset, inter1ScratchOffset};
+        scratchOffsetA_ = 0;
+        scratchOffsetB_ = 0;
     }
-    u64 intra0ScratchOffset = 0;
-    u64 intra1ScratchOffset = intra0ScratchOffset + scratchMultipleIntra0 * scratchMemBlockSize;
-    u64 inter0ScratchOffset = intra1ScratchOffset + scratchMultipleIntra1 * scratchMemBlockSize;
-    u64 inter1ScratchOffset = inter0ScratchOffset + scratchMultipleInter0 * scratchMemBlockSize;
-    std::vector<u64> scratchOffVec = {intra0ScratchOffset, intra1ScratchOffset, inter0ScratchOffset, inter1ScratchOffset};
 
     // dataSplitSize为分数，这里maxCountPerLoop对10取整
-    u64 maxCountPerLoop = (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_ / 10) * 10; 
+    u64 maxCountPerLoop = (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_); 
 
     // ============ 循环前的数据对齐操作 ============
     u64 alignSizeData = AICPU_ALIGN_SIZE; // 用于4k对齐
@@ -389,7 +436,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 用对齐后的数据量之和重新刷新 maxCountPerLoop
     maxCountPerLoop = dataCountPerLoopAixs0 + dataCountPerLoopAixs1;
     // ====================================================
-
+    printf("###### dataCountPerLoopAixs0: %llu, dataCountPerLoopAixs1: %llu, maxCountPerLoop: %llu ######\n", dataCountPerLoopAixs0, dataCountPerLoopAixs1, maxCountPerLoop);
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
 
     // ============ 计算尾块数据量 ============
