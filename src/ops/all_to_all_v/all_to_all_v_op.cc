@@ -24,7 +24,8 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     uint64_t recvCount, HcclDataType recvType, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAlltoAll");
-    if (GetHcommVersion() < 90000000) { // compat handle
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
 
@@ -85,7 +86,8 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAlltoAllV");
-    if (GetHcommVersion() < 90000000) { // compat handle
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
     }
 
@@ -748,5 +750,4 @@ HcclResult AlltoAllVCEntryLog(const void *sendBuf, const void *recvBuf, const vo
     }
     return HCCL_SUCCESS;
 }
-
 }
