@@ -13,7 +13,7 @@
 #include "ins_temp_scatter_nhr.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_scatter_mesh_1D.h"
-#if !defined(HCCL_CANN_COMPAT_850) && !defined(HCCL_CANN_COMPAT_900)
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_temp_scatter_mesh1d.h"
 #include "ccu_temp_scatter_nhr1d_mem2mem.h"
 #include "ccu_kernel_scatter_nhr1d_mem2mem.h"
@@ -242,10 +242,10 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_SCATTER, AivScatterMesh1D, InsV2ScatterSo
     AivTempScatterMesh1D);
 #if !defined(HCCL_CANN_COMPAT_850)
 // ccu template
-#if !defined(HCCL_CANN_COMPAT_850) && !defined(HCCL_CANN_COMPAT_900)
+#if CANN_VERSION_NUM >= 90100000
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterMesh1D, InsV2ScatterSoleExecutor, TopoMatch1D, CcuTempScatterMesh1D);
 #endif /* !HCCL_CANN_COMPAT_850 */
-#if !defined(HCCL_CANN_COMPAT_850) && !defined(HCCL_CANN_COMPAT_900)
+#if CANN_VERSION_NUM >= 90100000
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterNHRMem2Mem1D, InsV2ScatterSoleExecutor, TopoMatch1D, CcuTempScatterNHR1DMem2Mem);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif

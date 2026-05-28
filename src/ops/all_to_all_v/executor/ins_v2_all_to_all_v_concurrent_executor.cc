@@ -11,7 +11,7 @@
 #include "channel.h"
 #include "ins_v2_all_to_all_v_concurrent_executor.h"
 #ifndef AICPU_COMPILE
-#if !defined(HCCL_CANN_COMPAT_850) && !defined(HCCL_CANN_COMPAT_900)
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
@@ -355,7 +355,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 }
 
 #ifndef AICPU_COMPILE
-#if !defined(HCCL_CANN_COMPAT_850) && !defined(HCCL_CANN_COMPAT_900)
+#if CANN_VERSION_NUM >= 90100000
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 CcuAllToAllVMesh1DConcurrent,
                                 InsV2AllToAllVConcurrentExecutor,
