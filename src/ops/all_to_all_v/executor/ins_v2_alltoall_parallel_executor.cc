@@ -1207,9 +1207,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumIntra0_ + ccuKernelLaunchNumInter1_;
     if (ccuKernelNum < 1) {
         HCCL_INFO("[InsV2AlltoAllParallelExecutor] ccu kernel num is 0, no need to save.");
-    return HCCL_SUCCESS;
-#endif
-}
+        return HCCL_SUCCESS;
+    }
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][FastLaunchSaveCtx] threadNum[%llu], ccuKernelNum[%llu]", threadNum,
               ccuKernelNum);
 
@@ -1285,7 +1284,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
 }
-
+#endif
 
 // UBX topology (8-card boards) — Mesh intra, Clos inter
 REGISTER_EXECUTOR_BY_TWO_TEMPS(
