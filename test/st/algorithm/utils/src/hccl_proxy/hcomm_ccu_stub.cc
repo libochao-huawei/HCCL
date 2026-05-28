@@ -339,7 +339,7 @@ LoopCall::LoopCall(CcuRepContext *context, const std::string &label) : context(c
 
 Executor::Executor(CcuRepContext *context) : CcuVirRes(context) {}
 
-uint64_t CcuRep::GetTokenInfo(uint64_t va, uint64_t size) { return 0; }
+HcclResult CcuRep::GetTokenInfo(uint64_t va, uint64_t size, uint64_t &token) { token = 0; return HCCL_SUCCESS; }
 
 void LoopGroupCall::Run(const std::vector<LoopCall> &loopVec, const std::vector<Variable> &loopCfg,
                         const std::vector<Executor> &executors, Variable paraCfgIn, Variable offsetCfgIn) const {}
