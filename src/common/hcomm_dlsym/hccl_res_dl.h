@@ -14,6 +14,10 @@
 #include "dlsym_common.h"
 #include "hccl_res.h"
 
+#if CANN_VERSION_NUM >= 90100000
+#include "hcomm_feature_defs.h"
+#endif
+
 #if CANN_VERSION_NUM >= 90000000
 #include "hccl_res_expt.h"
 #endif
