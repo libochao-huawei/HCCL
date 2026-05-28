@@ -210,8 +210,8 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         u64 chunkCount = actualChunkSize / dataTypeSize;
         u64 offsetInSlice = connectedAlgRank * perPeerChunkSize;
 
-        const u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + tempAlgParamsIntra0.sliceSize;
-        const u64 scratchOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff
+        const u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + tempAlgParams_.sliceSize;
+        const u64 scratchOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff;
 
         // tx 远端写
         void *txSrcPtr = tempAlgParams_.buffInfo.hcclBuff.addr;
@@ -227,15 +227,15 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         u64 rxSrcOffset = scratchOffsetBase + myAlgRank * actualChunkSize;
         rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, actualChunkSize, chunkCount);
         
-        void *rxDstPtr = tempAlgParams_.buffInfo..hcclBuff.addr;
+        void *rxDstPtr = tempAlgParams_.buffInfo.hcclBuff.addr;
         u64 rxOutOffset = outputOffsetBase + connectedAlgRank * actualChunkSize;
         rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, actualChunkSize, chunkCount);
 
         HCCL_WARNING(
-            "[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMeshClos] rank[%d]->peer[%d] rpt[%u] "
+            "[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMeshClos] rank[%d]->peer[%d] "
             "txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu "
             "actualSz=%llu",
-            myRank_, connectedRank, rpt,
+            myRank_, connectedRank,
             txSrcOffset, txDstOffset, rxSrcOffset, rxOutOffset,
             actualChunkSize
         );

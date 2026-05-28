@@ -218,8 +218,8 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
         u64 chunkCount = actualChunkSize / dataTypeSize;
         u64 offsetInSlice = connectedAlgRank * perPeerChunkSize;
 
-        const u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + tempAlgParamsIntra0.sliceSize;
-        const u64 scratchOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff
+        const u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + tempAlgParams_.sliceSize;
+        const u64 scratchOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff;
 
         // tx 远端写
         void *txSrcPtr = tempAlgParams_.buffInfo.hcclBuff.addr;
@@ -235,15 +235,15 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
         u64 rxSrcOffset = scratchOffsetBase + myAlgRank * actualChunkSize;
         rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, actualChunkSize, chunkCount);
         
-        void *rxDstPtr = tempAlgParams_.buffInfo..hcclBuff.addr;
+        void *rxDstPtr = tempAlgParams_.buffInfo.hcclBuff.addr;
         u64 rxOutOffset = outputOffsetBase + connectedAlgRank * actualChunkSize;
         rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, actualChunkSize, chunkCount);
 
         HCCL_WARNING(
-            "[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMesh] rank[%d]->peer[%d] rpt[%u] "
+            "[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMesh] rank[%d]->peer[%d] "
             "txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu "
             "actualSz=%llu",
-            myRank_, connectedRank, rpt,
+            myRank_, connectedRank,
             txSrcOffset, txDstOffset, rxSrcOffset, rxOutOffset,
             actualChunkSize
         );
@@ -332,7 +332,8 @@ HcclResult InsTempAlltoAllMesh2DV2::PostLocalCopy(const std::vector<ThreadHandle
         HCCL_WARNING("[ALLTOALL_V2_DEBUG][Mesh2D][PostLocalCopy] skip because output is nullptr");
         return HcclResult::HCCL_SUCCESS;
     }
-
+    
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     u64 totalSize = tempAlgParams_.sliceSize;
     u64 cellSize = (totalSize + totalRankSize_ - 1) / totalRankSize_;
     u64 cellCount = cellSize / dataTypeSize;
@@ -344,7 +345,10 @@ HcclResult InsTempAlltoAllMesh2DV2::PostLocalCopy(const std::vector<ThreadHandle
             u64 inputOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + 
                 tempAlgParams_.buffInfo.inputSize + cellSize * (i + j * xRankSize_);
 
-            u64 scratchOffset = tempAlgParams_.buffInfo.outputPtr + outputStride * (i * yRankSize_ + j);
+            u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + outputStride * (i * yRankSize_ + j);
+
+            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, inputOffset, cellSize, cellCount);
+            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize, cellCount);
             LocalCopy(threads[0], srcSlice, dstSlice);
         }
     }

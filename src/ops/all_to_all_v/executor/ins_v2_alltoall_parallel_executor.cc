@@ -547,7 +547,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         tempAlgParamsIntra0.buffInfo.outputPtr = nullptr;
 
         tempAlgParamsIntra0.sliceSize = scratchBufferIntraSize0;
-        tempAlgParamsIntra0.count = dataCountPerLoopAxis0;
+        tempAlgParamsIntra0.count = finalDataCountPerLoopAxis0;
     }
     
     // tempAlgParamsInter0 输入是 inputPtr， LocalCopy 到 scratchBufferInter0，输出是 scratchBufferInter0 + scratchBufferInterSize0
@@ -570,7 +570,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         tempAlgParamsInter0.buffInfo.outputPtr = nullptr;
 
         tempAlgParamsInter0.sliceSize = scratchBufferInterSize0;
-        tempAlgParamsInter0.count = dataCountPerLoopAxis0;
+        tempAlgParamsInter0.count = finalDataCountPerLoopAxis1;
     }
 
     // 开始 Stage 0，Presync，确保所有线程和模板同步准备好进行第一阶段的计算。
@@ -578,13 +578,13 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
     if (splitDataSize[0] > 0.0f) {
         HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Running intra template for Stage 0 with dataCount=%llu",
-                  dataCountPerLoopAxis0);
+                  finalDataCountPerLoopAxis0);
          CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes));
     }
    
     if (splitDataSize[1] > 0.0f) {
         HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Running inter template for Stage 0 with dataCount=%llu",
-                  dataCountPerLoopAxis1);
+                  finalDataCountPerLoopAxis1);
         CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter0, interTempAlgRes));
     }
 
@@ -616,7 +616,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         tempAlgParamsIntra1.outputSliceStride = perPeerInputChunkSize;
 
         tempAlgParamsIntra1.sliceSize = scratchBufferIntraSize1;
-        tempAlgParamsIntra1.count = dataCountPerLoopAxis1;
+        tempAlgParamsIntra1.count = finalDataCountPerLoopAxis1;
     }
     
     // tempAlgParamsInter1 输入是 inputPtr， LocalCopy 到 scratchBufferInter0，输出是 scratchBufferInter0 + scratchBufferInterSize0
@@ -643,7 +643,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         tempAlgParamsInter1.outputSliceStride = perPeerInputChunkSize;
 
         tempAlgParamsInter1.sliceSize = scratchBufferInterSize0;
-        tempAlgParamsInter1.count = dataCountPerLoopAxis1;
+        tempAlgParamsInter1.count = finalDataCountPerLoopAxis0;
     }
 
     // 开始 Stage 1，Presync，确保所有线程和模板同步准备好进行第一阶段的计算。
