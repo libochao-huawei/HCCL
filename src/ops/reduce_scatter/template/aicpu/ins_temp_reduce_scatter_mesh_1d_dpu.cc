@@ -174,7 +174,6 @@ HcclResult InsTempReduceScatterMesh1dDpu::DPUKernelRun(const TemplateDataParams&
         CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
                     HCCL_ERROR("[InsTempReduceScatterMesh1dDpu] RunReduceScatter Send failed"),
                     HcclResult::HCCL_E_INTERNAL);
-
     }
 #endif
     return HCCL_SUCCESS;
