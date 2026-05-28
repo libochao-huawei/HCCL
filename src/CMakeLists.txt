@@ -482,6 +482,7 @@ if(HCCL_CANN_COMPAT_850)
 endif()
 
 target_compile_options(hccl PRIVATE
+    -include securec.h
     -Werror
     -fno-common
     -fno-strict-aliasing
