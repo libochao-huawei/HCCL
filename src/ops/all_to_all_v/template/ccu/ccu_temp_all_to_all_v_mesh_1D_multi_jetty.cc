@@ -119,8 +119,7 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::FastLaunch(const OpParam& param,
     HcclDataType dataType = param.all2AllVDataDes.sendType;
     uint64_t dataTypeSize = SIZE_TABLE[dataType];
     CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64),
-        HCCL_ERROR("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] param.varMemSize [%llu] is invalid",
-            param.varMemSize), HCCL_E_PARA);
+        HCCL_ERROR("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] param.varMemSize [%llu] is invalid", param.varMemSize), HCCL_E_PARA);
 
     A2ASendRecvInfo localSendRecvInfo;
     localSendRecvInfo.sendCounts.resize(rankSize, 0);
@@ -157,8 +156,7 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::FastLaunch(const OpParam& param,
     HCCL_INFO("[CcuTempAlltoAllVMesh1DMultiJetty::FastLaunch]: inputAddr[%llu], outputAddr[%llu], ",
         "srcOffset[%llu], dstOffset[%llu]", inputAddr, outputAddr, args[3], args[4]);
     void* taskArgPtr = static_cast<void*>(taskArg.get());
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
     HCCL_INFO("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
 }
