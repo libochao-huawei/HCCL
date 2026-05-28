@@ -484,8 +484,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     interTempAlgRes.channels = interLinkMap_;
     
     // Stage 0 的 Full-Mesh 数据量 和 Stage 0 的 Clos 数据量
-    u64 finalDataCountPerLoopAxis0 = static_cast<u64>(splitDataSize[0] * dataCount_);;
-    u64 finalDataCountPerLoopAxis1 = dataCount_ - finalDataCountPerLoopAxis0;;
+    u64 finalDataCountPerLoopAxis0 = static_cast<u64>(splitDataSize[0] * dataCount_);
+    u64 finalDataCountPerLoopAxis1 = dataCount_ - finalDataCountPerLoopAxis0;
 
     // 总 rank 数
     u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
@@ -530,7 +530,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     // 00 40 10 50 20 60 30 70 是 intra0 的输入
     {
         tempAlgParamsIntra0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-        tempAlgParamsIntra0.count = totalRankCount;
 
         tempAlgParamsIntra0.buffInfo.inputPtr = param.inputPtr;
         tempAlgParamsIntra0.buffInfo.inBuffType = BufferType::INPUT;
@@ -553,7 +552,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     // tempAlgParamsInter0 输入是 inputPtr， LocalCopy 到 scratchBufferInter0，输出是 scratchBufferInter0 + scratchBufferInterSize0
     {
         tempAlgParamsInter0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-        tempAlgParamsInter0.count = totalRankCount;
 
         tempAlgParamsInter0.buffInfo.inputPtr = param.inputPtr;
         tempAlgParamsInter0.buffInfo.inBuffType = BufferType::INPUT;
@@ -596,7 +594,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     // tempAlgParamsIntra1 输入是 inputPtr， LocalCopy 到 scratchBufferIntra0，输出是 scratchBufferIntra0 + scratchBufferIntraSize0
     {
         tempAlgParamsIntra1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-        tempAlgParamsIntra1.count = totalRankCount;
 
         tempAlgParamsIntra1.buffInfo.inputPtr = resCtx.cclMem.addr;
         tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
@@ -622,7 +619,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     // tempAlgParamsInter1 输入是 inputPtr， LocalCopy 到 scratchBufferInter0，输出是 scratchBufferInter0 + scratchBufferInterSize0
     {
         tempAlgParamsInter1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-        tempAlgParamsInter1.count = totalRankCount;
 
         tempAlgParamsInter1.buffInfo.inputPtr = resCtx.cclMem.addr;
         tempAlgParamsInter1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
