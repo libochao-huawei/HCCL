@@ -1285,7 +1285,7 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
 }
-#endif
+
 
 // UBX topology (8-card boards) — Mesh intra, Clos inter
 REGISTER_EXECUTOR_BY_TWO_TEMPS(
