@@ -332,7 +332,8 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRSt
 
 u64 CcuTempAllGatherNHR1DMem2Mem::GetThreadNum() const
 {
-    return 2;
+    u32 threadNum = 2;
+    return threadNum;
 }
  
 HcclResult CcuTempAllGatherNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
