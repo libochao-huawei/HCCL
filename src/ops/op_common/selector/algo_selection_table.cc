@@ -9,382 +9,473 @@
  */
 
 #include "algo_selection_table.h"
-#include "log.h"
 #include <algorithm>
+#include <iostream>
+#include <sstream>
 
 namespace ops_hccl {
 
-TableBasedAlgoSelector::TableBasedAlgoSelector() {
-    Initialize();
+// ============================================================================
+// 辅助常量
+// ============================================================================
+static constexpr u64 KB = 1024ULL;
+static constexpr u64 MB = 1024 * KB;
+
+// ============================================================================
+// 辅助函数：从 Map 获取值
+// ============================================================================
+static bool HasKey(const RuleMap& m, const std::string& key) {
+    return m.find(key) != m.end();
 }
 
-void TableBasedAlgoSelector::AddRule(OpExecuteConfig execConfig,
-                                     HcclCMDType opType,
-                                     TopoLevelCategory topoLevel,
-                                     Level0Shape level0Topo,
-                                     const AlgoRule& rule) {
-    table_[execConfig][opType][topoLevel][level0Topo].push_back(rule);
+static std::string GetVal(const RuleMap& m, const std::string& key) {
+    auto it = m.find(key);
+    return (it != m.end()) ? it->second : "";
 }
 
-void TableBasedAlgoSelector::AddRuleForAllTopo(OpExecuteConfig execConfig,
-                                               HcclCMDType opType,
-                                               TopoLevelCategory topoLevel,
-                                               const AlgoRule& rule) {
-    // 对所有 Level0 拓扑类型添加规则
-    for (auto shape : {Level0Shape::MESH_1D, Level0Shape::MESH_1D_CLOS, Level0Shape::CLOS}) {
-        AddRule(execConfig, opType, topoLevel, shape, rule);
+static bool GetBool(const RuleMap& m, const std::string& key) {
+    return GetVal(m, key) == "true";
+}
+
+static u32 GetU32(const RuleMap& m, const std::string& key, u32 def = 0) {
+    if (!HasKey(m, key)) return def;
+    return static_cast<u32>(std::stoul(GetVal(m, key)));
+}
+
+static u64 GetU64(const RuleMap& m, const std::string& key, u64 def = 0) {
+    if (!HasKey(m, key)) return def;
+    return static_cast<u64>(std::stoull(GetVal(m, key)));
+}
+
+// ============================================================================
+// 匹配逻辑
+// ============================================================================
+
+// 枚举转字符串
+static std::string ExecConfigToStr(OpExecuteConfig c) {
+    switch (c) {
+        case OpExecuteConfig::CCU_MS: return "CCU_MS";
+        case OpExecuteConfig::CCU_SCHED: return "CCU_SCHED";
+        case OpExecuteConfig::CCU_FAIL: return "CCU_FAIL";
+        case OpExecuteConfig::AICPU_TS: return "AICPU_TS";
+        case OpExecuteConfig::AIV: return "AIV";
+        case OpExecuteConfig::AIV_ONLY: return "AIV_ONLY";
+        case OpExecuteConfig::HOSTCPU: return "HOSTCPU";
+        case OpExecuteConfig::HOSTCPU_TS: return "HOSTCPU_TS";
+        default: return "UNKNOWN";
     }
+}
+
+static std::string CmdTypeToStr(HcclCMDType t) {
+    switch (t) {
+        case HcclCMDType::HCCL_CMD_ALLREDUCE: return "AllReduce";
+        case HcclCMDType::HCCL_CMD_ALLGATHER: return "AllGather";
+        case HcclCMDType::HCCL_CMD_ALLGATHER_V: return "AllGatherV";
+        case HcclCMDType::HCCL_CMD_REDUCE_SCATTER: return "ReduceScatter";
+        case HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V: return "ReduceScatterV";
+        case HcclCMDType::HCCL_CMD_BROADCAST: return "Broadcast";
+        case HcclCMDType::HCCL_CMD_REDUCE: return "Reduce";
+        case HcclCMDType::HCCL_CMD_SCATTER: return "Scatter";
+        case HcclCMDType::HCCL_CMD_ALLTOALL: return "AlltoAll";
+        case HcclCMDType::HCCL_CMD_ALLTOALLV: return "AlltoAllV";
+        case HcclCMDType::HCCL_CMD_ALLTOALLVC: return "AlltoAllVC";
+        case HcclCMDType::HCCL_CMD_SEND: return "Send";
+        case HcclCMDType::HCCL_CMD_RECV: return "Recv";
+        case HcclCMDType::HCCL_CMD_BATCH_SEND_RECV: return "BatchSendRecv";
+        default: return "Unknown";
+    }
+}
+
+static std::string DataTypeToStr(HcclDataType t) {
+    switch (t) {
+        case HcclDataType::HCCL_DATA_TYPE_INT8: return "INT8";
+        case HcclDataType::HCCL_DATA_TYPE_INT32: return "INT32";
+        case HcclDataType::HCCL_DATA_TYPE_FP16: return "FP16";
+        case HcclDataType::HCCL_DATA_TYPE_BF16: return "BF16";
+        case HcclDataType::HCCL_DATA_TYPE_FP32: return "FP32";
+        case HcclDataType::HCCL_DATA_TYPE_INT64: return "INT64";
+        case HcclDataType::HCCL_DATA_TYPE_UINT64: return "UINT64";
+        case HcclDataType::HCCL_DATA_TYPE_FP64: return "FP64";
+        default: return "Unknown";
+    }
+}
+
+static std::string ReduceOpToStr(HcclReduceOp r) {
+    switch (r) {
+        case HcclReduceOp::HCCL_REDUCE_SUM: return "SUM";
+        case HcclReduceOp::HCCL_REDUCE_PROD: return "PROD";
+        case HcclReduceOp::HCCL_REDUCE_MAX: return "MAX";
+        case HcclReduceOp::HCCL_REDUCE_MIN: return "MIN";
+        default: return "Unknown";
+    }
+}
+
+static std::string Level0ShapeToStr(Level0Shape s) {
+    switch (s) {
+        case Level0Shape::MESH_1D: return "MESH_1D";
+        case Level0Shape::MESH_1D_CLOS: return "MESH_1D_CLOS";
+        case Level0Shape::CLOS: return "CLOS";
+        default: return "Unknown";
+    }
+}
+
+static std::string Level0MeshTypeToStr(Level0MeshType t) {
+    switch (t) {
+        case Level0MeshType::SINGLE_DIE: return "SINGLE_DIE";
+        case Level0MeshType::TWO_DIE_REGULAR: return "TWO_DIE_REGULAR";
+        case Level0MeshType::TWO_DIE_NOT_REGULAR: return "TWO_DIE_NOT_REGULAR";
+        default: return "Unknown";
+    }
+}
+
+// 分割字符串
+static std::vector<std::string> SplitStr(const std::string& s, char delim) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(s);
+    std::string token;
+    while (std::getline(ss, token, delim)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+bool TableBasedAlgoSelector::MatchRule(const RuleMap& rule, const AlgoSelectContext& ctx) const {
+    // 必填条件：_execConfig
+    if (HasKey(rule, "_execConfig")) {
+        if (GetVal(rule, "_execConfig") != ExecConfigToStr(ctx.execConfig)) {
+            return false;
+        }
+    }
+    
+    // 必填条件：_opType
+    if (HasKey(rule, "_opType")) {
+        if (GetVal(rule, "_opType") != CmdTypeToStr(ctx.opType)) {
+            return false;
+        }
+    }
+    
+    // 可选条件：_topoLevel
+    if (HasKey(rule, "_topoLevel")) {
+        std::string val = GetVal(rule, "_topoLevel");
+        if (val == "multi") {
+            if (ctx.topoLevelNums <= 1) return false;
+        } else {
+            if (ctx.topoLevelNums != GetU32(rule, "_topoLevel")) return false;
+        }
+    }
+    
+    // 可选条件：_level0Topo
+    if (HasKey(rule, "_level0Topo")) {
+        if (GetVal(rule, "_level0Topo") != Level0ShapeToStr(ctx.level0Topo)) {
+            return false;
+        }
+    }
+    
+    // 可选条件：_level0MeshType
+    if (HasKey(rule, "_level0MeshType")) {
+        if (GetVal(rule, "_level0MeshType") != Level0MeshTypeToStr(ctx.level0MeshType)) {
+            return false;
+        }
+    }
+    
+    // 可选条件：_level0PcieMix
+    if (HasKey(rule, "_level0PcieMix")) {
+        if (GetBool(rule, "_level0PcieMix") != ctx.level0PcieMix) return false;
+    }
+    
+    // 可选条件：_is2DieFullMesh
+    if (HasKey(rule, "_is2DieFullMesh")) {
+        if (GetBool(rule, "_is2DieFullMesh") != ctx.is2DieFullMesh) return false;
+    }
+    
+    // 可选条件：_level1Nhr
+    if (HasKey(rule, "_level1Nhr")) {
+        if (GetBool(rule, "_level1Nhr") != ctx.level1Nhr) return false;
+    }
+    
+    // 可选条件：_level0Nhr
+    if (HasKey(rule, "_level0Nhr")) {
+        if (GetBool(rule, "_level0Nhr") != ctx.level0Nhr) return false;
+    }
+    
+    // 可选条件：_meshEqClos
+    if (HasKey(rule, "_meshEqClos")) {
+        if (GetBool(rule, "_meshEqClos") != ctx.meshNumEqualToClosNum) return false;
+    }
+    
+    // 可选条件：_closMulMesh
+    if (HasKey(rule, "_closMulMesh")) {
+        if (GetBool(rule, "_closMulMesh") != ctx.closNumMultipleOfMeshNum) return false;
+    }
+    
+    // 可选条件：_localNetIns
+    if (HasKey(rule, "_localNetIns")) {
+        if (GetU32(rule, "_localNetIns") != ctx.localNetInsSizeOfLayer0) return false;
+    }
+    
+    // 可选条件：_rankSizeMin
+    if (HasKey(rule, "_rankSizeMin")) {
+        if (ctx.userRankSize < GetU32(rule, "_rankSizeMin")) return false;
+    }
+    
+    // 可选条件：_rankSizeMax
+    if (HasKey(rule, "_rankSizeMax")) {
+        if (ctx.userRankSize > GetU32(rule, "_rankSizeMax")) return false;
+    }
+    
+    // 可选条件：_dataSizeMin
+    if (HasKey(rule, "_dataSizeMin")) {
+        if (ctx.dataSize < GetU64(rule, "_dataSizeMin")) return false;
+    }
+    
+    // 可选条件：_dataSizeMax
+    if (HasKey(rule, "_dataSizeMax")) {
+        if (ctx.dataSize >= GetU64(rule, "_dataSizeMax")) return false;
+    }
+    
+    // 可选条件：_dataTypes (逗号分隔，匹配任一即可)
+    if (HasKey(rule, "_dataTypes")) {
+        std::string types = GetVal(rule, "_dataTypes");
+        std::vector<std::string> typeList = SplitStr(types, ',');
+        std::string ctxType = DataTypeToStr(ctx.dataType);
+        bool found = false;
+        for (const auto& t : typeList) {
+            if (t == ctxType) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    
+    // 可选条件：_reduceOp
+    if (HasKey(rule, "_reduceOp")) {
+        if (GetVal(rule, "_reduceOp") != ReduceOpToStr(ctx.reduceOp)) return false;
+    }
+    
+    // 可选条件：_overlap
+    if (HasKey(rule, "_overlap")) {
+        if (GetBool(rule, "_overlap") != ctx.isInputOutputOverlap) return false;
+    }
+    
+    // 可选条件：_hostToDevice
+    if (HasKey(rule, "_hostToDevice")) {
+        if (GetBool(rule, "_hostToDevice") != ctx.isHostToDevice) return false;
+    }
+    
+    // 可选条件：_deviceToHost
+    if (HasKey(rule, "_deviceToHost")) {
+        if (GetBool(rule, "_deviceToHost") != ctx.isDeviceToHost) return false;
+    }
+    
+    return true;
 }
 
 std::optional<std::string> TableBasedAlgoSelector::SelectAlgo(const AlgoSelectContext& ctx) const {
-    // 第一层查找：执行配置
-    auto configIt = table_.find(ctx.execConfig);
-    if (configIt == table_.end()) {
-        HCCL_DEBUG("[AlgoSelector] No rules for execConfig=%d", static_cast<int>(ctx.execConfig));
-        return std::nullopt;
-    }
-    
-    // 第二层查找：操作类型
-    auto opIt = configIt->second.find(ctx.opType);
-    if (opIt == configIt->second.end()) {
-        HCCL_DEBUG("[AlgoSelector] No rules for opType=%d", static_cast<int>(ctx.opType));
-        return std::nullopt;
-    }
-    
-    // 第三层查找：拓扑层级
-    TopoLevelCategory levelCat = CategorizeTopoLevel(ctx.topoLevelNums);
-    auto levelIt = opIt->second.find(levelCat);
-    if (levelIt == opIt->second.end()) {
-        // 尝试查找 ANY 层级的规则
-        levelIt = opIt->second.find(TopoLevelCategory::ANY);
-        if (levelIt == opIt->second.end()) {
-            HCCL_DEBUG("[AlgoSelector] No rules for topoLevel=%d", static_cast<int>(levelCat));
-            return std::nullopt;
+    for (const auto& rule : rules_) {
+        if (MatchRule(rule, ctx)) {
+            if (HasKey(rule, "_algo")) {
+                return GetVal(rule, "_algo");
+            }
         }
     }
-    
-    // 第四层查找：Level0 拓扑类型
-    auto topoIt = levelIt->second.find(ctx.level0Topo);
-    if (topoIt == levelIt->second.end()) {
-        HCCL_DEBUG("[AlgoSelector] No rules for level0Topo=%d", static_cast<int>(ctx.level0Topo));
-        return std::nullopt;
-    }
-    
-    // 第五层：遍历规则列表，找到第一个匹配的规则
-    for (const auto& rule : topoIt->second) {
-        if (rule.checker && rule.checker(ctx)) {
-            HCCL_DEBUG("[AlgoSelector] Rule '%s' matched, selecting algo: %s",
-                       rule.name.c_str(), rule.algoName.c_str());
-            return rule.algoName;
-        }
-    }
-    
-    HCCL_DEBUG("[AlgoSelector] No rule matched");
     return std::nullopt;
 }
 
 void TableBasedAlgoSelector::DumpTable() const {
-    HCCL_INFO("[AlgoSelector] Dumping algorithm selection table:");
-    for (const auto& [config, opRules] : table_) {
-        HCCL_INFO("  ExecConfig=%d:", static_cast<int>(config));
-        for (const auto& [opType, levelRules] : opRules) {
-            HCCL_INFO("    OpType=%d:", static_cast<int>(opType));
-            for (const auto& [level, topoRules] : levelRules) {
-                const char* levelStr = (level == TopoLevelCategory::SINGLE_LAYER) ? "SINGLE" :
-                                       (level == TopoLevelCategory::MULTI_LAYER) ? "MULTI" : "ANY";
-                HCCL_INFO("      TopoLevel=%s:", levelStr);
-                for (const auto& [topo, rules] : topoRules) {
-                    HCCL_INFO("        Level0Topo=%d: %zu rules", static_cast<int>(topo), rules.size());
-                }
-            }
-        }
+    std::cout << "=== Algorithm Selection Table (" << rules_.size() << " rules) ===" << std::endl;
+    for (size_t i = 0; i < rules_.size(); ++i) {
+        const auto& rule = rules_[i];
+        std::cout << "[" << i << "] ";
+        if (HasKey(rule, "_execConfig")) std::cout << GetVal(rule, "_execConfig") << " ";
+        if (HasKey(rule, "_opType")) std::cout << GetVal(rule, "_opType") << " ";
+        std::cout << "-> " << GetVal(rule, "_algo") << std::endl;
     }
 }
 
 // ============================================================================
-// 初始化查找表 - 填充所有算法规则
+// 初始化规则表
+//
+// 每条规则是一个 Map，所有条件平铺：
+//   - 必填：_execConfig, _opType
+//   - 可选：其余条件
+//   - 结果：_algo
+//
+// 规则按顺序匹配，先匹配的先返回
 // ============================================================================
+
 void TableBasedAlgoSelector::Initialize() {
-    using namespace Conditions;
+    rules_.clear();
     
-    // ========================================================================
-    // CCU_MS 模式规则
-    // ========================================================================
+    // ==========================================================================
+    // CCU_MS 模式 - AllReduce
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "CCU_MS"}, {"_opType", "AllReduce"}, {"_topoLevel", "1"}, {"_level0Topo", "MESH_1D"},
+        {"_rankSizeMin", "1"}, {"_rankSizeMax", "7"}, {"_dataSizeMax", std::to_string(512 * KB)},
+        {"_algo", "ccu_ms_ar_small_rank"}
+    });
     
-    // AllReduce - CCU_MS - 单层级 - Mesh
-    {
-        // 规则1: 小数据量，RankSize < 8
-        AddRule(OpExecuteConfig::CCU_MS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("CCU_MS_Mesh_SmallData_SmallRank",
-                AllOf({DataSizeBelow(512 * KB), RankSizeBelow(8)}),
-                "ccu_ms_mesh_small_small"));
-        
-        // 规则2: 小数据量，RankSize >= 8
-        AddRule(OpExecuteConfig::CCU_MS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("CCU_MS_Mesh_SmallData_LargeRank",
-                AllOf({DataSizeBelow(512 * KB), RankSizeAtLeast(8)}),
-                "ccu_ms_mesh_small_large"));
-        
-        // 规则3: 中等数据量
-        AddRule(OpExecuteConfig::CCU_MS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("CCU_MS_Mesh_MediumData",
-                AllOf({DataSizeInRange(512 * KB, 8 * MB), IsNotPcieMix}),
-                "ccu_ms_mesh_medium"));
-        
-        // 规则4: 大数据量
-        AddRule(OpExecuteConfig::CCU_MS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("CCU_MS_Mesh_LargeData",
-                DataSizeAbove(8 * MB),
-                "ccu_ms_mesh_large"));
-    }
+    rules_.push_back({
+        {"_execConfig", "CCU_MS"}, {"_opType", "AllReduce"}, {"_topoLevel", "1"}, {"_level0Topo", "MESH_1D"},
+        {"_rankSizeMin", "8"}, {"_dataSizeMax", std::to_string(512 * KB)},
+        {"_algo", "ccu_ms_ar_large_rank"}
+    });
     
-    // AllReduce - CCU_MS - 单层级 - Clos
-    {
-        AddRule(OpExecuteConfig::CCU_MS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::CLOS,
-            AlgoRule("CCU_MS_Clos_Default",
-                Always,
-                "ccu_ms_clos_default"));
-    }
+    rules_.push_back({
+        {"_execConfig", "CCU_MS"}, {"_opType", "AllReduce"}, {"_topoLevel", "1"}, {"_level0Topo", "MESH_1D"},
+        {"_level0PcieMix", "false"},
+        {"_dataSizeMin", std::to_string(512 * KB)}, {"_dataSizeMax", std::to_string(8 * MB)},
+        {"_algo", "ccu_ms_ar_medium"}
+    });
     
-    // ========================================================================
-    // CCU_SCHED 模式规则
-    // ========================================================================
+    rules_.push_back({
+        {"_execConfig", "CCU_MS"}, {"_opType", "AllReduce"}, {"_topoLevel", "1"}, {"_level0Topo", "MESH_1D"},
+        {"_dataSizeMin", std::to_string(8 * MB)},
+        {"_algo", "ccu_ms_ar_large"}
+    });
     
-    // AllReduce - CCU_SCHED - 单层级
-    {
-        // 双 Die 全连接 Mesh
-        AddRule(OpExecuteConfig::CCU_SCHED, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("CCU_SCHED_2DieFullMesh",
-                Is2DieFullMesh,
-                "ccu_sched_2die_fullmesh"));
-        
-        // 默认规则
-        AddRule(OpExecuteConfig::CCU_SCHED, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("CCU_SCHED_Default",
-                Always,
-                "ccu_sched_default"));
-    }
+    rules_.push_back({
+        {"_execConfig", "CCU_MS"}, {"_opType", "AllReduce"}, {"_level0Topo", "CLOS"},
+        {"_algo", "ccu_ms_ar_clos"}
+    });
     
-    // ========================================================================
-    // AICPU_TS 模式规则
-    // ========================================================================
+    // ==========================================================================
+    // CCU_SCHED 模式 - AllReduce
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "CCU_SCHED"}, {"_opType", "AllReduce"}, {"_level0Topo", "MESH_1D"},
+        {"_is2DieFullMesh", "true"},
+        {"_algo", "ccu_sched_ar_2die"}
+    });
     
-    // AllReduce - AICPU_TS - 单层级
-    {
-        // 64 位数据类型或 PROD 归约
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AICPU_TS_SpecialType",
-                AnyOf({Is64BitDataType, IsReduceProd}),
-                "aicpu_special_type"));
-        
-        // 小数据量
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AICPU_TS_SmallData",
-                DataSizeBelow(512 * KB),
-                "aicpu_small_data"));
-        
-        // 默认
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AICPU_TS_Default",
-                Always,
-                "aicpu_default"));
-    }
+    rules_.push_back({
+        {"_execConfig", "CCU_SCHED"}, {"_opType", "AllReduce"}, {"_level0Topo", "MESH_1D"},
+        {"_algo", "ccu_sched_ar_default"}
+    });
     
-    // AllReduce - AICPU_TS - 多层级
-    {
-        // Level1 NHR
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::MULTI_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AICPU_TS_Level1Nhr",
-                IsLevel1Nhr,
-                "aicpu_level1_nhr"));
-        
-        // 默认
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLREDUCE, TopoLevelCategory::MULTI_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AICPU_TS_MultiLayer_Default",
-                Always,
-                "aicpu_multilayer_default"));
-    }
+    // ==========================================================================
+    // AICPU_TS 模式 - AllReduce
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AllReduce"},
+        {"_dataTypes", "INT64,UINT64,FP64"},
+        {"_algo", "aicpu_ar_64bit"}
+    });
     
-    // ========================================================================
-    // Broadcast 规则
-    // ========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AllReduce"},
+        {"_reduceOp", "PROD"},
+        {"_algo", "aicpu_ar_prod"}
+    });
     
-    // Broadcast - AICPU_TS - 单层级
-    {
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_BROADCAST, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("Broadcast_OneShot",
-                DataSizeBelow(1 * MB),
-                "broadcast_oneshot"));
-        
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_BROADCAST, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("Broadcast_TwoShot",
-                Always,
-                "broadcast_twoshot"));
-    }
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AllReduce"},
+        {"_dataSizeMax", std::to_string(512 * KB)},
+        {"_algo", "aicpu_ar_small"}
+    });
     
-    // ========================================================================
-    // AllGather 规则
-    // ========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AllReduce"},
+        {"_algo", "aicpu_ar_default"}
+    });
     
-    // AllGather - AICPU_TS - 单层级
-    {
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLGATHER, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AllGather_SmallData",
-                DataSizeBelow(256 * KB),
-                "allgather_small"));
-        
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLGATHER, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AllGather_Default",
-                Always,
-                "allgather_default"));
-    }
+    // 多层级 AllReduce
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AllReduce"},
+        {"_topoLevel", "multi"}, {"_level1Nhr", "true"},
+        {"_algo", "aicpu_ar_l1nhr"}
+    });
     
-    // ========================================================================
-    // ReduceScatter 规则
-    // ========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AllReduce"},
+        {"_topoLevel", "multi"},
+        {"_algo", "aicpu_ar_multilvl"}
+    });
     
-    // ReduceScatter - AICPU_TS - 单层级
-    {
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_REDUCE_SCATTER, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("ReduceScatter_SmallData",
-                DataSizeBelow(256 * KB),
-                "reducescatter_small"));
-        
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_REDUCE_SCATTER, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("ReduceScatter_Default",
-                Always,
-                "reducescatter_default"));
-    }
+    // ==========================================================================
+    // AICPU_TS 模式 - Broadcast
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "Broadcast"},
+        {"_dataSizeMax", std::to_string(1 * MB)},
+        {"_algo", "broadcast_oneshot"}
+    });
     
-    // ========================================================================
-    // AlltoAll 规则
-    // ========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "Broadcast"},
+        {"_algo", "broadcast_twoshot"}
+    });
     
-    // AlltoAll - AICPU_TS - 单层级
-    {
-        // PCIE 混合拓扑
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLTOALL, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AlltoAll_PcieMix",
-                IsPcieMix,
-                "alltoall_pcie"));
-        
-        AddRule(OpExecuteConfig::AICPU_TS, HCCL_CMD_ALLTOALL, TopoLevelCategory::SINGLE_LAYER, Level0Shape::MESH_1D,
-            AlgoRule("AlltoAll_Default",
-                Always,
-                "alltoall_default"));
-    }
+    // ==========================================================================
+    // AICPU_TS 模式 - AllGather
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AllGather"},
+        {"_dataSizeMax", std::to_string(256 * KB)},
+        {"_algo", "allgather_small"}
+    });
     
-    // ========================================================================
-    // Send/Recv 规则
-    // ========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AllGather"},
+        {"_algo", "allgather_default"}
+    });
     
-    // Send - HOSTCPU - Host DPU
-    {
-        AddRule(OpExecuteConfig::HOSTCPU, HCCL_CMD_SEND, TopoLevelCategory::ANY, Level0Shape::MESH_1D,
-            AlgoRule("Send_HostToDevice",
-                IsHostToDevice,
-                "send_host_dpu"));
-        
-        AddRule(OpExecuteConfig::HOSTCPU, HCCL_CMD_SEND, TopoLevelCategory::ANY, Level0Shape::MESH_1D,
-            AlgoRule("Send_Default",
-                Always,
-                "send_device_dpu"));
-    }
+    // ==========================================================================
+    // AICPU_TS 模式 - ReduceScatter
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "ReduceScatter"},
+        {"_dataSizeMax", std::to_string(256 * KB)},
+        {"_algo", "reducescatter_small"}
+    });
     
-    // Recv - HOSTCPU - Host DPU
-    {
-        AddRule(OpExecuteConfig::HOSTCPU, HCCL_CMD_RECV, TopoLevelCategory::ANY, Level0Shape::MESH_1D,
-            AlgoRule("Recv_DeviceToHost",
-                IsDeviceToHost,
-                "recv_host_dpu"));
-        
-        AddRule(OpExecuteConfig::HOSTCPU, HCCL_CMD_RECV, TopoLevelCategory::ANY, Level0Shape::MESH_1D,
-            AlgoRule("Recv_Default",
-                Always,
-                "recv_device_dpu"));
-    }
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "ReduceScatter"},
+        {"_algo", "reducescatter_default"}
+    });
     
-    HCCL_INFO("[AlgoSelector] Algorithm selection table initialized");
+    // ==========================================================================
+    // AICPU_TS 模式 - AlltoAll
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AlltoAll"},
+        {"_level0PcieMix", "true"},
+        {"_algo", "alltoall_pcie"}
+    });
+    
+    rules_.push_back({
+        {"_execConfig", "AICPU_TS"}, {"_opType", "AlltoAll"},
+        {"_algo", "alltoall_default"}
+    });
+    
+    // ==========================================================================
+    // HOSTCPU 模式 - Send
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "HOSTCPU"}, {"_opType", "Send"},
+        {"_hostToDevice", "true"},
+        {"_algo", "send_host_dpu"}
+    });
+    
+    rules_.push_back({
+        {"_execConfig", "HOSTCPU"}, {"_opType", "Send"},
+        {"_algo", "send_device_dpu"}
+    });
+    
+    // ==========================================================================
+    // HOSTCPU 模式 - Recv
+    // ==========================================================================
+    rules_.push_back({
+        {"_execConfig", "HOSTCPU"}, {"_opType", "Recv"},
+        {"_deviceToHost", "true"},
+        {"_algo", "recv_host_dpu"}
+    });
+    
+    rules_.push_back({
+        {"_execConfig", "HOSTCPU"}, {"_opType", "Recv"},
+        {"_algo", "recv_device_dpu"}
+    });
 }
 
 } // namespace ops_hccl
-
-/*
-## src/ops 目录下算法选择条件总结
-
-通过分析 src/ops 目录下所有 selector 文件夹中的算法选择文件（共 15 个文件），总结出共有 **15 种主要条件类型** 用于算法选择：
-
-### 一、拓扑相关条件（7种）
-
-1. **拓扑层级数 (topoLevelNums)**
-   - 判断是否跨多个层级（单层级 vs 多层级）
-   - 例如：`topoInfo->topoLevelNums > 1`
-
-2. **Level0 拓扑类型 (level0Topo)**
-   - `MESH_1D`: 一维 Mesh 拓扑
-   - `MESH_1D_CLOS`: Mesh + Clos 混合拓扑
-   - `CLOS`: Clos 拓扑
-
-3. **Level0 Mesh 类型 (level0MeshType)**
-   - `TWO_DIE_REGULAR`: 双 Die 规则 Mesh
-   - `TWO_DIE_NOT_REGULAR`: 双 Die 非规则 Mesh
-
-4. **PCIE 混合拓扑标志 (level0PcieMix)**
-   - 判断是否为 PCIE-SW 定制机型
-
-5. **两 Die 全连接 Mesh (is2DieFullMesh)**
-   - 判断是否为双 Die 全连接 Mesh 拓扑
-
-6. **Mesh 数量与 Clos 数量关系**
-   - `isMeshNumEqualToClosNum`: Mesh 数量是否等于 Clos 数量
-   - `isClosNumMultipleOfMeshNum`: Clos 数量是否为 Mesh 数量的倍数
-
-7. **网络层详情 (netLayerDetails)**
-   - `localNetInsSizeOfLayer[0]`: 第一层的本地网络实例大小
-   - `Level1Nhr`: Level1 是否为 NHR 拓扑
-
-### 二、数据相关条件（2种）
-
-8. **数据大小 (dataSize)**
-   - 小数据量：< 512KB (SMALL_COUNT_512KB)
-   - 大数据量：>= 1024KB (LARGE_COUNT_1024KB)
-   - CCU 并行最大数据量：<= 64MB
-
-9. **数据类型 (dataType)**
-   - 64 位数据类型：`INT64, UINT64, FP64`
-   - 特殊类型：`INT8`
-
-### 三、操作相关条件（2种）
-
-10. **归约操作类型 (reduceType)**
-    - 特别关注 `HCCL_REDUCE_PROD` (乘法归约)
-
-11. **操作类型 (opType)**
-    - 如 `HCCL_CMD_ALLTOALL`, `HCCL_CMD_ALLTOALLV` 等
-
-### 四、执行模式条件（1种）
-
-12. **执行配置 (opExecuteConfig)**
-    - `CCU_MS`: CCU Mesh 模式
-    - `CCU_SCHED`: CCU Schedule 模式
-    - `AICPU_TS`: AICPU 模式
-    - `AIV / AIV_ONLY`: AIV 模式
-    - `HOSTCPU`: 主机 CPU 模式
-
-### 五、其他条件（3种）
-
-13. **Rank 数量 (userRankSize)**
-    - 判断是否在 4P 范围内（<= 4）
-    - 用于选择并发算法
-
-14. **输入输出内存重叠 (IsInputOutputOverlap)**
-    - 判断输入输出缓冲区是否重叠（inplace 场景）
-
-15. **链路端点位置类型 (locType)**
-    - `ENDPOINT_LOC_TYPE_HOST`: 主机端
-    - `ENDPOINT_LOC_TYPE_DEVICE`: 设备端
-    - 用于 Send/Recv 选择 Host DPU 或 Device DPU 算法
-
-### 总结
-
-算法选择系统采用**多层次决策树结构**，按优先级依次检查上述条件，为不同硬件配置和操作参数自动选择最优通信算法。*/
