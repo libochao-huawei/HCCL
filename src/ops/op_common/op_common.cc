@@ -1447,7 +1447,7 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost, resPack));
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
     // 资源回退
     auto ret = HcclGetChannelForCcu(comm, param, resRequest);
     if (ret == HCCL_E_UNAVAIL) {
