@@ -27,6 +27,29 @@ typedef enum {
 } HcclCommStatus;
 #endif
 
+#if CANN_VERSION_NUM < 90100000
+typedef uint64_t CcuInsHandle;
+
+typedef enum {
+    CCU_SUCCESS = 0,               /**< success */
+    CCU_E_PARA = 1,                /**< parameter error */
+    CCU_E_PTR = 2,                 /**< empty pointer */
+    CCU_E_INTERNAL = 4,            /**< internal error */
+    CCU_E_NOT_SUPPORT = 5,         /**< not support feature */
+    CCU_E_NOT_FOUND = 6,           /**< not found specific resource */
+    CCU_E_UNAVAIL = 7,             /**< resource unavailable */
+
+    CCU_E_DRV_START = 4096,
+
+    CCU_E_DRV_INIT_FAILED = 4097,
+    CCU_E_DRV_BUSY  = 4098,
+
+    CCU_E_DRV_END = 4224,
+
+    CCU_E_RESERVED = 9216
+} CcuResult;
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
