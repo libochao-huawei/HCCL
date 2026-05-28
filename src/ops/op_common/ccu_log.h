@@ -12,9 +12,9 @@
 #define CCU_LOG_H
 
 #include "log.h"
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_types.h"
-#endif /* CANN_VERSION_NUM < 90000000 */
+#endif /* CANN_VERSION_NUM < 90100000 */
 
 #define HCCL_TO_CCU_RET(hcclRet) static_cast<CcuResult>(hcclRet)
 /* 检查函数返回值, 并返回指定错误码 */
