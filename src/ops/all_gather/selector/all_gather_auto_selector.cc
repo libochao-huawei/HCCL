@@ -92,7 +92,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
     if (GetExternalInputCcuSelectMode() == 1 || GetExternalInputCcuSelectMode() == 2) {
         isClosV2NumMultipleOfMeshNum = true;
     }else{
-        isClosV2NumMultipleOfMeshNum= false
+        isClosV2NumMultipleOfMeshNum= false;
     }
     CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
         HCCL_DEBUG("[AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
