@@ -38,6 +38,12 @@ DEFINE_WEAK_FUNC(int32_t, HcommChannelFence, ChannelHandle channel);
 DEFINE_WEAK_FUNC(int32_t, HcommFenceOnThread, ThreadHandle thread);
 DEFINE_WEAK_FUNC(int32_t, HcommChannelFenceOnThread, ThreadHandle thread, ChannelHandle channel);
 DEFINE_WEAK_FUNC(HcclResult, HcommThreadJoin, ThreadHandle thread, uint32_t timeout);
+DEFINE_WEAK_FUNC(int32_t, HcommThreadResAcquireTimeOut, uint32_t timeOut);
+DEFINE_WEAK_FUNC(int32_t, HcommSetNotifyWaitTimeOut, uint32_t timeOut);
+DEFINE_WEAK_FUNC(int32_t, HcommThreadNotifyWaitOnThreadWithDefaultTimeout, ThreadHandle thread, uint32_t notifyIdx);
+DEFINE_WEAK_FUNC(int32_t, HcommChannelNotifyWaitOnThreadWithDefaultTimeout, ThreadHandle thread,
+    ChannelHandle channel, uint32_t localNotifyIdx);
+DEFINE_WEAK_FUNC(int32_t, HcommChannelNotifyWaitWithDefaultTimeout, ChannelHandle channel, uint32_t localNotifyIdx);
 
 using HcclHcommBatchTransferOnThreadFunc =
     int32_t (*)(ThreadHandle, ChannelHandle, const HcclHcommBatchTransferDesc *, uint32_t);
@@ -82,6 +88,11 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommThreadJoin);
+    INIT_SUPPORT_FLAG(libHcommHandle, HcommThreadResAcquireTimeOut);
+    INIT_SUPPORT_FLAG(libHcommHandle, HcommSetNotifyWaitTimeOut);
+    INIT_SUPPORT_FLAG(libHcommHandle, HcommThreadNotifyWaitOnThreadWithDefaultTimeout);
+    INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelNotifyWaitOnThreadWithDefaultTimeout);
+    INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelNotifyWaitWithDefaultTimeout);
     g_HcommBatchTransferOnThread = reinterpret_cast<HcclHcommBatchTransferOnThreadFunc>(
         dlsym(libHcommHandle, "HcommBatchTransferOnThread"));
     if (g_HcommBatchTransferOnThread == nullptr) {
@@ -90,4 +101,56 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     } else {
         g_HcommBatchTransferOnThreadSupported = true;
     }
+}
+
+bool IsHcommDefaultTimeoutSupported()
+{
+    return HcommIsSupportHcommSetNotifyWaitTimeOut() &&
+           HcommIsSupportHcommThreadNotifyWaitOnThreadWithDefaultTimeout();
+}
+
+HcclResult HcclSetNotifyWaitTimeOut(uint32_t timeout)
+{
+    if (!HcommIsSupportHcommSetNotifyWaitTimeOut()) {
+        return HCCL_E_NOT_SUPPORT;
+    }
+    return static_cast<HcclResult>(HcommSetNotifyWaitTimeOut(timeout));
+}
+
+HcclResult HcclThreadResAcquireTimeOut(uint32_t timeout)
+{
+    if (!HcommIsSupportHcommThreadResAcquireTimeOut()) {
+        return HCCL_E_NOT_SUPPORT;
+    }
+    return static_cast<HcclResult>(HcommThreadResAcquireTimeOut(timeout));
+}
+
+HcclResult HcclThreadNotifyWaitOnThreadDefault(ThreadHandle thread, uint32_t notifyIdx, uint32_t fallbackTimeout)
+{
+    if (HcommIsSupportHcommSetNotifyWaitTimeOut() &&
+        HcommIsSupportHcommThreadNotifyWaitOnThreadWithDefaultTimeout()) {
+        return static_cast<HcclResult>(HcommThreadNotifyWaitOnThreadWithDefaultTimeout(thread, notifyIdx));
+    }
+    return static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyIdx, fallbackTimeout));
+}
+
+HcclResult HcclChannelNotifyWaitOnThreadDefault(ThreadHandle thread, ChannelHandle channel,
+    uint32_t localNotifyIdx, uint32_t fallbackTimeout)
+{
+    if (HcommIsSupportHcommSetNotifyWaitTimeOut() &&
+        HcommIsSupportHcommChannelNotifyWaitOnThreadWithDefaultTimeout()) {
+        return static_cast<HcclResult>(
+            HcommChannelNotifyWaitOnThreadWithDefaultTimeout(thread, channel, localNotifyIdx));
+    }
+    return static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, channel, localNotifyIdx, fallbackTimeout));
+}
+
+HcclResult HcclChannelNotifyWaitDefault(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t fallbackTimeout)
+{
+    if (HcommIsSupportHcommSetNotifyWaitTimeOut() &&
+        HcommIsSupportHcommChannelNotifyWaitWithDefaultTimeout()) {
+        return static_cast<HcclResult>(HcommChannelNotifyWaitWithDefaultTimeout(channel, localNotifyIdx));
+    }
+    return static_cast<HcclResult>(HcommChannelNotifyWait(channel, localNotifyIdx, fallbackTimeout));
 }
