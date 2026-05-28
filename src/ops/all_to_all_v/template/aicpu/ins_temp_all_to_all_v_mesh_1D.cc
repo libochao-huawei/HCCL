@@ -37,18 +37,7 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     }
 
     std::vector<HcclChannelDesc> level0Channels;
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        std::vector<HcclChannelDesc> myChannelDescs;
-        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
-        for(auto channel : myChannelDescs) {
-            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
-                level0Channels.push_back(channel);
-            }
-        }
-        HCCL_DEBUG("[InsTempAlltoAllVMesh1D::CalcRes] Get Channel Success!");
-    } else {
-        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
-    }
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
     channelsPerRank_ = CalcChannelsPerRank(level0Channels);
     HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] channelsPerRank_ is [%u]", channelsPerRank_);
