@@ -50,7 +50,7 @@ HcclResult CcuTempAlltoAllMesh1D::CalcRes(HcclComm comm, const OpParam& param, c
                              return std::make_unique<CcuKernelAlltoAllMesh1D>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    CHK_RET(CalcChannelRequestMesh1DFullMesh(comm, param, topoInfo, subCommRanks_, channelDescs));
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgAlltoAllMesh1D>(subCommRanks_[0].size(),
                                                                         mySubCommRank_,
                                                                         param.isMc2, // loadFromMem_
@@ -152,7 +152,7 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     uint64_t srcStride = templateDataParams.outputSliceStride;
     uint64_t dstStride = templateDataParams.outputSliceStride;
 
-    uint64_t dataType_ = param.all2AllVDataDes.sendType;
+    uint64_t dataType_ = param.all2AllDataDes.sendType;
     uint64_t dataTypeSize_ = SIZE_TABLE[dataType_];
     uint64_t sliceBias = templateDataParams.processedDataCount * dataTypeSize_;
 
