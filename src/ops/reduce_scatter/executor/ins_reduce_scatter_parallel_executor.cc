@@ -369,7 +369,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<u64> scratchOffVec = {intra0ScratchOffset, intra1ScratchOffset, inter0ScratchOffset, inter1ScratchOffset};
 
     // dataSplitSize为分数，这里maxCountPerLoop对10取整
-    u64 maxCountPerLoop = (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_ / 10) * 10; 
+    u64 maxCountPerLoop = (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_); 
 
     // ============ 循环前的数据对齐操作 ============
     u64 alignSizeData = AICPU_ALIGN_SIZE; // 用于4k对齐

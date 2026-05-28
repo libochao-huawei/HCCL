@@ -396,7 +396,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     u64 interScratchOffset = scratchMultipleIntra * scratchMemBlockSize;
 
     u64 maxCountPerLoop =
-        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_ / 10) * 10;
+        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_);
 
     // ============ 循环前的数据对齐操作 ============
     u64 alignSize = AICPU_ALIGN_SIZE; // 用于4k对齐
