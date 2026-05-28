@@ -11,6 +11,8 @@
 #include "reduce_scatter_auto_selector.h"
 #include "selector_registry.h"
 #include "hccl_aiv_utils.h"
+#include "ins_v2_reduce_scatter_order_preserved_executor.h"
+#include "order_preserved_common.h"
 
 namespace ops_hccl {
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
@@ -32,6 +34,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetL
 {
     HCCL_DEBUG("[ReduceScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
+    
+    // 保序模式不支持CCU_MS，需要回退到AICPU
+    CHK_PRT_RET(IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize),
+        HCCL_DEBUG("[ReduceScatterAutoSelector] DETERMINISTIC_STRICT mode not supported for CCU_MS, fallback to AICPU."),
+        SelectorStatus::NOT_MATCH);
+    
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[ReduceScatterAutoSelector] layerNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
@@ -119,6 +127,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
     HCCL_DEBUG("[ReduceScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
     u32 ccuSize = 64;
+    
+    // 保序模式不支持CCU_SCHED，需要回退到AICPU
+    CHK_PRT_RET(IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize),
+        HCCL_DEBUG("[ReduceScatterAutoSelector] DETERMINISTIC_STRICT mode not supported for CCU_SCHED, fallback to AICPU."),
+        SelectorStatus::NOT_MATCH);
+    
     // ccu 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING("[ReduceScatterAutoSelector] ReduceOp[%d] is not supported yet for ccu schedule mode.",
@@ -275,6 +289,18 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
     (void)configAlgMap;
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
+
+    if (IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize)) {
+        CHK_PRT_RET(topoInfo->userRankSize > MAX_RANK_NUM_FOR_ORDER_PRESERVED,
+            HCCL_ERROR("[ReduceScatterAutoSelector] OrderPreserved mode not supported for rankSize[%u] > %u, "
+                "too many ranks may cause resource exhaustion.", topoInfo->userRankSize, MAX_RANK_NUM_FOR_ORDER_PRESERVED),
+            SelectorStatus::NOT_MATCH);
+        
+        selectAlgName = "ReduceScatterOrderPreserved";
+        HCCL_INFO("[ReduceScatterAutoSelector] DETERMINISTIC_STRICT mode, select [%s]", selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
+
     if (topoInfo->topoLevelNums > 1) {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";
@@ -360,6 +386,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLay
                                                        std::string &selectAlgName) const
 {
     HCCL_DEBUG("[ReduceScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    
+    // 保序模式不支持AIV，需要回退到AICPU
+    CHK_PRT_RET(IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize),
+        HCCL_DEBUG("[ReduceScatterAutoSelector] DETERMINISTIC_STRICT mode not supported for AIV, fallback to AICPU."),
+        SelectorStatus::NOT_MATCH);
+    
     //aiv 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING("[ReduceScatterAutoSelector] ReduceOp[%d] is not supported yet for aiv mode.",

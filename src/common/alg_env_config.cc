@@ -949,8 +949,18 @@ HcclResult ParseDeterministic()
         // 规约保序场景（严格的确定性计算，在确定性的基础上强保证规约顺序一致）
         DevType deviceType;
         CHK_RET(hrtGetDeviceType(deviceType));
-        if (deviceType != DevType::DEV_TYPE_910B && deviceType != DevType::DEV_TYPE_910_93) {
-            // 规约保序仅支持A2 A3场景
+        // 规约保序支持A2 A3 A5场景
+        bool supportedDevice = false;
+        #ifdef MACRO_DEV_TYPE_NEW
+        supportedDevice = (deviceType == DevType::DEV_TYPE_910B || 
+                          deviceType == DevType::DEV_TYPE_910_93 || 
+                          deviceType == DevType::DEV_TYPE_950);
+        #else
+        supportedDevice = (deviceType == DevType::DEV_TYPE_910B || 
+                          deviceType == DevType::DEV_TYPE_910_93 || 
+                          deviceType == DevType::DEV_TYPE_910_95);
+        #endif
+        if (!supportedDevice) {
             HCCL_ERROR("HCCL_DETERMINISTIC is set to [%s], Reduce order preservation is not supported for "
                        "deviceType[%d], please check",
                 hcclDeterministicEnv.c_str(),
@@ -1090,6 +1100,11 @@ const bool &GetExternalInputInterSuperPodRetryEnable()
 const bool &GetExternalInputHcclEnableEntryLog()
 {
     return g_algEnvConfig.enableEntryLog;
+}
+
+const u8 &GetExternalInputHcclDeterministic()
+{
+    return g_algEnvConfig.hcclDeterministic;
 }
 
 bool RunIndependentOpExpansion(DevType deviceType)
