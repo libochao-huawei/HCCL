@@ -88,7 +88,7 @@ HcclResult InsTempRecvHostNicDpu::KernelRun(const OpParam &param, const Template
     dpuRunInfo.subCommRanks = subCommRanks_;
     u32 sendMsgId = 0;
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
-    if (HcommSendRequest(reinterpret_cast<uint64_t>(res.npu2DpuShmemPtr),
+    if (HcommSendRequest(static_cast<uint64_t>((uintptr_t)res.npu2DpuShmemPtr),
         param.algTag, static_cast<void *>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
         HCCL_ERROR("InsTempRecvHostNicDpu HcommRecvRequest failed");
         return HCCL_E_INTERNAL;
@@ -99,7 +99,7 @@ HcclResult InsTempRecvHostNicDpu::KernelRun(const OpParam &param, const Template
     // 等待DPU数据传输，然后回写结果回来
     void *recvData = nullptr;
     u32 recvMsgId = 0;
-    if (HcommWaitResponse(reinterpret_cast<uint64_t>(res.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
+    if (HcommWaitResponse(static_cast<uint64_t>((uintptr_t)res.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
         HCCL_ERROR("InsTempRecvHostNicDpu HcommWaitResponse failed");
         return HCCL_E_INTERNAL;
     }
