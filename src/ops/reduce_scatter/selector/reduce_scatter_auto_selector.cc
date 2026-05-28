@@ -11,6 +11,8 @@
 #include "reduce_scatter_auto_selector.h"
 #include "selector_registry.h"
 #include "hccl_aiv_utils.h"
+#include "ins_v2_reduce_scatter_order_preserved_executor.h"
+#include "alg_env_config.h"
 
 namespace ops_hccl {
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
@@ -25,6 +27,24 @@ constexpr u64 RS_CCU_64P_MIN_DATA_SIZE = 128 * 1024 * 1024;
 constexpr u64 RS_CCU_8P_MIN_DATA_SIZE = 64 * 1024 * 1024;
 constexpr u64 RS_AICPU_SEQUENCE_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
 constexpr u64 OMNI_PCIE_RS_DATA_SIZE = 4 * 1024 * 1024;
+
+bool IsNeedStrictModeReduceScatter(const OpParam& opParam, u32 rankSize)
+{
+    u8 deterministicLevel = GetExternalInputHcclDeterministic();
+    HcclDataType dataType = opParam.DataDes.dataType;
+    HcclReduceOp reduceType = opParam.reduceType;
+    HCCL_INFO("[IsNeedStrictModeReduceScatter] deterministicLevel[%u], dataType[%d], reduceType[%d], rankSize[%u]",
+        deterministicLevel, dataType, reduceType, rankSize);
+    
+    return (deterministicLevel == static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_STRICT))
+        && (dataType == HcclDataType::HCCL_DATA_TYPE_FP16 ||
+            dataType == HcclDataType::HCCL_DATA_TYPE_FP32 ||
+            dataType == HcclDataType::HCCL_DATA_TYPE_BFP16 ||
+            dataType == HcclDataType::HCCL_DATA_TYPE_FP64)
+        && (reduceType == HcclReduceOp::HCCL_REDUCE_SUM ||
+            reduceType == HcclReduceOp::HCCL_REDUCE_PROD)
+        && rankSize > MIN_STRICT_RANK_NUM_ORDER_PRESERVED;
+}
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -273,6 +293,13 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
     (void)configAlgMap;
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
+
+    if (IsNeedStrictModeReduceScatter(opParam, topoInfo->userRankSize)) {
+        selectAlgName = "ReduceScatterOrderPreserved";
+        HCCL_INFO("[ReduceScatterAutoSelector] DETERMINISTIC_STRICT mode, select [%s]", selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
+
     if (topoInfo->topoLevelNums > 1) {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";
@@ -333,7 +360,6 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWith
                     selectAlgName = "InsReduceScatterMesh1D";
                 }
             }
-
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {

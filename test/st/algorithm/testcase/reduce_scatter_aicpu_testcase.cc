@@ -63,6 +63,8 @@ void RunReduceScatterAicpuA5(const TopoMeta &topoMeta, const u64 &recvCount, con
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+
+    setenv("HCCL_DETERMINISTIC", "STRICT", 1);
     
 
     // 算子执行参数设置
