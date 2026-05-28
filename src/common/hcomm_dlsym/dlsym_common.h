@@ -18,16 +18,14 @@
 #include "hccl/hccl_types.h"
 
 /* 8.5.0 桩: HcclCommStatus (来自 hccl_types.h，9.0.0 新增) */
-#if CANN_VERSION_NUM < 90000000
+#if CANN_VERSION_NUM < 90100000
 typedef enum {
     HCCL_COMM_STATUS_READY = 0,
     HCCL_COMM_STATUS_SUSPENDING = 1,
     HCCL_COMM_STATUS_INVALID = 254,
     HCCL_COMM_STATUS_RESERVED = 255
 } HcclCommStatus;
-#endif
 
-#if CANN_VERSION_NUM < 90100000
 typedef uint64_t CcuInsHandle;
 
 typedef enum {
@@ -48,6 +46,10 @@ typedef enum {
 
     CCU_E_RESERVED = 9216
 } CcuResult;
+
+typedef uint64_t ThreadHandle;
+
+typedef uint64_t CcuKernelHandle;
 #endif
 
 #ifdef __cplusplus
