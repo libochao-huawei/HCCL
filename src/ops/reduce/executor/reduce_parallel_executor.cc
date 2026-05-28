@@ -320,34 +320,39 @@ template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1, t
 HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgTemplate2,
     AlgTemplate3>::PrepareResForStage2(u32 stage)
 {
+    u32 stageNum = 2;
     if (param_.engine == COMM_ENGINE_CCU) {
-        tempAlgResArr_.at(stage * 2).ccuKernels.clear();
-        tempAlgResArr_.at(stage * 2 + 1).ccuKernels.clear();
+        tempAlgResArr_.at(stage * stageNum).ccuKernels.clear();
+        tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.clear();
         if (stage == 0) {
-            tempAlgResArr_.at(stage * 2).ccuKernels.insert(tempAlgResArr_.at(stage * 2).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0]);
-            tempAlgResArr_.at(stage * 2 + 1).ccuKernels.insert(tempAlgResArr_.at(stage * 2 + 1).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1]);
         } else {
-            tempAlgResArr_.at(stage * 2).ccuKernels.insert(tempAlgResArr_.at(stage * 2).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2]);
-            tempAlgResArr_.at(stage * 2 + 1).ccuKernels.insert(tempAlgResArr_.at(stage * 2 + 1).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2] + resCtx_.ccuKernelNum[3]);
         }
     } else {
-        tempAlgResArr_.at(stage * 2).channels = intraLinks_;
-        tempAlgResArr_.at(stage * 2 + 1).channels = interLinks_;
+        tempAlgResArr_.at(stage * stageNum).channels = intraLinks_;
+        tempAlgResArr_.at(stage * stageNum + 1).channels = interLinks_;
     }
 
-    tempAlgResArr_.at(stage * 2).threads = intraThreads_;
-    tempAlgResArr_.at(stage * 2).aivCommInfoPtr = resCtx_.aivCommInfoPtr;
+    tempAlgResArr_.at(stage * stageNum).threads = intraThreads_;
+    tempAlgResArr_.at(stage * stageNum).aivCommInfoPtr = resCtx_.aivCommInfoPtr;
 
-    tempAlgResArr_.at(stage * 2 + 1).threads = interThreads_;
-    tempAlgResArr_.at(stage * 2 + 1).aivCommInfoPtr = resCtx_.aivCommInfoPtr;
+    tempAlgResArr_.at(stage * stageNum + 1).threads = interThreads_;
+    tempAlgResArr_.at(stage * stageNum + 1).aivCommInfoPtr = resCtx_.aivCommInfoPtr;
 
     return HCCL_SUCCESS;
 }

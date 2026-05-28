@@ -25,7 +25,8 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclReduceScatterV");
-    if (GetHcommVersion() < 90000000) { // compat handle
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
 
@@ -75,7 +76,6 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
 
     return HCCL_SUCCESS;
 }
-
 
 HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, const void *sendDispls, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
@@ -133,8 +133,6 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
 
     return HCCL_SUCCESS;
 }
-
-
 
 namespace ops_hccl {
 HcclResult CheckReduceScatterVInputParam(
@@ -201,7 +199,8 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
     HCCL_INFO("PrepareReduceScatterVParam: recvCount:[%u]", recvCount);
 
     // 参数准备
-    std::vector<u64> countsAndDispls(userRankSize*2);
+    u32 rankNum = 2;
+    std::vector<u64> countsAndDispls(userRankSize * rankNum);
     const u64* sendDisplsAddr = reinterpret_cast<const u64*>(sendDispls);
     const u64* sendCountsAddr = reinterpret_cast<const u64*>(sendCounts);
 
@@ -234,7 +233,6 @@ HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const v
     return HCCL_SUCCESS;
 }
 
-
 HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
@@ -243,7 +241,6 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
     HCCL_INFO("Execute ReduceScatterVOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
-
 
 HcclResult ReduceScatterVOutPlaceCommon(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
