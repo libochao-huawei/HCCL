@@ -41,6 +41,15 @@ HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoI
 HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, bool &isResourceReused, const ResPackGraphMode &resPack);
 
+HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo);
+
+HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
+
+HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t &size, bool increCreateChannelFlag,
+    const ResPackGraphMode &resPack);
+
 HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
