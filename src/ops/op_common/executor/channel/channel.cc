@@ -381,6 +381,7 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
     return HCCL_SUCCESS;
 }
 
+#if CANN_VERSION_NUM >= 90100000
 HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param, 
     const TopoInfoWithNetLayerDetails* topoInfo, const std::vector<std::vector<u32>>& subcommInfo,
     std::vector<HcclChannelDesc> &channels)
@@ -424,6 +425,7 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
     return HCCL_SUCCESS;
 #endif
 }
+#endif
 
 static HcclResult CheckNetLayerExists(HcclComm comm, u32 netLayer, const std::string &tag, bool linkRequired)
 {
