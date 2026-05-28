@@ -1,6 +1,6 @@
 #!/bin/sh
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of 
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
 # OAT Pre-commit Check Script — Python Edition (oat-py)
 # Replaces the Java-binary-based oat_check.sh.
 #
-# Requires: Python 3.9+  (pip install oat-py>=1.0.0)
+# Requires: Python 3.7+  (pip install oat-py>=1.0.0)
 # Works on: Linux / macOS / Windows (Git Bash / MSYS2)
 #
 # Self-healing: strip Windows CRLF if present
@@ -33,7 +33,7 @@ set -e
 _PYTHON=""
 for _candidate in python3 python py; do
     if command -v "$_candidate" >/dev/null 2>&1; then
-        _VER=$("$_candidate" -c "import sys; print(sys.version_info >= (3,9))" 2>/dev/null || echo "False")
+        _VER=$("$_candidate" -c "import sys; print(sys.version_info >= (3,7))" 2>/dev/null || echo "False")
         if [ "$_VER" = "True" ]; then
             _PYTHON="$_candidate"
             break
@@ -42,7 +42,7 @@ for _candidate in python3 python py; do
 done
 
 if [ -z "$_PYTHON" ]; then
-    echo "[OAT] [ERROR] Python 3.9+ is required but not found. Please install Python 3.9 or later."
+    echo "[OAT] [WARNING] Python 3.7+ is required but not found. Please install Python 3.7 or later."
     echo "[OAT] Skipping OAT check, continuing commit..."
     exit 0
 fi
@@ -52,11 +52,11 @@ fi
 # ---------------------------------------------------------------------------
 _OAT_OK=$("$_PYTHON" -c "import importlib.util; print('ok' if importlib.util.find_spec('oat') else 'missing')" 2>/dev/null || echo "missing")
 if [ "$_OAT_OK" != "ok" ]; then
-    echo "[OAT] oat-py not found. Installing oat-py>=1.0.0 ..."
-    "$_PYTHON" -m pip install --quiet "oat-py>=1.0.0"
+    echo "[OAT] oat-py not found. Installing oat-py>=1.0.1 ..."
+    "$_PYTHON" -m pip install --quiet "oat-py>=1.0.1"
     _OAT_OK=$("$_PYTHON" -c "import importlib.util; print('ok' if importlib.util.find_spec('oat') else 'missing')" 2>/dev/null || echo "missing")
     if [ "$_OAT_OK" != "ok" ]; then
-        echo "[OAT] [ERROR] Failed to install oat-py. Please run: pip install oat-py>=1.0.0"
+        echo "[OAT] [WARNING] Failed to install oat-py. Please run: pip install oat-py>=1.0.1"
         echo "[OAT] Skipping OAT check, continuing commit..."
         exit 0
     fi
@@ -158,7 +158,7 @@ set -e
 
 if [ "$_OAT_RC" -ne 0 ] && [ "$_OAT_RC" -ne 1 ]; then
     echo ""
-    echo "[OAT] [ERROR] oat exited with unexpected code $_OAT_RC."
+    echo "[OAT] [WARNING] oat exited with unexpected code $_OAT_RC."
     echo "[OAT] Try re-running manually:"
     echo "  $_OAT_CMD"
     echo "[OAT] Skipping OAT check, continuing commit..."
@@ -204,7 +204,7 @@ if [ ! -f "$REPORT_FILE" ]; then
         echo "[OAT] [OK] All checks passed ($FILE_COUNT file(s) checked)."
         exit 0
     else
-        echo "[OAT] [ERROR] Report not found: $REPORT_FILE"
+        echo "[OAT] [WARNING] Report not found: $REPORT_FILE"
         exit 1
     fi
 fi
