@@ -92,6 +92,12 @@ HcclResult ParseExecTimeout()
         return HCCL_E_PARA;
     }
 
+    if (execTimeOut == 0.0) {
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT is 0, use default.");
+        return HCCL_SUCCESS;
+    }
     g_algEnvConfig.execTimeOutSet = true;
     g_algEnvConfig.execTimeout = execTimeOut;
     return HCCL_SUCCESS;
