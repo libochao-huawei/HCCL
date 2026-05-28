@@ -111,7 +111,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0AlgoMesh1D(
     const TopoInfoWithNetLayerDetails *topoInfo, std::string &selectAlgName, const u64 dataSize) const
 {
     if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-        selectAlgName = "CcuAllGatherMesh2Die";
+        selectAlgName = "CcuAllGatherMesh2DieMem2Mem";
     } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
         HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
         return SelectorStatus::NOT_MATCH;
