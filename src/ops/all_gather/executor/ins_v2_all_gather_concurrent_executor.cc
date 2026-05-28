@@ -20,7 +20,7 @@
 
 #ifndef AICPU_COMPILE
 // CCU template 头文件
-#if !defined(HCCL_CANN_COMPAT_850) && !defined(HCCL_CANN_COMPAT_900)
+#if !HCCL_CANN_COMPAT_850 && !HCCL_CANN_COMPAT_900
 #include "ccu_temp_all_gather_mesh_1D.h"
 #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
