@@ -128,6 +128,13 @@ elseif(BUILD_OPEN_PROJECT)
     set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
     set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
     set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
+    # 查找依赖包
+    find_cann_package(msprof MODULE REQUIRED)
+    find_cann_package(securec MODULE REQUIRED)
+    find_cann_package(unified_dlog MODULE REQUIRED)
+    find_cann_package(mmpa MODULE REQUIRED)
+    find_cann_package(runtime MODULE REQUIRED)
+    find_cann_package(error_manager MODULE REQUIRED)
     # 检查构建依赖
     check_pkg_build_deps("hccl")
     add_version_info_targets()
