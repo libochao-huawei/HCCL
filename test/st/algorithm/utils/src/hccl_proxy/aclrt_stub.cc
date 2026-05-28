@@ -370,6 +370,46 @@ aclError aclrtGetOpTimeOutInterval(uint64_t *interval)
     return ACL_SUCCESS;
 }
 
+aclError aclrtGetTaskIdFromExceptionInfo(aclrtExceptionInfo *exceptionInfo, uint32_t *taskId)
+{
+    if (exceptionInfo == nullptr || taskId == nullptr) {
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    rtExceptionInfo_t *info = reinterpret_cast<rtExceptionInfo_t *>(exceptionInfo);
+    *taskId = info->taskid;
+    return ACL_SUCCESS;
+}
+
+aclError aclrtGetStreamIdFromExceptionInfo(aclrtExceptionInfo *exceptionInfo, uint32_t *streamId)
+{
+    if (exceptionInfo == nullptr || streamId == nullptr) {
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    rtExceptionInfo_t *info = reinterpret_cast<rtExceptionInfo_t *>(exceptionInfo);
+    *streamId = info->streamid;
+    return ACL_SUCCESS;
+}
+
+aclError aclrtGetDeviceIdFromExceptionInfo(aclrtExceptionInfo *exceptionInfo, uint32_t *deviceId)
+{
+    if (exceptionInfo == nullptr || deviceId == nullptr) {
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    rtExceptionInfo_t *info = reinterpret_cast<rtExceptionInfo_t *>(exceptionInfo);
+    *deviceId = info->deviceid;
+    return ACL_SUCCESS;
+}
+
+rtError_t rtGetTaskIdAndStreamID(rtExceptionInfo_t *exceptionInfo, uint32_t *taskId, uint32_t *streamId)
+{
+    if (exceptionInfo == nullptr || taskId == nullptr || streamId == nullptr) {
+        return RT_ERROR_INVALID_PARAM;
+    }
+    *taskId = exceptionInfo->taskid;
+    *streamId = exceptionInfo->streamid;
+    return RT_ERROR_NONE;
+}
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
