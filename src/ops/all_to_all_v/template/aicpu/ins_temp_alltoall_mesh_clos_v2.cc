@@ -269,6 +269,15 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
 
     }
 
+    // 本地拷贝 输入 到 输出
+    u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + myAlgRank * actualChunkSize;
+    u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff +  tempAlgParams_.sliceSize + myAlgRank * actualChunkSize;
+    
+    DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
+    DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, outputOffsetBase, actualChunkSize, chunkCount);
+
+    CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+
     return HCCL_SUCCESS;
 }
 

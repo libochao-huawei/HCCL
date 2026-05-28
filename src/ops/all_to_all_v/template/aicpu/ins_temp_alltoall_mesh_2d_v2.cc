@@ -160,17 +160,20 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
 {
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     const u64 totalSliceSize = tempAlgParams_.sliceSize;
-    const u64 perPeerChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+
+    const u64 actualChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+    const u64 chunkCount = actualChunkSize / dataTypeSize;
+
     HCCL_WARNING("[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMesh] Stride config: "
         "inputSliceStride=%llu outputSliceStride=%llu inBuffType=%d outBuffType=%d "
-        "inBuffBaseOff=%llu outBuffBaseOff=%llu outputSize=%llu perPeerChunk=%llu",
+        "inBuffBaseOff=%llu outBuffBaseOff=%llu outputSize=%llu actualChunkSize=%llu",
         tempAlgParams_.inputSliceStride, tempAlgParams_.outputSliceStride,
         static_cast<int>(tempAlgParams_.buffInfo.inBuffType),
         static_cast<int>(tempAlgParams_.buffInfo.outBuffType),
         tempAlgParams_.buffInfo.inBuffBaseOff,
         tempAlgParams_.buffInfo.outBuffBaseOff,
         tempAlgParams_.buffInfo.outputSize,
-        perPeerChunkSize);
+        actualChunkSize);
 
     const bool isPcie = IsPcieProtocol(channels);
     u32 myAlgRank = 0;
@@ -214,8 +217,6 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
         std::vector<DataSlice> rxDstSlicesAll;
         std::vector<DataSlice> rxSrcSlicesAll;
 
-        u64 actualChunkSize = perPeerChunkSize;
-        u64 chunkCount = actualChunkSize / dataTypeSize;
         u64 offsetInSlice = connectedAlgRank * perPeerChunkSize;
 
         const u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + tempAlgParams_.sliceSize;
@@ -282,6 +283,15 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
         }
     }
 
+    // 本地拷贝 输入 到 输出
+    u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + myAlgRank * actualChunkSize;
+    u64 outputOffsetBase = tempAlgParams_.buffInfo.hcclBuffBaseOff +  tempAlgParams_.sliceSize + myAlgRank * actualChunkSize;
+    
+    DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
+    DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, outputOffsetBase, actualChunkSize, chunkCount);
+
+    CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+
     for (u32 i = 0; i < failedRanks_.size(); i++) {
         if (failedRanks_[i]) {
             HCCL_ERROR("[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMesh] Failed rank[%u] detected. "
@@ -315,12 +325,18 @@ HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle
     for (u32 i = 0; i < xRankSize_; i++) {
         for (u32 j = 0; j < yRankSize_; j++) {
             u64 inputOffset = tempAlgParams_.buffInfo.inBuffBaseOff + inputStride * (i + j * xRankSize_);
-            u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (i * yRankSize_ + j);
+
+            u64 scratchOffset = 0;
+            if (tempAlgParams_.buffInfo.inBuffType == BufferType::INPUT && tempAlgParamsInter0.buffInfo.inBuffBaseOff != 0) {
+                scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (i + j * xRankSize_);
+            } else {
+                scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (i * yRankSize_ + j);
+            }
             
             DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, cellSize, cellCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize, cellCount);
 
-            LocalCopy(threads[0], srcSlice, dstSlice);
+            CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
         }
     }
     return HcclResult::HCCL_SUCCESS;
