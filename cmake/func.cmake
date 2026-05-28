@@ -7,7 +7,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
-
+set(ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/..")
 # =============================================================================
 # Function: pack_targets_and_files
 #
@@ -193,7 +193,7 @@ function(sign_file)
         if(${EXT} STREQUAL ".sh")
             set(sign_cmd bash ${SIGN_SCRIPT} ${output_sig} ${ARG_CONFIG} ${sign_flag})
         elseif(${EXT} STREQUAL ".py")
-            set(root_dir ${CMAKE_SOURCE_DIR})
+            set(root_dir ${ROOT_DIR})
             message(STATUS "Detected +++VERSION_INFO: ${VERSION_INFO}")
             set(sign_cmd python3 ${root_dir}/scripts/sign/add_header_sign.py ${signatures_dir} ${sign_flag} --bios_check_cfg=${ARG_CONFIG} --sign_script=${SIGN_SCRIPT} --version=${VERSION_INFO})
         endif()

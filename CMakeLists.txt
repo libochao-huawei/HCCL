@@ -10,38 +10,54 @@
 cmake_minimum_required(VERSION 3.16.0)
 option(BUILD_OPEN_PROJECT "Build open hccl project." ON)
 option(STATIC_MODE "Build static library mode." OFF)
-message(STATUS "KERNEL_MODE=${KERNEL_MODE}")
-message(STATUS "BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
+option(ENABLE_BUILD_DEVICE "Build hccl device project." OFF)
+option(ENABLE_BUILD_AARCH "Build hccl aarch project." OFF)
 message(STATUS "STATIC_MODE=${STATIC_MODE}")
-message(STATUS "AARCH_MODE=${AARCH_MODE}")
 
-if((BUILD_OPEN_PROJECT AND KERNEL_MODE) OR AARCH_MODE)
-    # need to switch
-    set(CMAKE_SYSTEM_NAME Linux)
-    set(CMAKE_SYSTEM_PROCESSOR aarch64)
-    #Change the path to the absolute path of the cross compilation tool after the toolkit package is decompressed
-    # set cross compile toolchain dir
-    set(TOOLCHAIN_DIR ${CUSTOM_ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/)
-    #Specify cross compiler
-    message(STATUS "TOOLCHAIN_DIR=${TOOLCHAIN_DIR}")
-    if (NOT "x${TOOLCHAIN_DIR}" STREQUAL "x")
-        if (NOT IS_DIRECTORY ${TOOLCHAIN_DIR})
-            message(FATAL_ERROR "specify cross compile toolchain directory(${TOOLCHAIN_DIR}) is not exist")
-        endif()
-    endif()
-    set(CMAKE_CXX_COMPILER ${TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++)
-    set(CMAKE_C_COMPILER   ${TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc)
+# 默认只编译 host 侧
+if(NOT DEFINED PRODUCT_SIDE)
+    set(PRODUCT_SIDE "host")
 endif()
 
+# 构建 Device 侧需设置 TOOLCHAIN_DIR 环境变量
+if(DEFINED ENV{TOOLCHAIN_DIR} AND ENABLE_BUILD_DEVICE)
+    set(ENABLE_DEVICE ON)
+else()
+    set(ENABLE_DEVICE OFF)
+endif()
+
+message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
+message(STATUS "CANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
+message(STATUS "PRODUCT_SIDE=${PRODUCT_SIDE}")
+message(STATUS "BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
+message(STATUS "ENABLE_BUILD_DEVICE=${ENABLE_BUILD_DEVICE}")
+message(STATUS "ENABLE_BUILD_AARCH=${ENABLE_BUILD_AARCH}")
+
+set(HCCL_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+
+set(HCC_TOOLCHAIN_DIR "${CUSTOM_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
+set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
+set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
+set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
+
+if(ENABLE_BUILD_AARCH)
+    message(STATUS "TOOLCHAIN_DIR=${HCC_TOOLCHAIN_DIR}")
+    set(CMAKE_SYSTEM_NAME Linux)
+    set(CMAKE_SYSTEM_PROCESSOR aarch64)
+    set(TOOLCHAIN_DIR      ${HCC_TOOLCHAIN_DIR})
+    set(CMAKE_CXX_COMPILER ${HCC_CXX_COMPILER})
+    set(CMAKE_C_COMPILER   ${HCC_C_COMPILER})
+endif()
 
 # 引入CANN/cmake库
 include(cmake/fetch_cann_cmake.cmake)
 
 project(hccl)
 
-# 引入CANN/cmake库，初始化
+# 初始化 CANN 项目配置
 init_cann_project()
 
+# 采用 C++14 标准
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_FLAGS_RELEASE "")
@@ -102,52 +118,55 @@ elseif(BUILD_OPEN_PROJECT)
     include(cmake/package.cmake)
     include(cmake/func.cmake)
     include(version.cmake)
-    if(ENABLE_OPEN_SRC)
-        check_pkg_build_deps("hccl")
-    endif()
+
+    # 依赖config.cmake中对ASCEND_CANN_PACKAGE_PATH定义
+    set(HCC_TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
+    set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
+    set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
+    set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
+    # 检查构建依赖
+    check_pkg_build_deps("hccl")
     add_version_info_targets()
+    # 配置打包
     pack_built_in()
+    # 添加子目录
     add_subdirectory(src)
 
-    if(DEVICE_MODE)
-        set(CCL_KERNEL_TAR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build_device/ccl_kernel_tar_pkg/)
-        if(KERNEL_MODE)
-            set(CCL_KERNEL_TAR_LIBS
-                ${CCL_KERNEL_TAR_DIR}/aicpu_kernels_device/libscatter_aicpu_kernel.so
-                ${CCL_KERNEL_TAR_DIR}/aicpu_kernels_device/libhccl_kernel_compat.so
-            )
-            pack_targets_and_files(
-                OUTPUT_TARGET "generate_device_aicpu_package"
-                OUTPUT "aicpu_hccl.tar.gz"
-                FILES ${CCL_KERNEL_TAR_LIBS}
-                MANIFEST "bin_hash.cfg"
-                TAR_ROOT_DIR "aicpu_kernels_device"
-            )
-            add_dependencies(generate_device_aicpu_package scatter_aicpu_kernel)
-            sign_file(
-                INPUT "aicpu_hccl.tar.gz"
-                CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sign/hccl_check_cfg.xml"
-                RESULT_VAR "aicpu_hccl_sign_file"
-                DEPENDS generate_device_aicpu_package
-            )
-            add_dependencies(sign_aicpu_hccl generate_device_aicpu_package)
-        endif()
-    endif()
+    # Device 侧编译构建
+    if(ENABLE_DEVICE)
+        set(HCCL_DEVICE_BUILD_PATH ${CMAKE_BINARY_DIR}/hccl_device)
 
-    if (NOT DEVICE_MODE)
-        message(STATUS "Detected INSTALL_LIBRARY_DIR: ${INSTALL_LIBRARY_DIR}")
-
-        set(BUILD_DEVICE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build_device/)
-        add_custom_target(install_tar DEPENDS
-            ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl.tar.gz
-            ${BUILD_DEVICE_DIR}/aicpu_custom/libscatter_aicpu_kernel.so
+        include(ExternalProject)
+        ExternalProject_Add(hccl_device
+            SOURCE_DIR ${HCCL_DIR}/cmake/device
+            BINARY_DIR ${HCCL_DEVICE_BUILD_PATH}
+            CMAKE_ARGS
+                -DTOOLCHAIN_DIR=${HCC_TOOLCHAIN_DIR}
+                -DCMAKE_TOOLCHAIN_FILE=${HCCL_DIR}/cmake/aarch64-hcc-toolchain.cmake
+                -DCMAKE_C_COMPILER=${HCC_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${HCC_CXX_COMPILER}
+                -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
+                -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
+                -DCMAKE_C_AR=${HCC_C_AR}
+                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                -DCMAKE_INSTALL_PREFIX=${HCCL_DEVICE_BUILD_PATH}/_install
+                -DASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH}
+                -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}
+                -DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}
+                -DENABLE_SIGN=${ENABLE_SIGN}
+                -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT}
+                -DVERSION_INFO=${VERSION_INFO}
+            BUILD_ALWAYS TRUE
         )
-        install(FILES ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl.tar.gz
-            DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR}/kernel
+
+        # 安装 device 侧编译产物（makeself.cmake 期望文件名 device-hccl.tar.gz）
+        install(FILES
+            ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
+            DESTINATION .
+            RENAME device-hccl.tar.gz
             OPTIONAL
             COMPONENT hccl
         )
-        add_dependencies(install_tar hccl)
     endif()
 
     set(HCCL_HEAD

@@ -176,11 +176,13 @@ endif ()
 set(HI_PYTHON                     "python3"                       CACHE   STRING   "python executor")
 
 message(STATUS "config.cmake KERNEL_MODE=${KERNEL_MODE} BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
-if(BUILD_OPEN_PROJECT AND KERNEL_MODE)
-    set(PRODUCT_SIDE                  device)
-else()
-    set(PRODUCT_SIDE                  host)
-endif()
+# 有可能会影响build_custom 和 build_static
+# 目前评判 默认为host侧 device侧需要构建会在子项目里自行更新参数
+set(PRODUCT_SIDE host)
+
+#Device 构建安装目录
+set(HCCL_DEVICE_BUILD_PATH ${CMAKE_BIN})
+
 set(INSTALL_LIBRARY_DIR ${CMAKE_SYSTEM_PROCESSOR}-linux/lib64)
 set(INSTALL_INCLUDE_DIR ${CMAKE_SYSTEM_PROCESSOR}-linux/include)
 set(INSTALL_AICPU_KERNEL_JSON_DIR opp/built-in/op_impl/aicpu)
