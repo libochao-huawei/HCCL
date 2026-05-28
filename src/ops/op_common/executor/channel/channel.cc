@@ -18,7 +18,9 @@
 #include "topo.h"
 #include "topo_host.h"
 #include "alg_env_config.h"
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_alg_template_base.h"
+#endif
 
 namespace ops_hccl {
 HcclResult CalcLevel0ChannelRequest(const OpParam& param, const TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo,
