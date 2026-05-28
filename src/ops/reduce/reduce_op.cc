@@ -104,7 +104,7 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
 
 namespace ops_hccl {
 // 除了错误都是公共的
-HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream) const
+HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr,
