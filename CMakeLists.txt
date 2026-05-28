@@ -14,6 +14,10 @@ option(ENABLE_BUILD_DEVICE "Build hccl device project." OFF)
 option(ENABLE_BUILD_AARCH "Build hccl aarch project." OFF)
 message(STATUS "STATIC_MODE=${STATIC_MODE}")
 
+if(STATIC_MODE)
+    set(ENABLE_BUILD_DEVICE ON)
+endif()
+
 # 默认只编译 host 侧
 if(NOT DEFINED PRODUCT_SIDE)
     set(PRODUCT_SIDE "host")
@@ -159,7 +163,7 @@ elseif(BUILD_OPEN_PROJECT)
             BUILD_ALWAYS TRUE
         )
 
-        # 安装 device 侧编译产物（makeself.cmake 期望文件名 device-hccl.tar.gz）
+        # 安装 device 侧编译产物
         install(FILES
             ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
             DESTINATION .
@@ -167,6 +171,10 @@ elseif(BUILD_OPEN_PROJECT)
             OPTIONAL
             COMPONENT hccl
         )
+    endif()
+
+    if(STATIC_MODE)
+        include(cmake/static_postprocess.cmake)
     endif()
 
     set(HCCL_HEAD
