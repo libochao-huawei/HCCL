@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #ifndef INS_TEMP_ALL_TO_ALL_V_MESH_1D_H
 #define INS_TEMP_ALL_TO_ALL_V_MESH_1D_H
@@ -48,11 +48,8 @@ public:
 private:
     HcclResult RunALLtoALL(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
-    HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
-        const u32 myRankCclBuffIdx, const u32 remoteRank, const u64 &sendSize,
-        const u64 &sendCount, const u64 &sendOffset) const;
-    HcclResult PreCopyByLoop(const std::vector<u32> &commRanks,
-        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
+    HcclResult PreCopy(const std::vector<u32> &commRanks, const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const std::vector<ThreadHandle> &threads,
         const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
         const u32 myRankCclBuffIdx, const u32 remoteRank, const u64 &recvSize,
@@ -63,18 +60,16 @@ private:
     u32 CalcCommLoops() const;
     void CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const;
     HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
-        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
-        const u32 roundIdx, const u32 commLoops);
-    HcclResult RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
+    HcclResult RunSendRecvByChannel(const TemplateDataParams &tempAlgParams,
         const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
-        const std::vector<ThreadHandle> &threads, const u32 commLoops) const;
+        const std::vector<ThreadHandle> &threads, u32 &queIdx) const;
     HcclResult RunSendRecv(const TemplateDataParams &tempAlgParams,
         const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
         const ThreadHandle& thread, const u32 channelId) const;
-    HcclResult PreSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
-        const std::vector<ThreadHandle> &subThreadsCurRank) const;
-    HcclResult PostSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
-        const std::vector<ThreadHandle> &subThreadsCurRank) const;
+    u32 GetColIdx(u32 rank) const;
+    std::vector<ChannelInfo> SelectChannel(u32 remoteRank,
+        const std::vector<ChannelInfo> &allChannels) const;
 
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
@@ -89,4 +84,4 @@ private:
 
 } // namespace Hccl
 
-#endif //INS_TEMP_ALL_TO_ALL_V_MESH_1D_H
+#endif
