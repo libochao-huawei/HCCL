@@ -884,12 +884,12 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     AlgResourceRequest resRequest;
     CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
 
+    // 参数一致性校验准备工作：HCCL_DFS_CONFIG 为 off 以及 HCCL_DFS_CONFIG 为 first 或空但非首算子时不校验，其他场景均校验
+    OpExchangeInfo exchangeInfo{};
+    std::string tagStr = param.algTag;
+    bool isChecked = GetInconsistentCheckSwitch() == 0 &&
+        (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
     if (HcommIsSupportHcclCommAddExchangeInfo()) {
-        // 参数一致性校验准备工作：HCCL_DFS_CONFIG 为 off 以及 HCCL_DFS_CONFIG 为 first 或空但非首算子时不校验，其他场景均校验
-        OpExchangeInfo exchangeInfo{};
-        std::string tagStr = param.algTag;
-        bool isChecked = GetInconsistentCheckSwitch() == 0 &&
-            (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
         if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
             isChecked = true; // isChecked 为 false 时做参数比较
         } else {
