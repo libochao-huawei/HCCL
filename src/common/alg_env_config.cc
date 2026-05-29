@@ -75,7 +75,7 @@ HcclResult ParseExecTimeout()
         return HCCL_SUCCESS;
     }
 
-    u32 timeoutSize
+    u32 timeoutSize = 2;
     if (!IsValidNumberFormat(execTimeOutEnv, timeoutSize)) {
         HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
             execTimeOutEnv.c_str());
