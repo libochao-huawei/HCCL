@@ -194,7 +194,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
         topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         const char *env = std::getenv("HCCL_ENABLE_A2A_ASYMMETRIC_OPT");
         if (env != nullptr && std::strcmp(env, "1") == 0) {
-            selectAlgName = "InsAlltoAllParallelMesh2DClosV3Opt";
+            selectAlgName = "InsAlltoAllParallelMesh2DClosV3";
             HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] A2A asymmetric opt enabled, selecting V3: %s",
                       selectAlgName.c_str());
             return SelectorStatus::MATCH;

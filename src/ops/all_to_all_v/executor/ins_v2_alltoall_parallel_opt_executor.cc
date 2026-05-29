@@ -486,7 +486,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 // UBX topology (8-card boards) — Mesh intra, Clos inter
 REGISTER_EXECUTOR_BY_TWO_TEMPS(
     HcclCMDType::HCCL_CMD_ALLTOALL,
-    InsAlltoAllParallelMesh2DClos3,
+    InsAlltoAllParallelMesh2DClosV3,
     InsV2AlltoAllParallelOptExecutor,
     TopoMatchUBX_V2,
     InsTempAlltoAllMesh2DV3,
