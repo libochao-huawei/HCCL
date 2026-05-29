@@ -120,6 +120,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS && std::string(param.algName) != "InsReduceScatterNHR") {
         algTemplate->SetchannelsPerRank(templateAlgRes.channels);
     }
+
     // 计算最小传输大小
     u64 maxDataSizePerLoop = 0;
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
