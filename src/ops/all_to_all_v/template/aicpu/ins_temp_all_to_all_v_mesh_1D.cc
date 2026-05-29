@@ -10,9 +10,33 @@
 
 #include "aicpu/ins_temp_all_to_all_v_mesh_1D.h"
 
+#include <string>
+
 #define NET_NUM 2
 
 namespace ops_hccl {
+namespace {
+constexpr u32 VMESH_2X2_RANK_NUM = 4;
+constexpr u32 VMESH_2X2_ROW_NUM = 2;
+constexpr u32 VMESH_2X2_COL_NUM = 2;
+constexpr u32 VMESH_4X4_RANK_NUM = 16;
+constexpr u32 VMESH_4X4_ROW_NUM = 4;
+constexpr u32 VMESH_4X4_COL_NUM = 4;
+
+std::string FormatRankList(const std::vector<u32> &ranks)
+{
+    std::string rankList = "[";
+    for (u32 index = 0; index < ranks.size(); index++) {
+        if (index != 0) {
+            rankList += ",";
+        }
+        rankList += std::to_string(ranks[index]);
+    }
+    rankList += "]";
+    return rankList;
+}
+} // namespace
+
 InsTempAlltoAllVMesh1D::InsTempAlltoAllVMesh1D(
     const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
     const std::vector<std::vector<u32>> &subCommRanks)
@@ -35,24 +59,40 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
         subCommRanks_ = {subCommRanks_[1]};
         templateRankSize_ = subCommRanks_[1].size();
     }
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] topoLevelNums[%u], level0Topo[%u], level0PcieMix[%u], "
+        "templateRankSize[%u], subCommRanksSize[%zu], subCommRanks0%s.",
+        topoInfo->topoLevelNums, static_cast<u32>(topoInfo->level0Topo), topoInfo->level0PcieMix,
+        templateRankSize_, subCommRanks_.size(), subCommRanks_.empty() ? "[]" : FormatRankList(subCommRanks_[0]).c_str());
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    CHK_RET(GetVmeshShape(rowNum, colNum));
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] vmesh shape rowNum[%u], colNum[%u].", rowNum, colNum);
 
     std::vector<HcclChannelDesc> level0Channels;
     if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         std::vector<HcclChannelDesc> myChannelDescs;
-        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, myChannelDescs));
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] raw channel count[%zu].", myChannelDescs.size());
         for(auto channel : myChannelDescs) {
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] raw channel remoteRank[%u], protocol[%u], "
+                "localPhyId[%u], remotePhyId[%u].",
+                channel.remoteRank, channel.channelProtocol, channel.localEndpoint.loc.device.devPhyId,
+                channel.remoteEndpoint.loc.device.devPhyId);
             if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
                 level0Channels.push_back(channel);
             }
         }
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] channel count after UBC_CTP filter[%zu].", level0Channels.size());
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D::CalcRes] Get Channel Success!");
     } else {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     }
     resourceRequest.channels.push_back(level0Channels);
-    if (std::string(param.algName) != "InsAlltoAllMesh1DSingleChannel") {
-        channelsPerRank_ = CalcChannelsPerRank(level0Channels);
+    for (const auto &channel : level0Channels) {
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] valid channel remoteRank[%u], protocol[%u], notifyNum[%u].",
+            channel.remoteRank, channel.channelProtocol, channel.notifyNum);
     }
+    channelsPerRank_ = CalcChannelsPerRank(level0Channels);
     HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] channelsPerRank_ is [%u]", channelsPerRank_);
     resourceRequest.slaveThreadNum = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1) * channelsPerRank_;
     for (u32 index = 0; index < resourceRequest.slaveThreadNum; index++) {
@@ -69,60 +109,115 @@ u64 InsTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
     (void) outBuffType;
     // 分组fullmesh，每轮最多通信maxConcurrentSize_个
     concurrentSendRecvNum_ = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1);
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcScratchMultiple] templateRankSize[%u], concurrentSendRecvNum[%u].",
+        templateRankSize_, concurrentSendRecvNum_);
     return concurrentSendRecvNum_;
 }
 
-void InsTempAlltoAllVMesh1D::CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize,
+HcclResult InsTempAlltoAllVMesh1D::CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize,
     std::vector<u32> &commRanks) const
 {
+    (void) remainRankSize;
     commRanks.clear();
-    u32 pairNumPerRound = (concurrentSendRecvNum_ + 1) / 2;
-    u32 pairSize = (remainRankSize < concurrentSendRecvNum_) ? (remainRankSize +  1) / 2: pairNumPerRound;
-    for (u32 i = roundIdx * pairNumPerRound + 1; i < (roundIdx * pairNumPerRound + pairSize + 1); i++) {
-        u32 leftRemoteRank = (myRank_ + templateRankSize_ - i) % templateRankSize_;
-        u32 rightRemoteRank = (myRank_ + i) % templateRankSize_;
-        if (leftRemoteRank == rightRemoteRank) {
-            commRanks.push_back(leftRemoteRank);
-            break;
-        } else {
-            commRanks.push_back(leftRemoteRank);
-            commRanks.push_back(rightRemoteRank);
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    CHK_RET(GetVmeshShape(rowNum, colNum));
+
+    u32 myRankIndex = 0;
+    CHK_RET(GetRankIndexInSubComm(myRank_, myRankIndex));
+    if (roundIdx >= rowNum) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCommRankSetForOneLoop] roundIdx[%u] is invalid, rowNum[%u].",
+            roundIdx, rowNum);
+        return HCCL_E_PARA;
+    }
+    u32 myRowIdx = myRankIndex / colNum;
+    u32 rowOffset = (roundIdx + 1) % rowNum;
+    u32 targetRowIdx = 0;
+    if ((myRowIdx % 2) == 1) {
+        targetRowIdx = (myRowIdx + rowOffset) % rowNum;
+    } else {
+        targetRowIdx = (myRowIdx + rowNum - rowOffset) % rowNum;
+    }
+    for (u32 targetColIdx = 0; targetColIdx < colNum; targetColIdx++) {
+        u32 remoteRankIndex = targetRowIdx * colNum + targetColIdx;
+        u32 remoteRank = subCommRanks_[0][remoteRankIndex];
+        if (remoteRank != myRank_) {
+            commRanks.push_back(remoteRank);
         }
     }
-    return;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcCommRankSetForOneLoop] roundIdx[%u], myRank[%u], "
+        "myRankIndex[%u], rowNum[%u], colNum[%u], myRowIdx[%u], rowOffset[%u], targetRowIdx[%u], commRanks%s.",
+        roundIdx, myRank_, myRankIndex, rowNum, colNum, myRowIdx, rowOffset, targetRowIdx,
+        FormatRankList(commRanks).c_str());
+    return HCCL_SUCCESS;
 }
 
-u32 InsTempAlltoAllVMesh1D::CalcCommLoops() const
+HcclResult InsTempAlltoAllVMesh1D::CalcCommLoops(u32 &commLoops) const
 {
-    u32 totalCommRankSize = templateRankSize_ - 1; // 除去本rank
-    return (totalCommRankSize + concurrentSendRecvNum_ - 1) / concurrentSendRecvNum_;
+    commLoops = 0;
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    CHK_RET(GetVmeshShape(rowNum, colNum));
+    commLoops = rowNum;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcCommLoops] rowNum[%u], colNum[%u], commLoops[%u].",
+        rowNum, colNum, commLoops);
+    return HCCL_SUCCESS;
 }
 
-void InsTempAlltoAllVMesh1D::CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const
+HcclResult InsTempAlltoAllVMesh1D::CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const
 {
-    u32 pairNum = (concurrentSendRecvNum_ + 1) / 2;
-    // 以myRank为基准，计算remoteRank相对于它的gapRight和gapLeft
-    // 反过来就是myRank相对于remoteRank的gapLeft和gapRight
-    u32 gapRight = (templateRankSize_ + remoteRank - myRank_) % templateRankSize_;
-    u32 gapLeft = (templateRankSize_ + myRank_ - remoteRank) % templateRankSize_;
-    if (gapLeft < gapRight) {
-        // remoteRank是myRank左边的rank，myRank是remoteRank右边的rank
-        u32 gap = gapLeft;
-        myRankCclBuffIdx = pairNum - 1 - ((gap - 1) % pairNum);
-        remoteCclBuffIdx = pairNum + ((gap - 1) % pairNum);
-    } else if (gapLeft > gapRight) {
-        // remoteRank是myRank右边的rank，myRank是remoteRank右边的rank
-        u32 gap = gapRight;
-        myRankCclBuffIdx = pairNum + ((gap - 1) % pairNum);
-        remoteCclBuffIdx = pairNum - 1 - ((gap - 1) % pairNum);
+    myRankCclBuffIdx = 0;
+    remoteCclBuffIdx = 0;
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    CHK_RET(GetVmeshShape(rowNum, colNum));
+
+    u32 myRankIndex = 0;
+    u32 remoteRankIndex = 0;
+    CHK_RET(GetRankIndexInSubComm(myRank_, myRankIndex));
+    CHK_RET(GetRankIndexInSubComm(remoteRank, remoteRankIndex));
+    if (myRankIndex == remoteRankIndex) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] myRank[%u] and remoteRank[%u] must be different.",
+            myRank_, remoteRank);
+        return HCCL_E_PARA;
+    }
+
+    u32 myRowIdx = myRankIndex / colNum;
+    u32 myColIdx = myRankIndex % colNum;
+    u32 remoteRowIdx = remoteRankIndex / colNum;
+    u32 remoteColIdx = remoteRankIndex % colNum;
+    if (myRowIdx == remoteRowIdx) {
+        u32 rowInnerIdx = remoteColIdx < myColIdx ? remoteColIdx : remoteColIdx - 1;
+        u32 remoteRowInnerIdx = myColIdx < remoteColIdx ? myColIdx : myColIdx - 1;
+        myRankCclBuffIdx = colNum * (rowNum - 1) + rowInnerIdx;
+        remoteCclBuffIdx = colNum * (rowNum - 1) + remoteRowInnerIdx;
     } else {
-        myRankCclBuffIdx = 0;
-        remoteCclBuffIdx = 0;
+        u32 myRowOffset = 0;
+        if ((myRowIdx % 2) == 1) {
+            myRowOffset = (remoteRowIdx + rowNum - myRowIdx) % rowNum;
+        } else {
+            myRowOffset = (myRowIdx + rowNum - remoteRowIdx) % rowNum;
+        }
+        u32 remoteRowOffset = 0;
+        if ((remoteRowIdx % 2) == 1) {
+            remoteRowOffset = (myRowIdx + rowNum - remoteRowIdx) % rowNum;
+        } else {
+            remoteRowOffset = (remoteRowIdx + rowNum - myRowIdx) % rowNum;
+        }
+        if (myRowOffset == 0 || remoteRowOffset == 0) {
+            HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] invalid row offset, myRowIdx[%u], "
+                "remoteRowIdx[%u], myRank[%u], remoteRank[%u].", myRowIdx, remoteRowIdx, myRank_, remoteRank);
+            return HCCL_E_PARA;
+        }
+        myRankCclBuffIdx = colNum * (myRowOffset - 1) + remoteColIdx;
+        remoteCclBuffIdx = colNum * (remoteRowOffset - 1) + myColIdx;
     }
     HCCL_DEBUG("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] For my rank[%u] and remote rank[%u], "\
-        "my ccl buff idx is [%u], remote ccl buff idx is [%u].",
-        myRank_, remoteRank, myRankCclBuffIdx, remoteCclBuffIdx);
-    return;
+        "my rank index[%u], remote rank index[%u], rowNum[%u], colNum[%u], my row[%u], my col[%u], "
+        "remote row[%u], remote col[%u], my ccl buff idx is [%u], remote ccl buff idx is [%u].",
+        myRank_, remoteRank, myRankIndex, remoteRankIndex, rowNum, colNum, myRowIdx, myColIdx, remoteRowIdx,
+        remoteColIdx, myRankCclBuffIdx, remoteCclBuffIdx);
+    return HCCL_SUCCESS;
 }
 
 HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
@@ -133,6 +228,24 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     threadNum_ = templateResource.threads.size();
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ = SIZE_TABLE[dataType_];
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] threadNum[%u], channelRemoteRankNum[%zu], "
+        "templateRankSize[%u], subCommRanks0%s.", threadNum_, templateResource.channels.size(), templateRankSize_,
+        subCommRanks_.empty() ? "[]" : FormatRankList(subCommRanks_[0]).c_str());
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    CHK_RET(GetVmeshShape(rowNum, colNum));
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] vmesh shape rowNum[%u], colNum[%u].", rowNum, colNum);
+    for (const auto &channelsByRank : templateResource.channels) {
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] remoteRank[%u], channelSize[%zu].",
+            channelsByRank.first, channelsByRank.second.size());
+        for (u32 channelIdx = 0; channelIdx < channelsByRank.second.size(); channelIdx++) {
+            const auto &channel = channelsByRank.second[channelIdx];
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] remoteRank[%u], channelIdx[%u], protocol[%u], "
+                "portGroupSize[%u], remoteCclAddr[%p], remoteCclSize[%llu].",
+                channelsByRank.first, channelIdx, channel.protocol, channel.portGroupSize,
+                channel.remoteCclMem.addr, channel.remoteCclMem.size);
+        }
+    }
 
     bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
     isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
@@ -145,9 +258,6 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     } else {
         HCCL_ERROR("[InsTempAlltoAllVMesh1D][KernelRun] subCommRanks_ or myRank_ is error.");
         return HCCL_E_INTERNAL;
-    }
-    if (std::string(param.algName) != "InsAlltoAllMesh1DSingleChannel") {
-        channelsPerRank_ = CalcChannelsPerRank(templateResource.channels); // 每个rank的channel数量的最大值
     }
     CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
 
@@ -178,8 +288,13 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     const TemplateDataParams &tempAlgParams, const u32 myAlgRank)
 {
     // 计算通信轮数
-    u32 commLoops = CalcCommLoops();
+    u32 commLoops = 0;
+    CHK_RET(CalcCommLoops(commLoops));
     u32 remainRankSize = templateRankSize_ - 1;
+    channelsPerRank_ = CalcChannelsPerRank(channels); // 每个rank的channel数量的最大值
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunALLtoALL] commLoops[%u], remainRankSize[%u], "
+        "channelsPerRank[%u], threadNum[%u], isDmaRead[%u].",
+        commLoops, remainRankSize, channelsPerRank_, threadNum_, isDmaRead_);
     std::vector<u32> commRanks;
 
     std::vector<ThreadHandle> subThreads;
@@ -190,7 +305,9 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         CHK_RET(PreSyncInterThreads(threads[0], subThreads, notifyIdxMainToSub_));
     }
     for (u32 roundIdx = 0; roundIdx < commLoops && remainRankSize > 0; roundIdx++) {
-        CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks); // 计算本轮通信rank
+        CHK_RET(CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks)); // 计算本轮通信rank
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunALLtoALL] round[%u] begin, commRanks%s, remainRankSize[%u].",
+            roundIdx, FormatRankList(commRanks).c_str(), remainRankSize);
         if (isDmaRead_) {
             if (roundIdx == 0) {
                 // 如果是read模式，第一轮做统一的前拷贝
@@ -236,15 +353,24 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
                 "does not exist in channels map!", remoteRank);
             return HCCL_E_PARA;
         }
-        const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
-        u32 curValidChannelsSize = std::min(static_cast<u32>(curChannels.size()), channelsPerRank_);
+        const std::vector<ChannelInfo> &allChannels = channels.at(remoteRank);
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] round[%u], rankIdx[%u], remoteRank[%u], "
+            "allChannelSize[%zu].", roundIdx, rankIdx, remoteRank, allChannels.size());
+        std::vector<ChannelInfo> curChannels;
+        CHK_RET(SelectChannel(remoteRank, allChannels, curChannels));
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] round[%u], remoteRank[%u], selectedChannelSize[%zu].",
+            roundIdx, remoteRank, curChannels.size());
         // send数据按照channel分片
         CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curChannels,
-            sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_, curValidChannelsSize));
+            sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_, static_cast<u32>(curChannels.size())));
         // recv数据按照channel分片
         CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.recvCounts[remoteRank], dataTypeSize_, curChannels,
-            recvCountsSplit_, recvSizeSplit_, recvOffsetSplit_, curValidChannelsSize));
-        CHK_RET(RunSendRecvByChannel(tempAlgParams, roundIdx, curValidChannelsSize, curChannels, remoteRank, threads, commLoops));
+            recvCountsSplit_, recvSizeSplit_, recvOffsetSplit_, static_cast<u32>(curChannels.size())));
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] remoteRank[%u], sendCount[%llu], recvCount[%llu], "
+            "sendSizeSplit0[%llu], recvSizeSplit0[%llu].", remoteRank, tempAlgParams.sendCounts[remoteRank],
+            tempAlgParams.recvCounts[remoteRank], sendSizeSplit_.empty() ? 0 : sendSizeSplit_[0],
+            recvSizeSplit_.empty() ? 0 : recvSizeSplit_[0]);
+        CHK_RET(RunSendRecvByChannel(tempAlgParams, roundIdx, curChannels, remoteRank, threads, commLoops));
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -271,26 +397,33 @@ HcclResult InsTempAlltoAllVMesh1D::PostSyncInterThreadsPerRank(const ThreadHandl
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx, const u32 curValidChannelsSize,
+HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
     const std::vector<ChannelInfo> &curChannels, const u32 remoteRank, const std::vector<ThreadHandle> &threads, const u32 commLoops) const
 {
     u32 myRankCclBuffIdx = 0; // myRank与remoteRank交互时myRank提供的cclbuffer index
     u32 remoteCclBuffIdx = 0; // myRank与remoteRank交互时remoteRank提供的cclbuffer index
-    CalcCclBuffIdx(remoteRank, myRankCclBuffIdx, remoteCclBuffIdx);
+    CHK_RET(CalcCclBuffIdx(remoteRank, myRankCclBuffIdx, remoteCclBuffIdx));
     u32 queIdx = myRankCclBuffIdx * channelsPerRank_ + 1;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByChannel] round[%u], remoteRank[%u], "
+        "myRankCclBuffIdx[%u], remoteCclBuffIdx[%u], channelsPerRank[%u], startQueIdx[%u], curChannelSize[%zu].",
+        roundIdx, remoteRank, myRankCclBuffIdx, remoteCclBuffIdx, channelsPerRank_, queIdx, curChannels.size());
     const ThreadHandle &mainThreadCurRank = threads[queIdx]; // 当前rank分配到的第一条流（rank内主流）
     std::vector<ThreadHandle> subThreadsCurRank; // 当前rank的rank内从流
-    if (curValidChannelsSize > 1 && roundIdx != 0) {
-        subThreadsCurRank.assign(threads.begin() + queIdx + 1, threads.begin() + queIdx + curValidChannelsSize);
+    if (curChannels.size() > 1 && roundIdx != 0) {
+        subThreadsCurRank.assign(threads.begin() + queIdx + 1, threads.begin() + queIdx + curChannels.size());
         PreSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank);
     }
-    for (u32 channelId = 0; channelId < curValidChannelsSize; channelId++) {
+    for (u32 channelId = 0; channelId < curChannels.size(); channelId++) {
         if (roundIdx != 0 && isDmaRead_ && sendSizeSplit_[channelId] > 0) {
             CHK_RET(static_cast<HcclResult>(PreCopy(tempAlgParams, threads[queIdx], myRankCclBuffIdx, remoteRank,
                 sendSizeSplit_[channelId], sendCountsSplit_[channelId], sendOffsetSplit_[channelId])));
         }
         const ChannelInfo &channelSend = curChannels[channelId]; // 发给哪个rank
         const ChannelInfo &channelRecv = curChannels[channelId]; // 收哪个rank的数据
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByChannel] remoteRank[%u], channelId[%u], "
+            "queIdx[%u], protocol[%u], portGroupSize[%u], sendSize[%llu], recvSize[%llu].",
+            remoteRank, channelId, queIdx, channelSend.protocol, channelSend.portGroupSize,
+            sendSizeSplit_[channelId], recvSizeSplit_[channelId]);
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
         std::vector<DataSlice> rxSrcSlices;
@@ -329,7 +462,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
         }
         queIdx++;
     }
-    if (curValidChannelsSize > 1 && roundIdx != commLoops - 1) {
+    if (curChannels.size() > 1 && roundIdx != commLoops - 1) {
         PostSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank);
     }
     return HcclResult::HCCL_SUCCESS;
@@ -376,7 +509,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecv(const TemplateDataParams &tempAlg
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAlltoAllVMesh1D::PreCopyByLoop(const std::vector<u32> &commRanks, 
+HcclResult InsTempAlltoAllVMesh1D::PreCopyByLoop(const std::vector<u32> &commRanks,
     const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
     const TemplateDataParams &tempAlgParams, const u32 myAlgRank)
 {
@@ -384,19 +517,27 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopyByLoop(const std::vector<u32> &commRan
         u32 remoteRank = commRanks[rankIdx];
         u32 myRankCclBuffIdx = 0; // myRank与remoteRank交互时myRank提供的cclbuffer index
         u32 remoteCclBuffIdx = 0; // myRank与remoteRank交互时remoteRank提供的cclbuffer index
-        CalcCclBuffIdx(remoteRank, myRankCclBuffIdx, remoteCclBuffIdx);
+        CHK_RET(CalcCclBuffIdx(remoteRank, myRankCclBuffIdx, remoteCclBuffIdx));
         u32 queIdx = myRankCclBuffIdx * channelsPerRank_ + 1;
         if (channels.find(remoteRank) == channels.end()) {
             HCCL_ERROR("[InsTempAlltoAllVMesh1D][PreCopy] remoteRank[%u] does not exist in channels map!",
                 remoteRank);
             return HCCL_E_PARA;
         }
-        const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
-        u32 curValidChannelsSize = std::min(static_cast<u32>(curChannels.size()), channelsPerRank_);
+        const std::vector<ChannelInfo> &allChannels = channels.at(remoteRank);
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][PreCopyByLoop] rankIdx[%u], remoteRank[%u], allChannelSize[%zu], "
+            "myRankCclBuffIdx[%u], remoteCclBuffIdx[%u], startQueIdx[%u].",
+            rankIdx, remoteRank, allChannels.size(), myRankCclBuffIdx, remoteCclBuffIdx, queIdx);
+        std::vector<ChannelInfo> curChannels;
+        CHK_RET(SelectChannel(remoteRank, allChannels, curChannels));
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][PreCopyByLoop] remoteRank[%u], selectedChannelSize[%zu].",
+            remoteRank, curChannels.size());
         // send数据按照channel分片
         CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curChannels,
-            sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_, curValidChannelsSize));
-        for (u32 channelId = 0; channelId < curValidChannelsSize; channelId++) {
+            sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_, static_cast<u32>(curChannels.size())));
+        for (u32 channelId = 0; channelId < curChannels.size(); channelId++) {
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][PreCopyByLoop] remoteRank[%u], channelId[%u], queIdx[%u], "
+                "sendSize[%llu].", remoteRank, channelId, queIdx, sendSizeSplit_[channelId]);
             if (sendSizeSplit_[channelId] > 0) {
                 CHK_RET(static_cast<HcclResult>(PreCopy(tempAlgParams, threads[queIdx], myRankCclBuffIdx, remoteRank,
                     sendSizeSplit_[channelId], sendCountsSplit_[channelId], sendOffsetSplit_[channelId])));
@@ -456,5 +597,104 @@ void InsTempAlltoAllVMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSu
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx);
     }
+}
+
+HcclResult InsTempAlltoAllVMesh1D::GetVmeshShape(u32 &rowNum, u32 &colNum) const
+{
+    rowNum = 0;
+    colNum = 0;
+    if (subCommRanks_.size() != 1) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][GetVmeshShape] subCommRanksSize[%zu] is not 1.",
+            subCommRanks_.size());
+        return HCCL_E_PARA;
+    }
+    if (subCommRanks_[0].size() != templateRankSize_) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][GetVmeshShape] subCommRanks0Size[%zu] is not templateRankSize[%u].",
+            subCommRanks_[0].size(), templateRankSize_);
+        return HCCL_E_PARA;
+    }
+    if (templateRankSize_ == VMESH_2X2_RANK_NUM) {
+        rowNum = VMESH_2X2_ROW_NUM;
+        colNum = VMESH_2X2_COL_NUM;
+        return HCCL_SUCCESS;
+    }
+    if (templateRankSize_ == VMESH_4X4_RANK_NUM) {
+        rowNum = VMESH_4X4_ROW_NUM;
+        colNum = VMESH_4X4_COL_NUM;
+        return HCCL_SUCCESS;
+    }
+    HCCL_ERROR("[InsTempAlltoAllVMesh1D][GetVmeshShape] unsupported templateRankSize[%u].", templateRankSize_);
+    return HCCL_E_PARA;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::GetRankIndexInSubComm(u32 rank, u32 &rankIndex) const
+{
+    if (subCommRanks_.empty()) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][GetRankIndexInSubComm] subCommRanks_ is empty.");
+        return HCCL_E_PARA;
+    }
+    auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), rank);
+    if (iter == subCommRanks_[0].end()) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][GetRankIndexInSubComm] rank[%u] is not in subCommRanks_[0].", rank);
+        return HCCL_E_PARA;
+    }
+    rankIndex = static_cast<u32>(std::distance(subCommRanks_[0].begin(), iter));
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::SelectChannel(u32 remoteRank, const std::vector<ChannelInfo> &allChannels,
+    std::vector<ChannelInfo> &selectedChannels) const
+{
+    selectedChannels.clear();
+    if (allChannels.empty()) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectChannel] channel is empty for remoteRank[%u].", remoteRank);
+        return HCCL_E_PARA;
+    }
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    CHK_RET(GetVmeshShape(rowNum, colNum));
+
+    u32 myRankIndex = 0;
+    u32 remoteRankIndex = 0;
+    CHK_RET(GetRankIndexInSubComm(myRank_, myRankIndex));
+    CHK_RET(GetRankIndexInSubComm(remoteRank, remoteRankIndex));
+
+    u32 myColIdx = myRankIndex % colNum;
+    u32 remoteColIdx = remoteRankIndex % colNum;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] myRank[%u], remoteRank[%u], myRankIndex[%u], "
+        "remoteRankIndex[%u], rowNum[%u], colNum[%u], myColIdx[%u], remoteColIdx[%u], allChannelSize[%zu].",
+        myRank_, remoteRank, myRankIndex, remoteRankIndex, rowNum, colNum, myColIdx, remoteColIdx,
+        allChannels.size());
+    if (myColIdx == remoteColIdx) {
+        for (u32 channelIdx = 0; channelIdx < allChannels.size(); channelIdx++) {
+            const auto &channel = allChannels[channelIdx];
+            if (channel.protocol == COMM_PROTOCOL_UBC_CTP) {
+                selectedChannels.push_back(channel);
+                HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] same column selects channelIdx[%u], protocol[%u].",
+                    channelIdx, channel.protocol);
+                return HCCL_SUCCESS;
+            }
+        }
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectChannel] no UBC_CTP channel for remoteRank[%u].", remoteRank);
+        return HCCL_E_PARA;
+    }
+
+    u32 colDistance = (remoteColIdx + colNum - myColIdx) % colNum;
+    if (colDistance == 0) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectChannel] invalid col distance, myColIdx[%u], "
+            "remoteColIdx[%u], remoteRank[%u].", myColIdx, remoteColIdx, remoteRank);
+        return HCCL_E_PARA;
+    }
+    u32 channelIndex = colDistance - 1;
+    if (channelIndex >= allChannels.size()) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectChannel] invalid channel index[%u], channel size[%zu], "
+            "myColIdx[%u], remoteColIdx[%u], remoteRank[%u].",
+            channelIndex, allChannels.size(), myColIdx, remoteColIdx, remoteRank);
+        return HCCL_E_PARA;
+    }
+    selectedChannels.push_back(allChannels[channelIndex]);
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] different column colDistance[%u], select channelIndex[%u], protocol[%u].",
+        colDistance, channelIndex, allChannels[channelIndex].protocol);
+    return HCCL_SUCCESS;
 }
 } // namespace Hccl

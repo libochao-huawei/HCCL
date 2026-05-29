@@ -59,14 +59,15 @@ private:
         const u64 &recvCount, const u64 &recvOffset) const;
     HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
-    void CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize, std::vector<u32> &commRanks) const;
-    u32 CalcCommLoops() const;
-    void CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const;
+    HcclResult CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize,
+        std::vector<u32> &commRanks) const;
+    HcclResult CalcCommLoops(u32 &commLoops) const;
+    HcclResult CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const;
     HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
         const u32 roundIdx, const u32 commLoops);
     HcclResult RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
-        const u32 curValidChannelsSize, const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
+        const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
         const std::vector<ThreadHandle> &threads, const u32 commLoops) const;
     HcclResult RunSendRecv(const TemplateDataParams &tempAlgParams,
         const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
@@ -75,6 +76,10 @@ private:
         const std::vector<ThreadHandle> &subThreadsCurRank) const;
     HcclResult PostSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
         const std::vector<ThreadHandle> &subThreadsCurRank) const;
+    HcclResult GetVmeshShape(u32 &rowNum, u32 &colNum) const;
+    HcclResult GetRankIndexInSubComm(u32 rank, u32 &rankIndex) const;
+    HcclResult SelectChannel(u32 remoteRank, const std::vector<ChannelInfo> &allChannels,
+        std::vector<ChannelInfo> &selectedChannels) const;
 
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
