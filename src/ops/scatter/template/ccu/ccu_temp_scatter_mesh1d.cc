@@ -10,6 +10,7 @@
 
 #include "channel.h"
 // #include "hccl_ccu_res.h"
+#include "ccu_launch.h"
 #include "ccu_kernel_scatter_mesh1d.h"
 #include "ccu_temp_scatter_mesh1d.h"
 #include "ccu_launch.h"
@@ -126,6 +127,8 @@ HcclResult CcuTempScatterMesh1D::KernelRun(const OpParam &param, const TemplateD
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t normalSliceSize = templateDataParams.sliceSize;
     uint64_t lastSliceSize = templateDataParams.tailSize;
+
+    uint64_t isInputOutputEqual = inputAddr == outputAddr ? 1 : 0;
     uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
 
     std::vector<uint64_t> taskArgs = {
@@ -154,6 +157,7 @@ HcclResult CcuTempScatterMesh1D::KernelRun(const OpParam &param, const TemplateD
     submitInfo.cachedArgs[7]=normalSliceSize;
     submitInfo.cachedArgs[8]=lastSliceSize;
     submitInfo.cachedArgs[9]=repeatNum;
+    submitInfo.cachedArgs[10]=isInputOutputEqual;
     templateResource.submitInfos.push_back(submitInfo);
 
     return HcclResult::HCCL_SUCCESS;
