@@ -73,10 +73,10 @@ HcclResult InsTempAllGatherNHRDPUInter::KernelRun(const OpParam& param, const Te
 
     DPURunInfo dpuRunInfo;
     dpuRunInfo.templateName = "InsTempAllGatherNHRDPUInter";
-    dpuRunInfo.tempAlgParams = tempAlgParams;
-    dpuRunInfo.channels = templateResource.channels;
     dpuRunInfo.myRank = myRank_;
+    dpuRunInfo.channels = templateResource.channels;
     dpuRunInfo.subCommRanks = subCommRanks_;
+    dpuRunInfo.tempAlgParams = tempAlgParams;
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
 
     u32 sendMsgId = 0;

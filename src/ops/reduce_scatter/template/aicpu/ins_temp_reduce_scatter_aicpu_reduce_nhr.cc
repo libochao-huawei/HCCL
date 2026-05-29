@@ -283,8 +283,8 @@ HcclResult InsTempReduceScatterAicpuReduceNHR::GetStepInfo(u32 step, u32 nSteps,
     u32 txSliceIdx = myAlgRank;
     u32 rxSliceIdx = (myAlgRank - (1 << (nSteps - 1 - step)) + templateRankSize_) % templateRankSize_;
 
-    stepInfo.toRank = sendTo;
     stepInfo.fromRank = recvFrom;
+    stepInfo.toRank = sendTo;
     stepInfo.nSlices = nSlices;
 
     for (u32 i = 0; i < nSlices; i++) {
