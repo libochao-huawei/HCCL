@@ -39,7 +39,7 @@ message(STATUS "ENABLE_BUILD_AARCH=${ENABLE_BUILD_AARCH}")
 
 set(HCCL_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-set(HCC_TOOLCHAIN_DIR "${ASCNED_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
+set(HCC_TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
 set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
 set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
 set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
@@ -122,6 +122,8 @@ elseif(BUILD_OPEN_PROJECT)
     include(cmake/package.cmake)
     include(cmake/func.cmake)
     include(version.cmake)
+
+    message(STATUS "IN BUILD_OPEN_PROJECT ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
     
     # 检查构建依赖
     check_pkg_build_deps("hccl")
