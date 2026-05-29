@@ -10,6 +10,7 @@
 
 #include "algo_selection_table.h"
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 
@@ -476,6 +477,132 @@ void TableBasedAlgoSelector::Initialize() {
         {"_execConfig", "HOSTCPU"}, {"_opType", "Recv"},
         {"_algo", "recv_device_dpu"}
     });
+}
+
+// ============================================================================
+// 字符串工具函数
+// ============================================================================
+
+std::string TableBasedAlgoSelector::Trim(const std::string& s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return "";
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
+}
+
+// ============================================================================
+// 规则块解析
+// ============================================================================
+
+RuleMap TableBasedAlgoSelector::ParseRuleBlock(const std::vector<std::string>& lines) {
+    RuleMap rule;
+    for (const auto& rawLine : lines) {
+        std::string line = Trim(rawLine);
+        // 跳过空行和注释行
+        if (line.empty() || line[0] == '#') continue;
+
+        // 解析 key = value 格式
+        size_t eqPos = line.find('=');
+        if (eqPos == std::string::npos) continue;
+
+        std::string key = Trim(line.substr(0, eqPos));
+        std::string value = Trim(line.substr(eqPos + 1));
+
+        if (!key.empty() && !value.empty()) {
+            rule[key] = value;
+        }
+    }
+    return rule;
+}
+
+// ============================================================================
+// 从字符串内容加载规则
+// ============================================================================
+
+int TableBasedAlgoSelector::LoadRulesFromString(const std::string& content) {
+    std::istringstream stream(content);
+    std::string line;
+    std::vector<std::string> block;
+    int count = 0;
+
+    while (std::getline(stream, line)) {
+        std::string trimmed = Trim(line);
+
+        // 遇到 [rule] 标记，开始新的规则块
+        if (trimmed == "[rule]") {
+            // 如果之前有未处理的块，先解析
+            if (!block.empty()) {
+                RuleMap rule = ParseRuleBlock(block);
+                if (!rule.empty() && rule.count("_algo") > 0) {
+                    PrependRule(rule);
+                    count++;
+                }
+                block.clear();
+            }
+            continue;
+        }
+
+        // 累积当前块的行
+        if (!trimmed.empty() || !block.empty()) {
+            block.push_back(line);
+        }
+    }
+
+    // 处理最后一个块
+    if (!block.empty()) {
+        RuleMap rule = ParseRuleBlock(block);
+        if (!rule.empty() && rule.count("_algo") > 0) {
+            PrependRule(rule);
+            count++;
+        }
+    }
+
+    return count;
+}
+
+// ============================================================================
+// 从外部文件加载规则
+// ============================================================================
+
+int TableBasedAlgoSelector::LoadRulesFromFile(const std::string& filePath) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "[AlgoSelector] Failed to open config file: " << filePath << std::endl;
+        return -1;
+    }
+
+    std::string content((std::istreambuf_iterator<char>(file)),
+                         std::istreambuf_iterator<char>());
+    file.close();
+
+    int count = LoadRulesFromString(content);
+    if (count > 0) {
+        std::cout << "[AlgoSelector] Loaded " << count
+                  << " external rules from: " << filePath << std::endl;
+    }
+    return count;
+}
+
+// ============================================================================
+// 初始化 + 加载外部配置
+// ============================================================================
+
+void TableBasedAlgoSelector::InitializeWithConfig(const std::string& configFilePath) {
+    // 1. 先加载默认规则
+    Initialize();
+
+    // 2. 如果提供了配置文件路径，加载外部规则（插入头部，优先匹配）
+    if (!configFilePath.empty()) {
+        LoadRulesFromFile(configFilePath);
+    }
+}
+
+// ============================================================================
+// 将规则插入到规则表头部
+// ============================================================================
+
+void TableBasedAlgoSelector::PrependRule(const RuleMap& rule) {
+    rules_.insert(rules_.begin(), rule);
 }
 
 } // namespace ops_hccl

@@ -156,7 +156,20 @@ class TableBasedAlgoSelector {
 public:
     TableBasedAlgoSelector() = default;
 
+    // 初始化默认规则表
     void Initialize();
+
+    // 初始化默认规则表 + 加载外部配置文件（外部规则优先）
+    // configFilePath: 外部配置文件路径，为空字符串时仅加载默认规则
+    void InitializeWithConfig(const std::string& configFilePath);
+
+    // 从外部 txt 文件加载规则
+    // 返回成功加载的规则数量，失败返回 -1
+    int LoadRulesFromFile(const std::string& filePath);
+
+    // 从字符串内容解析规则（用于测试或嵌入式场景）
+    int LoadRulesFromString(const std::string& content);
+
     std::optional<std::string> SelectAlgo(const AlgoSelectContext& ctx) const;
 
     // 直接操作规则表
@@ -164,11 +177,20 @@ public:
     const std::vector<RuleMap>& GetRules() const { return rules_; }
     void AddRule(const RuleMap& rule) { rules_.push_back(rule); }
 
+    // 将外部规则插入到规则表头部（优先级高于默认规则）
+    void PrependRule(const RuleMap& rule);
+
     void DumpTable() const;
 
 private:
     std::vector<RuleMap> rules_;
     bool MatchRule(const RuleMap& rule, const AlgoSelectContext& ctx) const;
+
+    // 解析单条规则的文本块为 RuleMap
+    static RuleMap ParseRuleBlock(const std::vector<std::string>& lines);
+
+    // 去除字符串首尾空白
+    static std::string Trim(const std::string& s);
 };
 
 } // namespace ops_hccl
