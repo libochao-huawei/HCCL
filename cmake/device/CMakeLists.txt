@@ -26,14 +26,6 @@ message(STATUS "CANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
 include(${HCCL_DIR}/cmake/config.cmake)
 include(${HCCL_DIR}/cmake/func.cmake)
 
-# 查找依赖包
-find_cann_package(msprof MODULE REQUIRED)
-find_cann_package(securec MODULE REQUIRED)
-find_cann_package(unified_dlog MODULE REQUIRED)
-find_cann_package(mmpa MODULE REQUIRED)
-find_cann_package(runtime MODULE REQUIRED)
-find_cann_package(error_manager MODULE REQUIRED)
-
 # 添加子目录
 add_cann_subdirectories_relative(${HCCL_DIR}
     ${HCCL_DIR}/src
@@ -56,13 +48,13 @@ add_dependencies(generate_device_aicpu_package scatter_aicpu_kernel)
 sign_file(
     INPUT "aicpu_hccl.tar.gz"
     CONFIG "${HCCL_DIR}/scripts/sign/hccl_check_cfg.xml"
-    RESULT_VAR "aicpu_hccl_signed_file"
+    RESULT_VAR "aicpu_hccl_sign_file"
     DEPENDS generate_device_aicpu_package
 )
 add_dependencies(sign_aicpu_hccl generate_device_aicpu_package)
 
 # 安装 aicpu_hccl.tar.gz
-install(FILES ${aicpu_hccl_signed_file}
+install(FILES ${aicpu_hccl_sign_file}
     DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR}/kernel 
     ${INSTALL_OPTIONAL}
     COMPONENT hccl
