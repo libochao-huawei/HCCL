@@ -259,14 +259,14 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, ReduceAicpuReduceNHR, ReduceSoleE
 
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, AivReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, AivTempReduceMesh1D);
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
 REGISTER_EXEC_V2(
     HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1DMem2Mem);
 #endif /* !HCCL_CANN_COMPAT_850 */
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1D);
 #endif /* !HCCL_CANN_COMPAT_850 */
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
 REGISTER_EXEC_V2(
     HcclCMDType::HCCL_CMD_REDUCE, CcuReduceNHR1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceNHR1DMem2Mem);
 #endif /* !HCCL_CANN_COMPAT_850 */
