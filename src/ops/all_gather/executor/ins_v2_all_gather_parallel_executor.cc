@@ -13,6 +13,7 @@
 #include "alg_data_trans_wrapper.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_mesh_clos_v2.h"
 #include "ins_temp_all_gather_hd.h"
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
@@ -287,6 +288,16 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
         intraLinkMap_ = remoteRankToChannelInfo_[0];
         interLinkMap_ = remoteRankToChannelInfo_[1];
+
+        // ========== 新增日志 ==========
+        HCCL_INFO("[Orchestrate] interLinkMap_ size=%zu", interLinkMap_.size());
+        for (auto &kv : interLinkMap_) {
+            HCCL_INFO("[Orchestrate] interLinkMap_ size=%zu", interLinkMap_.size());
+        }
+        for (auto &kv : interLinkMap_) {
+            HCCL_INFO("[Orchestrate] interLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
+        }
+        // ============================
     }
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
@@ -435,6 +446,12 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     TemplateDataParams tempAlgParamsInter1;
     TemplateDataParams tempAlgParamsIntra1;
 
+    // ========== 新增日志 ==========
+    HCCL_INFO("[OrchestrateLoop] interTempAlgRes.channels.size=%zu, interTempAlgRes.threads.size=%zu",
+            interTempAlgRes.channels.size(), interTempAlgRes.threads.size());
+    HCCL_INFO("[OrchestrateLoop] intraTempAlgRes.threads.size=%zu", intraTempAlgRes.threads.size());
+    // ============================
+
     if (param.engine == COMM_ENGINE_CCU) {
         intraTempAlgRes.ccuKernels.insert(intraTempAlgRes.ccuKernels.end(),
                                               resCtx.ccuKernels.begin(),
@@ -478,7 +495,12 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         // 数据1的server间的nhr算法
         GenTemplateAlgParamsInter1(param, resCtx, dataOffset1, currCountPart1, interScratchOffset,
                                    tempAlgParamsInter1);
+        // CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes));
+        // ========== Inter1 调用前 ==========
+        HCCL_INFO("[OrchestrateLoop] Before Inter1 KernelRun, loop=%u", loopIndex);
         CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes));
+        HCCL_INFO("[OrchestrateLoop] After Inter1 KernelRun");
+        // ===================================
         // 第一步做完后回到主流做尾同步
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
 
@@ -494,7 +516,12 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         // 数据0的server间的nhr算法
         GenTemplateAlgParamsInter0(param, resCtx, dataOffset0, currCountPart0, interScratchOffset,
                                    tempAlgParamsInter0);
+        // CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter0, interTempAlgRes));
+        // ========== Inter0 调用前 ==========
+        HCCL_INFO("[OrchestrateLoop] Before Inter0 KernelRun, loop=%u", loopIndex);
         CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter0, interTempAlgRes));
+        HCCL_INFO("[OrchestrateLoop] After Inter0 KernelRun");
+        // ===================================
         // 数据1的server内的mesh算法
         GenTemplateAlgParamsIntra1(param, resCtx, dataOffset1, currCountPart1, intraScratchOffset,
                                    tempAlgParamsIntra1);
@@ -625,5 +652,17 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherPara
 #endif /* !HCCL_CANN_COMPAT_850 */
 
 #endif
+
+#include "ins_temp_all_gather_mesh_clos_v2.h"
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosV2,
+                               InsV2AllGatherParallelExecutor, TopoMatchMultilevel,
+                               InsTempAllGatherMesh1D, InsTempAllGatherMeshClosV2);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosV2MultiJetty,
+                               InsV2AllGatherParallelExecutor, TopoMatchUBX,
+                               InsTempAllGatherMesh1D, InsTempAllGatherMeshClosV2);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosV2Pcie,
+                               InsV2AllGatherParallelExecutor, TopoMatchPcieMix,
+                               InsTempAllGatherMesh1D, InsTempAllGatherMeshClosV2);
 }
 // 算法注册

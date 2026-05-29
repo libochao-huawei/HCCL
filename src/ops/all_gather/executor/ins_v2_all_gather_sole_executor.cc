@@ -25,6 +25,7 @@
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 #include "topo_match_ubx.h"
+#include "ins_temp_all_gather_mesh_clos_v2.h"
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -297,4 +298,8 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherNHR1DMem2MemMultiJ
 #endif /* !HCCL_CANN_COMPAT_850 */
                  
 #endif
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherMeshClosV2, InsV2AllGatherSoleExecutor,
+                 TopoMatch1D, InsTempAllGatherMeshClosV2);
+
 }  // namespace ops_hccl

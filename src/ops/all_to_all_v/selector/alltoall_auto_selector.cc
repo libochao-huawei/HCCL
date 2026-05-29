@@ -11,6 +11,21 @@
 #include "alltoall_auto_selector.h"
 #include "selector_registry.h"
 #include "hccl_aiv_utils.h"
+#include <cstdlib>
+#include <cstring>
+
+namespace {
+
+bool IsAlltoAllClosMesh2DEnabled()
+{
+    const char *env = std::getenv("ENABLE_HCCL_ALLTOALL_CLOS_MESH_2D");
+    bool enabled = (env != nullptr && std::strcmp(env, "1") == 0);
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector] ENABLE_HCCL_ALLTOALL_CLOS_MESH_2D env=%s enabled=%d",
+              env == nullptr ? "(unset)" : env, enabled);
+    return enabled;
+}
+
+}  // namespace
 
 namespace ops_hccl {
 constexpr uint32_t INDEX_0 = 0;
@@ -41,7 +56,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
-    uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
+    uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllVDataDes.sendType];
     uint64_t* sendCountPtr = (uint64_t*)opParam.all2AllVDataDes.sendCounts;
     uint64_t sendCount = *sendCountPtr;
     uint64_t dataSize = sendCount * dataTypeSize * topoInfo->userRankSize;
@@ -72,8 +87,9 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
                     return SelectorStatus::NOT_MATCH;
                 }
             } else {
-                uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
-                uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
+                uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllVDataDes.sendType];
+                uint64_t* sendCountPtr = (uint64_t*)opParam.all2AllVDataDes.sendCounts;
+                uint64_t dataSize = (*sendCountPtr) * dataTypeSize;
                 bool isMeshNumEqualToClosNum = false;
                 CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
                     HCCL_DEBUG("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
@@ -100,6 +116,21 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
 {
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
+
+    if (IsAlltoAllClosMesh2DEnabled()) {
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector] ClosMesh2D enabled, attempting ClosMesh2D selection. "
+                  "level0Topo=%d level0PcieMix=%d topoLevelNums=%u userRankSize=%u",
+                  static_cast<int>(topoInfo->level0Topo),
+                  static_cast<int>(topoInfo->level0PcieMix),
+                  topoInfo->topoLevelNums, topoInfo->userRankSize);
+        SelectorStatus ret = SelectAicpuAlgoClosMesh2D(topoInfo, opParam, selectAlgName);
+        if (ret == SelectorStatus::MATCH) {
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector] ClosMesh2D matched: %s", selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        }
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector] ClosMesh2D NOT matched (status=%d), fallback to legacy.",
+                  static_cast<int>(ret));
+    }
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS ||
             topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
@@ -126,14 +157,15 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
             HCCL_INFO("[AlltoAllAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
             return SelectorStatus::MATCH;
         }
-        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
-        uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
+        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllVDataDes.sendType];
+        uint64_t* sendCountPtr = (uint64_t*)opParam.all2AllVDataDes.sendCounts;
+        uint64_t dataSize = (*sendCountPtr) * dataTypeSize;
         bool isMeshNumEqualToClosNum = false;
         CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
             HCCL_ERROR("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
             SelectorStatus::NOT_MATCH);
         if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT) &&
-            (opParam.all2AllDataDes.sendCount > BIG_DATA_SIZE_LIMIT)) {
+            (static_cast<u64>(*reinterpret_cast<uint64_t*>(opParam.all2AllVDataDes.sendCounts)) > BIG_DATA_SIZE_LIMIT)) {
             // 同一组4P且大数据量，不走并发
             selectAlgName = "InsAlltoAllMesh1DUBX";
         } else {
@@ -145,6 +177,41 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
     }
     HCCL_INFO("[AlltoAllAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
 
+    return SelectorStatus::MATCH;
+}
+
+SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
+    const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
+    std::string &selectAlgName) const
+{
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] Entry. level0Topo=%d level0PcieMix=%d "
+              "topoLevelNums=%u userRankSize=%u sendCount=%llu",
+              static_cast<int>(topoInfo->level0Topo),
+              static_cast<int>(topoInfo->level0PcieMix),
+              topoInfo->topoLevelNums, topoInfo->userRankSize,
+              opParam.all2AllDataDes.sendCount);
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS ||
+        topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        const char *env = std::getenv("HCCL_ENABLE_A2A_ASYMMETRIC_OPT");
+        if (env != nullptr && std::strcmp(env, "1") == 0) {
+            selectAlgName = "InsAlltoAllParallelMesh2DClosV3Opt";
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] A2A asymmetric opt enabled, selecting V3: %s",
+                      selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        }
+        selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] Selecting V2: %s", selectAlgName.c_str());
+    } else {
+        HCCL_ERROR("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] topo not match. "
+                   "level0Topo=%d (expected MESH_1D=%d, CLOS=%d, or MESH_1D_CLOS=%d)",
+                   static_cast<int>(topoInfo->level0Topo),
+                   static_cast<int>(Level0Shape::MESH_1D),
+                   static_cast<int>(Level0Shape::CLOS),
+                   static_cast<int>(Level0Shape::MESH_1D_CLOS));
+        return SelectorStatus::NOT_MATCH;
+    }
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] Algo match=%s topoLevelNums=%u",
+              selectAlgName.c_str(), topoInfo->topoLevelNums);
     return SelectorStatus::MATCH;
 }
 
