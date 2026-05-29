@@ -118,24 +118,54 @@ u32 InsTempAlltoAllVMesh1D::CalcCommLoops() const
 
 void InsTempAlltoAllVMesh1D::CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const
 {
-    u32 pairNum = (concurrentSendRecvNum_ + 1) / 2;
-    // 以myRank为基准，计算remoteRank相对于它的gapRight和gapLeft
-    // 反过来就是myRank相对于remoteRank的gapLeft和gapRight
-    u32 gapRight = (templateRankSize_ + remoteRank - myRank_) % templateRankSize_;
-    u32 gapLeft = (templateRankSize_ + myRank_ - remoteRank) % templateRankSize_;
-    if (gapLeft < gapRight) {
-        // remoteRank是myRank左边的rank，myRank是remoteRank右边的rank
-        u32 gap = gapLeft;
-        myRankCclBuffIdx = pairNum - 1 - ((gap - 1) % pairNum);
-        remoteCclBuffIdx = pairNum + ((gap - 1) % pairNum);
-    } else if (gapLeft > gapRight) {
-        // remoteRank是myRank右边的rank，myRank是remoteRank右边的rank
-        u32 gap = gapRight;
-        myRankCclBuffIdx = pairNum + ((gap - 1) % pairNum);
-        remoteCclBuffIdx = pairNum - 1 - ((gap - 1) % pairNum);
+    myRankCclBuffIdx = 0;
+    remoteCclBuffIdx = 0;
+    if (!IsVmesh4X4Mode()) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] only support 4x4 vmesh mode.");
+        return;
+    }
+
+    u32 myRankIndex = 0;
+    u32 remoteRankIndex = 0;
+    if (GetRankIndexInSubComm(myRank_, myRankIndex) != HCCL_SUCCESS ||
+        GetRankIndexInSubComm(remoteRank, remoteRankIndex) != HCCL_SUCCESS) {
+        return;
+    }
+    if (myRankIndex == remoteRankIndex) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] 本端rank[%u]和对端rank[%u]不能相同.",
+            myRank_, remoteRank);
+        return;
+    }
+
+    u32 myRowIdx = myRankIndex / VMESH_4X4_COL_NUM;
+    u32 myColIdx = myRankIndex % VMESH_4X4_COL_NUM;
+    u32 remoteRowIdx = remoteRankIndex / VMESH_4X4_COL_NUM;
+    u32 remoteColIdx = remoteRankIndex % VMESH_4X4_COL_NUM;
+    if (myRowIdx == remoteRowIdx) {
+        u32 rowInnerIdx = remoteColIdx < myColIdx ? remoteColIdx : remoteColIdx - 1;
+        u32 remoteRowInnerIdx = myColIdx < remoteColIdx ? myColIdx : myColIdx - 1;
+        myRankCclBuffIdx = VMESH_4X4_COL_NUM * (VMESH_4X4_ROW_NUM - 1) + rowInnerIdx;
+        remoteCclBuffIdx = VMESH_4X4_COL_NUM * (VMESH_4X4_ROW_NUM - 1) + remoteRowInnerIdx;
     } else {
-        myRankCclBuffIdx = 0;
-        remoteCclBuffIdx = 0;
+        u32 myRowOffset = 0;
+        if ((myRowIdx % 2) == 1) {
+            myRowOffset = (remoteRowIdx + VMESH_4X4_ROW_NUM - myRowIdx) % VMESH_4X4_ROW_NUM;
+        } else {
+            myRowOffset = (myRowIdx + VMESH_4X4_ROW_NUM - remoteRowIdx) % VMESH_4X4_ROW_NUM;
+        }
+        u32 remoteRowOffset = 0;
+        if ((remoteRowIdx % 2) == 1) {
+            remoteRowOffset = (myRowIdx + VMESH_4X4_ROW_NUM - remoteRowIdx) % VMESH_4X4_ROW_NUM;
+        } else {
+            remoteRowOffset = (remoteRowIdx + VMESH_4X4_ROW_NUM - myRowIdx) % VMESH_4X4_ROW_NUM;
+        }
+        if (myRowOffset == 0 || remoteRowOffset == 0) {
+            HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] invalid row offset, myRowIdx[%u], "
+                "remoteRowIdx[%u], myRank[%u], remoteRank[%u].", myRowIdx, remoteRowIdx, myRank_, remoteRank);
+            return;
+        }
+        myRankCclBuffIdx = VMESH_4X4_COL_NUM * (myRowOffset - 1) + remoteColIdx;
+        remoteCclBuffIdx = VMESH_4X4_COL_NUM * (remoteRowOffset - 1) + myColIdx;
     }
     HCCL_DEBUG("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] For my rank[%u] and remote rank[%u], "\
         "my ccl buff idx is [%u], remote ccl buff idx is [%u].",
