@@ -207,20 +207,6 @@ target_link_libraries(scatter_aicpu_kernel PRIVATE
 )
 add_dependencies(scatter_aicpu_kernel hccl_kernel_compat)
 
-if(STATIC_MODE)
-    install(TARGETS scatter_aicpu_kernel
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
-        ${INSTALL_OPTIONAL}
-        COMPONENT hccl
-    )
-else()
-    install(TARGETS scatter_aicpu_kernel
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
-        ${INSTALL_OPTIONAL}
-        COMPONENT hccl
-    )
-endif()
-
 set(CCL_KERNEL_TAR_DIR ${OPS_BASE_DIR}/build_device/ccl_kernel_tar_pkg/aicpu_kernels_device)
 add_custom_command(
     TARGET scatter_aicpu_kernel

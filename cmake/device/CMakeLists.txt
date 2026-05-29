@@ -26,6 +26,9 @@ message(STATUS "CANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
 include(${HCCL_DIR}/cmake/config.cmake)
 include(${HCCL_DIR}/cmake/func.cmake)
 
+# AIV kernel 已在 host 侧（ENABLE_BUILD_AARCH=ON）编译安装，device 侧跳过避免重复部署
+set(HCCL_CANN_COMPAT_850 ON)
+
 # 添加子目录
 add_cann_subdirectories_relative(${HCCL_DIR}
     ${HCCL_DIR}/src
