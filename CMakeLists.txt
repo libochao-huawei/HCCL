@@ -156,12 +156,10 @@ elseif(BUILD_OPEN_PROJECT)
             BUILD_ALWAYS TRUE
         )
 
-        # 安装 device 侧编译产物
+        # 安装 device 侧编译产物（CPack TGZ，内部已含正确路径结构）
         install(FILES
-            ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
+            ${HCCL_DEVICE_BUILD_PATH}/device-hccl.tar.gz
             DESTINATION .
-            RENAME device-hccl.tar.gz
-            OPTIONAL
             COMPONENT hccl
         )
     endif()
