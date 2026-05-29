@@ -118,9 +118,9 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     myRank_ = resCtx.topoInfo.userRank;
     rankSize_ = resCtx.topoInfo.userRankSize;
 
-    dataCount_ = param.DataDes.count;
     dataTypeSize_ =  SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
+    dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     reduceOp_ = param.reduceType;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;

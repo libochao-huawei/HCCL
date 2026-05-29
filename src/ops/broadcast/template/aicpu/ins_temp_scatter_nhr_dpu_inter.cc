@@ -130,7 +130,7 @@ HcclResult InsTempScatterNHRDPUInter::KernelRun(const OpParam& param, const Temp
     HCCL_INFO("[InsTempScatterNHRDPUInter] queNum_ =  [%d], threads size = [%d]", threadNum_, templateResource.threads.size());
     
     if (templateResource.threads.size() < 1) {
-        HCCL_ERROR("[InsTempScatterNHRDPUInte] Rank[%u], required thread error.", myRank_);
+        HCCL_ERROR("[InsTempScatterNHRDPUInter] Rank[%u], required thread error.", myRank_);
         return HCCL_E_INTERNAL;
     }
     
@@ -156,19 +156,19 @@ HcclResult InsTempScatterNHRDPUInter::KernelRun(const OpParam& param, const Temp
     u32 sendMsgId = 0;
     if (HcommSendRequest(reinterpret_cast<uint64_t>(templateResource.npu2DpuShmemPtr), param.algTag,
         static_cast<void*>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
-        HCCL_ERROR("HcommSendRequest failed");
+        HCCL_ERROR("[InsTempScatterNHRDPUInter] HcommSendRequest failed");
         return HCCL_E_INTERNAL;
     }
-    HCCL_INFO("HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
+    HCCL_INFO("[InsTempScatterNHRDPUInter] HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
 
     // 等待DPU数据传输，然后回写结果回来
     void *recvData = nullptr;
     u32 recvMsgId = 0;
     if (HcommWaitResponse(reinterpret_cast<uint64_t>(templateResource.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
-        HCCL_ERROR("HcommWaitResponse failed");
+        HCCL_ERROR("[InsTempScatterNHRDPUInter] HcommWaitResponse failed");
         return HCCL_E_INTERNAL;
     }
-    HCCL_INFO("HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
+    HCCL_INFO("[InsTempScatterNHRDPUInter] HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
 
     if (recvMsgId != sendMsgId) {
         HCCL_ERROR("recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
@@ -177,7 +177,7 @@ HcclResult InsTempScatterNHRDPUInter::KernelRun(const OpParam& param, const Temp
 
     // 将执行模式转换回到batch
     if (HcommBatchModeStart(param.algTag) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
+        HCCL_ERROR("[InsTempScatterNHRDPUInter] failed set eager mode, tag is %s.", param.algTag);
         return HCCL_E_INTERNAL;
     }
  

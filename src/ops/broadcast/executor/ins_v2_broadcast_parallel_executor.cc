@@ -221,7 +221,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     intraLocalRankSize_ = GetRankSize(temp0HierarchyInfo_);      
     interLocalRankSize_ = GetRankSize(temp1HierarchyInfo_);
     rankSize_ = intraLocalRankSize_ * interLocalRankSize_;
-    HCCL_INFO("[Orchestrate] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
+    HCCL_INFO("[InsBroadcastParallelExecutor][Orchestrate] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
               myRank_, intraLocalRankSize_, interLocalRankSize_, rankSize_);
 
     CHK_RET(CalcLocalRoot());
@@ -284,17 +284,17 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::PrepareResForTemplate(
     InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1)
 {
+    AlgResourceRequest intraTempRequest0;
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
-    AlgResourceRequest intraTempRequest0;
     tempAlgIntra.GetRes(intraTempRequest);
     tempAlgInter.GetRes(interTempRequest);
     tempAlgIntra1.GetRes(intraTempRequest0);
+    auto intraNotifyOnMainThread = intraTempRequest.notifyNumOnMainThread;
+    auto interNotifyOnMainThread = interTempRequest.notifyNumOnMainThread;
     auto intraThreadsNum = intraTempRequest.slaveThreadNum + 1;
     auto intraThreadsNum1 = intraTempRequest0.slaveThreadNum + 1;
     auto intraThreadsNumFinal = std::max(intraThreadsNum, intraThreadsNum1);
-    auto intraNotifyOnMainThread = intraTempRequest.notifyNumOnMainThread;
-    auto interNotifyOnMainThread = interTempRequest.notifyNumOnMainThread;
 
     intraThreads_.clear();
     intraThreads_.emplace_back(threads_[1]);

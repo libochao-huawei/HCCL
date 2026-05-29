@@ -1248,8 +1248,8 @@ OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
                         outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
                     }
                 }
-                stepSliceInfotmp.stepInputSliceStride.push_back(0);
                 stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+                stepSliceInfotmp.stepInputSliceStride.push_back(0);
                 stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
                 stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
                 stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
@@ -1263,10 +1263,10 @@ OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
             BuffInfoAssign(bitmp, 0, 0, 0);
             stepSliceInfotmp.buffInfo = bitmp;
             for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
-                std::vector<u64> sliceSizeMultRankPiece;
-                std::vector<u64> sliceCountMultRankPiece;
                 std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
                 std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
                 for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
                     u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + oneDid * xRankSize +
                                              xAxis;  // 算算是zRankSize-1中的哪一片
@@ -1289,8 +1289,8 @@ OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
                         }
                     }
                 }
-                stepSliceInfotmp.stepInputSliceStride.push_back(0);
                 stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+                stepSliceInfotmp.stepInputSliceStride.push_back(0);
                 stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
                 stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
                 stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
@@ -1598,10 +1598,10 @@ OmniPipeSliceInfo CalcRSOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
             BuffInfoAssign(bitmp, inOutOffset, inOutOffset, xCclBufferBaseOff);
             stepSliceInfotmp.buffInfo = bitmp;
             for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
-                std::vector<u64> sliceSizeMultRankPiece;
-                std::vector<u64> sliceCountMultRankPiece;
                 std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
                 std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
                 u64 outputslicestride = 0;
                 for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
                     u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + yAxis * xRankSize +

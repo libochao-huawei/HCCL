@@ -81,12 +81,12 @@ namespace ops_hccl
             // 转换成eager-mode，保障AICPU指令下发执行完成
             if (HcommBatchModeEnd(param.algTag) != HCCL_SUCCESS)
             {
-                HCCL_ERROR("[InsTempSendDpu]failed set eager mode, tag is %s.", param.algTag);
+                HCCL_ERROR("[InsTempSendDpu] failed set eager mode, tag is %s.", param.algTag);
                 return HCCL_E_INTERNAL;
             }
             if (HcommThreadSynchronize(thread_) != 0)
             {
-                HCCL_ERROR("[InsTempSendDpu]HcommThreadSynchronize failed");
+                HCCL_ERROR("[InsTempSendDpu] HcommThreadSynchronize failed");
                 return HCCL_E_INTERNAL;
             }
             DPURunInfo dpuRunInfo;
@@ -107,7 +107,7 @@ namespace ops_hccl
                 HCCL_ERROR("HcommSendRequest failed");
                 return HCCL_E_INTERNAL;
             }
-            HCCL_INFO("HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
+            HCCL_INFO("[InsTempSendDpu] HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
             // 等待DPU数据传输，然后回写结果回来
             void *recvData = nullptr;
             u32 recvMsgId = 0;
@@ -121,14 +121,14 @@ namespace ops_hccl
             // 将执行模式转换回到batch
             if (HcommBatchModeStart(param.algTag) != HCCL_SUCCESS)
             {
-                HCCL_ERROR("[InsTempSendDpu]failed set eager mode, tag is %s.", param.algTag);
+                HCCL_ERROR("[InsTempSendDpu] failed set eager mode, tag is %s.", param.algTag);
                 return HCCL_E_INTERNAL;
             }
-            HCCL_INFO("[InsTempSendDpu]HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
+            HCCL_INFO("[InsTempSendDpu] HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
 
             if (recvMsgId != sendMsgId)
             {
-                HCCL_ERROR("[InsTempSendDpu]recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
+                HCCL_ERROR("[InsTempSendDpu] recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
                 return HCCL_E_INTERNAL;
             }
             HCCL_INFO("[InsTempSendDpu] Run End");
