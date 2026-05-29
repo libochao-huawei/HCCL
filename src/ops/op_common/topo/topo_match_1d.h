@@ -26,7 +26,7 @@ public:
 
     std::string Describe() const override
     {
-        return "Topo Match for Mesh Algorithm (CURRENTLY only 910_95 is supported).";
+        return "Topo Match for Mesh1D Algorithm, supports 1-3 level topologies (CURRENTLY only 910_95 is supported).";
     }
 
     HcclResult MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfoExector) override;
