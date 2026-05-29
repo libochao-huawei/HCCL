@@ -51,6 +51,9 @@ HcclResult CalcChannelRequestMesh1DWithPriorityTopo(HcclComm comm, const OpParam
 HcclResult CalcChannelRequestMesh1DWithPriorityTopoClosV2(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
                                                     const std::vector<std::vector<u32>> &subcommInfo,
                                                     std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo);
+HcclResult CalcChannelRequestMesh1DWithPriorityTopoClosV3(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+                                                    const std::vector<std::vector<u32>> &subcommInfo,
+                                                    std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo);
 HcclResult CalcChannelRequestNHRWithPriorityTopo(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
                                                  const std::vector<std::vector<u32>> &subcommInfo,
                                                  std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo);
@@ -60,6 +63,9 @@ HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vect
 HcclResult ProcessLinksForChannelClosV2(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels,
                                   CommTopo priorityTopo);
 bool GetFixedLinkIdxForRankPairClosV2(u32 myRank, u32 rank, u32 &fixedIdx);
+HcclResult ProcessLinksForChannelClosV3(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels,
+                                  CommTopo priorityTopo);
+bool GetFixedLinkIdxForRankPairClosV3(u32 myRank, u32 rank, u32 &fixedIdx);
 HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols);
 HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
                         std::map<u32, u32>& rank2ChannelIdx, u32 myRank,

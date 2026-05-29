@@ -88,12 +88,6 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
     // UBX机型
     bool isMeshNumEqualToClosNum = false;
     bool isClosNumMultipleOfMeshNum = false;
-    bool isClosV2NumMultipleOfMeshNum = true;
-    if (GetExternalInputCcuSelectMode() == 1 || GetExternalInputCcuSelectMode() == 2) {
-        isClosV2NumMultipleOfMeshNum = true;
-    }else{
-        isClosV2NumMultipleOfMeshNum= false;
-    }
     CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
         HCCL_DEBUG("[AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
     CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
@@ -101,7 +95,9 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
     if (dataSize > SMALL_COUNT_512KB) {
         if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
             selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
-        } else if(isClosV2NumMultipleOfMeshNum) {
+        } else if(GetExternalInputCcuSelectMode() == 3 ) {
+            selectAlgName = "CcuAllGatherParallelMesh1DMem2MemClosV3";
+        } else if(GetExternalInputCcuSelectMode() == 1 || GetExternalInputCcuSelectMode() == 2) {
             selectAlgName = "CcuAllGatherParallelMesh1DMem2MemClosV2";
         } else if (isClosNumMultipleOfMeshNum) {
             selectAlgName = "CcuAllGatherParallelMesh1DNHRMemMultiJetty";

@@ -70,7 +70,7 @@ struct AlgEnvConfig {
         hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_DISABLE);// 确定性配置 0：不支持；1：支持确定性不支持规约保序；2：支持确定性&规约保序
         enableFfts = true;
         aicpuCacheEnable = 1; // 默认开启aicpu cache (只有当aicpuUnfold为true时才生效)
-        ccuSelectMode = 2; // 默认开启ccu new sched with channel selected模式
+        ccuSelectMode = 3; // 默认开启ccu new sched with channel selected模式
         aivOnlyMode = false;
         execTimeOutSet = false;
         execTimeout = 0;

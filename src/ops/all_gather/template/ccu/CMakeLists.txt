@@ -18,6 +18,7 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_2dies_mesh_1D.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_mesh_1D_mem2mem_clos_v2.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_mesh_1D_mem2mem_clos_v3.cc
 )
 
 target_sources(hccl PRIVATE
