@@ -10,6 +10,7 @@
 
 cmake_minimum_required(VERSION 3.14)
 
+set(PRODUCT_SIDE "device")
 set(HCCL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../" CACHE PATH "Project top directory")
 include(${HCCL_DIR}/cmake/fetch_cann_cmake.cmake)
 project(hccl_device)
@@ -25,7 +26,6 @@ message(STATUS "CANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
 include(${HCCL_DIR}/cmake/config.cmake)
 include(${HCCL_DIR}/cmake/func.cmake)
 
-set(PRODUCT_SIDE "device")
 # 查找依赖包
 find_cann_package(msprof MODULE REQUIRED)
 find_cann_package(securec MODULE REQUIRED)
@@ -55,9 +55,10 @@ sign_file(
     DEPENDS pack_aicpu_hccl
 )
 
-# 安装 aicpu_hcomm.tar.gz
+# 安装 aicpu_hccl.tar.gz
 install(FILES ${aicpu_hccl_signed_file}
-    DESTINATION ${INSTALL_CCL_KERNEL_JSON_DIR}/kernel ${INSTALL_OPTIONAL}
+    DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR}/kernel 
+    ${INSTALL_OPTIONAL}
     COMPONENT hccl
 )
 

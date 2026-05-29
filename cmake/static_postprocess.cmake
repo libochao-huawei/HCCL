@@ -1,3 +1,12 @@
+# ----------------------------------------------------------------------------
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# ----------------------------------------------------------------------------
 # 静态库后处理：嵌入AICPU与AIV内核
 set(_STATIC_POSTPROCESS_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
@@ -20,7 +29,7 @@ add_custom_command(
         -D_FINAL_STATIC_LIB=${HCCL_STATIC_FINAL_LIB}
         -P ${_STATIC_POSTPROCESS_DIR}/_static_repack.cmake
     DEPENDS hccl aiv_all_targets hccl_device
-    COMMENT "后处理：嵌入AICPU与AIV内核"
+    COMMENT "Post-processing: Embedding AICPU and AIV cores"
 )
 
 add_custom_target(hccl_static_final ALL DEPENDS ${HCCL_STATIC_FINAL_LIB})

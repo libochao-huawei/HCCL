@@ -22,7 +22,10 @@ endif()
 SET(HCCL_CMAKE_DIR ${OPS_BASE_DIR}/cmake/)
 message(STATUS "HCCL_CMAKE_DIR = ${HCCL_CMAKE_DIR}")
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
-    COMMAND ${HI_PYTHON} ${HCCL_CMAKE_DIR}/scripts/parser_ini.py ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/scatter_aicpu_kernel.ini ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
+    COMMAND ${HI_PYTHON}
+            ${HCCL_CMAKE_DIR}/scripts/parser_ini.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/scatter_aicpu_kernel.ini
+            ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 add_custom_target(aicpu_kernel_json DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json)
