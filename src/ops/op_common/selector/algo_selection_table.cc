@@ -605,4 +605,569 @@ void TableBasedAlgoSelector::PrependRule(const RuleMap& rule) {
     rules_.insert(rules_.begin(), rule);
 }
 
+// ============================================================================
+// ============================================================================
+//
+//  FastAlgoSelector 实现
+//  高速算法选择器：分桶 + 预解析 + 哈希查表
+//
+// ============================================================================
+// ============================================================================
+
+// ============================================================================
+// FastRule 匹配方法
+// ============================================================================
+
+bool FastRule::MatchDiscrete(const AlgoSelectContext& ctx) const {
+    // 拓扑层级
+    if (topoLevel.has_value()) {
+        if (topoLevel.value() == -1) {
+            if (ctx.topoLevelNums <= 1) return false;
+        } else {
+            if (ctx.topoLevelNums != static_cast<u32>(topoLevel.value())) return false;
+        }
+    }
+    // Level0 拓扑形状
+    if (level0Topo.has_value() && ctx.level0Topo != level0Topo.value()) return false;
+    // Level0 Mesh 类型
+    if (level0MeshType.has_value() && ctx.level0MeshType != level0MeshType.value()) return false;
+    // 布尔条件
+    if (level0PcieMix.has_value() && ctx.level0PcieMix != level0PcieMix.value()) return false;
+    if (is2DieFullMesh.has_value() && ctx.is2DieFullMesh != is2DieFullMesh.value()) return false;
+    if (level1Nhr.has_value() && ctx.level1Nhr != level1Nhr.value()) return false;
+    if (level0Nhr.has_value() && ctx.level0Nhr != level0Nhr.value()) return false;
+    if (meshEqClos.has_value() && ctx.meshNumEqualToClosNum != meshEqClos.value()) return false;
+    if (closMulMesh.has_value() && ctx.closNumMultipleOfMeshNum != closMulMesh.value()) return false;
+    // 本地网络实例数
+    if (localNetIns.has_value() && ctx.localNetInsSizeOfLayer0 != localNetIns.value()) return false;
+    // 归约操作
+    if (reduceOp.has_value() && ctx.reduceOp != reduceOp.value()) return false;
+    // 重叠
+    if (overlap.has_value() && ctx.isInputOutputOverlap != overlap.value()) return false;
+    // Host/Device 传输
+    if (hostToDevice.has_value() && ctx.isHostToDevice != hostToDevice.value()) return false;
+    if (deviceToHost.has_value() && ctx.isDeviceToHost != deviceToHost.value()) return false;
+    // 数据类型白名单
+    if (!dataTypes.empty()) {
+        bool found = false;
+        for (auto dt : dataTypes) {
+            if (ctx.dataType == dt) { found = true; break; }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
+bool FastRule::MatchFull(const AlgoSelectContext& ctx) const {
+    // 先做快速离散匹配
+    if (!MatchDiscrete(ctx)) return false;
+    // 再做范围匹配
+    if (hasRange) {
+        if (ctx.userRankSize < rankSizeMin || ctx.userRankSize > rankSizeMax) return false;
+        if (ctx.dataSize < dataSizeMin || ctx.dataSize >= dataSizeMax) return false;
+    }
+    return true;
+}
+
+// ============================================================================
+// 字符串解析辅助
+// ============================================================================
+
+static OpExecuteConfig StrToExecConfig(const std::string& s) {
+    if (s == "CCU_MS") return OpExecuteConfig::CCU_MS;
+    if (s == "CCU_SCHED") return OpExecuteConfig::CCU_SCHED;
+    if (s == "CCU_FAIL") return OpExecuteConfig::CCU_FAIL;
+    if (s == "AICPU_TS") return OpExecuteConfig::AICPU_TS;
+    if (s == "AIV") return OpExecuteConfig::AIV;
+    if (s == "AIV_ONLY") return OpExecuteConfig::AIV_ONLY;
+    if (s == "HOSTCPU") return OpExecuteConfig::HOSTCPU;
+    if (s == "HOSTCPU_TS") return OpExecuteConfig::HOSTCPU_TS;
+    return OpExecuteConfig::UNKNOWN;
+}
+
+static HcclCMDType StrToCmdType(const std::string& s) {
+    if (s == "AllReduce") return HcclCMDType::HCCL_CMD_ALLREDUCE;
+    if (s == "AllGather") return HcclCMDType::HCCL_CMD_ALLGATHER;
+    if (s == "AllGatherV") return HcclCMDType::HCCL_CMD_ALLGATHER_V;
+    if (s == "ReduceScatter") return HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
+    if (s == "ReduceScatterV") return HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V;
+    if (s == "Broadcast") return HcclCMDType::HCCL_CMD_BROADCAST;
+    if (s == "Reduce") return HcclCMDType::HCCL_CMD_REDUCE;
+    if (s == "Scatter") return HcclCMDType::HCCL_CMD_SCATTER;
+    if (s == "AlltoAll") return HcclCMDType::HCCL_CMD_ALLTOALL;
+    if (s == "AlltoAllV") return HcclCMDType::HCCL_CMD_ALLTOALLV;
+    if (s == "AlltoAllVC") return HcclCMDType::HCCL_CMD_ALLTOALLVC;
+    if (s == "Send") return HcclCMDType::HCCL_CMD_SEND;
+    if (s == "Recv") return HcclCMDType::HCCL_CMD_RECV;
+    if (s == "BatchSendRecv") return HcclCMDType::HCCL_CMD_BATCH_SEND_RECV;
+    return HcclCMDType::HCCL_CMD_UNKNOWN;
+}
+
+static Level0Shape StrToLevel0Shape(const std::string& s) {
+    if (s == "MESH_1D") return Level0Shape::MESH_1D;
+    if (s == "MESH_1D_CLOS") return Level0Shape::MESH_1D_CLOS;
+    if (s == "CLOS") return Level0Shape::CLOS;
+    return Level0Shape::UNKNOWN;
+}
+
+static Level0MeshType StrToLevel0MeshType(const std::string& s) {
+    if (s == "SINGLE_DIE") return Level0MeshType::SINGLE_DIE;
+    if (s == "TWO_DIE_REGULAR") return Level0MeshType::TWO_DIE_REGULAR;
+    if (s == "TWO_DIE_NOT_REGULAR") return Level0MeshType::TWO_DIE_NOT_REGULAR;
+    return Level0MeshType::UNKNOWN;
+}
+
+static HcclReduceOp StrToReduceOp(const std::string& s) {
+    if (s == "SUM") return HcclReduceOp::HCCL_REDUCE_SUM;
+    if (s == "PROD") return HcclReduceOp::HCCL_REDUCE_PROD;
+    if (s == "MAX") return HcclReduceOp::HCCL_REDUCE_MAX;
+    if (s == "MIN") return HcclReduceOp::HCCL_REDUCE_MIN;
+    return HcclReduceOp::HCCL_REDUCE_UNKNOWN;
+}
+
+static HcclDataType StrToDataType(const std::string& s) {
+    if (s == "INT8") return HcclDataType::HCCL_DATA_TYPE_INT8;
+    if (s == "INT32") return HcclDataType::HCCL_DATA_TYPE_INT32;
+    if (s == "FP16") return HcclDataType::HCCL_DATA_TYPE_FP16;
+    if (s == "BF16") return HcclDataType::HCCL_DATA_TYPE_BF16;
+    if (s == "FP32") return HcclDataType::HCCL_DATA_TYPE_FP32;
+    if (s == "INT64") return HcclDataType::HCCL_DATA_TYPE_INT64;
+    if (s == "UINT64") return HcclDataType::HCCL_DATA_TYPE_UINT64;
+    if (s == "FP64") return HcclDataType::HCCL_DATA_TYPE_FP64;
+    return HcclDataType::HCCL_DATA_TYPE_UNKNOWN;
+}
+
+// ============================================================================
+// FastAlgoSelector 静态工具方法
+// ============================================================================
+
+std::string FastAlgoSelector::Trim(const std::string& s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return "";
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
+}
+
+RuleMap FastAlgoSelector::ParseRuleBlock(const std::vector<std::string>& lines) {
+    RuleMap rule;
+    for (const auto& rawLine : lines) {
+        std::string line = Trim(rawLine);
+        if (line.empty() || line[0] == '#') continue;
+        size_t eqPos = line.find('=');
+        if (eqPos == std::string::npos) continue;
+        std::string key = Trim(line.substr(0, eqPos));
+        std::string value = Trim(line.substr(eqPos + 1));
+        if (!key.empty() && !value.empty()) {
+            rule[key] = value;
+        }
+    }
+    return rule;
+}
+
+// ============================================================================
+// 从 RuleMap 编译为 FastRule
+// ============================================================================
+
+FastRule FastAlgoSelector::CompileRule(const RuleMap& rule) {
+    FastRule fr;
+    fr.originalRule = rule;
+    fr.algo = GetVal(rule, "_algo");
+
+    // 拓扑层级
+    if (HasKey(rule, "_topoLevel")) {
+        std::string val = GetVal(rule, "_topoLevel");
+        fr.topoLevel = (val == "multi") ? -1 : static_cast<int>(std::stoul(val));
+    }
+    // Level0 拓扑
+    if (HasKey(rule, "_level0Topo")) {
+        fr.level0Topo = StrToLevel0Shape(GetVal(rule, "_level0Topo"));
+    }
+    // Level0 Mesh 类型
+    if (HasKey(rule, "_level0MeshType")) {
+        fr.level0MeshType = StrToLevel0MeshType(GetVal(rule, "_level0MeshType"));
+    }
+    // 布尔条件
+    if (HasKey(rule, "_level0PcieMix")) fr.level0PcieMix = GetBool(rule, "_level0PcieMix");
+    if (HasKey(rule, "_is2DieFullMesh")) fr.is2DieFullMesh = GetBool(rule, "_is2DieFullMesh");
+    if (HasKey(rule, "_level1Nhr")) fr.level1Nhr = GetBool(rule, "_level1Nhr");
+    if (HasKey(rule, "_level0Nhr")) fr.level0Nhr = GetBool(rule, "_level0Nhr");
+    if (HasKey(rule, "_meshEqClos")) fr.meshEqClos = GetBool(rule, "_meshEqClos");
+    if (HasKey(rule, "_closMulMesh")) fr.closMulMesh = GetBool(rule, "_closMulMesh");
+    if (HasKey(rule, "_overlap")) fr.overlap = GetBool(rule, "_overlap");
+    if (HasKey(rule, "_hostToDevice")) fr.hostToDevice = GetBool(rule, "_hostToDevice");
+    if (HasKey(rule, "_deviceToHost")) fr.deviceToHost = GetBool(rule, "_deviceToHost");
+    // 本地网络实例数
+    if (HasKey(rule, "_localNetIns")) fr.localNetIns = GetU32(rule, "_localNetIns");
+    // 归约操作
+    if (HasKey(rule, "_reduceOp")) fr.reduceOp = StrToReduceOp(GetVal(rule, "_reduceOp"));
+    // 数据类型白名单
+    if (HasKey(rule, "_dataTypes")) {
+        auto tokens = SplitStr(GetVal(rule, "_dataTypes"), ',');
+        for (auto& t : tokens) {
+            // 去除空格
+            size_t start = t.find_first_not_of(" ");
+            size_t end = t.find_last_not_of(" ");
+            if (start != std::string::npos) {
+                t = t.substr(start, end - start + 1);
+            }
+            auto dt = StrToDataType(t);
+            if (dt != HcclDataType::HCCL_DATA_TYPE_UNKNOWN) {
+                fr.dataTypes.push_back(dt);
+            }
+        }
+    }
+    // 范围条件
+    if (HasKey(rule, "_rankSizeMin")) { fr.rankSizeMin = GetU32(rule, "_rankSizeMin"); fr.hasRange = true; }
+    if (HasKey(rule, "_rankSizeMax")) { fr.rankSizeMax = GetU32(rule, "_rankSizeMax"); fr.hasRange = true; }
+    if (HasKey(rule, "_dataSizeMin")) { fr.dataSizeMin = GetU64(rule, "_dataSizeMin"); fr.hasRange = true; }
+    if (HasKey(rule, "_dataSizeMax")) { fr.dataSizeMax = GetU64(rule, "_dataSizeMax"); fr.hasRange = true; }
+
+    return fr;
+}
+
+// ============================================================================
+// composite key 构建
+// ============================================================================
+
+std::string FastAlgoSelector::BuildCompositeKey(const FastRule& rule) {
+    // 将规则中所有离散条件按固定顺序拼接为规范化字符串
+    // 格式: "key1=val1|key2=val2|..."
+    // 未设置的条件不参与 key 生成
+    std::string key;
+    auto append = [&](const std::string& k, const std::string& v) {
+        if (!key.empty()) key += "|";
+        key += k + "=" + v;
+    };
+
+    if (rule.topoLevel.has_value()) {
+        append("_topoLevel", rule.topoLevel.value() == -1 ? "multi" : std::to_string(rule.topoLevel.value()));
+    }
+    if (rule.level0Topo.has_value()) {
+        append("_level0Topo", Level0ShapeToStr(rule.level0Topo.value()));
+    }
+    if (rule.level0MeshType.has_value()) {
+        append("_level0MeshType", Level0MeshTypeToStr(rule.level0MeshType.value()));
+    }
+    if (rule.level0PcieMix.has_value()) {
+        append("_level0PcieMix", rule.level0PcieMix.value() ? "true" : "false");
+    }
+    if (rule.is2DieFullMesh.has_value()) {
+        append("_is2DieFullMesh", rule.is2DieFullMesh.value() ? "true" : "false");
+    }
+    if (rule.level1Nhr.has_value()) {
+        append("_level1Nhr", rule.level1Nhr.value() ? "true" : "false");
+    }
+    if (rule.level0Nhr.has_value()) {
+        append("_level0Nhr", rule.level0Nhr.value() ? "true" : "false");
+    }
+    if (rule.meshEqClos.has_value()) {
+        append("_meshEqClos", rule.meshEqClos.value() ? "true" : "false");
+    }
+    if (rule.closMulMesh.has_value()) {
+        append("_closMulMesh", rule.closMulMesh.value() ? "true" : "false");
+    }
+    if (rule.localNetIns.has_value()) {
+        append("_localNetIns", std::to_string(rule.localNetIns.value()));
+    }
+    if (rule.reduceOp.has_value()) {
+        append("_reduceOp", ReduceOpToStr(rule.reduceOp.value()));
+    }
+    if (rule.overlap.has_value()) {
+        append("_overlap", rule.overlap.value() ? "true" : "false");
+    }
+    if (rule.hostToDevice.has_value()) {
+        append("_hostToDevice", rule.hostToDevice.value() ? "true" : "false");
+    }
+    if (rule.deviceToHost.has_value()) {
+        append("_deviceToHost", rule.deviceToHost.value() ? "true" : "false");
+    }
+    if (!rule.dataTypes.empty()) {
+        std::string dtStr;
+        for (size_t i = 0; i < rule.dataTypes.size(); ++i) {
+            if (i > 0) dtStr += ",";
+            dtStr += DataTypeToStr(rule.dataTypes[i]);
+        }
+        append("_dataTypes", dtStr);
+    }
+    return key;
+}
+
+std::vector<std::string> FastAlgoSelector::GetDiscreteKeyNames(const RuleMap& rule) {
+    static const std::vector<std::string> allDiscreteKeys = {
+        "_topoLevel", "_level0Topo", "_level0MeshType", "_level0PcieMix",
+        "_is2DieFullMesh", "_level1Nhr", "_level0Nhr", "_meshEqClos", "_closMulMesh",
+        "_localNetIns", "_reduceOp", "_overlap", "_hostToDevice", "_deviceToHost",
+        "_dataTypes"
+    };
+    std::vector<std::string> result;
+    for (const auto& k : allDiscreteKeys) {
+        if (HasKey(rule, k)) {
+            result.push_back(k);
+        }
+    }
+    return result;
+}
+
+std::string FastAlgoSelector::BuildQueryKey(const AlgoSelectContext& ctx,
+                                             const std::vector<std::string>& keyNames) {
+    // 根据指定的 key 名称列表，从 ctx 中提取对应值，生成与 BuildCompositeKey 相同格式的查询字符串
+    std::string key;
+    auto append = [&](const std::string& k, const std::string& v) {
+        if (!key.empty()) key += "|";
+        key += k + "=" + v;
+    };
+
+    for (const auto& k : keyNames) {
+        if (k == "_topoLevel") {
+            append(k, ctx.topoLevelNums > 1 ? "multi" : std::to_string(ctx.topoLevelNums));
+        } else if (k == "_level0Topo") {
+            append(k, Level0ShapeToStr(ctx.level0Topo));
+        } else if (k == "_level0MeshType") {
+            append(k, Level0MeshTypeToStr(ctx.level0MeshType));
+        } else if (k == "_level0PcieMix") {
+            append(k, ctx.level0PcieMix ? "true" : "false");
+        } else if (k == "_is2DieFullMesh") {
+            append(k, ctx.is2DieFullMesh ? "true" : "false");
+        } else if (k == "_level1Nhr") {
+            append(k, ctx.level1Nhr ? "true" : "false");
+        } else if (k == "_level0Nhr") {
+            append(k, ctx.level0Nhr ? "true" : "false");
+        } else if (k == "_meshEqClos") {
+            append(k, ctx.meshNumEqualToClosNum ? "true" : "false");
+        } else if (k == "_closMulMesh") {
+            append(k, ctx.closNumMultipleOfMeshNum ? "true" : "false");
+        } else if (k == "_localNetIns") {
+            append(k, std::to_string(ctx.localNetInsSizeOfLayer0));
+        } else if (k == "_reduceOp") {
+            append(k, ReduceOpToStr(ctx.reduceOp));
+        } else if (k == "_overlap") {
+            append(k, ctx.isInputOutputOverlap ? "true" : "false");
+        } else if (k == "_hostToDevice") {
+            append(k, ctx.isHostToDevice ? "true" : "false");
+        } else if (k == "_deviceToHost") {
+            append(k, ctx.isDeviceToHost ? "true" : "false");
+        } else if (k == "_dataTypes") {
+            append(k, DataTypeToStr(ctx.dataType));
+        }
+    }
+    return key;
+}
+
+// ============================================================================
+// 将规则索引到对应的桶中
+// ============================================================================
+
+void FastAlgoSelector::IndexRule(const RuleMap& rule, bool prepend) {
+    std::string execStr = GetVal(rule, "_execConfig");
+    std::string opStr = GetVal(rule, "_opType");
+    if (execStr.empty() || opStr.empty() || !HasKey(rule, "_algo")) return;
+
+    BucketKey bk = {execStr, opStr};
+
+    // 编译规则
+    FastRule fr = CompileRule(rule);
+    fr.priority = nextPriority_++;
+    fr.compositeKey = BuildCompositeKey(fr);
+
+    // 存储到 fastRules_ 中（保证指针稳定性）
+    fastRules_.push_back(std::move(fr));
+    const FastRule* frPtr = &fastRules_.back();
+
+    auto& bucket = buckets_[bk];
+    if (!frPtr->hasRange) {
+        // 纯离散条件 → 放入 exactMap
+        if (prepend) {
+            // prepend 时直接覆盖已有相同 compositeKey 的规则（外部优先）
+            bucket.exactMap[frPtr->compositeKey] = frPtr;
+        } else {
+            // 非 prepend 时仅在不存在时插入
+            if (bucket.exactMap.find(frPtr->compositeKey) == bucket.exactMap.end()) {
+                bucket.exactMap[frPtr->compositeKey] = frPtr;
+            }
+        }
+    } else {
+        // 含范围条件 → 放入 rangeRules
+        bucket.rangeRules.push_back(frPtr);
+    }
+}
+
+// ============================================================================
+// SelectAlgo：O(1) 桶查找 + O(1) 哈希精确匹配 + O(k) 范围回退
+// ============================================================================
+
+std::optional<std::string> FastAlgoSelector::SelectAlgo(const AlgoSelectContext& ctx) const {
+    std::string execStr = ExecConfigToStr(ctx.execConfig);
+    std::string opStr = CmdTypeToStr(ctx.opType);
+    BucketKey bk = {execStr, opStr};
+
+    auto bucketIt = buckets_.find(bk);
+    if (bucketIt == buckets_.end()) {
+        return std::nullopt;
+    }
+
+    const auto& bucket = bucketIt->second;
+
+    // --- 第 1 层：exactMap 哈希精确匹配 ---
+    // 需要尝试桶内所有 exactMap 条目的 key 组合（因为规则可能使用不同子集的离散条件）
+    // 策略：遍历 exactMap，对每条规则用其自身的离散 key 集合构建查询 key
+    const FastRule* bestExact = nullptr;
+    int bestExactPriority = INT32_MAX;
+
+    for (const auto& [compositeKey, rulePtr] : bucket.exactMap) {
+        // 从规则的 originalRule 获取它使用的离散 key 名称
+        auto keyNames = GetDiscreteKeyNames(rulePtr->originalRule);
+        std::string queryKey = BuildQueryKey(ctx, keyNames);
+        if (queryKey == compositeKey && rulePtr->MatchDiscrete(ctx)) {
+            if (rulePtr->priority < bestExactPriority) {
+                bestExactPriority = rulePtr->priority;
+                bestExact = rulePtr;
+            }
+        }
+    }
+
+    // --- 第 2 层：rangeRules 顺序遍历 ---
+    const FastRule* bestRange = nullptr;
+    int bestRangePriority = INT32_MAX;
+
+    for (const auto* rulePtr : bucket.rangeRules) {
+        if (rulePtr->MatchFull(ctx)) {
+            if (rulePtr->priority < bestRangePriority) {
+                bestRangePriority = rulePtr->priority;
+                bestRange = rulePtr;
+            }
+        }
+    }
+
+    // 选择优先级最高的（priority 值最小的）
+    if (bestExact && bestRange) {
+        return (bestExactPriority <= bestRangePriority) ? bestExact->algo : bestRange->algo;
+    }
+    if (bestExact) return bestExact->algo;
+    if (bestRange) return bestRange->algo;
+
+    return std::nullopt;
+}
+
+// ============================================================================
+// Initialize：加载默认规则并构建索引
+// ============================================================================
+
+void FastAlgoSelector::Initialize() {
+    buckets_.clear();
+    fastRules_.clear();
+    originalRules_.clear();
+    nextPriority_ = 0;
+
+    // 复用 TableBasedAlgoSelector 的默认规则
+    TableBasedAlgoSelector base;
+    base.Initialize();
+    for (const auto& rule : base.GetRules()) {
+        IndexRule(rule, false);
+        originalRules_.push_back(rule);
+    }
+}
+
+// ============================================================================
+// InitializeWithConfig
+// ============================================================================
+
+void FastAlgoSelector::InitializeWithConfig(const std::string& configFilePath) {
+    Initialize();
+    if (!configFilePath.empty()) {
+        LoadRulesFromFile(configFilePath);
+    }
+}
+
+// ============================================================================
+// LoadRulesFromFile
+// ============================================================================
+
+int FastAlgoSelector::LoadRulesFromFile(const std::string& filePath) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "[FastAlgoSelector] Failed to open config file: " << filePath << std::endl;
+        return -1;
+    }
+    std::string content((std::istreambuf_iterator<char>(file)),
+                         std::istreambuf_iterator<char>());
+    file.close();
+    return LoadRulesFromString(content);
+}
+
+// ============================================================================
+// LoadRulesFromString
+// ============================================================================
+
+int FastAlgoSelector::LoadRulesFromString(const std::string& content) {
+    std::istringstream stream(content);
+    std::string line;
+    std::vector<std::string> block;
+    int count = 0;
+
+    while (std::getline(stream, line)) {
+        std::string trimmed = Trim(line);
+        if (trimmed == "[rule]") {
+            if (!block.empty()) {
+                RuleMap rule = ParseRuleBlock(block);
+                if (!rule.empty() && rule.count("_algo") > 0) {
+                    PrependRule(rule);
+                    count++;
+                }
+                block.clear();
+            }
+            continue;
+        }
+        if (!trimmed.empty() || !block.empty()) {
+            block.push_back(line);
+        }
+    }
+    if (!block.empty()) {
+        RuleMap rule = ParseRuleBlock(block);
+        if (!rule.empty() && rule.count("_algo") > 0) {
+            PrependRule(rule);
+            count++;
+        }
+    }
+    if (count > 0) {
+        std::cout << "[FastAlgoSelector] Loaded " << count << " external rules." << std::endl;
+    }
+    return count;
+}
+
+// ============================================================================
+// AddRule / PrependRule
+// ============================================================================
+
+void FastAlgoSelector::AddRule(const RuleMap& rule) {
+    IndexRule(rule, false);
+    originalRules_.push_back(rule);
+}
+
+void FastAlgoSelector::PrependRule(const RuleMap& rule) {
+    // 外部规则使用更低的 priority 值，确保优先匹配
+    IndexRule(rule, true);
+    originalRules_.insert(originalRules_.begin(), rule);
+}
+
+// ============================================================================
+// DumpTable
+// ============================================================================
+
+void FastAlgoSelector::DumpTable() const {
+    std::cout << "=== FastAlgoSelector (" << fastRules_.size() << " rules, "
+              << buckets_.size() << " buckets) ===" << std::endl;
+    for (const auto& [bk, bucket] : buckets_) {
+        std::cout << "Bucket [" << bk.first << " | " << bk.second << "]:" << std::endl;
+        std::cout << "  exact (" << bucket.exactMap.size() << "):" << std::endl;
+        for (const auto& [key, rulePtr] : bucket.exactMap) {
+            std::cout << "    P" << rulePtr->priority << " key=\""
+                      << (key.empty() ? "(empty)" : key) << "\" -> " << rulePtr->algo << std::endl;
+        }
+        std::cout << "  range (" << bucket.rangeRules.size() << "):" << std::endl;
+        for (const auto* rulePtr : bucket.rangeRules) {
+            std::cout << "    P" << rulePtr->priority << " -> " << rulePtr->algo << std::endl;
+        }
+    }
+}
+
 } // namespace ops_hccl
