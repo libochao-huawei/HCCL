@@ -164,7 +164,7 @@ elseif(BUILD_OPEN_PROJECT)
         install(FILES
             ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
             DESTINATION .
-            RENAME device_hccl.tar.gz
+            RENAME device-hccl.tar.gz
             OPTIONAL
             COMPONENT hccl
         )
