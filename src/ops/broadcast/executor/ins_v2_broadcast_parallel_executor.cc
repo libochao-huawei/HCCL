@@ -510,7 +510,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     CHK_PTR_NULL(param.outputPtr);
     CHK_PTR_NULL(resCtx.cclMem.addr);
 
-    multipleDimensionSplitRatio_ = param.opConfig.multipleDimensionSplitRatio;
+    multipleDimensionSplitRatio_ = param.multipleDimensionSplitRatio;
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
 
@@ -760,7 +760,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
 
-    multipleDimensionSplitRatio_ = param.opConfig.multipleDimensionSplitRatio;
+    multipleDimensionSplitRatio_ = param.multipleDimensionSplitRatio;
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
     dataCount_ = param.DataDes.count;
