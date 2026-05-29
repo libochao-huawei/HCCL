@@ -68,9 +68,9 @@ HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(const HcclComm comm,
     return HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
+HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(const HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
     const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
-    std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName)
+    std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName) const
 {
     protocolFound = false;
     for (auto expectedProtocol : expectedProtocols) {

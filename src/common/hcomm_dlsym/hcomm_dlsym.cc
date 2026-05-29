@@ -38,7 +38,8 @@ int GetHcommVersion(void) {
 
 bool HcommIsProfilingSupported()
 {
-    if (GetHcommVersion() >= 90000000) {
+    u32 versionCheck = 90000000;
+    if (GetHcommVersion() >= versionCheck) {
         return true;
     } else {
         return false;
@@ -47,7 +48,8 @@ bool HcommIsProfilingSupported()
 
 bool HcommIsExportThreadSupported()
 {
-    if (GetHcommVersion() >= 90000000 && HcommIsSupportHcclThreadExportToCommEngine()) {
+    u32 versionCheck = 90000000;
+    if (GetHcommVersion() >= versionCheck && HcommIsSupportHcclThreadExportToCommEngine()) {
         return true;
     } else {
         return false;

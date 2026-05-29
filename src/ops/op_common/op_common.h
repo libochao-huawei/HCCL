@@ -139,7 +139,7 @@ HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetL
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
                          std::string &algName);
 
-HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+HcclResult ReSelector(const HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
                          std::string &algName);
 
 HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
@@ -180,7 +180,7 @@ HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam);
 
 HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam);
 
-HcclResult HcclAllocAlgResourceAivGraphMode(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost);
+HcclResult HcclAllocAlgResourceAivGraphMode(const HcclComm comm, const OpParam &param, const AlgResourceRequest &resRequest, const AlgResourceCtxSerializable* resCtxHost);
 
 HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
 

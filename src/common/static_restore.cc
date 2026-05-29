@@ -455,7 +455,6 @@ static int compare_crc(const uint8_t* buffer, const void* expected_data,
                        size_t expected_size, uint32_t expected_crc) {
     uint32_t existing_crc = calc_crc32(buffer, expected_size);
     uint32_t computed_crc = (expected_crc != 0) ? expected_crc : calc_crc32(expected_data, expected_size);
-
     if (existing_crc != computed_crc) {
         HCCL_WARNING("Existing file CRC (0x%08X) differs from embedded (0x%08X), will overwrite",
                 existing_crc, computed_crc);

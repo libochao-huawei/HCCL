@@ -59,7 +59,7 @@ private:
     void GenDataParamsAllRank(const u64 sliceCount, const u32 LocalRankSize, TemplateDataParams &dataParams) const;
     HcclResult RunTemplateIntra0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                   const u64 currCountPart, const u64 scratchOffsetCount, TemplateDataParams &dataParams,
-                                  TemplateResource& templateResource, InsAlgTemplate0 &tempAlgInter) const;
+                                  TemplateResource& templateResource, InsAlgTemplate0 &tempAlgIntra) const;
     HcclResult RunTemplateInter1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                   const u64 currCountPart, const u64 scratchOffsetCount, TemplateDataParams &dataParams,
                                   TemplateResource& templateResource, InsAlgTemplate1 &tempAlgInter);

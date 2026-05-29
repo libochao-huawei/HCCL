@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_REDUCE_SCATTER_OMNIPIPE_MESH_1D_DPU_H
 #define INS_TEMP_REDUCE_SCATTER_OMNIPIPE_MESH_1D_DPU_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "alg_v2_template_register.h"
 #include "alg_param.h"
