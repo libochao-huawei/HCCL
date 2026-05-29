@@ -11,7 +11,7 @@
 #ifndef INS_TEMP_ALLTOALL_MESH_CLOS_V2_H
 #define INS_TEMP_ALLTOALL_MESH_CLOS_V2_H
 
-#include "ins_temp_alltoall_mesh_2d_v2.h"
+#include "ins_temp_alltoall_mesh_2d_v3.h"
 
 namespace ops_hccl {
 

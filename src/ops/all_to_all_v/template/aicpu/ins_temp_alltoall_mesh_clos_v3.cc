@@ -67,9 +67,9 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllMesh(
     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
     HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] Entry: rank=%d templateRankSize=%u totalLinks=%u "
-              "hierarchy: xRank=%u yRank=%u totalRank=%u myXRank=%u myYRank=%u sliceSize=%llu",
+              "hierarchy: xRank=%u yRank=%u totalRank=%u myRank_=%u sliceSize=%llu",
               myRank_, templateRankSize_, channelsPerRank_,
-              xRankSize_, yRankSize_, totalRankSize_, myXRank_, myYRank_,
+              meshSize_, closSize_, rankSize_, myRank_,,
               tempAlgParams_.sliceSize);
     if (templateRankSize_ <= 1) {
         return HCCL_SUCCESS;
@@ -274,7 +274,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
 }
 
 
-HcclResult InsTempAlltoAllMesh2DV3::LocalDataCopy(const std::vector<ThreadHandle> &threads)
+HcclResult InsTempAlltoAllMeshClosV3::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 {
     if (threads.empty()) {
         return HcclResult::HCCL_E_INTERNAL;
@@ -305,7 +305,7 @@ HcclResult InsTempAlltoAllMesh2DV3::LocalDataCopy(const std::vector<ThreadHandle
     if (meshDataOffset < rankSize_ / meshSize_ - 1) {
         u64 inputOffset = tempAlgParams_.buffInfo.inBuffBaseOff + cellSize * (meshDataOffset + meshSize_);
         u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (meshDataOffset + meshSize_);
-        u32 reamindCount = (rankSize_ / meshSize_ - 1 - meshDataOffset) * meshDadaOffset;
+        u32 reamindCount = (rankSize_ / meshSize_ - 1 - meshDataOffset) * meshDataOffset;
 
         DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, cellSize * reamindCount, cellCount * reamindCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * reamindCount, cellCount * reamindCount);
@@ -316,7 +316,7 @@ HcclResult InsTempAlltoAllMesh2DV3::LocalDataCopy(const std::vector<ThreadHandle
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAlltoAllMesh2DV3::PostLocalCopy(const std::vector<ThreadHandle> &threads)
+HcclResult InsTempAlltoAllMeshClosV3::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
     if (threads.empty()) {
         return HcclResult::HCCL_E_INTERNAL;
@@ -355,7 +355,7 @@ HcclResult InsTempAlltoAllMesh2DV3::PostLocalCopy(const std::vector<ThreadHandle
     if (meshDataOffset < rankSize_ / meshSize_ - 1) {
         u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (meshDataOffset + meshSize_);
         u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + cellSize * (meshDataOffset + meshSize_);
-        u32 reamindCount = (rankSize_ / meshSize_ - 1 - meshDataOffset) * meshDadaOffset;
+        u32 reamindCount = (rankSize_ / meshSize_ - 1 - meshDataOffset) * meshDataOffset;
 
         DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * reamindCount, cellCount * reamindCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize * reamindCount, cellCount * reamindCount);

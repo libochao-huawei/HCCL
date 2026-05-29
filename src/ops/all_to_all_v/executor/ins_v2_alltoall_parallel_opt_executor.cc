@@ -341,6 +341,9 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         return HcclResult::HCCL_E_INTERNAL;
     }
 
+    InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, intraHierarchyInfo_);
+    InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, interHierarchyInfo_);
+
     intraTempAlg.SetMeshDimensions(rankSizeLevel0_ + rankSizeLevel1_, myRank_, rankSizeLevel0_, rankSizeLevel1_);
     interTempAlg.SetMeshDimensions(rankSizeLevel0_ + rankSizeLevel1_, myRank_, rankSizeLevel0_, rankSizeLevel1_);
 

@@ -112,7 +112,7 @@ HcclResult InsTempAlltoAllMesh2DV3::KernelRun(const OpParam &param, const Templa
     dataType_ = param.all2AllVDataDes.sendType;
     HCCL_INFO("[InsTempAlltoAllMesh2DV3] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
 
-    const bool isPcie = IsPcieProtocol(channels);
+    const bool isPcie = IsPcieProtocol(templateResource.channels);
     if (isPcie) {
         // 远端读需要先把数据搬运到 hccl buffer内
         CHK_RET(LocalDataCopy(templateResource.threads));
