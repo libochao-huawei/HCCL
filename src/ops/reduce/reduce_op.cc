@@ -240,6 +240,8 @@ HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, Hc
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
     if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
+        HCCL_INFO("xjhlog HcclReduceInner");
+        HCCL_ERROR("xjhlog1 opExecuteConfig: {%d}", param.opExecuteConfig);
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
