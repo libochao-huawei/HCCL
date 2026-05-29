@@ -201,7 +201,7 @@ static std::map<HcclCMDType, std::pair<std::string, std::vector<AivKernelInfo>>>
     {HcclCMDType::HCCL_CMD_REDUCE_SCATTER, {g_reduceScatterAivBinaryName, g_reduceScatterAivKernelInfoList}},
     {HcclCMDType::HCCL_CMD_ALLGATHER, {g_allgatherAivBinaryName, g_allgatherAivKernelInfoList}},
     {HcclCMDType::HCCL_CMD_BROADCAST, {g_broadcastAivBinaryName, g_broadcastAivKernelInfoList}},
-    // {HcclCMDType::HCCL_CMD_ALLTOALL, {g_alltoallAivBinaryName, g_alltoallAivKernelInfoList}},
+    //{HcclCMDType::HCCL_CMD_ALLTOALL, {g_alltoallAivBinaryName, g_alltoallAivKernelInfoList}},
     //{HcclCMDType::HCCL_CMD_ALLTOALLV, {g_alltoallvAivBinaryName, g_alltoallvAivKernelInfoList}},
     {HcclCMDType::HCCL_CMD_SCATTER, {g_scatterAivBinaryName, g_scatterAivKernelInfoList}},
     {HcclCMDType::HCCL_CMD_REDUCE, {g_reduceAivBinaryName, g_reduceAivKernelInfoList}},
