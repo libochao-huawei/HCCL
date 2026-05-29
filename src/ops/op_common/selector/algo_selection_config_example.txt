@@ -1,0 +1,123 @@
+# ============================================================================
+# HCCL 算法选择外部配置文件
+#
+# 格式说明：
+#   - 每条规则以 [rule] 标记开始
+#   - 每条规则内的条件以 key = value 格式书写，每行一个条件
+#   - 以 # 开头的行为注释，空行会被忽略
+#   - 外部规则优先级高于内置默认规则（会插入到规则表头部）
+#
+# 支持的条件 key：
+#   _execConfig    (必填): CCU_MS / CCU_SCHED / CCU_FAIL / AICPU_TS / AIV / AIV_ONLY / HOSTCPU / HOSTCPU_TS
+#   _opType        (必填): AllReduce / AllGather / AllGatherV / ReduceScatter / ReduceScatterV /
+#                          Broadcast / Reduce / Scatter / AlltoAll / AlltoAllV / AlltoAllVC /
+#                          Send / Recv / BatchSendRecv
+#   _topoLevel     (可选): 1 / 2 / multi
+#   _level0Topo    (可选): MESH_1D / CLOS / MESH_1D_CLOS
+#   _level0MeshType(可选): SINGLE_DIE / TWO_DIE_REGULAR / TWO_DIE_NOT_REGULAR
+#   _level0PcieMix (可选): true / false
+#   _is2DieFullMesh(可选): true / false
+#   _level1Nhr     (可选): true / false
+#   _level0Nhr     (可选): true / false
+#   _meshEqClos    (可选): true / false
+#   _closMulMesh   (可选): true / false
+#   _localNetIns   (可选): <数字>
+#   _rankSizeMin   (可选): <数字>  (userRankSize >= 此值)
+#   _rankSizeMax   (可选): <数字>  (userRankSize <= 此值)
+#   _dataSizeMin   (可选): <字节数> (dataSize >= 此值)
+#   _dataSizeMax   (可选): <字节数> (dataSize < 此值, 半开区间)
+#   _dataTypes     (可选): 逗号分隔列表, 如 INT64,UINT64,FP64
+#   _reduceOp      (可选): SUM / PROD / MAX / MIN
+#   _overlap       (可选): true / false
+#   _hostToDevice  (可选): true / false
+#   _deviceToHost  (可选): true / false
+#   _algo          (必填): 匹配成功后使用的算法名称
+#
+# 匹配逻辑：
+#   - 一条规则中所有条件必须全部满足 (AND)
+#   - 规则按文件中的书写顺序排列，先写的优先匹配
+#   - 外部规则整体优先于内置默认规则
+# ============================================================================
+
+
+# --- 示例 1: 覆盖 AICPU_TS 模式下 AllReduce 的默认算法 ---
+# 场景: 当 rankSize 在 1~4 之间且数据量小于 128KB 时，使用优化的小包算法
+[rule]
+_execConfig = AICPU_TS
+_opType = AllReduce
+_rankSizeMin = 1
+_rankSizeMax = 4
+_dataSizeMax = 131072
+_algo = aicpu_ar_tiny_optimized
+
+
+# --- 示例 2: 为 CLOS 拓扑的 Broadcast 指定专用算法 ---
+# 场景: CLOS 拓扑下 Broadcast 操作，数据量大于 1MB 时使用两阶段算法
+[rule]
+_execConfig = AICPU_TS
+_opType = Broadcast
+_level0Topo = CLOS
+_dataSizeMin = 1048576
+_algo = broadcast_clos_twoshot_large
+
+
+# --- 示例 3: 针对双 Die 全 Mesh 的 AllGather 优化 ---
+# 场景: 双 Die 全 Mesh 拓扑且 rankSize >= 16 时使用分块流水线算法
+[rule]
+_execConfig = AICPU_TS
+_opType = AllGather
+_is2DieFullMesh = true
+_rankSizeMin = 16
+_algo = allgather_2die_pipeline
+
+
+# --- 示例 4: 覆盖 CCU_MS 模式下 AllReduce 的默认行为 ---
+# 场景: CCU_MS 模式、单层拓扑、MESH_1D、rankSize 5~15、数据量 256KB~1MB
+[rule]
+_execConfig = CCU_MS
+_opType = AllReduce
+_topoLevel = 1
+_level0Topo = MESH_1D
+_rankSizeMin = 5
+_rankSizeMax = 15
+_dataSizeMin = 262144
+_dataSizeMax = 1048576
+_algo = ccu_ms_ar_custom_mid_range
+
+
+# --- 示例 5: 为特定数据类型指定专用算法 ---
+# 场景: AICPU_TS 模式下 AllReduce 操作，BF16 或 FP16 数据类型时使用混合精度算法
+[rule]
+_execConfig = AICPU_TS
+_opType = AllReduce
+_dataTypes = BF16,FP16
+_algo = aicpu_ar_mixed_precision
+
+
+# --- 示例 6: PCIe 混合拓扑下 ReduceScatter 的特殊处理 ---
+# 场景: PCIe 混合拓扑且多层级时使用 PCIe 优化的 ReduceScatter
+[rule]
+_execConfig = AICPU_TS
+_opType = ReduceScatter
+_level0PcieMix = true
+_topoLevel = multi
+_algo = reducescatter_pcie_multilevel
+
+
+# --- 示例 7: HOSTCPU 模式下 BatchSendRecv 的规则 ---
+# 场景: Host 到 Device 传输时使用优化的批量发送算法
+[rule]
+_execConfig = HOSTCPU
+_opType = BatchSendRecv
+_hostToDevice = true
+_algo = batch_sendrecv_host_optimized
+
+
+# --- 示例 8: 多层级 + Level1 NHR 拓扑的 AlltoAll ---
+# 场景: 多层级拓扑且 Level1 NHR 时使用环形 AlltoAll
+[rule]
+_execConfig = AICPU_TS
+_opType = AlltoAll
+_topoLevel = multi
+_level1Nhr = true
+_algo = alltoall_ring_l1nhr
