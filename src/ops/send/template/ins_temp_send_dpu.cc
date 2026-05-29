@@ -81,12 +81,12 @@ namespace ops_hccl
             // 转换成eager-mode，保障AICPU指令下发执行完成
             if (HcommBatchModeEnd(param.algTag) != HCCL_SUCCESS)
             {
-                HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
+                HCCL_ERROR("[InsTempSendDpu]failed set eager mode, tag is %s.", param.algTag);
                 return HCCL_E_INTERNAL;
             }
             if (HcommThreadSynchronize(thread_) != 0)
             {
-                HCCL_ERROR("HcommThreadSynchronize failed");
+                HCCL_ERROR("[InsTempSendDpu]HcommThreadSynchronize failed");
                 return HCCL_E_INTERNAL;
             }
             DPURunInfo dpuRunInfo;
@@ -114,21 +114,21 @@ namespace ops_hccl
             if (HcommWaitResponse(reinterpret_cast<uint64_t>(templateResource.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) !=
                 0)
             {
-                HCCL_ERROR("HcommWaitResponse failed");
+                HCCL_ERROR("[InsTempSendDpu]HcommWaitResponse failed");
                 return HCCL_E_INTERNAL;
             }
 
             // 将执行模式转换回到batch
             if (HcommBatchModeStart(param.algTag) != HCCL_SUCCESS)
             {
-                HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
+                HCCL_ERROR("[InsTempSendDpu]failed set eager mode, tag is %s.", param.algTag);
                 return HCCL_E_INTERNAL;
             }
-            HCCL_INFO("HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
+            HCCL_INFO("[InsTempSendDpu]HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
 
             if (recvMsgId != sendMsgId)
             {
-                HCCL_ERROR("recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
+                HCCL_ERROR("[InsTempSendDpu]recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
                 return HCCL_E_INTERNAL;
             }
             HCCL_INFO("[InsTempSendDpu] Run End");

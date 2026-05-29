@@ -116,7 +116,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         interTempRequestFinal.notifyNumPerThread = interTempRequest1.notifyNumPerThread;
     }
 
-    resourceRequest.notifyNumOnMainThread = 2;  // 用于两个template间同步
+    resourceRequest.notifyNumOnMainThread = 2;  // 用于allreduce两个template间同步
     resourceRequest.slaveThreadNum = slaveThreadNumIntra + slaveThreadNumInter + 4;
     resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest1.notifyNumOnMainThread + 1);
@@ -484,6 +484,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     tempAlgIntra.GetRes(intraTempRequest);
     tempAlgInter1.GetRes(interTempRequest1);
     tempAlgIntra1.GetRes(intraTempRequest1);
+
     auto intraThreadsNum = intraTempRequest.slaveThreadNum + 1;
     auto intraThreadsNum1 = intraTempRequest1.slaveThreadNum + 1;
     auto intraThreadsNumFinal = std::max(intraThreadsNum, intraThreadsNum1);
@@ -494,10 +495,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     interThreads_.assign(threads_.begin() + intraThreadsNumFinal + 3, threads_.end());
     // 用于两个算法同步
     mainThread_ = threads_.at(0);
-
     templateMainThreads_.clear();
     templateMainThreads_.emplace_back(intraThreads_.at(0));
     templateMainThreads_.emplace_back(interThreads_.at(0));
+
     syncNotifyOnTemplates_ = {intraNotifyOnMainThread, interNotifyOnMainThread};
     syncNotifyOnMain_ = {0, 1};
 

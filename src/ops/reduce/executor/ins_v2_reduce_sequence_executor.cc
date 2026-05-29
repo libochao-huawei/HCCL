@@ -401,9 +401,9 @@ HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
 
     u64 sliceCount = RoundUp(dataCount, sliceNum);
     u64 sliceSize = sliceCount * dataTypeSize_;
-
     u64 offsetCount = 0;
     u64 offsetSize = 0;
+
     for (u32 sliceIdx = 0; sliceIdx < sliceNum; ++sliceIdx) {
         if (dataCount - offsetCount >= sliceCount) {
             tempAlgParams.allRankSliceSize.emplace_back(sliceSize);
