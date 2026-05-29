@@ -20,8 +20,6 @@
  */
 
 #include "ops_proto_hccl.h"
-#include "op_log.h"
-#include "error_util.h"
 #include "register/op_impl_registry.h"
 #include "runtime/infer_shape_context.h"
 #include "runtime/infer_datatype_context.h"
