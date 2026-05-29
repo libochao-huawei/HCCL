@@ -145,7 +145,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
     for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
         u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
 
-        if ((myRank_ + connectedRank) % numSteps != step) {
+        if ((myRank_ ^ connectedRank) % numSteps != step) {
             continue;
         }
 
@@ -167,7 +167,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
         }
 
         u32 totalLinksToNeighbor = it->second.size();
-        u32 selectedLinkIdx = (myRank_ + connectedRank) % threads.size();
+        u32 selectedLinkIdx = (myRank_ ^ connectedRank) % threads.size();
 
         if (selectedLinkIdx >= it->second.size()) {
             HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] selectedLinkIdx OOB: "
