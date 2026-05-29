@@ -69,7 +69,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllMesh(
     HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] Entry: rank=%d templateRankSize=%u totalLinks=%u "
               "hierarchy: xRank=%u yRank=%u totalRank=%u myRank_=%u sliceSize=%llu",
               myRank_, templateRankSize_, channelsPerRank_,
-              meshSize_, closSize_, rankSize_, myRank_,,
+              meshSize_, closSize_, rankSize_, myRank_,
               tempAlgParams_.sliceSize);
     if (templateRankSize_ <= 1) {
         return HCCL_SUCCESS;
