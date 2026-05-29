@@ -183,6 +183,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_base.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_multilevel.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx.cc
+    ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx_v2.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_pcie_mix.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_clos_mesh_2d_v2.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_clos_mesh_2d_ubx_v2.cc
@@ -236,7 +237,10 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_all_to_all_v_mesh_1D.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_2d_v2.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_clos_v2.cc
+    ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_2d_v3.cc
+    ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_clos_v3.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/executor/ins_v2_alltoall_parallel_executor.cc
+    ${HCCL_DEV_BASE}/src/ops/all_to_all_v/executor/ins_v2_alltoall_parallel_opt_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_dpu_alltoall_mesh.cc
 
     ${HCCL_DEV_BASE}/src/ops/send/executor/ins_v2_send_sole_executor.cc

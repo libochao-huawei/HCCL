@@ -18,6 +18,7 @@ if(NOT HCCL_CANN_COMPAT_850)
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_to_all_v_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_to_all_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_alltoall_parallel_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_alltoall_parallel_opt_executor.cc
     )
 endif()
 

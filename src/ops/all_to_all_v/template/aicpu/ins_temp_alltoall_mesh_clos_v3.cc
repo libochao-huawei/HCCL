@@ -12,34 +12,22 @@
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
 #include "channel.h"
-#include <cstdlib>
-
 namespace ops_hccl {
 
-namespace {
-constexpr float kDefaultSharedRatio = 0.2f;
-constexpr u64 kHcclMinSliceAlign = 128;
-
-float GetSharedLinkRatio()
-{
-    const char *env = std::getenv("HCCL_CLOS_SHARED_LINK_RATIO");
-    if (env != nullptr) {
-        float ratio = std::atof(env);
-        if (ratio > 0.0f && ratio < 1.0f) {
-            return ratio;
-        }
-    }
-    return kDefaultSharedRatio;
-}
-}  // namespace
-
 InsTempAlltoAllMeshClosV3::InsTempAlltoAllMeshClosV3(const OpParam &param, const u32 rankId,
-                                                      const std::vector<std::vector<u32>> &subCommRanks)
+                                                     const std::vector<std::vector<u32>> &subCommRanks)
     : InsTempAlltoAllMesh2DV3(param, rankId, subCommRanks)
 {
 }
 
 InsTempAlltoAllMeshClosV3::~InsTempAlltoAllMeshClosV3() {}
+
+std::string InsTempAlltoAllMeshClosV3::Describe() const
+{
+    std::string info = "Template of alltoall MeshClosV2 (hash-based link selection) with tempRankSize ";
+    info += std::to_string(templateRankSize_);
+    return info;
+}
 
 u64 InsTempAlltoAllMeshClosV3::GetThreadNum() const
 {
@@ -74,27 +62,30 @@ HcclResult InsTempAlltoAllMeshClosV3::CalcRes(HcclComm comm, const OpParam &para
     return HCCL_SUCCESS;
 }
 
-bool InsTempAlltoAllMeshClosV3::IsSharedLink(u32 linkIdx) const
-{
-    return (linkIdx == 0 && sharedPortMode_);
-}
-
 HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllMesh(
     const std::vector<ThreadHandle> &threads,
     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
-    HCCL_INFO("[InsTempAlltoAllMeshClosV3][RunAlltoAllMesh] Rank[%d] templateRankSize[%u] "
-              "channelsPerRank[%u] sharedPort[%d].",
-              myRank_, templateRankSize_, channelsPerRank_, sharedPortMode_);
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] Entry: rank=%d templateRankSize=%u totalLinks=%u "
+              "hierarchy: xRank=%u yRank=%u totalRank=%u myXRank=%u myYRank=%u sliceSize=%llu",
+              myRank_, templateRankSize_, channelsPerRank_,
+              xRankSize_, yRankSize_, totalRankSize_, myXRank_, myYRank_,
+              tempAlgParams_.sliceSize);
     if (templateRankSize_ <= 1) {
         return HCCL_SUCCESS;
     }
-
-    for (u32 linkIdx = 0; linkIdx < threads.size(); linkIdx++) {
-        CHK_RET(RunAlltoAllOnLink(threads, channels, linkIdx));
+    u32 numSteps = (subCommRanks_[0].size() - 1 + threads.size() - 1) / threads.size(); // ceil((p-1)/threadNum)
+    for (u32 step = 0; step < numSteps; step++) {
+        for (u32 linkIdx = 0; linkIdx < threads.size(); linkIdx++) {
+            CHK_RET(RunAlltoAllOnLink(threads, channels, linkIdx, step, numSteps));
+        }
     }
+
     for (u32 i = 0; i < failedRanks_.size(); i++) {
         if (failedRanks_[i]) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] Failed rank[%u] detected. "
+                       "templateRank=%u myRank=%d totalLinks=%u",
+                       i, templateRankSize_, myRank_, channelsPerRank_);
             return HcclResult::HCCL_E_INTERNAL;
         }
     }
@@ -104,11 +95,12 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllMesh(
 HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
     const std::vector<ThreadHandle> &threads,
     const std::map<u32, std::vector<ChannelInfo>> &channels,
-    u32 linkIdx)
+    u32 linkIdx, u32 step, u32 numSteps)
 {
     CHK_PRT_RET(linkIdx >= threads.size(),
-                HCCL_ERROR("[InsTempAlltoAllMeshClosV3] linkIdx[%u] >= threads.size()[%zu].",
-                           linkIdx, threads.size()),
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] >= threads.size()[%zu] "
+                           "myRank=%d templateRank=%u",
+                           linkIdx, threads.size(), myRank_, templateRankSize_),
                 HcclResult::HCCL_E_INTERNAL);
 
     u32 myAlgRank = 0;
@@ -117,149 +109,138 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
     bool isPcie = IsPcieProtocol(channels);
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     u64 totalSliceSize = tempAlgParams_.sliceSize;
-    u64 perPeerChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+    u64 actualChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+    u64 chunkCount = actualChunkSize / dataTypeSize;
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] Stride config: "
+        "inputSliceStride=%llu outputSliceStride=%llu inBuffType=%d outBuffType=%d "
+        "inBuffBaseOff=%llu outBuffBaseOff=%llu outputSize=%llu actualChunkSize=%llu",
+        tempAlgParams_.inputSliceStride, tempAlgParams_.outputSliceStride,
+        static_cast<int>(tempAlgParams_.buffInfo.inBuffType),
+        static_cast<int>(tempAlgParams_.buffInfo.outBuffType),
+        tempAlgParams_.buffInfo.inBuffBaseOff,
+        tempAlgParams_.buffInfo.outBuffBaseOff,
+        tempAlgParams_.buffInfo.outputSize,
+        actualChunkSize);
 
-    u64 lastPeerSize = totalSliceSize - perPeerChunkSize * (templateRankSize_ - 1);
+    // v3.0 Fix B: per-link lastPeerSize for ceiling over-shoot
+    u64 lastPeerSize = totalSliceSize - actualChunkSize * (templateRankSize_ - 1);
     if (lastPeerSize <= 0) {
-        lastPeerSize = perPeerChunkSize;
+        lastPeerSize = actualChunkSize;
     }
     u32 lastPeerIndex = templateRankSize_ - 1;
 
-    const bool linkIsShared = IsSharedLink(linkIdx);
-    const float sharedRatio = GetSharedLinkRatio();
-    u32 nNeighbors = subCommRanks_[0].size();
+    for (u32 peer = 0; peer < subCommRanks_[0].size(); ++peer) {
+        u32 rankInSubcomm = subCommRanks_[0][peer];
+        if (rankInSubcomm == myRank_) {
+            continue;
+        }
+        if (channels.count(rankInSubcomm) == 0 || channels.at(rankInSubcomm).empty()) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] Peer %u has no channels. "
+                       "myRank=%d linkIdx=%u channels.size=%zu templateRank=%u",
+                       rankInSubcomm, myRank_, linkIdx, channels.size(), templateRankSize_);
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+    }
 
-    for (u32 neighborIdx = 0; neighborIdx < nNeighbors - 1; neighborIdx++) {
-        u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % nNeighbors];
+    for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
+        u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
+
+        if ((myRank_ + connectedRank) % numSteps != step) {
+            continue;
+        }
+
         u32 connectedAlgRank = 0;
         CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
 
         if (failedRanks_[connectedAlgRank]) {
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos] linkIdx[%u] rank[%d] peer[%u] already failed, skipping.",
+                      linkIdx, myRank_, connectedRank);
             continue;
         }
 
         auto it = channels.find(connectedRank);
         if (it == channels.end() || it->second.empty()) {
-            HCCL_ERROR("[InsTempAlltoAllMeshClosV3] Rank[%d] connectedRank[%u] has no channels.",
-                       myRank_, connectedRank);
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] Rank[%d] connectedRank[%u] has no channels. "
+                       "linkIdx=%u channels.size=%zu templateRank=%u",
+                       myRank_, connectedRank, linkIdx, channels.size(), templateRankSize_);
             return HcclResult::HCCL_E_INTERNAL;
         }
 
-        if (!linkIsShared) {
-            u32 selectedLinkIdx;
-            u32 totalRanks = nNeighbors;
-            bool isPowerOfTwo = ((totalRanks & (totalRanks - 1)) == 0);
+        u32 totalLinksToNeighbor = it->second.size();
+        u32 selectedLinkIdx = (myRank_ + connectedRank) % threads.size();
 
-            if (isPowerOfTwo) {
-                selectedLinkIdx = myAlgRank ^ connectedAlgRank;
-            } else {
-                u32 nDedicated = threads.size() - 1;
-                selectedLinkIdx = (myAlgRank ^ connectedAlgRank) % nDedicated + 1;
-            }
-
-            if (selectedLinkIdx >= channelsPerRank_) { continue; }
-
-            if (selectedLinkIdx != linkIdx) {
-                continue;
-            }
+        if (selectedLinkIdx >= it->second.size()) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] selectedLinkIdx OOB: "
+                       "selectedLinkIdx=%u >= channels[%u].size()=%zu. myRank=%d connectedRank=%u",
+                       selectedLinkIdx, connectedRank, it->second.size(), myRank_, connectedRank);
+            continue;
         }
 
-        u64 actualChunkSize = (connectedAlgRank == lastPeerIndex) ? lastPeerSize : perPeerChunkSize;
-        u64 offsetInSlice = connectedAlgRank * perPeerChunkSize;
-        u64 remainingAtOffset = (offsetInSlice < totalSliceSize) ? (totalSliceSize - offsetInSlice) : 0;
-        actualChunkSize = std::min(actualChunkSize, remainingAtOffset);
-        if (actualChunkSize == 0) {
+        if (!it->second[selectedLinkIdx].remoteCclMem.addr) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] remoteCclMem.addr is NULL at selectedLinkIdx: "
+                       "selectedLinkIdx=%u connectedRank=%u myRank=%d",
+                       selectedLinkIdx, connectedRank, myRank_);
             continue;
+        }
+
+        if (selectedLinkIdx != linkIdx) {
+            continue;
+        }
+
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] matched: "
+                  "myRank=%d connectedRank=%u selectedLinkIdx=%u/%u threads=%zu "
+                  "enableRemoteMemAccess=%d isPcie=%d",
+                  linkIdx, myRank_, connectedRank, selectedLinkIdx,
+                  totalLinksToNeighbor, threads.size(),
+                  enableRemoteMemAccess_, isPcie);
+
+        if (linkIdx >= channels.at(connectedRank).size()) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] channel index OOB: linkIdx[%u] >= "
+                       "channels[%u].size()=%zu. myRank=%d templateRank=%u",
+                       linkIdx, connectedRank, channels.at(connectedRank).size(), myRank_, templateRankSize_);
+            return HCCL_E_INTERNAL;
         }
 
         const ChannelInfo &linkRemote = it->second[linkIdx];
         void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
-
-        u64 chunkSize;
-        u64 srcOffset;
-        u64 sharedChunkSize = 0;
-
-        if (linkIsShared) {
-            sharedChunkSize = (actualChunkSize * sharedRatio) / dataTypeSize * dataTypeSize;
-            sharedChunkSize = (sharedChunkSize / kHcclMinSliceAlign) * kHcclMinSliceAlign;
-            if (sharedChunkSize == 0 && actualChunkSize > 0) {
-                sharedChunkSize = dataTypeSize;
-            }
-
-            srcOffset = connectedAlgRank * perPeerChunkSize +
-                        (actualChunkSize - sharedChunkSize);
-            chunkSize = sharedChunkSize;
-        } else {
-            u64 mainChunkSize = actualChunkSize * (1.0f - sharedRatio);
-            mainChunkSize = (mainChunkSize / dataTypeSize) * dataTypeSize;
-            mainChunkSize = (mainChunkSize / kHcclMinSliceAlign) * kHcclMinSliceAlign;
-            if (mainChunkSize == 0) {
-                mainChunkSize = actualChunkSize;
-            }
-
-            srcOffset = connectedAlgRank * perPeerChunkSize;
-            chunkSize = mainChunkSize;
+        if (!remoteCclBuffAddr) {
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] remoteCclMem.addr is NULL for peer %u. "
+                       "myRank=%d connectedRank=%u linkIdx=%u templateRank=%u",
+                       connectedRank, myRank_, connectedRank, linkIdx, templateRankSize_);
+            return HCCL_E_INTERNAL;
         }
-
-        if (chunkSize == 0) {
-            continue;
-        }
-        u64 chunkCount = chunkSize / dataTypeSize;
 
         std::vector<DataSlice> txSrcSlicesAll;
         std::vector<DataSlice> txDstSlicesAll;
         std::vector<DataSlice> rxDstSlicesAll;
         std::vector<DataSlice> rxSrcSlicesAll;
 
-        for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
-            const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff +
-                                   rpt * tempAlgParams_.outputRepeatStride;
-            const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
-            const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff +
-                                    rpt * scratchRepeatStride;
+        // tx 远端写
+        void *txSrcPtr = tempAlgParams_.buffInfo.inputPtr;
+        u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff + connectedRank * actualChunkSize;
+        txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, actualChunkSize, chunkCount);
 
-            u64 txSrcInputOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
-            u64 txSrcScratchOffset = tempAlgParams_.buffInfo.inBuffBaseOff +
-                                     perPeerChunkSize * connectedAlgRank;
-            u64 txScratchOffset = scratchBase + perPeerChunkSize * connectedAlgRank;
-            u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txSrcInputOffset;
+        void *txDstPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+        u64 txDstOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + myRank_ * actualChunkSize;
+        txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, actualChunkSize, chunkCount);
 
-            u64 rxOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
-            u64 rxScratchOffset = scratchBase + perPeerChunkSize * myAlgRank;
-            u64 rxSrcOffset = (!enableRemoteMemAccess_) ? rxScratchOffset : rxOutOffset;
+        // rx 远端读
+        void *rxSrcPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+        u64 rxSrcOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + myRank_ * actualChunkSize;
+        rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, actualChunkSize, chunkCount);
+        
+        void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
+        u64 rxOutOffset = tempAlgParams_.buffInfo.outBuffBaseOff + connectedRank * actualChunkSize;
+        rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, actualChunkSize, chunkCount);
 
-            void *txSrcPtr = tempAlgParams_.buffInfo.inputPtr;
-            void *txDstPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr
-                                                          : linkRemote.remoteOutputGraphMode.addr;
-            void *rxSrcPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr
-                                                          : linkRemote.remoteOutputGraphMode.addr;
-            void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
-
-            bool readingFromScratch = (tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER);
-
-            u64 txLocalOffset;
-            if (readingFromScratch) {
-                txLocalOffset = txSrcScratchOffset;
-            } else if (linkIsShared) {
-                txLocalOffset = srcOffset + tempAlgParams_.buffInfo.inBuffBaseOff;
-            } else {
-                txLocalOffset = txSrcInputOffset;
-            }
-
-            u64 effectiveTxScratch = txScratchOffset;
-            u64 effectiveTxDst = txDstOffset;
-
-            if (linkIsShared && !readingFromScratch) {
-                effectiveTxScratch = scratchBase + perPeerChunkSize * connectedAlgRank +
-                                     (actualChunkSize - sharedChunkSize);
-                effectiveTxDst = (!enableRemoteMemAccess_) ? effectiveTxScratch : txLocalOffset;
-            }
-
-            txSrcSlicesAll.emplace_back(txSrcPtr, txLocalOffset, chunkSize, chunkCount);
-            txDstSlicesAll.emplace_back(txDstPtr, effectiveTxDst, chunkSize, chunkCount);
-            rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, chunkSize, chunkCount);
-            rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, chunkSize, chunkCount);
-        }
+        HCCL_WARNING(
+            "[ALLTOALL_V3_DEBUG][Mesh2D][RunAlltoAllMesh] rank[%d]->peer[%d] "
+            "txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu "
+            "actualSz=%llu",
+            myRank_, connectedRank,
+            txSrcOffset, txDstOffset, rxSrcOffset, rxOutOffset,
+            actualChunkSize
+        );
 
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll},
                                           {rxSrcSlicesAll, rxDstSlicesAll});
@@ -275,138 +256,113 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
             failedRanks_[connectedAlgRank] = 1;
-            HCCL_WARNING("[InsTempAlltoAllMeshClosV3] linkIdx[%u] peer %u timed out.", linkIdx, connectedRank);
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos] linkIdx[%u] peer %u timed out. "
+                         "myRank=%d templateRank=%u",
+                         linkIdx, connectedRank, myRank_, templateRankSize_);
             continue;
         }
 
         if (dmaResult != HCCL_SUCCESS) {
-            HCCL_ERROR("[InsTempAlltoAllMeshClosV3] send/recv failed linkIdx[%u] connectedRank[%u]",
-                       linkIdx, connectedRank);
+            HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos] send/recv FAILED: linkIdx=%u connectedRank=%u err=0x%x "
+                       "myRank=%d templateRank=%u actualChunkSize=%llu",
+                       linkIdx, connectedRank, dmaResult, myRank_, templateRankSize_, actualChunkSize);
             return dmaResult;
         }
-    }
 
+    }
     return HCCL_SUCCESS;
 }
 
-HcclResult InsTempAlltoAllMeshClosV3::LocalDataCopy(const std::vector<ThreadHandle> &threads)
+
+HcclResult InsTempAlltoAllMesh2DV3::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 {
     if (threads.empty()) {
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
-
-    if (totalRankSize_ == 0 || yRankSize_ == 0) {
-        HCCL_ERROR("[InsTempAlltoAllMeshClosV3][LocalDataCopy] invalid rank sizes.");
+    if (rankSize_ == 0) {
+        HCCL_ERROR("[ALLTOALL_V3_DEBUG][Mesh2D][LocalDataCopy] totalRankSize_ is 0.");
         return HCCL_E_INTERNAL;
     }
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    u64 totalSize = tempAlgParams_.sliceSize;
+    u64 cellSize = (totalSize + rankSize_ - 1) / rankSize_;
+    u64 cellCount = cellSize / dataTypeSize;
 
-    u64 totalSliceSize = tempAlgParams_.sliceSize;
-    u64 cellSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
-    if (cellSize == 0) {
-        cellSize = totalSliceSize;
+    u32 myRank = myRank_;
+    u32 meshDataOffset = (myRank / meshSize_) * meshSize_;
+
+    if (meshDataOffset > 0) {
+        u64 inputOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
+        u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff;
+
+        DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, cellSize * meshDataOffset, cellCount * meshDataOffset);
+        DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * meshDataOffset, cellCount * meshDataOffset);
+
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
 
-    u64 perPeerClosSize = (totalSliceSize + yRankSize_ - 1) / yRankSize_;
-    if (perPeerClosSize == 0) {
-        perPeerClosSize = totalSliceSize;
+    if (meshDataOffset < rankSize_ / meshSize_ - 1) {
+        u64 inputOffset = tempAlgParams_.buffInfo.inBuffBaseOff + cellSize * (meshDataOffset + meshSize_);
+        u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (meshDataOffset + meshSize_);
+        u32 reamindCount = (rankSize_ / meshSize_ - 1 - meshDataOffset) * meshDadaOffset;
+
+        DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, cellSize * reamindCount, cellCount * reamindCount);
+        DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * reamindCount, cellCount * reamindCount);
+
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
 
-    u64 effectiveCellStride = (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER)
-        ? tempAlgParams_.outputSliceStride : cellSize;
-
-    for (u32 d = 0; d < totalRankSize_; d++) {
-        u32 sx = d % xRankSize_;
-        u32 sy = d / xRankSize_;
-
-        u64 offsetInSlice = cellSize * d;
-        u64 remainingAtOffset = (offsetInSlice < totalSliceSize) ? (totalSliceSize - offsetInSlice) : 0;
-        u64 actualChunkSize = std::min(cellSize, remainingAtOffset);
-        if (actualChunkSize == 0) {
-            continue;
-        }
-        u64 chunkCount = actualChunkSize / dataTypeSize;
-
-        u64 inOff = tempAlgParams_.buffInfo.inBuffBaseOff + offsetInSlice;
-
-        DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inOff, actualChunkSize, chunkCount);
-
-        u64 outOff = tempAlgParams_.buffInfo.outBuffBaseOff + tempAlgParams_.outputSliceStride * d;
-        bool skipOutCopy = (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.outputPtr &&
-                            inOff == outOff);
-        bool isScratchToOutput = (tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER &&
-                                   tempAlgParams_.buffInfo.outBuffType == BufferType::OUTPUT);
-        if (!skipOutCopy && !isScratchToOutput && tempAlgParams_.buffInfo.outBuffType != BufferType::HCCL_BUFFER) {
-            DataSlice dstOutSlice(tempAlgParams_.buffInfo.outputPtr, outOff, actualChunkSize, chunkCount);
-            LocalCopy(threads[0], srcSlice, dstOutSlice);
-        }
-
-        u64 cclOff = tempAlgParams_.buffInfo.hcclBuffBaseOff +
-                     perPeerClosSize * sy + effectiveCellStride * sx;
-        bool skipCclCopy = (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr &&
-                            inOff == cclOff);
-        if (!skipCclCopy) {
-            DataSlice cclDstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, cclOff, actualChunkSize, chunkCount);
-            LocalCopy(threads[0], srcSlice, cclDstSlice);
-        }
-    }
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAlltoAllMeshClosV3::PostLocalCopy(const std::vector<ThreadHandle> &threads)
+HcclResult InsTempAlltoAllMesh2DV3::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
-    if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
-        HCCL_INFO("[InsTempAlltoAllMeshClosV3][PostLocalCopy] skip because output is scratch");
-        return HcclResult::HCCL_SUCCESS;
+    if (threads.empty()) {
+        return HcclResult::HCCL_E_INTERNAL;
     }
 
-    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
-
-    if (xRankSize_ == 0 || yRankSize_ == 0 || totalRankSize_ == 0) {
-        HCCL_ERROR("[InsTempAlltoAllMeshClosV3][PostLocalCopy] invalid rank sizes.");
+    if (rankSize_ == 0) {
+        HCCL_ERROR("[ALLTOALL_V3_DEBUG][Mesh2D][LocalDataCopy] totalRankSize_ is 0.");
         return HCCL_E_INTERNAL;
     }
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    u64 totalSize = tempAlgParams_.sliceSize;
+    u64 cellSize = (totalSize + rankSize_ - 1) / rankSize_;
+    u64 cellCount = cellSize / dataTypeSize;
 
-    u64 totalSliceSize = tempAlgParams_.sliceSize;
-    u64 cellSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
-    u64 perPeerSize = (totalSliceSize + yRankSize_ - 1) / yRankSize_;
+    u32 myRank = myRank_;
+    u32 meshDataOffset = (myRank / meshSize_) * meshSize_;
 
-    u64 effectiveCellStride = (xRankSize_ > 0)
-        ? tempAlgParams_.inputSliceStride / xRankSize_ : cellSize;
+    u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * meshDataOffset;
+    u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + cellSize * meshDataOffset;
 
-    for (auto rank : subCommRanks_[0]) {
-        if (rank == myRank_) {
-            continue;
-        }
-        u32 algRank = 0;
-        CHK_RET(GetAlgRank(rank, subCommRanks_[0], algRank));
+    DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * meshSize_, cellCount * meshSize_);
+    DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize * meshSize_, cellCount * meshSize_);
 
-        u32 sx = rank % xRankSize_;
-        u32 sy = rank / xRankSize_;
+    CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
 
-        for (u32 dx = 0; dx < xRankSize_; dx++) {
-            u32 d = dx + sy * xRankSize_;
-            u64 offsetInSlice = cellSize * d;
-            u64 remainingAtOffset = (offsetInSlice < totalSliceSize) ? (totalSliceSize - offsetInSlice) : 0;
-            u64 actualChunkSize = std::min(cellSize, remainingAtOffset);
-            if (actualChunkSize == 0) {
-                continue;
-            }
-            u64 chunkCount = actualChunkSize / dataTypeSize;
+    if (meshDataOffset > 0) {
+        u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff;
+        u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff;
 
-            u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff +
-                                sy * perPeerSize + dx * effectiveCellStride;
-            u64 outOffset = tempAlgParams_.buffInfo.outBuffBaseOff +
-                            tempAlgParams_.outputSliceStride * d;
-
-            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset,
-                               actualChunkSize, chunkCount);
-            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset,
-                               actualChunkSize, chunkCount);
-            LocalCopy(threads[0], srcSlice, dstSlice);
-        }
+        DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * meshDataOffset, cellCount * meshDataOffset);
+        DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize * meshDataOffset, cellCount * meshDataOffset);
+        
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
+
+    if (meshDataOffset < rankSize_ / meshSize_ - 1) {
+        u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + cellSize * (meshDataOffset + meshSize_);
+        u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + cellSize * (meshDataOffset + meshSize_);
+        u32 reamindCount = (rankSize_ / meshSize_ - 1 - meshDataOffset) * meshDadaOffset;
+
+        DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * reamindCount, cellCount * reamindCount);
+        DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize * reamindCount, cellCount * reamindCount);
+
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+    }
+
     return HcclResult::HCCL_SUCCESS;
 }
 

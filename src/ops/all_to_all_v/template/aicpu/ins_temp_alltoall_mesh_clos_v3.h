@@ -8,10 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef INS_TEMP_ALLTOALL_MESH_CLOS_V3_H
-#define INS_TEMP_ALLTOALL_MESH_CLOS_V3_H
+#ifndef INS_TEMP_ALLTOALL_MESH_CLOS_V2_H
+#define INS_TEMP_ALLTOALL_MESH_CLOS_V2_H
 
-#include "ins_temp_alltoall_mesh_2d_v3.h"
+#include "ins_temp_alltoall_mesh_2d_v2.h"
 
 namespace ops_hccl {
 
@@ -22,29 +22,34 @@ public:
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempAlltoAllMeshClosV3() override;
 
+    std::string Describe() const override;
+
     HcclResult CalcRes(HcclComm comm, const OpParam &param,
                        const TopoInfoWithNetLayerDetails *topoInfo,
                        AlgResourceRequest &resourceRequest) override;
+
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
     u64 GetThreadNum() const override;
 
+    // Local copy: own data from input → output + scratch for all destination slots
+    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads) override;
+
+    // Post copy: received data from scratch → output for all column peers
+    // C-9 fix: virtual so clos can override with dy-based formula
+    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads) override;
+    
 protected:
     HcclResult RunAlltoAllMesh(
         const std::vector<ThreadHandle> &threads,
         const std::map<u32, std::vector<ChannelInfo>> &channels) override;
 
-    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads) override;
-    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads) override;
-
 private:
     HcclResult RunAlltoAllOnLink(
         const std::vector<ThreadHandle> &threads,
         const std::map<u32, std::vector<ChannelInfo>> &channels,
-        u32 linkIdx);
-
-    bool IsSharedLink(u32 linkIdx) const;
+        u32 linkIdx, u32 step, u32 numSteps);
 };
 
 }  // namespace ops_hccl
 
-#endif  // INS_TEMP_ALLTOALL_MESH_CLOS_V3_H
+#endif  // INS_TEMP_ALLTOALL_MESH_CLOS_V2_H

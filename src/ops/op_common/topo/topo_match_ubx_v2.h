@@ -8,56 +8,36 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef TOPO_MATCH_UBX_V2
-#define TOPO_MATCH_UBX_V2
+#ifndef TOPO_MATCH_UBX
+#define TOPO_MATCH_UBX
 
-#include "topo_match_ubx.h"
-#include "alg_param.h"
+#include "topo_match_base.h"
 
 namespace ops_hccl {
-
-struct TwoStageTopoInfo {
-    // Stage 1: standard UBX decomposition (unchanged)
-    std::vector<std::vector<u32>> stage1IntraRanks;  // FM: same-pod ranks
-    std::vector<std::vector<u32>> stage1InterRanks;  // Clos: cross-pod ranks
-
-    // Stage 2: asymmetric topology
-    std::vector<std::vector<u32>> stage2IntraRanks;  // FM + borrow_rank
-    std::vector<std::vector<u32>> stage2InterRanks;  // Clos - borrow_rank
-
-    u32 borrowRank = INVALID_VALUE_RANKID;  // the Clos rank whose link 0 is borrowed
-    u32 borrowLinkIdx = 0;                  // always 0 (link 0)
-
-    // Channel info for the borrowed link
-    ChannelInfo borrowChannel;
-};
-
-class TopoMatchUBX_V2 : public TopoMatchUBX {
+class TopoMatchUBX_V2 : public TopoMatchBase {
 public:
     explicit TopoMatchUBX_V2();
     ~TopoMatchUBX_V2() override;
-
     std::string Describe() const override
     {
-        return "Topo Match UBX V2: 2-stage topology with asymmetric borrow for AllGather.";
+        return "Topo Match for combined Algorithm: layer 0 Mesh, layer 1 NHR.";
     }
-
-    // Override MatchTopo to also compute two-stage info
-    HcclResult MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo,
-                         AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
-
-    // Get the two-stage topology result
-    const TwoStageTopoInfo &GetTwoStageInfo() const { return twoStageInfo_; }
-
+    HcclResult MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 protected:
-    // Build Stage 2 topology from Stage 1 result + borrow rank
-    HcclResult BuildTwoStageTopo(const HcclComm comm, u32 layer0Size, u32 myRank,
-                                 const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
-
-private:
-    TwoStageTopoInfo twoStageInfo_;
+    HcclResult TopoForLayer0(const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
+                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
+    virtual HcclResult TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
+                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
+    HcclResult CheckVecElementAllSame(const uint32_t *instSizeList, uint32_t listSize) const;
+    template<typename T>
+    std::string PrintCArray(const T* values, const u32 valueNum) const
+    {
+        std::ostringstream oss;
+        for (u32 i = 0; i < valueNum; i++) {
+            oss << values[i] << " ";
+        }
+        return oss.str();
+    }
 };
-
-}  // namespace ops_hccl
-
-#endif  // TOPO_MATCH_UBX_V2
+}  // namespace Hccl
+#endif  // !TOPO_MATCH_UBX

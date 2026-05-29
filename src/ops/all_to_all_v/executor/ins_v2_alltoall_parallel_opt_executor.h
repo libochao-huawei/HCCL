@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCLV2_INS_V2_ALLTOALL_PARALLEL_OPT_EXECUTOR_H
-#define HCCLV2_INS_V2_ALLTOALL_PARALLEL_OPT_EXECUTOR_H
+#ifndef HCCLV2_INS_V2_ALLTOALL_PARALLEL_EXECUTOR_H
+#define HCCLV2_INS_V2_ALLTOALL_PARALLEL_EXECUTOR_H
 
 #include "executor_common_ops.h"
 
@@ -41,42 +41,21 @@ protected:
                                 InsAlgTemplate1 &tempAlgInter,
                                 bool hasInterComm);
 
+    void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
     HcclResult PrepareResForTemplate(InsAlgTemplate0 &tempAlgIntra,
                                       InsAlgTemplate1 &tempAlgInter);
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
 
-    float CalcDynamicSplitRatio() const;
-    void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
-
-    HcclResult ReorganizeScratches_v1_1(
-        ThreadHandle thread, void *intraBuf, void *interBuf,
-        u32 xSize, u32 ySize, u64 cellSizeMax);
-
-    void GenTemplateAlgParamsIntra0(const OpParam &param,
-                                     const AlgResourceCtxSerializable &resCtx,
-                                     u64 dataOffset, u64 dataCountPerLoop,
-                                     u64 scratchOffset, u64 cellSizeMax,
-                                     TemplateDataParams &out) const;
-    void GenTemplateAlgParamsInter1(const OpParam &param,
-                                     const AlgResourceCtxSerializable &resCtx,
-                                     u64 dataOffset, u64 dataCountPerLoop,
-                                     u64 scratchOffset, u64 cellSizeMax,
-                                     TemplateDataParams &out) const;
-    void GenTemplateAlgParamsInter0(const OpParam &param,
-                                     const AlgResourceCtxSerializable &resCtx,
-                                     u64 dataOffset, u64 dataCountPerLoop,
-                                     u64 scratchOffset, u64 cellSizeMax,
-                                     TemplateDataParams &out) const;
-    void GenTemplateAlgParamsIntra1(const OpParam &param,
-                                     const AlgResourceCtxSerializable &resCtx,
-                                     u64 dataOffset, u64 dataCountPerLoop,
-                                     u64 scratchOffset, u64 cellSizeMax,
-                                     TemplateDataParams &out) const;
-
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
+
     uint64_t rankIdxLevel0_{0};
     uint64_t rankIdxLevel1_{0};
+
+    u32 ccuKernelLaunchNumIntra0_{0};
+    u32 ccuKernelLaunchNumInter0_{0};
+    u32 ccuKernelLaunchNumIntra1_{0};
+    u32 ccuKernelLaunchNumInter1_{0};
 
     ThreadHandle mainThread_;
     std::vector<ThreadHandle> templateMainThreads_;
@@ -96,4 +75,4 @@ protected:
 
 }  // namespace ops_hccl
 
-#endif  // HCCLV2_INS_V2_ALLTOALL_PARALLEL_OPT_EXECUTOR_H
+#endif  // HCCLV2_INS_V2_ALLTOALL_PARALLEL_EXECUTOR_H
