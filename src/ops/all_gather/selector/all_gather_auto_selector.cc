@@ -48,7 +48,6 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-            HCCL_INFO("Level0MeshType::TWO_DIE_REGULAR");
             return SelectorStatus::NOT_MATCH;
         } else {
             selectAlgName = "CcuAllGatherMesh1D";
@@ -77,7 +76,6 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
                 return SelectorStatus::NOT_MATCH;
             }
         } else {
-                HCCL_INFO("RRRRRRRRRRRRRRRRR");
                 selectAlgName = "CcuAllGatherMesh1D";
                 return SelectorStatus::MATCH;
             }
