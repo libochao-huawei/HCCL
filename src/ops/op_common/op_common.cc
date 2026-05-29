@@ -510,6 +510,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclExecOp(comm, param, topoInfo, newAlgName, resPack));
         return HCCL_SUCCESS;
     }
+    // 将算法名字放在param参数中
+    int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
+    if (result <= 0) {
+        HCCL_ERROR("failed to fill param.algName");
+        return HCCL_E_INTERNAL;
+    }
     // 在原先的commName中添加执行模式，得到commModeTag
     param.hcclComm = comm;
     bool isOpBase = param.opMode == OpMode::OPBASE;
@@ -597,11 +603,6 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                 CHK_RET(GeReuseResource(comm, param, executor, resCtxHost, topoInfo.get(), resPack));
             }
         }
-        int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
-        if (result <= 0) {
-            HCCL_ERROR("faled to fill param.algName");
-            return HCCL_E_INTERNAL;
-        }
         if (resCtxHost->slaveThreadNum > 0) {
             CHK_RET(CaptureSlaveStreams(comm, param.stream, resCtxHost->threads));
         }
@@ -654,12 +655,6 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
     param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
-    // 将算法名字放在param参数中
-    int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
-    if (result <= 0) {
-        HCCL_ERROR("failed to fill param.algName");
-        return HCCL_E_INTERNAL;
-    }
 
     if (param.engine == COMM_ENGINE_CPU) {
         // 注册dpu回调函数
