@@ -59,22 +59,22 @@ else()
         $<$<CONFIG:Release>:-s>
     )
 
-if(BUILD_OPEN_PROJECT)
-    target_link_libraries(hccl_compat PRIVATE
-        -Wl,--no-as-needed
-        unified_dlog
-        acl_rt
-        -Wl,--no-as-needed
-    )
-else()
-    target_link_libraries(hccl_compat PRIVATE
-        $<BUILD_INTERFACE:slog_headers>
-        -Wl,--no-as-needed
-        unified_dlog
-        acl_rt
-        -Wl,--no-as-needed
-    )
-endif()
+    if(BUILD_OPEN_PROJECT)
+        target_link_libraries(hccl_compat PRIVATE
+            -Wl,--no-as-needed
+            unified_dlog
+            acl_rt
+            -Wl,--no-as-needed
+        )
+    else()
+        target_link_libraries(hccl_compat PRIVATE
+            $<BUILD_INTERFACE:slog_headers>
+            -Wl,--no-as-needed
+            unified_dlog
+            acl_rt
+            -Wl,--no-as-needed
+        )
+    endif()
 
     target_link_directories(hccl_compat PRIVATE
         ${ASCEND_CANN_PACKAGE_PATH}/lib64

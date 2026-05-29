@@ -14,7 +14,7 @@ option(ENABLE_BUILD_DEVICE "Build hccl device project." OFF)
 option(ENABLE_BUILD_AARCH "Build hccl aarch project." OFF)
 message(STATUS "STATIC_MODE=${STATIC_MODE}")
 
-if(STATIC_MODE)
+if(STATIC_MODE AND NOT ENABLE_BUILD_DEVICE)
     set(ENABLE_BUILD_DEVICE ON)
 endif()
 
@@ -39,7 +39,7 @@ message(STATUS "ENABLE_BUILD_AARCH=${ENABLE_BUILD_AARCH}")
 
 set(HCCL_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-set(HCC_TOOLCHAIN_DIR "${CUSTOM_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
+set(HCC_TOOLCHAIN_DIR "${ASCNED_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
 set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
 set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
 set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
@@ -122,12 +122,6 @@ elseif(BUILD_OPEN_PROJECT)
     include(cmake/package.cmake)
     include(cmake/func.cmake)
     include(version.cmake)
-
-    # 依赖config.cmake中对ASCEND_CANN_PACKAGE_PATH定义
-    set(HCC_TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
-    set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
-    set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
-    set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
     
     # 检查构建依赖
     check_pkg_build_deps("hccl")
@@ -168,7 +162,7 @@ elseif(BUILD_OPEN_PROJECT)
         install(FILES
             ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
             DESTINATION .
-            RENAME device-hccl.tar.gz
+            RENAME device_hccl.tar.gz
             OPTIONAL
             COMPONENT hccl
         )
