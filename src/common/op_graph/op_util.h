@@ -22,13 +22,36 @@
 #ifndef CANN_OPS_BUILT_IN_OP_UTIL_H_
 #define CANN_OPS_BUILT_IN_OP_UTIL_H_
 
-#include <memory>
-#include <utility>
-#include <type_traits>
-
+#include "log.h"
 #include "runtime/tensor.h"
 
 namespace ops {
+
+inline const char* get_op_info(const char* str) {
+  return (str == nullptr) ? "nil" : str;
+}
+
+#define OP_CHECK(cond, log_func, return_expr) \
+  if (cond) {                                 \
+    log_func;                                 \
+    return_expr;                              \
+  }
+
+#define OP_LOGD(opname, format, ...) \
+  HCCL_DEBUG("OpName:[%s] " format, get_op_info(opname), __VA_ARGS__)
+
+#define OP_LOGI(opname, format, ...) \
+  HCCL_INFO("OpName:[%s] " format, get_op_info(opname), __VA_ARGS__)
+
+#define OP_LOGW(opname, format, ...) \
+  HCCL_WARNING("OpName:[%s] " format, get_op_info(opname), __VA_ARGS__)
+
+#define OP_LOGE(opname, format, ...) \
+  HCCL_ERROR("OpName:[%s] " format, get_op_info(opname), __VA_ARGS__)
+
+#define CUBE_INNER_ERR_REPORT(op_name, err_msg, ...) \
+  HCCL_ERROR("OpName:[%s] " err_msg, get_op_info(opname), __VA_ARGS__)
+
 
 inline bool IsConstTensor(const gert::Tensor* input_tensor) {
   if (input_tensor != nullptr) {
