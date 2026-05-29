@@ -221,7 +221,7 @@ namespace {
 
     std::unique_ptr<AlgResourceCtxSerializable> DeserializeResCtx(const OpParam *param)
     {
-        std::unique_ptr<AlgResourceCtxSerializable> resCtx(new AlgResourceCtxSerializable());
+        std::unique_ptr<AlgResourceCtxSerializable> resCtx = std::make_unique<AlgResourceCtxSerializable>();
         char *ctx = static_cast<char *>(param->resCtx);
         std::vector<char> seq(ctx, ctx + param->ctxSize);
         resCtx->DeSerialize(seq);

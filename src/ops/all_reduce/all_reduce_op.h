@@ -39,7 +39,7 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
 HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
                                       aclrtStream stream, const ResPackGraphMode &resPack, OpParam &param);
 HcclResult FillAllReduceOpParam(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-                                HcclReduceOp op, HcclComm comm, aclrtStream stream, OpMode opMode, OpParam &param);
+                                HcclReduceOp op, const HcclComm comm, aclrtStream stream, OpMode opMode, OpParam &param);
 HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
                                    aclrtStream stream, OpMode opMode, const ResPackGraphMode &resPack, OpParam &param);
 

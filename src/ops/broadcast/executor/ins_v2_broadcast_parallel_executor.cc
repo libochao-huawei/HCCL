@@ -76,8 +76,8 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
    // 计算资源
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
-    AlgResourceRequest intraTempRequest1;
-    AlgResourceRequest interTempRequest1;
+    AlgResourceRequest intraTempRequest0;
+    AlgResourceRequest interTempRequest0;
     AlgResourceRequest intraTempRequestFinal;
     AlgResourceRequest interTempRequestFinal;
 
@@ -95,8 +95,8 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     }
     CHK_RET(algTemplate0->CalcRes(comm, param, topoInfo, intraTempRequest));
     CHK_RET(algTemplate1->CalcRes(comm, param, topoInfo, interTempRequest));
-    CHK_RET(algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest1));
-    CHK_RET(algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest1)); 
+    CHK_RET(algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest0));
+    CHK_RET(algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest0)); 
 
     for (auto &KernelInfo : intraTempRequest.ccuKernelInfos) {
         KernelInfo.resGroup = 0;
@@ -104,37 +104,37 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     for (auto &KernelInfo : interTempRequest.ccuKernelInfos) {
         KernelInfo.resGroup = 0;
     }
-    for (auto &KernelInfo : intraTempRequest1.ccuKernelInfos) {
+    for (auto &KernelInfo : intraTempRequest0.ccuKernelInfos) {
         KernelInfo.resGroup = 1;
     }
-    for (auto &KernelInfo : interTempRequest1.ccuKernelInfos) {
+    for (auto &KernelInfo : interTempRequest0.ccuKernelInfos) {
         KernelInfo.resGroup = 1;
     }
 
     u32 slaveThreadNumIntra = intraTempRequest.slaveThreadNum;
-    if(intraTempRequest.slaveThreadNum >= intraTempRequest1.slaveThreadNum){
+    if(intraTempRequest.slaveThreadNum >= intraTempRequest0.slaveThreadNum){
         intraTempRequestFinal.notifyNumPerThread = intraTempRequest.notifyNumPerThread;
     } else {
-        slaveThreadNumIntra = intraTempRequest1.slaveThreadNum;
-        intraTempRequestFinal.notifyNumPerThread = intraTempRequest1.notifyNumPerThread;
+        slaveThreadNumIntra = intraTempRequest0.slaveThreadNum;
+        intraTempRequestFinal.notifyNumPerThread = intraTempRequest0.notifyNumPerThread;
     }
     u32 slaveThreadNumInter = interTempRequest.slaveThreadNum;
-    if(interTempRequest.slaveThreadNum >= interTempRequest1.slaveThreadNum){
+    if(interTempRequest.slaveThreadNum >= interTempRequest0.slaveThreadNum){
         interTempRequestFinal.notifyNumPerThread = interTempRequest.notifyNumPerThread;
     } else {
-        slaveThreadNumInter = interTempRequest1.slaveThreadNum;
-        interTempRequestFinal.notifyNumPerThread = interTempRequest1.notifyNumPerThread;
+        slaveThreadNumInter = interTempRequest0.slaveThreadNum;
+        interTempRequestFinal.notifyNumPerThread = interTempRequest0.notifyNumPerThread;
     }
 
-    resourceRequest.notifyNumOnMainThread = 2;  // 用于两个template间同步
+    resourceRequest.notifyNumOnMainThread = 2;  // 用于broadcast两个template间同步
     resourceRequest.slaveThreadNum = slaveThreadNumIntra + slaveThreadNumInter + 4;
     resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest.notifyNumOnMainThread + 1);
-    resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest1.notifyNumOnMainThread + 1);
+    resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest0.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                               intraTempRequestFinal.notifyNumPerThread.begin(),
                                               intraTempRequestFinal.notifyNumPerThread.end());
     resourceRequest.notifyNumPerThread.emplace_back(interTempRequest.notifyNumOnMainThread + 1);
-    resourceRequest.notifyNumPerThread.emplace_back(interTempRequest1.notifyNumOnMainThread + 1);
+    resourceRequest.notifyNumPerThread.emplace_back(interTempRequest0.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                               interTempRequestFinal.notifyNumPerThread.begin(),
                                               interTempRequestFinal.notifyNumPerThread.end());
@@ -156,14 +156,14 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         // // ccu allgather
         HCCL_INFO("[InsBroadcastParallelExecutor][CalcRes] intraTemplate1 has [%d] kernels.", intraTempRequest.ccuKernelNum[0]);
         resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
-                                            intraTempRequest1.ccuKernelInfos.begin(),
-                                            intraTempRequest1.ccuKernelInfos.end());
-        resourceRequest.ccuKernelNum.emplace_back(intraTempRequest1.ccuKernelNum[0]);
+                                            intraTempRequest0.ccuKernelInfos.begin(),
+                                            intraTempRequest0.ccuKernelInfos.end());
+        resourceRequest.ccuKernelNum.emplace_back(intraTempRequest0.ccuKernelNum[0]);
         HCCL_INFO("[InsBroadcastParallelExecutor][CalcRes] interTemplate1 has [%d] kernels.", interTempRequest.ccuKernelNum[0]);
         resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
-                                            interTempRequest1.ccuKernelInfos.begin(),
-                                            interTempRequest1.ccuKernelInfos.end());
-        resourceRequest.ccuKernelNum.emplace_back(interTempRequest1.ccuKernelNum[0]);
+                                            interTempRequest0.ccuKernelInfos.begin(),
+                                            interTempRequest0.ccuKernelInfos.end());
+        resourceRequest.ccuKernelNum.emplace_back(interTempRequest0.ccuKernelNum[0]);
     }
 
     HCCL_DEBUG("[InsBroadcastParallelExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
@@ -221,7 +221,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     intraLocalRankSize_ = GetRankSize(temp0HierarchyInfo_);      
     interLocalRankSize_ = GetRankSize(temp1HierarchyInfo_);
     rankSize_ = intraLocalRankSize_ * interLocalRankSize_;
-    HCCL_INFO("[Orchestrate] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
+    HCCL_INFO("[InsBroadcastParallelExecutor][Orchestrate] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
               myRank_, intraLocalRankSize_, interLocalRankSize_, rankSize_);
 
     CHK_RET(CalcLocalRoot());
@@ -284,17 +284,17 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::PrepareResForTemplate(
     InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1)
 {
+    AlgResourceRequest intraTempRequest0;
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
-    AlgResourceRequest intraTempRequest1;
     tempAlgIntra.GetRes(intraTempRequest);
     tempAlgInter.GetRes(interTempRequest);
-    tempAlgIntra1.GetRes(intraTempRequest1);
-    auto intraThreadsNum = intraTempRequest.slaveThreadNum + 1;
-    auto intraThreadsNum1 = intraTempRequest1.slaveThreadNum + 1;
-    auto intraThreadsNumFinal = std::max(intraThreadsNum, intraThreadsNum1);
+    tempAlgIntra1.GetRes(intraTempRequest0);
     auto intraNotifyOnMainThread = intraTempRequest.notifyNumOnMainThread;
     auto interNotifyOnMainThread = interTempRequest.notifyNumOnMainThread;
+    auto intraThreadsNum = intraTempRequest.slaveThreadNum + 1;
+    auto intraThreadsNum1 = intraTempRequest0.slaveThreadNum + 1;
+    auto intraThreadsNumFinal = std::max(intraThreadsNum, intraThreadsNum1);
 
     intraThreads_.clear();
     intraThreads_.emplace_back(threads_[1]);
@@ -328,16 +328,16 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1)
 {
     AlgResourceRequest intraTempRequest;
-    AlgResourceRequest interTempRequest1;
-    AlgResourceRequest intraTempRequest1;
+    AlgResourceRequest interTempRequest0;
+    AlgResourceRequest intraTempRequest0;
     tempAlgIntra.GetRes(intraTempRequest);
-    tempAlgInter1.GetRes(interTempRequest1);
-    tempAlgIntra1.GetRes(intraTempRequest1);
+    tempAlgInter1.GetRes(interTempRequest0);
+    tempAlgIntra1.GetRes(intraTempRequest0);
     auto intraThreadsNum = intraTempRequest.slaveThreadNum + 1;
-    auto intraThreadsNum1 = intraTempRequest1.slaveThreadNum + 1;
+    auto intraThreadsNum1 = intraTempRequest0.slaveThreadNum + 1;
     auto intraThreadsNumFinal = std::max(intraThreadsNum, intraThreadsNum1);
-    auto intraNotifyOnMainThread = intraTempRequest1.notifyNumOnMainThread;
-    auto interNotifyOnMainThread = interTempRequest1.notifyNumOnMainThread;
+    auto intraNotifyOnMainThread = intraTempRequest0.notifyNumOnMainThread;
+    auto interNotifyOnMainThread = interTempRequest0.notifyNumOnMainThread;
 
     intraThreads_.assign(threads_.begin() + 2, threads_.begin() + intraThreadsNum1 + 2);
     interThreads_.assign(threads_.begin() + intraThreadsNumFinal + 3, threads_.end());

@@ -241,12 +241,12 @@ HcclResult InsTempAllReduceAicpuReduceNHR::GetStepInfo(u32 step, u32 nSteps, Aic
     stepInfo.step = step;
     stepInfo.myRank = rankIdx;
 
-    // 计算通信对象
+    // AicpuReduceNHR 计算通信对象
     u32 deltaRank = 1 << (nSteps - 1 - step);
     u32 recvFrom = (rankIdx + templateRankSize_ - deltaRank) % templateRankSize_;
     u32 sendTo = (rankIdx + deltaRank) % templateRankSize_;
 
-    // 数据份数和数据编号增量
+    // AicpuReduceNHR 数据份数和数据编号增量
     u32 nSlices = (templateRankSize_ - 1 + (1 << (nSteps - 1 - step))) / (1 << (nSteps - step));
     u32 deltaSliceIndex = 1 << (nSteps - step);
     u32 txSliceIdx = rankIdx;

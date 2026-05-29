@@ -91,25 +91,25 @@ HcclResult InsTempReduceScatterMesh1dDpu::KernelRun(const OpParam& param,
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
     if (HcommSendRequest(reinterpret_cast<uint64_t>(templateResource.npu2DpuShmemPtr), param.algTag,
         static_cast<void*>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
-        HCCL_ERROR("HcommSendRequest failed");
+        HCCL_ERROR("[InsTempReduceScatterMesh1dDpu]HcommSendRequest failed");
         return HCCL_E_INTERNAL;
     }
-    HCCL_INFO("HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
+    HCCL_INFO("[InsTempReduceScatterMesh1dDpu]HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
     // 等待DPU数据传输，然后回写结果回来
     void *recvData = nullptr;
     u32 recvMsgId = 0;
     if (HcommWaitResponse(reinterpret_cast<uint64_t>(templateResource.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
-        HCCL_ERROR("HcommWaitResponse failed");
+        HCCL_ERROR("[InsTempReduceScatterMesh1dDpu]HcommWaitResponse failed");
         return HCCL_E_INTERNAL;
     }
     // 将执行模式转换回到batch
     if (HcommBatchModeStart(param.algTag) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
+        HCCL_ERROR("[InsTempReduceScatterMesh1dDpu]failed set eager mode, tag is %s.", param.algTag);
         return HCCL_E_INTERNAL;
     }
-    HCCL_INFO("HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
+    HCCL_INFO("[InsTempReduceScatterMesh1dDpu]HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
     if (recvMsgId != sendMsgId) {
-        HCCL_ERROR("recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
+        HCCL_ERROR("[InsTempReduceScatterMesh1dDpu]recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
         return HCCL_E_INTERNAL;
     }
     CHK_RET(PostLocalReduce(param, tempAlgParams, templateResource.threads));

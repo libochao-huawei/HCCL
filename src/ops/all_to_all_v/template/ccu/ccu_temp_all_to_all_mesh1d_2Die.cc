@@ -68,9 +68,9 @@ HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(const HcclComm comm,
     return HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
+HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(const HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
     const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
-    std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName)
+    std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName) const
 {
     protocolFound = false;
     for (auto expectedProtocol : expectedProtocols) {
@@ -124,11 +124,11 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
     channels.clear();
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
     CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
-                HCCL_ERROR("[CollAlgFactory] [channel] Rank [%d] is not in commInfo.", topoInfo->userRank),
+                HCCL_ERROR("[CalcChannelRequest] [channel] Rank [%d] is not in commInfo.", topoInfo->userRank),
                 HcclResult::HCCL_E_PARA);
 
-    u32 myRank = topoInfo->userRank;
     std::vector<CommProtocol> expectedProtocols;
+    u32 myRank = topoInfo->userRank;
     CHK_RET(GetProtocolByEngine(param, expectedProtocols));
 
     for (u32 rank: subcommInfo[COMM_LEVEL0]) {
@@ -136,8 +136,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             continue;
         }
         size_t channelCountBefore = channels.size();
-        uint32_t *netLayers;
         uint32_t netLayerNum;
+        uint32_t *netLayers;
         CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
         std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
 
@@ -149,11 +149,10 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             if (listSize == 0) {
                 continue;
             }
-
             std::vector<CommLink> links(linkList, linkList + listSize);
             bool protocolFound = false;
             CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
-                std::string("[CalcChannelRequestMesh1D]")));
+                std::string("[CalcChannelRequest]")));
 
             if (channels.size() > channelCountBefore) {
                 break;
@@ -161,7 +160,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
         }
 
         CHK_PRT_RET(channels.size() == channelCountBefore,
-            HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.",
+            HCCL_ERROR("[CalcChannelRequest] Failed to create channel between myRank=%u and rank=%u, there is no link.",
                 myRank, rank), HcclResult::HCCL_E_INTERNAL);
     }
 #endif

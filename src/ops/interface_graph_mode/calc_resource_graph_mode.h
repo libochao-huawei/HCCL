@@ -18,7 +18,7 @@ HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam);
 HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode *opParam);
 HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode *opParam, const char *opType);
 HcclResult HcclSetOpParamGraphModeDataCount(OpParamGraphMode *opParam, const u64 *dataCount);
-HcclResult HcclSetOpParamGraphModeDataType(OpParamGraphMode *opParam, HcclDataType dataType);
+HcclResult HcclSetOpParamGraphModeDataType(OpParamGraphMode *opParam, const HcclDataType dataType);
 HcclResult HcclSetOpParamGraphModeRankSize(OpParamGraphMode *opParam, const u32 *rankSize);
 HcclResult HcclSetOpParamGraphModeHCCLBufferSize(OpParamGraphMode *opParam, const u64 *hcclBufferSize);
 HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, u32 aivCoreLimit);

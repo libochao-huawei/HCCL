@@ -11,7 +11,6 @@
 #ifndef OPS_HCCL_SRC_OPS_INC_COLL_OMNIPIPEDATASLICECALC
 #define OPS_HCCL_SRC_OPS_INC_COLL_OMNIPIPEDATASLICECALC
 #include <math.h>
-#include <stdint.h>
 #include <vector>
 #include <string>
 #include <sstream>
@@ -198,7 +197,7 @@ std::vector<u64> OmniPipeSplitData(u64 rankSize, u64 count, u64 dataTypeSize);
 double CalcBandwidth2D(double xB, double yB, u64 xRankSize, u64 yRankSize, int maxStepNum);
 void CalAllgather2DOffset(u64* xAGOffset, u64* yAGOffset, u64 stepNum, u64 xRankSize, u64 yRankSize, u64* xAGDataSize,
                           u64* yAGDataSize);
-u64 CalAllgatherDataSizeRatio2D(double* xStepP2pDataSize, double* yStepP2pDataSize, double xB, double yB, u64 j, u64 i,
+u64 CalAllgatherDataSizeRatio2D(double* xStepP2pDataSize, double* yStepP2pDataSize, double xB, double yB, u64 xRankSize, u64 yRankSize,
                                 double dataSize, u64 maxStep);
 u64 CalAllgatherDataSize2D(u64* xStepP2pDataSize, u64* yStepP2pDataSize, double xB, double yB, u64 xRankSize,
                            u64 yRankSize, u64 dataSizeEachRank, u64 maxStep);

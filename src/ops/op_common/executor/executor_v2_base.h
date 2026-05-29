@@ -51,8 +51,8 @@ public:
         std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
 #ifndef AICPU_COMPILE
-    HcclResult FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum, const u32 ccuKernelNum, 
-                                            const std::vector<ThreadHandle> &threads_, const std::vector<u32> &ccuKernelNumList, 
+    HcclResult FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum, const u32 ccuKernelNum,
+                                            const std::vector<ThreadHandle> &threads, const std::vector<u32> &ccuKernelNumList,
                                             const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList, u32 notifyNumOnMainThread) const;
 #endif
 protected:

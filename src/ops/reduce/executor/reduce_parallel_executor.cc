@@ -484,12 +484,13 @@ HcclResult
         dataOffsetPerLoop_.at(0) = loopIndex * maxCountPerLoop * dataTypeSize_;
         dataOffsetPerLoop_.at(1) = dataOffsetPerLoop_.at(0) + dataCountPerLoop_.at(0) * dataTypeSize_;
 
-        for (u32 stageIdx = 0; stageIdx < 2; stageIdx++) {
+        u32 stageNum = 2;
+        for (u32 stageIdx = 0; stageIdx < stageNum; stageIdx++) {
             // 计算算法模板所需资源
             CHK_RET(PrepareResForStage(stageIdx));
             CHK_RET(PrepareResForStage2(stageIdx));
             // 每个阶段分2步执行任务编排
-            for (u32 stepIdx = 0; stepIdx < 2; stepIdx++) {
+            for (u32 stepIdx = 0; stepIdx < stageNum; stepIdx++) {
                 CHK_RET(OrchestrateStep(stageIdx, stepIdx));
 #ifndef AICPU_COMPILE
                 if (loopTimes == 1 && param_.engine == CommEngine::COMM_ENGINE_CCU) {

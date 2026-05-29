@@ -161,7 +161,8 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
     HcclComm comm, aclrtStream stream, u32 userRankSize, uint64_t beginTime)
 {
     #ifdef MACRO_DEV_TYPE_NEW
-    if (param.deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
+    u32 versionCheck = 90000000;
+    if (param.deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= versionCheck)) {
     #else
     if (param.deviceType == DevType::DEV_TYPE_910_95) {
     #endif

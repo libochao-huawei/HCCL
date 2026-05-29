@@ -150,7 +150,7 @@ HcclResult CheckAllReduceInputPara(const HcclComm comm, const void* sendBuf, con
 }
 
 HcclResult FillAllReduceOpParam(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-                                HcclReduceOp op, HcclComm comm, aclrtStream stream, OpMode opMode, OpParam &param)
+                                HcclReduceOp op, const HcclComm comm, aclrtStream stream, OpMode opMode, OpParam &param)
 {
     (void) comm;
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];

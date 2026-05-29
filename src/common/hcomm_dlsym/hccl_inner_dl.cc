@@ -11,7 +11,6 @@
 #include "hccl_inner_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 DEFINE_WEAK_FUNC(HcclResult, HcclCreateOpResCtxInner, HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
                                               HcclReduceOp reduceType, uint64_t count, char* algConfig, uint32_t commEngine, void** opResCtx);

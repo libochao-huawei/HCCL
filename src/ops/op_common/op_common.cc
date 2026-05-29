@@ -397,8 +397,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
             newArgs.stream = param.stream;
 
             // Update addresses
-            newArgs.input = (u64)param.inputPtr + ins.inputOffset;
-            newArgs.output = (u64)param.outputPtr + ins.outputOffset;
+            newArgs.input = reinterpret_cast<u64>(param.inputPtr) + ins.inputOffset;
+            newArgs.output = reinterpret_cast<u64>(param.outputPtr) + ins.outputOffset;
 
             CHK_RET(ExecuteKernelLaunch(newArgs));
         }
@@ -406,8 +406,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         // Miss
         if (useCache) {
             g_recordingQueue = std::make_shared<InsQueue>();
-            g_baseInputAddr = (u64)param.inputPtr;
-            g_baseOutputAddr = (u64)param.outputPtr;
+            g_baseInputAddr = reinterpret_cast<u64>(param.inputPtr);
+            g_baseOutputAddr = reinterpret_cast<u64>(param.outputPtr);
         }
 
         CHK_RET(executor->Orchestrate(param, resCtxHost));
@@ -439,7 +439,7 @@ HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
     return HCCL_SUCCESS;
 }
 
-HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+HcclResult ReSelector(const HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
     (void) comm;
@@ -1160,7 +1160,7 @@ HcclResult HcclGetThread(
     return HCCL_SUCCESS;
 }
 
-HcclResult GeGetThread(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+HcclResult GeGetThread(HcclComm comm, const OpParam &param, const AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, const ResPackGraphMode &resPack, u32 maxNotifyNum)
 {
     if (param.opMode == OpMode::OPBASE) {
