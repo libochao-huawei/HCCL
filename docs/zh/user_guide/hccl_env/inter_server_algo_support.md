@@ -146,7 +146,7 @@
   | --- | --- | --- | --- |
   | AlltoAllV | int8、int16、int32、int64、float16、float32、bfp16 | 单算子模式 | 自动选择为pairwise算法 |
 
-<cann-filter npu-type="910">
+<!-- npu="910" id1 -->
 
 ## Atlas 训练系列产品
 
@@ -198,4 +198,4 @@
   | ReduceScatterV | int8、int16、int32、float16、float32、bfp16 | - 单算子模式 | 自动选择为NHR、H-D_R或者ring算法 |
   | AllGatherV | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式 | 自动选择为NHR、H-D_R或者ring算法 |
   | Scatter | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式 | 自动选择为NHR、H-D_R或者ring算法 |
-</cann-filter>
+<!-- end id1 -->
