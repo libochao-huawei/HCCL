@@ -157,8 +157,10 @@ elseif(BUILD_OPEN_PROJECT)
         )
 
         # 安装 device 侧编译产物
-        install(FILES ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
-            DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR}/kernel
+        install(FILES
+            ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
+            DESTINATION .
+            RENAME device-hccl.tar.gz
             OPTIONAL
             COMPONENT hccl
         )
