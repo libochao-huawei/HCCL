@@ -75,7 +75,7 @@ HcclResult AivTempAllGatherMesh1D::KernelRun(const OpParam& param,
     aivAllGatherArgs.yRankSize = 0;
     aivAllGatherArgs.zRankSize = 0;
     for (u32 i = 0; i < subCommRanks_[0].size(); i++){
-        HCCL_INFO("[AivTempAllGatherMesh1D] subCommRanks_ 1， [%u]"， subCommRanks_[0].size());
+        HCCL_INFO("[AivTempAllGatherMesh1D] subCommRanks_ 1, [%u]", subCommRanks_[0].size());
         aivAllGatherArgs.topo_[i] = subCommRanks_[0][i];
     }
     if (subCommRanks_.size() > 1){
