@@ -47,10 +47,10 @@
             ./Ascend-cann-${soc_name}-ops_${cann_version}_linux-${arch}.run --install --install-path=${install_path}
             ```
     
-        - \$\{cann\_version\}：表示CANN软件包版本号。
+        - \$\{cann_version\}：表示CANN软件包版本号。
         - \$\{arch\}：表示CPU架构，如aarch64、x86_64。
-        - \$\{soc\_name\}：表示NPU型号名称。
-        - \$\{install\_path\}：表示指定安装路径，CANN ops算子包需与CANN Toolkit开发套件包安装在相同路径，root用户默认安装在`/usr/local/Ascend`目录。
+        - \$\{soc_name\}：表示NPU型号名称。
+        - \$\{install_path\}：表示指定安装路径，CANN ops算子包需与CANN Toolkit开发套件包安装在相同路径，root用户默认安装在`/usr/local/Ascend`目录。
 
     - **场景2：体验已发布版本能力或基于已发布版本进行开发**
 
@@ -91,7 +91,7 @@ source /usr/local/Ascend/cann/set_env.sh
 
 ### 下载源码
 
-源码下载命令如下，请将\$\{tag\_version\}替换为目标分支标签名，源码分支标签与CANN版本配套关系参见[release仓库](https://gitcode.com/cann/release-management)。
+源码下载命令如下，请将\$\{tag_version\}替换为目标分支标签名，源码分支标签与CANN版本配套关系参见[release仓库](https://gitcode.com/cann/release-management)。
 
 ```shell
 # 下载项目对应分支源码
@@ -174,7 +174,7 @@ bash build.sh --ut
       配套使用Ascend HDK 25.5.T2.B001及以上版本，并通过该Ascend HDK自带的npu-smi工具关闭验签。以下为参考命令，需要以root用户在物理机上执行（以device 0为例）。
 
       ```shell
-      npu-smi set -t custom-op-secverify-enable -i 0 -d 1    # 使能验签配置
+      npu-smi set -t custom-op-secverify-enable -i 0 -d 1    # 开启验签配置
       npu-smi set -t custom-op-secverify-mode -i 0 -d 0      # 关闭客户自定义验签
       ```
 
