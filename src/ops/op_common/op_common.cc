@@ -1522,13 +1522,12 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     u32 maxResGroup = 0;
     resCtxHost->ccuKernels.resize(totalKernelNum);
 
-    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
-    if (regStartRet != CCU_SUCCESS) {
-        HCCL_ERROR("ccu kernel register start failed: ccuRet -> %d", regStartRet);
-        return ConvertCcuToHccl(regStartRet);
-    }
-
     while (currentResGroup <= maxResGroup) {
+        CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
+        if (regStartRet != CCU_SUCCESS) {
+            HCCL_ERROR("ccu kernel register start failed: ccuRet -> %d", regStartRet);
+            return ConvertCcuToHccl(regStartRet);
+        }
         for (u32 i = 0; i < totalKernelNum; i++) {
             CcuKernelInfo& kernelInfo = resRequest.ccuKernelInfos[i];
             if (kernelInfo.resGroup > maxResGroup) {
