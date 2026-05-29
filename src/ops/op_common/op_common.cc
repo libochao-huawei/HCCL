@@ -111,7 +111,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     }
     CHK_RET(SetCommEngine(param));
     // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
-    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
         HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
             static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -264,9 +264,6 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     // 5 一次性拼接
     return AppendFastLaunchTag(param, dataTypeStr, reduceOpStr, countStr, rootStr);
 }
-
-static constexpr uint32_t opExpansionModeCcuSched = 5;
-static constexpr uint32_t opExpansionModeCcuMs = 4;
 
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
@@ -466,7 +463,7 @@ HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
     }
     CHK_RET(SetCommEngine(param));
     // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
-    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
         HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
             static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -1793,7 +1790,7 @@ HcclResult SetCommEngine(OpParam &param)
 
 HcclResult SingleRankProc(HcclComm comm, OpParam &param)
 {
-    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) {
+    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV_ONLY) {
         HCCL_ERROR("[SingleRankProc] opType[%d] currently do not select aiv mode, aiv only not support, "
             "please ensure rankNum is greater than one", static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -1963,7 +1960,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
         useConfigOpExpansionMode = true;
     } else {
         HCCL_INFO("[DecideHcclOpExpansionMode] HcclConfigGetInfo is not supported, use environment mode.");
-        finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs);
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_CCU_MS;
     }
 
     // A5仅通过HcclConfigGetInfo获取展开模式，其他型号保留环境变量方式
@@ -1977,13 +1974,13 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
         if (GetExternalInputHcclAicpuUnfold() == true) {
             finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AI_CPU;
         } else if (GetExternalInputHcclAivOnlyMode() == true) {
-            finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY;
+            finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV_ONLY;
         } else if (GetExternalInputHcclAivMode() == true) {
             finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV;
         } else if (GetExternalInputHcclCcuMSMode()) {
-            finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs);
+            finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_CCU_MS;
         } else if (GetExternalInputHcclCcuSchedMode()) {
-            finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched);
+            finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_CCU_SCHED;
         }
         if (useConfigOpExpansionMode && configOpExpansionMode != finalMode) {
             HCCL_DEBUG("[DecideHcclOpExpansionMode] configOpExpansionMode: %d, environment mode: %d, conflict, use environment mode.",
@@ -2015,18 +2012,18 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV_ONLY:
             param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
             param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
             break;
-        case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_CCU_MS:
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_MS mode selected.");
             break;
-        case static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched):
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_CCU_SCHED:
             param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
