@@ -51,7 +51,7 @@ sign_file(
     OUTPUT_TARGET sign_aicpu_hccl
     INPUT "aicpu_hccl.tar.gz"
     CONFIG "${HCCL_DIR}/scripts/sign/hccl_check_cfg.xml"
-    RESULT_VAR "aicpu_hcomm_signed_file"
+    RESULT_VAR "aicpu_hccl_signed_file"
     DEPENDS pack_aicpu_hccl
 )
 
