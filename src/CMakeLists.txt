@@ -657,40 +657,27 @@ set(_op_proto_link_libs
     graph
     graph_base
     register
-    alog
-    error_manager
-    platform
-    static_turbojpeg
-    ops_utils_proto
-    op_common
     -Wl,--as-needed
-    c_sec
-    json
-    ascend_protobuf
 )
 
 if(BUILD_OPEN_PROJECT)
     set(OP_PROTO_INCLUDE
-        ${ASCEND_CANN_PACKAGE_PATH}/include/graph
-        ${ASCEND_CANN_PACKAGE_PATH}/include/op_common/log
         ${ASCEND_CANN_PACKAGE_PATH}/include/exe_graph
-        ${ASCEND_CANN_PACKAGE_PATH}/include/autofuse/graph_metadef
-        ${ASCEND_CANN_PACKAGE_PATH}/include/autofuse/graph_metadef/external
     )
 else()
     set(OP_PROTO_INCLUDE
-        ${TOP_DIR}/air/inc/graph_metadef
         ${TOP_DIR}/air/inc/graph_metadef/external
-        ${TOP_DIR}/asl/ops/cann/ops/common/inc
-        ${TOP_DIR}/metadef/inc/exe_graph
+        ${TOP_DIR}/metadef/inc/external/exe_graph
     )
 endif()
 
-add_library(opgraph_hccl SHARED)
+add_library(opgraph_hccl SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/log.cc
+)
 
 target_include_directories(opgraph_hccl PRIVATE
-    ${OP_PROTO_INCLUDE}
     ${INCLUDE_LIST}
+    ${OP_PROTO_INCLUDE}
 )
 if(NOT ${CMAKE_BUILD_MODE} STREQUAL "FALSE")
     set(compile_opt_mode ${CMAKE_BUILD_MODE})
@@ -699,16 +686,11 @@ else()
 endif()
 target_compile_options(opgraph_hccl PRIVATE
     ${compile_opt_mode}
-    -Dgoogle=ascend_private
-    -fno-common
+    -fvisibility=hidden
 )
 target_link_libraries(opgraph_hccl PRIVATE
-    $<BUILD_INTERFACE:intf_pub>
-    $<$<BOOL:${BUILD_OPEN_PROJECT}>:$<BUILD_INTERFACE:alog_headers>>
-    $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:$<BUILD_INTERFACE:slog_headers>>
     ${_op_proto_link_libs}
     -Wl,--whole-archive
-    rt2_registry_static
     -Wl,--no-whole-archive
     -Wl,-Bsymbolic
 )
@@ -817,8 +799,6 @@ if(DEVICE_MODE AND KERNEL_MODE)
 endif()
 
 #生成ES API
-
-
 if(BUILD_OPEN_PROJECT)
     list(APPEND CMAKE_MODULE_PATH "${ASCEND_CANN_PACKAGE_PATH}/include/ge/cmake")
 else()
@@ -828,7 +808,9 @@ endif()
 find_package(GenerateEsPackage REQUIRED)
 
 add_es_library(
-    ES_LINKABLE_AND_ALL_TARGET es_math
+    ES_LINKABLE_AND_ALL_TARGET es_hccl
     OPP_PROTO_TARGET opgraph_hccl
     OUTPUT_PATH ${CMAKE_BINARY_DIR}/es_output
 )
+
+add_dependencies(hccl es_hccl)
