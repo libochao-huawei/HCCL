@@ -9,7 +9,7 @@
  */
 
 #include "ins_v2_reduce_scatter_v_sole_executor.h"
-#include "topo_match_multilevel_mesh1d.h"
+#include "topo_match_1d.h"
 #include "ins_temp_reduce_scatter_v_mesh_1D.h"
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_reduce_scatter_v_mesh_1D_mem2mem.h"
@@ -174,7 +174,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V, InsReduceScatterVMesh1D
     InsTempReduceScatterVMesh1D);
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V, InsReduceScatterVMultilevelMesh1D, InsV2ReduceScatterVSoleExecutor,
-    TopoMatchMultilevelMesh1D, InsTempReduceScatterVMesh1D);
+    TopoMatch1D, InsTempReduceScatterVMesh1D);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
