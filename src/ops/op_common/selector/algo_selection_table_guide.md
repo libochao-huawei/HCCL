@@ -9,7 +9,8 @@
 | 文件 | 说明 |
 |------|------|
 | `algo_selection_table.h` | 头文件，定义枚举类型、运行时上下文结构体及选择器类接口 |
-| `algo_selection_table.cc` | 实现文件，包含规则匹配逻辑和默认规则表的初始化 |
+| `algo_selection_table.cc` | 实现文件，包含规则匹配逻辑、默认规则表初始化及外部配置文件加载 |
+| `algo_selection_config_example.txt` | 外部配置文件示例，包含 8 条典型规则 |
 
 **核心设计思想：** 将所有匹配条件平铺在一个 `RuleMap`（`std::map<std::string, std::string>`）中，规则按顺序匹配，先匹配的先返回对应算法名。
 
@@ -170,6 +171,16 @@ public:
     // 初始化默认规则表
     void Initialize();
 
+    // 初始化默认规则表 + 加载外部配置文件（外部规则优先）
+    // configFilePath: 外部配置文件路径，为空字符串时仅加载默认规则
+    void InitializeWithConfig(const std::string& configFilePath);
+
+    // 从外部 txt 文件加载规则，返回成功加载的规则数量，失败返回 -1
+    int LoadRulesFromFile(const std::string& filePath);
+
+    // 从字符串内容解析规则（用于测试或嵌入式场景）
+    int LoadRulesFromString(const std::string& content);
+
     // 根据上下文选择算法，匹配成功返回算法名，否则返回 std::nullopt
     std::optional<std::string> SelectAlgo(const AlgoSelectContext& ctx) const;
 
@@ -177,15 +188,18 @@ public:
     std::vector<RuleMap>& GetRules();
     const std::vector<RuleMap>& GetRules() const;
 
-    // 手动添加一条规则
+    // 手动添加一条规则（追加到末尾）
     void AddRule(const RuleMap& rule);
+
+    // 将规则插入到规则表头部（优先级高于默认规则）
+    void PrependRule(const RuleMap& rule);
 
     // 打印规则表（调试用）
     void DumpTable() const;
 };
 ```
 
-### 5.2 基本使用流程
+### 5.2 基本使用流程（仅默认规则）
 
 ```cpp
 #include "algo_selection_table.h"
@@ -214,7 +228,57 @@ if (result.has_value()) {
 }
 ```
 
-### 5.3 自定义规则
+### 5.3 使用外部配置文件（推荐）
+
+```cpp
+#include "algo_selection_table.h"
+
+// 一行完成：加载默认规则 + 外部配置文件
+ops_hccl::TableBasedAlgoSelector selector;
+selector.InitializeWithConfig("/path/to/algo_selection_config.txt");
+
+// 外部规则会自动插入规则表头部，优先于默认规则匹配
+ops_hccl::AlgoSelectContext ctx;
+// ... 填充 ctx ...
+auto result = selector.SelectAlgo(ctx);
+```
+
+### 5.4 仅从文件加载规则（追加到已有规则表）
+
+```cpp
+ops_hccl::TableBasedAlgoSelector selector;
+selector.Initialize();  // 先加载默认规则
+
+// 后续手动加载外部文件（外部规则插入头部，优先级高于默认规则）
+int count = selector.LoadRulesFromFile("/path/to/custom_rules.txt");
+if (count > 0) {
+    std::cout << "Loaded " << count << " external rules." << std::endl;
+}
+```
+
+### 5.5 从字符串加载规则（测试/嵌入场景）
+
+```cpp
+ops_hccl::TableBasedAlgoSelector selector;
+selector.Initialize();
+
+std::string configContent = R"(
+[rule]
+_execConfig = AICPU_TS
+_opType = AllReduce
+_dataSizeMax = 65536
+_algo = aicpu_ar_ultra_small
+
+[rule]
+_execConfig = CCU_MS
+_opType = Broadcast
+_algo = ccu_ms_broadcast_fast
+)";
+
+int count = selector.LoadRulesFromString(configContent);
+```
+
+### 5.6 自定义规则（代码方式）
 
 ```cpp
 // 添加一条自定义规则：CCU_MS 模式下，CLOS 拓扑的 AllGather 使用特定算法
@@ -231,7 +295,7 @@ selector.AddRule(customRule);
 
 > **注意：** 自定义规则添加后位于规则表末尾。如果需要优先匹配，应在 `Initialize()` 之前或清理规则表后添加，或者通过 `GetRules()` 获取引用后手动调整顺序。
 
-### 5.4 清空并重建规则表
+### 5.7 清空并重建规则表
 
 ```cpp
 selector.GetRules().clear();  // 清空所有规则
@@ -241,7 +305,7 @@ selector.AddRule({...});
 selector.AddRule({...});
 ```
 
-### 5.5 调试：打印规则表
+### 5.8 调试：打印规则表
 
 ```cpp
 selector.DumpTable();
@@ -330,7 +394,84 @@ selector.DumpTable();
 
 ---
 
-## 7. 扩展指南
+## 7. 外部配置文件详解
+
+### 7.1 文件格式
+
+配置文件为纯文本 `.txt` 文件，每条规则以 `[rule]` 标记开始，内部条件以 `key = value` 格式书写：
+
+```
+# 注释行（以 # 开头）
+[rule]
+_execConfig = AICPU_TS
+_opType = AllReduce
+_rankSizeMin = 1
+_rankSizeMax = 4
+_dataSizeMax = 131072
+_algo = aicpu_ar_tiny_optimized
+
+[rule]
+_execConfig = AICPU_TS
+_opType = Broadcast
+_level0Topo = CLOS
+_algo = broadcast_clos_custom
+```
+
+### 7.2 格式规则
+
+| 规则 | 说明 |
+|------|------|
+| `[rule]` | 每条规则的起始标记，必须独占一行 |
+| `key = value` | 条件键值对，等号两侧允许空格 |
+| `# ...` | 注释行，会被忽略 |
+| 空行 | 会被忽略 |
+| `_execConfig` / `_opType` | 每条规则必填 |
+| `_algo` | 每条规则必填，指定匹配成功后的算法名 |
+| 其他 key | 可选，不写则不参与匹配 |
+
+### 7.3 优先级机制
+
+```
+规则表顺序（从高到低）：
+┌──────────────────────────────────────┐
+│  外部配置规则 1  （文件中先写的）     │ ← 最高优先级
+│  外部配置规则 2                       │
+│  ...                                 │
+│  外部配置规则 N  （文件中后写的）     │
+├──────────────────────────────────────┤
+│  内置默认规则 1                       │
+│  内置默认规则 2                       │
+│  ...                                 │
+│  内置默认规则 25                      │ ← 最低优先级
+└──────────────────────────────────────┘
+```
+
+- 外部规则通过 `PrependRule()` 插入规则表头部，**整体优先于**内置默认规则
+- 外部规则之间，**文件中先写的规则优先级更高**
+- 当外部规则与默认规则条件冲突时，外部规则优先生效
+
+### 7.4 覆盖默认规则的策略
+
+若希望外部规则精确覆盖某条默认规则，需确保外部规则的条件是默认规则的**子集或等价集**：
+
+```
+# 默认规则: AICPU_TS + AllReduce + dataSize<512KB → aicpu_ar_small
+# 要覆盖它，外部规则需满足相同或更窄的条件范围：
+
+[rule]
+_execConfig = AICPU_TS
+_opType = AllReduce
+_dataSizeMax = 524288
+_algo = my_custom_small_allreduce    # 替代 aicpu_ar_small
+```
+
+### 7.5 示例配置文件
+
+参见项目中的 `algo_selection_config_example.txt`，其中包含 8 条覆盖不同场景的示例规则。
+
+---
+
+## 8. 扩展指南
 
 ### 7.1 新增一种条件
 
@@ -353,10 +494,12 @@ selector.DumpTable();
 
 ---
 
-## 8. 注意事项
+## 9. 注意事项
 
 - **规则顺序决定优先级**：先添加的规则先匹配，请确保更具体的规则排在更通用的规则之前。
 - **Initialize() 会清空现有规则**：调用 `Initialize()` 会先执行 `rules_.clear()`，自定义规则需在 `Initialize()` 之后添加。
+- **InitializeWithConfig() 是推荐入口**：它会先加载默认规则，再加载外部配置，外部规则自动获得最高优先级。
+- **外部配置文件路径无效时不崩溃**：`LoadRulesFromFile()` 打开文件失败时会输出错误并返回 -1，不会抛出异常。
 - **SelectAlgo 返回 std::optional**：若无规则匹配，返回 `std::nullopt`，调用方需处理此情况。
 - **数值精度**：`_dataSizeMin` 和 `_dataSizeMax` 使用 `u64`（uint64_t），避免大数值溢出。
 - **_dataSizeMax 是半开区间**：匹配条件为 `dataSize < _dataSizeMax`（不含等号），而 `_dataSizeMin` 为闭区间 `dataSize >= _dataSizeMin`。
