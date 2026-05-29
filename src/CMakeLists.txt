@@ -610,26 +610,22 @@ set(_op_proto_link_libs
 
 if(BUILD_OPEN_PROJECT)
     set(OP_PROTO_INCLUDE
-        ${ASCEND_CANN_PACKAGE_PATH}/include/graph
-        ${ASCEND_CANN_PACKAGE_PATH}/include/op_common/log
         ${ASCEND_CANN_PACKAGE_PATH}/include/exe_graph
-        ${ASCEND_CANN_PACKAGE_PATH}/include/autofuse/graph_metadef
-        ${ASCEND_CANN_PACKAGE_PATH}/include/autofuse/graph_metadef/external
     )
 else()
     set(OP_PROTO_INCLUDE
-        ${TOP_DIR}/air/inc/graph_metadef
         ${TOP_DIR}/air/inc/graph_metadef/external
-        ${TOP_DIR}/asl/ops/cann/ops/common/inc
-        ${TOP_DIR}/metadef/inc/exe_graph
+        ${TOP_DIR}/metadef/inc/external/exe_graph
     )
 endif()
 
-add_library(opgraph_hccl SHARED)
+add_library(opgraph_hccl SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/log.cc
+)
 
 target_include_directories(opgraph_hccl PRIVATE
-    ${OP_PROTO_INCLUDE}
     ${INCLUDE_LIST}
+    ${OP_PROTO_INCLUDE}
 )
 if(NOT ${CMAKE_BUILD_MODE} STREQUAL "FALSE")
     set(compile_opt_mode ${CMAKE_BUILD_MODE})
