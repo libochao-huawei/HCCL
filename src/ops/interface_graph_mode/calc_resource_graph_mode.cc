@@ -470,7 +470,7 @@ HcclResult HcclCalcCcuResOffline(OpParamGraphMode *opParam, ResResponseGraphMode
 
     // ccu的资源申请
     u64 ccuOpMemSize = 0;
-    u32 ccuStreamNum = 3;
+    u32 ccuStreamNum = 6;
     u32 ccuTaskNum = 0;
 
     CHK_PRT(CalcTaskNum(opParam, ccuTaskNum));

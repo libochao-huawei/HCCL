@@ -54,7 +54,8 @@ HcclResult HcclSend(
         return HcclSendNext(sendBuf, count, dataType, destRank, comm, stream);
     }
 
-    if (GetHcommVersion() < 90000000) {
+    u32 versionHandle = 90000000;
+    if (GetHcommVersion() < versionHandle) { // compat handle
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
 
