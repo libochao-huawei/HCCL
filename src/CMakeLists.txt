@@ -625,7 +625,9 @@ else()
     )
 endif()
 
-add_library(opgraph_hccl SHARED)
+add_library(opgraph_hccl SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/log.cc
+)
 
 target_include_directories(opgraph_hccl PRIVATE
     ${OP_PROTO_INCLUDE}
