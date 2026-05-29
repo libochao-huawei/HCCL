@@ -67,15 +67,15 @@ HcclResult InsTempAllGatherNhrDpuInter::KernelRun(const OpParam& param, const Te
         return HCCL_E_INTERNAL;
     }
 
+    u32 sendMsgId = 0;
     DPURunInfo dpuRunInfo;
     dpuRunInfo.templateName = "InsTempAllGatherNhrDpuInter";
     dpuRunInfo.tempAlgParams = tempAlgParams;
-    dpuRunInfo.channels = templateResource.channels;
     dpuRunInfo.myRank = myRank_;
     dpuRunInfo.subCommRanks = subCommRanks_;
+    dpuRunInfo.channels = templateResource.channels;
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
 
-    u32 sendMsgId = 0;
     if (HcommSendRequest(reinterpret_cast<uint64_t>(templateResource.npu2DpuShmemPtr), param.algTag,
         static_cast<void*>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
         HCCL_ERROR("HcommSendRequest failed");
