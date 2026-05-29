@@ -40,6 +40,7 @@ add_cann_subdirectories_relative(${HCCL_DIR}
 )
 
 # 打包并签名：aicpu_hccl.tar.gz
+set(CCL_KERNEL_TAR_DIR ${HCCL_DIR}/build_device/ccl_kernel_tar_pkg/)
 set(CCL_KERNEL_TAR_LIBS
     ${CCL_KERNEL_TAR_DIR}/aicpu_kernels_device/libscatter_aicpu_kernel.so
     ${CCL_KERNEL_TAR_DIR}/aicpu_kernels_device/libhccl_kernel_compat.so
@@ -54,8 +55,8 @@ pack_targets_and_files(
 add_dependencies(generate_device_aicpu_package scatter_aicpu_kernel)
 sign_file(
     INPUT "aicpu_hccl.tar.gz"
-    CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/scripts/sign/hccl_check_cfg.xml"
-    RESULT_VAR "aicpu_hccl_sign_file"
+    CONFIG "${HCCL_DIR}/scripts/sign/hccl_check_cfg.xml"
+    RESULT_VAR "aicpu_hccl_signed_file"
     DEPENDS generate_device_aicpu_package
 )
 add_dependencies(sign_aicpu_hccl generate_device_aicpu_package)
