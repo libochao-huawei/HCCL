@@ -659,6 +659,15 @@ HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRs
         u32 interPodStepNum = OmniPipeSliceInfoRS.dataSliceLevel2.size();
         u32 intraPodStepNum = OmniPipeSliceInfoRS.dataSliceLevel0.size() / OmniPipeSliceInfoRS.dataSliceLevel2.size();
 
+        int level0Step;
+        int level1Step;
+        int level2Step;
+
+        HCCL_DEBUG(
+            "[InsV2AllReduceOmniPipeExecutor][InitExectorInfo] curloop[%d] loopTimes[%d], RS-interPodStepNum[%d], "
+            "RS-intraPodStepNum[%d], RS-level0Step[%d], RS-level1Step[%d], RS-level2Step[%d]",
+            loop, loopTimes, interPodStepNum, intraPodStepNum, level0Step, level1Step, level2Step);
+
         // 4.3 RS for循环2层
         for (int stepZ = 0; stepZ < interPodStepNum; stepZ++) {
             if (rankSizeLevel2_ > 1) {
@@ -700,6 +709,11 @@ HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRs
 
         interPodStepNum = OmniPipeSliceInfoAG.dataSliceLevel2.size();
         intraPodStepNum = OmniPipeSliceInfoAG.dataSliceLevel0.size() / OmniPipeSliceInfoAG.dataSliceLevel2.size();
+
+        HCCL_INFO(
+            "[InsV2AllReduceOmniPipeExecutor][InitExectorInfo] curloop[%d] loopTimes[%d], AG-interPodStepNum[%d], "
+            "AG-intraPodStepNum[%d], AG-level0Step[%d], AG-level1Step[%d], AG-level2Step[%d]",
+            loop, loopTimes, interPodStepNum, intraPodStepNum, level0Step, level1Step, level2Step);
 
         // 5.1 AG for循环2层
         for (int stepZ = 0; stepZ < interPodStepNum; stepZ++) {
