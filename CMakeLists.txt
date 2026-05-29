@@ -38,12 +38,12 @@ message(STATUS "ENABLE_BUILD_DEVICE=${ENABLE_BUILD_DEVICE}")
 message(STATUS "ENABLE_BUILD_AARCH=${ENABLE_BUILD_AARCH}")
 
 set(HCCL_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
 set(HCC_TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
 set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
 set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
 set(HCC_C_AR          "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
 
+# 交叉编译场景(x86机器上编译arm包)
 if(ENABLE_BUILD_AARCH)
     message(STATUS "TOOLCHAIN_DIR=${HCC_TOOLCHAIN_DIR}")
     set(CMAKE_SYSTEM_NAME Linux)
@@ -55,7 +55,6 @@ endif()
 
 # 引入CANN/cmake库
 include(cmake/fetch_cann_cmake.cmake)
-
 project(hccl)
 
 # 初始化 CANN 项目配置
@@ -122,8 +121,6 @@ elseif(BUILD_OPEN_PROJECT)
     include(cmake/package.cmake)
     include(cmake/func.cmake)
     include(version.cmake)
-
-    message(STATUS "IN BUILD_OPEN_PROJECT ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
     
     # 检查构建依赖
     check_pkg_build_deps("hccl")
@@ -135,8 +132,6 @@ elseif(BUILD_OPEN_PROJECT)
 
     # Device 侧编译构建
     if(ENABLE_DEVICE)
-        set(HCCL_DEVICE_BUILD_PATH ${CMAKE_BINARY_DIR}/hccl_device)
-
         include(ExternalProject)
         ExternalProject_Add(hccl_device
             SOURCE_DIR ${HCCL_DIR}/cmake/device
@@ -157,12 +152,13 @@ elseif(BUILD_OPEN_PROJECT)
                 -DENABLE_SIGN=${ENABLE_SIGN}
                 -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT}
                 -DVERSION_INFO=${VERSION_INFO}
+            INSTALL_COMMAND ${CMAKE_CPACK_COMMAND}
             BUILD_ALWAYS TRUE
         )
 
         # 安装 device 侧编译产物
         install(FILES
-            ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
+            ${HCCL_DEVICE_BUILD_PATH}/aicpu_hccl.tar.gz
             DESTINATION .
             RENAME device-hccl.tar.gz
             OPTIONAL

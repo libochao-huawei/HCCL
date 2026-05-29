@@ -178,7 +178,8 @@ set(HI_PYTHON                     "python3"                       CACHE   STRING
 message(STATUS "config.cmake KERNEL_MODE=${KERNEL_MODE} BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
 
 #Device 构建安装目录
-set(HCCL_DEVICE_BUILD_PATH ${CMAKE_BIN})
+set(HCCL_DEVICE_BUILD_PATH ${CMAKE_BINARY_DIR}/device_build)
+set(HCCL_DEVICE_INSTALL_PATH ${CMAKE_BINARY_DIR}/device_install)
 
 set(INSTALL_LIBRARY_DIR ${CMAKE_SYSTEM_PROCESSOR}-linux/lib64)
 set(INSTALL_INCLUDE_DIR ${CMAKE_SYSTEM_PROCESSOR}-linux/include)
