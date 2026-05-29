@@ -54,7 +54,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
-    // 调用计算资源的函数
+    // 调用计算资源的函数 InsReduceScatterNHR 在计算资源时按照channels取最大，实际使用资源由SetchannelsPerRank使能
     CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
     return HCCL_SUCCESS;
 }
@@ -117,7 +117,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
     u32 templateScratchMultiplier = algTemplate->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType,
                                                                      tempAlgParams.buffInfo.outBuffType);
-    if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
+    if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS && std::string(param.algName) != "InsReduceScatterNHR") {
         algTemplate->SetchannelsPerRank(templateAlgRes.channels);
     }
     // 计算最小传输大小
