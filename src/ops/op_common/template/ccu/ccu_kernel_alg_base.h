@@ -185,6 +185,10 @@ struct CcuKernelCtxBase {
                                      const size_t channels[], uint32_t channelCount);
     CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
                              ccu::LocalAddr localDst, std::vector<ccu::RemoteAddr> dst, ccu::LocalAddr src, GroupOpSizeVars goSize);
+    CcuResult CreateMultiOpBroadcastWithoutMyRank(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
+                                     const size_t channels[], uint32_t channelCount);
+    CcuResult GroupBroadcastWithoutMyRank(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
+                             std::vector<ccu::RemoteAddr> dst, ccu::LocalAddr src, GroupOpSizeVars goSize);
 //     HcclResult CreateMultiOpReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, HcclDataType dataType,
 //                                      HcclDataType outputDataType, HcclReduceOp opType);
     CcuResult CreateReduceLoop(CcuKernelCtxBase &ctx, uint32_t size, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);

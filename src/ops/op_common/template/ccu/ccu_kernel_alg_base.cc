@@ -892,123 +892,126 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
     return CCU_SUCCESS;
 }
 
-// HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWithoutMyRank(const std::vector<ChannelHandle> &channels)
-// {
-//     AllocGoResource();
+CcuResult CreateMultiOpBroadcastWithoutMyRank(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
+                                const size_t channels[], uint32_t channelCount)
+{
+    AllocGoResource(ctx.moConfig, ctx.moRes, ctx.resourceAllocated);
 
-//     std::string loopType = "broadcast";
-//     if (registeredLoop.find(loopType) != registeredLoop.end()) {
-//         return HCCL_SUCCESS;
-//     }
+    if (ctx.IsLoopEntityRegistered("broadcast_wmr")) {
+        return CCU_SUCCESS;
+    }
+    ctx.CreateLoopEntity("broadcast_wmr");
+    auto &loops = ctx.loopMap["broadcast_wmr"];
 
-//     uint32_t size = channels.size() + 1;
+    uint32_t channelSize = channelCount;
 
-//     for (uint32_t index = 0; index < 2; index++) { // 需要实现化2个Loop
-//         ccu::LocalAddr src = CreateLocalAddr();
-//         std::vector<CcuRep::RemoteAddr> dst;
-//         for (uint32_t i = 0; i < size; i++) {
-//             ccu::LocalAddr tmp = CreateLocalAddr();
-//             dst.emplace_back(*reinterpret_cast<CcuRep::RemoteAddr*>(&tmp));
-//         }
-//         ccu::Variable            len = CreateVariable();
-//         CcuRep::LoopBlock           lb(this, loopType + "_loop_" + std::to_string(index));
-//         lb(src, dst, len);
+    for (int32_t index = 0; index < 2; index++) {
+        var.loopRemoteDst[index].resize(channelSize);
 
-//         CcuRep::CcuBuf &buf = moRes.ccuBuf[index * moConfig.msInterleave];
-//         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
+        uint32_t bufBase = index * ctx.moConfig.msInterleave;
+        ccu::Event loopEvt = ctx.moRes.completedEvent[index];
 
-//         event.mask = 1;
-//         LocalCopyNb(buf, src, len, event);
-//         WaitEvent(event);
+        loops.body[index].reset(new ccu::Func(
+            [&ctx, index, bufBase, loopEvt, channelSize, channels, &var]() {
+            ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], var.loopSrc[index], var.loopLen[index], loopEvt, 1);
+            ccu::EventWait(loopEvt, 1);
 
-//         for (uint32_t i = 0; i < channels.size(); i++) {
-//             if (channels[i] == 0) {
-//                 return HCCL_E_PTR;
-//             }
-//             event.mask = 1 << i;
-//             CHK_RET(WriteNb(channels[i], dst[i], buf, len, event));
-//         }
-//         ccu::LocalAddr &localDst = *reinterpret_cast<ccu::LocalAddr*>(&dst[size - 1]);
-//         event.mask = (1 << (size - 1)) - 1;
-//         WaitEvent(event);
-//     }
+            for (uint32_t i = 0; i < channelSize; i++) {
+                ccu::Write(channels[i], var.loopRemoteDst[index][i], ctx.moRes.ccuBuf[bufBase], var.loopLen[index], loopEvt, 1 << i);
+            }
 
-//     registeredLoop.insert(loopType);
-//     return HCCL_SUCCESS;
-// }
+            ccu::EventWait(loopEvt, (1 << channelSize) - 1);
+        }));
 
-// HcclResult CcuKernelAlgBase::GroupBroadcastWithoutMyRank(const std::vector<ChannelHandle> &channels, std::vector<CcuRep::RemoteAddr> dst,
-//                                 ccu::LocalAddr src, GroupOpSize goSize)
-// {
-//     CHK_RET(CreateMultiOpBroadcastWithoutMyRank(channels));
+        loops.loops[index].reset(
+            new ccu::Loop(loops.loopParam[index], *loops.body[index]));
+    }
 
-//     uint32_t size = channels.size() + 1;
+    return CCU_SUCCESS;
+}
 
-//     CCU_IF(goSize.addrOffset != 0)
-//     {
-//         ccu::Variable loopParam = CreateVariable();
-//         loopParam = GetLoopParam(0, moConfig.memSlice * moConfig.loopCount, 0);
-//         loopParam += goSize.loopParam;
+CcuResult GroupBroadcastWithoutMyRank(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
+                        std::vector<ccu::RemoteAddr> dst, ccu::LocalAddr src, GroupOpSizeVars goSize)
+{
+    GroupBroadcastVar var;
+    CCU_CHK_RET(CreateMultiOpBroadcastWithoutMyRank(ctx, var, channels, channelCount));
+    auto &loops = ctx.loopMap["broadcast_wmr"];
 
-//         ccu::Variable sliceSize = CreateVariable();
-//         sliceSize = moConfig.memSlice;
-//         auto lc   = Loop("broadcast_loop_0")(src, dst, sliceSize);
+    CCU_IF(goSize.loopParam != 0)
+    {
+        ccu::Variable loopParam;
+        loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
+        loopParam = loopParam + goSize.loopParam;
 
-//         ccu::Variable paraCfg = CreateVariable();
-//         paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);
-//         ccu::Variable offsetCfg = CreateVariable();
-//         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+        ccu::Variable sliceSize;
+        sliceSize = ctx.moConfig.memSlice;
 
-//         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
-// #ifdef CcuProfiling
-//         std::string groupOpSize = "GroupBroadcast";
-//         GroupInfoTemp groupInfo {
-//             goSize.loopParam.Id(),
-//             goSize.parallelParam.Id(),
-//             goSize.residual.Id()
-//         };
-//         AddCcuProfiling(groupInfo, channels, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclReduceOp::HCCL_REDUCE_RESERVED, groupOpSize);
-// #endif
-//     }
+        var.loopSrc[0].addr = src.addr;
+        var.loopSrc[0].token = src.token;
+        for (uint32_t i = 0; i < channelCount; ++i) {
+            var.loopRemoteDst[0][i].addr = dst[i].addr;
+            var.loopRemoteDst[0][i].token = dst[i].token;
+        }
+        var.loopLen[0] = sliceSize;
 
-//     CCU_IF(goSize.parallelParam != 0)
-//     {
-//         src.addr += goSize.addrOffset;
-//         for (uint32_t i = 0; i < size; i++) {
-//             dst[i].addr += goSize.addrOffset;
-//         }
+        ccu::Variable paraCfg;
+        paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
 
-//         auto lc0 = Loop("broadcast_loop_0")(src, dst, goSize.residual);
+        ccu::Variable offsetCfg;
+        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
-//         src.addr += goSize.residual;
-//         for (uint32_t i = 0; i < size; i++) {
-//             dst[i].addr += goSize.residual;
-//         }
+        loops.loopParam[0] = loopParam;
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0] }; 
+        ccu::LoopGroup group(paraCfg, offsetCfg, 1, grpLoops);
+    }
 
-//         ccu::Variable sliceSize = CreateVariable();
-//         sliceSize = moConfig.memSlice;
-//         auto lc1  = Loop("broadcast_loop_1")(src, dst, sliceSize);
+    CCU_IF(goSize.parallelParam != 0)
+    {
+        src.addr += goSize.addrOffset;
+        for (uint32_t i = 0; i < channelCount; i++) {
+            dst[i].addr += goSize.addrOffset;
+        }
 
-//         ccu::Variable loopCfg0 = CreateVariable();
-//         loopCfg0 = GetLoopParam(0, 0, 1);
-//         ccu::Variable loopCfg1 = CreateVariable();
-//         loopCfg1 = GetLoopParam(0, 0, 1);
-//         ccu::Variable offsetCfg = CreateVariable();
-//         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+        var.loopSrc[0].addr = src.addr;
+        var.loopSrc[0].token = src.token;
+        for (uint32_t i = 0; i < channelCount; ++i) {
+            var.loopRemoteDst[0][i].addr = dst[i].addr;
+            var.loopRemoteDst[0][i].token = dst[i].token;
+        }
+        var.loopLen[0] = goSize.residual;
 
-//         LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
-// #ifdef CcuProfiling
-//         std::string groupOpSize = "GroupBroadcast";
-//         GroupInfoTemp groupInfo {
-//             goSize.loopParam.Id(),
-//             goSize.parallelParam.Id(),
-//             goSize.residual.Id()
-//         };
-//         AddCcuProfiling(groupInfo, channels, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclReduceOp::HCCL_REDUCE_RESERVED, groupOpSize);
-// #endif
-//     }
-//     return HCCL_SUCCESS;
-// }
+        src.addr += goSize.residual;
+        for (uint32_t i = 0; i < channelCount; i++) {
+            dst[i].addr += goSize.residual;
+        }
+
+        ccu::Variable sliceSize;
+        sliceSize = ctx.moConfig.memSlice;
+
+        var.loopSrc[1].addr = src.addr;
+        var.loopSrc[1].token = src.token;
+        for (uint32_t i = 0; i < channelCount; ++i) {
+            var.loopRemoteDst[1][i].addr = dst[i].addr;
+            var.loopRemoteDst[1][i].token = dst[i].token;
+        }
+        var.loopLen[1] = sliceSize;
+
+        ccu::Variable loopCfg0;
+        loopCfg0 = GetLoopParam(0, 0, 1);
+
+        ccu::Variable loopCfg1;
+        loopCfg1 = GetLoopParam(0, 0, 1);
+
+        ccu::Variable offsetCfg;
+        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+
+        loops.loopParam[0] = loopCfg0;
+        loops.loopParam[1] = loopCfg1;
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] }; 
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
+    }
+    return CCU_SUCCESS;
+}
 
 // HcclResult CcuKernelAlgBase::CreateMultiOpCopy()
 // {
