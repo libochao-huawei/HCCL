@@ -134,6 +134,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
     }
 
     if (topoInfo->topoLevelNums > 1) {
+        selectAlgName = "CcuReduceScatterParallelMesh1DNHR";
+        return SelectorStatus::MATCH;
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
             if (topoInfo->Level1Nhr) {

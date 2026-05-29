@@ -44,7 +44,7 @@ u64 CcuTempReduceScatterNHR1DMem2Mem::CalcScratchMultiple(BufferType inBuffType,
 HcclResult CcuTempReduceScatterNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
                                                             std::vector<NHRStepInfo>& stepInfoVector,
                                                             std::map<u32, u32>& rank2ChannelIdx,
-                                                            u32 enableDieNum, u32 enableDieId,
+                                                            u32 dieNum, u32 enableDieId,
                                                             std::vector<std::vector<HcclChannelDesc>>& channelsPerDie)
 {
     constexpr u32 DIE_NUM_1 = 1;
@@ -54,12 +54,12 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
         NHRStepInfo stepInfo;
         CHK_RET(GetStepInfo(step, stepInfo));
         stepInfoVector.push_back(stepInfo);
-        if (enableDieNum == DIE_NUM_1) {
+        if (dieNum == DIE_NUM_1) {
             CHK_RET(SelectChannelToVec(comm, myRank_, stepInfo.fromRank, rankIdToChannelDesc_, enableDieId, 
                 rank2ChannelIdx, channelsPerDie[0]));
             CHK_RET(SelectChannelToVec(comm, myRank_, stepInfo.toRank, rankIdToChannelDesc_, enableDieId, 
                 rank2ChannelIdx, channelsPerDie[0]));
-        } else if (enableDieNum == DIE_NUM_2) {
+        } else if (dieNum == DIE_NUM_2) {
             // 加入fromRank 2个die的链路
             CHK_RET(SelectChannelToVec(comm, myRank_, stepInfo.fromRank, rankIdToChannelDesc_, 0, 
                 rank2ChannelIdx, channelsPerDie[0]));
@@ -93,16 +93,16 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
     }
     CHK_RET(RestoreChannelMap(channelDescs, rankIdToChannelDesc_));
     // 1.从获得的channelDesc，判断kernel发送到几个die上
-    uint32_t enableDieNum = 0;
+    uint32_t dieNum = 0;
     uint32_t enableDieId = 0;
-    CHK_RET(GetDieInfoFromChannelDescs(comm, rankIdToChannelDesc_, myRank_, enableDieNum, enableDieId));
+    CHK_RET(GetDieInfoFromChannelDescs(comm, rankIdToChannelDesc_, myRank_, dieNum, enableDieId));
     
-    if (enableDieNum < 1 || enableDieNum > CCU_DIE_NUM_MAX_2) { // 目前只支持1个或2个die
+    if (dieNum < 1 || dieNum > CCU_DIE_NUM_MAX_2) { // 目前只支持1个或2个die
         HCCL_ERROR("[CcuTempReduceScatterNHR1DMem2Mem::CalcRes] get channelDescs fail");
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    uint32_t kernelNum = 1;
+    uint32_t kernelNum = dieNum;
     // 无论几个kernel，都创建2条流
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
@@ -113,12 +113,12 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
 
     // 2.将channelDescs分到2个die
     std::vector<std::vector<HcclChannelDesc>> channelsPerDie;
-    channelsPerDie.resize(enableDieNum);
+    channelsPerDie.resize(dieNum);
     std::map<u32, u32> rank2ChannelIdx;
     std::vector<NHRStepInfo> stepInfoVector;
     
-    CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, enableDieNum, enableDieId, channelsPerDie));
-    if (enableDieNum > 1) { // 通过端口数划分channel，适配跨框die0连die1的场景，避免建链失败
+    CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, dieNum, enableDieId, channelsPerDie));
+    if (dieNum > 1) { // 通过端口数划分channel，适配跨框die0连die1的场景，避免建链失败
         CHK_RET(ReverseChannelPerDieIfNeed(comm, myRank_, channelsPerDie));
     }
 
@@ -132,7 +132,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
         kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterNHR1D>(subCommRanks_[0].size(),
                                                                                 mySubCommRank_,
                                                                                 kernelIdx, stepInfoVector, rank2ChannelIdx,
-                                                                                param, subCommRanks_, enableDieNum);
+                                                                                param, subCommRanks_, dieNum);
         kernelInfo.channels = channelsPerDie[kernelIdx];
         resourceRequest.ccuKernelInfos.push_back(kernelInfo);
     }
@@ -153,6 +153,14 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    // 参考AllGather FastLaunch: 动态刷新isInputOutputEqual
+    uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + args[0];
+    uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + args[1];
+    uint64_t currentRankSliceInputOffset = args[13];   // cached in FillCachedArgs
+    uint64_t currentRankSliceOutputOffset = args[14];  // cached in FillCachedArgs
+    bool inputOutputEqual = (inputAddr + currentRankSliceInputOffset == outputAddr + currentRankSliceOutputOffset);
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+
     // 前流同步
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
@@ -162,9 +170,8 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
 
     for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
         CcuTaskArgReduceScatterNHR1D taskArg(
-            PointerToAddr(buffInfo_.inputPtr) + args[0],
-            PointerToAddr(buffInfo_.outputPtr) + args[1],
-            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
+            inputAddr, outputAddr,
+            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], isInputOutputEqual);
 
         void* taskArgPtr = static_cast<void*>(&taskArg);
 
@@ -193,11 +200,12 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& pa
         die1Size = 0;
         return HcclResult::HCCL_SUCCESS;
     }
-    u8 die0BWcoeff = 1;
-    u8 die1BWcoeff = 1;
+    u8 die0BWcoeff = 6;
+    u8 die1BWcoeff = 2;
 
     die0Size = (dataCount * die0BWcoeff / (die0BWcoeff + die1BWcoeff)) * typeSize;
     die1Size = sliceSize - die0Size;
+    HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem::SplitDataFor2Dies] die0Size = %llu, die1Size = %llu", die0Size , die1Size);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -236,7 +244,10 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t inputRepeatStride = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t repeatNumVar = UINT64_MAX - repeatNum;
-    uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
+    uint64_t currentRankSliceInputOffset = inputSliceStride * mySubCommRank_;
+    uint64_t currentRankSliceOutputOffset = outputSliceStride * mySubCommRank_;
+    uint64_t isInputOutputEqual = 
+        (inputAddr + currentRankSliceInputOffset == outputAddr + currentRankSliceOutputOffset) ? 1 : 0;
     HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem] dimSize[%llu], die0Size[%llu], die1Size[%llu],"
         "die0LastSliceSize[%llu], die1LastSliceSize[%llu], inputAddr[%llu],"
         "outputAddr[%llu], repeatNum[%llu], inputSliceStride[%llu], outputSliceStride[%llu],"
@@ -276,7 +287,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     CcuKernelSubmitInfo submitInfo;
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, die0Size, die1Size,
         die0LastSliceSize, die1LastSliceSize, inputSliceStride, outputSliceStride, inputRepeatStride,
-        outputRepeatStride, repeatNum, isInputOutputEqual));
+        outputRepeatStride, repeatNum, isInputOutputEqual, currentRankSliceInputOffset, currentRankSliceOutputOffset));
     for (u32 i = 0; i < kernelNum; i++) { 
         // 2个kernel的TaskArg相同
         submitInfo.kernelHandle = templateResource.ccuKernels[i];

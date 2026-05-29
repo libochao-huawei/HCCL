@@ -36,10 +36,10 @@ public:
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
         TemplateResource& templateResource) override;
 private:
-    HcclResult PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId,
-                                std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc);
+    HcclResult PartitionChannels(HcclComm comm, const std::vector<std::vector<HcclChannelDesc>> &channelDescs, uint32_t &meshDieId,
+        std::map<u32, std::vector<std::vector<HcclChannelDesc>>>& rankIdToChannelDesc);
     HcclResult CalcChannelRequest(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-        const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+        const std::vector<std::vector<u32>>& subcommInfo, std::vector<std::vector<HcclChannelDesc>> &channels);
     HcclResult ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
         const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
         std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName);
@@ -49,12 +49,18 @@ private:
         const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
         std::vector<HcclChannelDesc>& channels, bool& protocolFound);
     HcclResult CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks);
+    HcclResult SplitDataFor2Dies(const OpParam& param, const TemplateDataParams& templateDataParams,
+                                 uint64_t& sliceSizeMesh2die, uint64_t& sliceSizeMesh1d) const;
+    HcclResult RestoreChannelMap(const std::vector<std::vector<HcclChannelDesc>>& channelDescs,
+                                std::map<u32, std::vector<std::vector<HcclChannelDesc>>>& rankIdToChannelDesc);
 
     const uint32_t DIE_NUM = 2; // 2Die
 
-    std::map<uint32_t, std::vector<HcclChannelDesc>> channels_; // key is DieId
+    std::map<uint32_t, std::vector<HcclChannelDesc>> meshChannels_; // key is DieId
+    std::map<uint32_t, std::vector<HcclChannelDesc>> closChannels_;
     std::map<uint32_t, RankGroup> rankGroup_;
-    std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
+    std::map<u32, std::vector<std::vector<HcclChannelDesc>>> rankIdToChannelDesc_;
+    
 };
 
 } // namespace Hccl
