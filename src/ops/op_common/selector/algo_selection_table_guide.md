@@ -473,20 +473,20 @@ _algo = my_custom_small_allreduce    # 替代 aicpu_ar_small
 
 ## 8. 扩展指南
 
-### 7.1 新增一种条件
+### 8.1 新增一种条件
 
 1. 在 `AlgoSelectContext` 结构体中添加新字段。
 2. 在 `MatchRule()` 方法中添加对应的匹配逻辑。
 3. 在规则 Map 中约定新的 key 名称（建议以 `_` 开头保持一致）。
 4. 在 `Initialize()` 或外部通过 `AddRule()` 添加使用新条件的规则。
 
-### 7.2 新增一种操作类型
+### 8.2 新增一种操作类型
 
 1. 在 `HcclCMDType` 枚举中添加新值。
 2. 在 `CmdTypeToStr()` 中添加对应的字符串映射。
 3. 在 `Initialize()` 中添加该操作类型的默认规则。
 
-### 7.3 新增一种执行配置
+### 8.3 新增一种执行配置
 
 1. 在 `OpExecuteConfig` 枚举中添加新值。
 2. 在 `ExecConfigToStr()` 中添加对应的字符串映射。
@@ -494,7 +494,201 @@ _algo = my_custom_small_allreduce    # 替代 aicpu_ar_small
 
 ---
 
-## 9. 注意事项
+## 9. FastAlgoSelector 高速算法选择器
+
+### 9.1 设计动机
+
+`TableBasedAlgoSelector` 采用 O(N) 全量遍历的方式逐条匹配规则，每条规则需要做多次字符串比较。当规则数量增长到数百甚至数千条时，线性扫描会成为性能瓶颈。`FastAlgoSelector` 通过**分桶 + 预解析 + 哈希查表**三层优化，将单次查询的时间复杂度从 O(N) 降低到接近 O(1)。
+
+### 9.2 性能对比
+
+| 优化维度 | TableBasedAlgoSelector | FastAlgoSelector |
+|----------|----------------------|------------------|
+| 查找范围 | O(N) 全量遍历所有规则 | O(1) 桶定位，候选集缩减到 2~6 条 |
+| 条件匹配 | 每条规则做字符串转换 + 字符串比较 | 预解析为枚举/bool 类型化值，零字符串转换 |
+| 离散条件匹配 | 顺序遍历每条规则 | O(1) 哈希精确查找（composite key） |
+| 范围条件匹配 | 混合在全量遍历中 | 独立小集合顺序遍历（k≈2~4） |
+| 外部规则优先级 | 插入链表头部 | 更低的 priority 值 + exactMap 覆盖 |
+
+### 9.3 三层查找架构
+
+```
+查询 ctx (execConfig=AICPU_TS, opType=AllReduce, ...)
+  │
+  ▼  第 1 层: 桶查找 O(1)
+buckets_[(execConfig, opType)]
+  │    从 25+ 条规则缩减到 2~6 条候选
+  │
+  ▼  第 2 层: exactMap 哈希精确匹配 O(1)
+exactMap[compositeKey]
+  │    纯离散条件规则，类型化比较，零字符串转换
+  │
+  │  miss
+  ▼  第 3 层: rangeRules 顺序遍历 O(k), k≈2~4
+rangeRules 按优先级排序
+       仅哈希 miss 时遍历小集合
+```
+
+**第 1 层 — 分桶（Bucket Index）：** 以 `(execConfig, opType)` 为 key 将所有规则分桶。查询时通过 `std::unordered_map` 直接定位到候选规则集，将搜索空间从全量 N 条规则缩减到单个桶内的 2~6 条。
+
+**第 2 层 — 哈希精确匹配（Exact Map）：** 桶内纯离散条件（不含 `_rankSizeMin/Max`、`_dataSizeMin/Max`）的规则被编译为 `FastRule`，其所有离散条件按固定顺序拼接为一个 composite key 字符串。查询时根据规则的 key 子集构建相同的查询 key，通过 `std::unordered_map` 做 O(1) 精确查找。
+
+**第 3 层 — 范围回退（Range Fallback）：** 桶内含范围条件的规则放入 `rangeRules` 向量，按优先级排序。仅在第 2 层未命中时顺序遍历（通常仅 2~4 条）。
+
+### 9.4 核心数据结构
+
+#### FastRule — 预解析规则
+
+```cpp
+struct FastRule {
+    // --- 预解析的离散条件（std::optional 表示是否参与匹配） ---
+    std::optional<int> topoLevel;            // -1 表示 "multi"
+    std::optional<Level0Shape> level0Topo;
+    std::optional<Level0MeshType> level0MeshType;
+    std::optional<bool> level0PcieMix;
+    std::optional<bool> is2DieFullMesh;
+    std::optional<bool> level1Nhr;
+    std::optional<bool> level0Nhr;
+    std::optional<bool> meshEqClos;
+    std::optional<bool> closMulMesh;
+    std::optional<u32> localNetIns;
+    std::optional<HcclReduceOp> reduceOp;
+    std::optional<bool> overlap;
+    std::optional<bool> hostToDevice;
+    std::optional<bool> deviceToHost;
+    std::vector<HcclDataType> dataTypes;     // 空 = 匹配所有
+
+    // --- 范围条件 ---
+    u32 rankSizeMin = 0;
+    u32 rankSizeMax = UINT32_MAX;
+    u64 dataSizeMin = 0;
+    u64 dataSizeMax = UINT64_MAX;
+    bool hasRange = false;
+
+    // --- 结果 ---
+    std::string algo;
+
+    // --- composite key（仅离散部分，用于哈希查表） ---
+    std::string compositeKey;
+
+    // --- 优先级（越小越优先） ---
+    int priority = 0;
+};
+```
+
+**设计要点：**
+- 所有离散条件在 `CompileRule()` 阶段从字符串预解析为 `std::optional<枚举/bool>` 类型化值，匹配时直接比较枚举/布尔值，无需任何字符串操作。
+- `std::optional` 表示该条件是否参与匹配（无值 = 不参与 = 通配）。
+- `compositeKey` 将所有已设置的离散条件按固定顺序拼接为规范化字符串，用于哈希精确查找。
+
+#### AlgoBucket — 桶结构
+
+```cpp
+struct AlgoBucket {
+    // 纯离散条件规则：compositeKey -> FastRule*（O(1) 哈希查表）
+    std::unordered_map<std::string, const FastRule*> exactMap;
+
+    // 含范围条件的规则：按优先级排序，顺序遍历
+    std::vector<const FastRule*> rangeRules;
+};
+```
+
+### 9.5 规则分类策略
+
+`IndexRule()` 方法根据规则是否包含范围条件（`_rankSizeMin/Max`、`_dataSizeMin/Max`）自动将规则分类：
+
+| 规则类型 | 存放位置 | 匹配方式 |
+|----------|----------|----------|
+| 纯离散条件 | `exactMap` | O(1) 哈希精确查找 |
+| 含范围条件 | `rangeRules` | O(k) 顺序遍历 |
+
+**外部规则优先级处理：** 外部配置规则通过 `PrependRule()` 插入，获得更低的 `priority` 值。对于 `exactMap` 中相同 `compositeKey` 的条目，外部规则会覆盖默认规则；对于 `rangeRules`，通过 priority 排序保证外部规则优先匹配。
+
+### 9.6 API 使用
+
+`FastAlgoSelector` 的 API 与 `TableBasedAlgoSelector` 完全兼容：
+
+```cpp
+class FastAlgoSelector {
+public:
+    void Initialize();
+    void InitializeWithConfig(const std::string& configFilePath);
+    int LoadRulesFromFile(const std::string& filePath);
+    int LoadRulesFromString(const std::string& content);
+    std::optional<std::string> SelectAlgo(const AlgoSelectContext& ctx) const;
+    void AddRule(const RuleMap& rule);
+    void PrependRule(const RuleMap& rule);
+    const std::vector<RuleMap>& GetRules() const;
+    void DumpTable() const;
+};
+```
+
+### 9.7 使用示例
+
+```cpp
+#include "algo_selection_table.h"
+
+// 一行完成：加载默认规则 + 外部配置文件
+ops_hccl::FastAlgoSelector selector;
+selector.InitializeWithConfig("/path/to/algo_selection_config.txt");
+
+// 构造运行时上下文
+ops_hccl::AlgoSelectContext ctx;
+ctx.execConfig = ops_hccl::OpExecuteConfig::AICPU_TS;
+ctx.opType = ops_hccl::HcclCMDType::HCCL_CMD_ALLREDUCE;
+ctx.dataType = ops_hccl::HcclDataType::HCCL_DATA_TYPE_FP16;
+ctx.reduceOp = ops_hccl::HcclReduceOp::HCCL_REDUCE_SUM;
+ctx.dataSize = 4 * 1024 * 1024;    // 4MB
+ctx.topoLevelNums = 1;
+ctx.level0Topo = ops_hccl::Level0Shape::MESH_1D;
+ctx.userRankSize = 32;
+
+// 调用选择算法 — O(1) 查找
+auto algo = selector.SelectAlgo(ctx);
+if (algo.has_value()) {
+    std::cout << "Selected: " << algo.value() << std::endl;
+}
+```
+
+### 9.8 调试：打印桶结构
+
+```cpp
+selector.DumpTable();
+// 输出示例：
+// === FastAlgoSelector (25 rules, 8 buckets) ===
+// Bucket [AICPU_TS | AllReduce]:
+//   exact (3):
+//     P4 key="_dataTypes=INT64,UINT64,FP64" -> aicpu_ar_64bit
+//     P5 key="_reduceOp=PROD" -> aicpu_ar_prod
+//     P7 key="" -> aicpu_ar_default
+//   range (2):
+//     P6 -> aicpu_ar_small
+//     P8 -> aicpu_ar_l1nhr
+// Bucket [CCU_MS | AllReduce]:
+//   exact (1):
+//     P10 key="_level0Topo=CLOS" -> ccu_ms_ar_clos
+//   range (4):
+//     P0 -> ccu_ms_ar_small_rank
+//     P1 -> ccu_ms_ar_large_rank
+//     ...
+```
+
+### 9.9 配置文件兼容性
+
+`FastAlgoSelector` 与 `TableBasedAlgoSelector` 共享相同的配置文件格式。`algo_selection_config_example.txt` 中的 8 条示例规则无需任何修改即可被 `FastAlgoSelector` 正确加载和解析。
+
+### 9.10 选择建议
+
+| 场景 | 推荐选择 |
+|------|----------|
+| 规则数量较少（<50 条），对性能不敏感 | `TableBasedAlgoSelector`（实现简单，易于调试） |
+| 规则数量较多（>100 条），热路径调用 | `FastAlgoSelector`（接近 O(1) 查询） |
+| 需要动态修改规则表 | `TableBasedAlgoSelector`（直接操作 `vector`） |
+| 外部配置覆盖 + 高性能查询 | `FastAlgoSelector`（自动分桶索引） |
+
+---
+
+## 10. 注意事项
 
 - **规则顺序决定优先级**：先添加的规则先匹配，请确保更具体的规则排在更通用的规则之前。
 - **Initialize() 会清空现有规则**：调用 `Initialize()` 会先执行 `rules_.clear()`，自定义规则需在 `Initialize()` 之后添加。
@@ -503,3 +697,5 @@ _algo = my_custom_small_allreduce    # 替代 aicpu_ar_small
 - **SelectAlgo 返回 std::optional**：若无规则匹配，返回 `std::nullopt`，调用方需处理此情况。
 - **数值精度**：`_dataSizeMin` 和 `_dataSizeMax` 使用 `u64`（uint64_t），避免大数值溢出。
 - **_dataSizeMax 是半开区间**：匹配条件为 `dataSize < _dataSizeMax`（不含等号），而 `_dataSizeMin` 为闭区间 `dataSize >= _dataSizeMin`。
+- **FastAlgoSelector 的 Initialize() 会重建索引**：调用 `Initialize()` 会清空所有桶和 fastRules，然后从 `TableBasedAlgoSelector` 的默认规则重新构建索引。外部规则需在 `Initialize()` 之后通过 `AddRule()` 或 `PrependRule()` 添加。
+- **FastAlgoSelector 的 PrependRule 语义**：外部规则获得更低的 priority 值，在 `exactMap` 中覆盖同 key 的默认规则，在 `rangeRules` 中按 priority 排序优先匹配。
