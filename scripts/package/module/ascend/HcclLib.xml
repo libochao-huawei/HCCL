@@ -20,12 +20,12 @@
         <file value="hccl.h"/>
         <file value="hccl_mc2.h"/>
     </file_info>
-    <file_info value="include" copy_type="source" src_path="hccl/src/common/op_graph" dst_path="opp/built-in/op_graph/inc" install_path="opp/built-in/op_graph/inc" install_type="all" install_mod="440">
+    <file_info value="include" copy_type="source" src_path="hccl/src/common/op_graph" dst_path="$(TARGET_ENV)/opp/built-in/op_graph/inc" install_path="$(TARGET_ENV)/opp/built-in/op_graph/inc" install_type="all" install_mod="440">
         <file value="ops_proto_hccl.h"/>
     </file_info>
-    <file_info value="include" copy_type="delivery" src_path="build/es_output/include/es_math" dst_path="opp/built-in/op_graph/inc" install_path="opp/built-in/op_graph/inc" install_type="all" install_mod="440">
-        <file value="es_math_ops.h"/>
-        <file value="es_math_ops_c.h"/>
+    <file_info value="include" copy_type="delivery" src_path="build/es_output/include/es_hccl" dst_path="$(TARGET_ENV)/opp/built-in/op_graph/inc" install_path="$(TARGET_ENV)/opp/built-in/op_graph/inc" install_type="all" install_mod="440">
+        <file value="es_hccl_ops.h"/>
+        <file value="es_hccl_ops_c.h"/>
         <file value="es_HcomAllGather.h"/>
         <file value="es_HcomAllReduce.h"/>
         <file value="es_HcomAllToAllV.h"/>
@@ -99,6 +99,6 @@
         <file value="libscatter_aicpu_kernel.json"/>
     </file_info>
     <file_info value="lib64" copy_type="delivery" src_path="build/es_output/lib64" dst_path="$(TARGET_ENV)/lib64" install_path="$(TARGET_ENV)/lib64" install_type="all" install_mod="440">
-        <file value="libes_math.so"/>
+        <file value="libes_hccl.so"/>
     </file_info>
 </block>
