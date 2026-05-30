@@ -192,8 +192,7 @@ HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
 HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType,
                            u32 aivCoreLimit, bool *ifAiv, char **algName)
 {
-    HCCL_INFO("[HcclSelectAlgGraphMode] Start: group[%s] count[%llu] dataType[%u] reduceOp[%u] opType[%u] aivCoreLimit[%u]",
-        group, count, dataType, op, opType, aivCoreLimit);
+    HCCL_INFO("[HcclSelectAlgGraphMode] Start.");
     
     if (g_aivKernelInfoMap.find(opType) == g_aivKernelInfoMap.end()) {
         HCCL_INFO("[HcclSelectAlgGraphMode] Unsupported aiv op.");
@@ -209,9 +208,7 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
         HCCL_WARNING("[HcclSelectAlgGraphMode] device is not set."), HCCL_SUCCESS);
     HcclComm hcclComm = nullptr;
     CHK_RET(HcomGetCommHandleByGroup(group, &hcclComm));
-    u32 rankSize = INVALID_VALUE_RANKSIZE;
-    CHK_RET(HcclGetRankSize(hcclComm, &rankSize));
-
+    
     CHK_RET(InitEnvConfig());
     
     ops_hccl::OpParam param;
