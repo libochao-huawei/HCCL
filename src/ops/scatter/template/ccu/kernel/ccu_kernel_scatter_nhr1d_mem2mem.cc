@@ -42,8 +42,8 @@ static CcuResult InitResource(ScatterNHR1DContext &ctx)
     // remote ranks scratch/token
     ctx.scratch.clear();
     ctx.token.clear();
-    ctx.scratch.reserve(ctx.localSize + 1);
-    ctx.token.reserve(ctx.localSize + 1);
+    ctx.scratch.resize(ctx.localSize + 1);
+    ctx.token.resize(ctx.localSize + 1);
 
     for (uint64_t channelIdx = 0; channelIdx < ctx.localSize; channelIdx++) {
         if (ctx.arg->channelCount <= channelIdx) {
