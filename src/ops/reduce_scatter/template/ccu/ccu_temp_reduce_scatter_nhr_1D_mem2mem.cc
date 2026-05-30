@@ -153,7 +153,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
-    // 参考AllGather FastLaunch: 动态刷新isInputOutputEqual
+    // 动态刷新isInputOutputEqual
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + args[0];
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + args[1];
     uint64_t currentRankSliceInputOffset = args[13];   // cached in FillCachedArgs
