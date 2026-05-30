@@ -181,8 +181,8 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             std::vector<DataSlice> recvSrcSlicesList{recvSrcSlice};
             std::vector<DataSlice> recvDstSlicesList{recvDstSlice};
             
-            HCCL_INFO("[SendRecvDataToPeers] send %d from %d to %d, src offset %d, dst offset", sendSliceSize, myRank_, remoteRank, sendSliceOffset, recvSliceOffset);
-            HCCL_INFO("[SendRecvDataToPeers] recv %d from %d to %d, src offset %d, dst offset", recvSliceSize, remoteRank, myRank_, recvSliceOffset, sendSliceOffset);
+            HCCL_INFO("[SendRecvDataToPeers] send %d from %d to %d, src offset %d, dst offset %d", sendSliceSize, myRank_, remoteRank, sendSliceOffset, recvSliceOffset);
+            HCCL_INFO("[SendRecvDataToPeers] recv %d from %d to %d, src offset %d, dst offset %d", recvSliceSize, remoteRank, myRank_, recvSliceOffset, sendSliceOffset);
 
             TxRxChannels sendRecvChannels(sendRecvChannel, sendRecvChannel);
             TxRxSlicesList sendRecvSlicesList({sendSrcSlicesList, sendDstSlicesList}, {recvSrcSlicesList, recvDstSlicesList});
