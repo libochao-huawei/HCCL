@@ -304,7 +304,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         std::vector<u32> closRanks;
         closRanks.push_back(resCtx.topoInfo.userRank);  // Ensure self is included in inter-hierarchy group for correctness
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
-        for (auto rank : algHierarchyInfo.infos[0][1]) {
+        for (auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
             if (rank / meshSize != resCtx.topoInfo.userRank / meshSize) {
                 closRanks.push_back(rank);
             }
