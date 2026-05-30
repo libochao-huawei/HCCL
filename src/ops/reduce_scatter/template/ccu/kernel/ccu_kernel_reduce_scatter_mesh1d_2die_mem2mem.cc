@@ -210,12 +210,12 @@ HcclResult CcuKernelReduceScatterMesh1D2DieMem2Mem::DoReduceScatter()
     myOutput.addr                     = output_;
     myOutput.token                    = token_[myRankIdx_];
     
-    if (rankId_ < rankSize_) {
-        if (!isReduceToOutput_) {
-            myOutput.addr = outputTmp_.addr;
+    if (rankId_ < rankSize_) { // isReduceToOutput_=1表示包含本端
+        if (!isReduceToOutput_) { // 对于前8卡，包含本端的kernel将数据reduce到output_，不包含本端的kernel将数据reduce到outputTmp_
+            myOutput.addr = outputTmp_.addr; // outputTmp_是cclbuffer上偏移为rankSize/2 * sliceSize的地址
         }
     } else {
-        if (isReduceToOutput_) {
+        if (isReduceToOutput_) {  // 对于后8卡，包含本端的kernel将数据reduce到outputTmp_，不包含本端的kernel将数据reduce到output_
             myOutput.addr = outputTmp_.addr;
         }
     }
@@ -274,18 +274,22 @@ void CcuKernelReduceScatterMesh1D2DieMem2Mem::CreateReduceLoop(uint32_t size)
  
         std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
                                                moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
-        CcuRep::CompletedEvent sem = moRes.completedEvent[index];
+        CcuRep::CompletedEvent &sem = moRes.completedEvent[index];
  
         for (uint32_t i = 0; i < size; i++) {
+            sem.SetMask(1 << i);
             LocalCopyNb(bufs[i], scratch[i], len, sem);
         }
+        sem.SetMask((1 << size) - 1);
         WaitEvent(sem);
  
         if (size > 1) {
+            sem.SetMask(1);
             LocalReduceNb(bufs, size, dataType_, outputDataType_, reduceOp_, len, sem);
             WaitEvent(sem);
         }
- 
+
+        sem.SetMask(1);
         LocalCopyNb(dst, bufs[0], lenForExpansion, sem);
         WaitEvent(sem);
     }
