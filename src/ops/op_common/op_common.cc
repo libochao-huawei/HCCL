@@ -16,6 +16,7 @@
 #include <cstdlib>  // 包含getenv函数
 #include <cstring>  // 包含strcmp函数
 #include <stdexcept>
+#include <new>
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_comm.h>
 #include "hccl/base.h"
@@ -52,7 +53,6 @@
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
-thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 thread_local std::set<std::string> g_inconsistentCheckedList;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
@@ -1033,24 +1033,43 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
     bool increCreateChannelFlag, const ResPackGraphMode &resPack)
 {
     std::string tagStr = param.algTag;
-    if (!increCreateChannelFlag || g_hostCtx.find(tagStr) == g_hostCtx.end()) {
+    void *hostCtxPtr = nullptr;
+    uint64_t hostCtxSize = 0;
+    HcclResult hostCtxRet = HcclEngineCtxGet(comm, tagStr.c_str(), CommEngine::COMM_ENGINE_CPU_TS, &hostCtxPtr, &hostCtxSize);
+
+    if (!increCreateChannelFlag || hostCtxRet != HCCL_SUCCESS) {
         // 非增量建链流程，直接创建host侧Ctx
-        resCtxHost->commInfoPtr = static_cast<void *>(comm);
+        resCtxHost->commInfoPtr = static_cast<void*>(comm);
         resCtxHost->topoInfo = *topoInfo;
         resCtxHost->algHierarchyInfo = algHierarchyInfo;
-        // 创建资源，并填充到Host内存上
         HcclResult ret = HcclAllocAlgResourceAICPU(comm, param, resRequest, resCtxHost, resPack);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to alloc alg resource."), ret);
         // 在device侧创建Ctx，并将host资源拷贝到device侧
-        ret = HcclMemcpyCtxHostToDevice(comm, param, resCtxHost, resCtxSequence, ctxSize);
+        ret = HcclMemcpyCtxHostToDevice(comm, param, resCtxHost.get(), resCtxSequence, ctxSize);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to memcpy hostCtx to device."), ret);
-        // 如果是增量建链模式，转移hostCtx的所有权
+
         if (increCreateChannelFlag) {
-            g_hostCtx[tagStr] = std::move(resCtxHost);
+            // 转移hostCtx的所有权到EngineCtx缓存（placement new + move assignment）
+            // 注意：AlgResourceCtxSerializable含std::vector成员，placement new构造后
+            // HcclComm生命周期结束时HCOM释放EngineCtx内存但不调用C++析构函数，
+            // vector内部heap数据会泄漏。泄漏量有限（每algTag每comm一次），与
+            // GetAlgResAiv(line 1530)的EngineCtx用法共享此风险。
+            HcclResult createRet = HcclEngineCtxCreate(comm, tagStr.c_str(), CommEngine::COMM_ENGINE_CPU_TS, sizeof(AlgResourceCtxSerializable), &hostCtxPtr);
+            if (createRet != HCCL_SUCCESS) {
+                HCCL_ERROR("failed to create host EngineCtx for caching, ret[%d].", createRet);
+                // host缓存创建失败，销毁刚创建的device ctx避免孤立项阻塞重试
+                HcclEngineCtxDestroy(comm, param.algTag, COMM_ENGINE_AICPU_TS);
+                return createRet;
+            }
+            AlgResourceCtxSerializable* hostCtxObj = new(hostCtxPtr) AlgResourceCtxSerializable();
+            *hostCtxObj = std::move(*resCtxHost);
+            resCtxHost.reset();
         }
     } else {
+        // 增量建链流程：从EngineCtx缓存中获取host侧Ctx
+        AlgResourceCtxSerializable* hostCtxObj = static_cast<AlgResourceCtxSerializable*>(hostCtxPtr);
         // 先比对需要的channel和已建链的channel
-        CompReqChannelWithExistChannel(g_hostCtx.at(tagStr)->channels, resRequest);
+        CompReqChannelWithExistChannel(hostCtxObj->channels, resRequest);
         if (resRequest.channels[0].size() == 0) {
             // 资源可以直接复用，直接获取到device的ctx资源
             void *ctx = nullptr;
@@ -1059,23 +1078,33 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
             if (ret == HCCL_SUCCESS) {
                 *resCtxSequence = ctx;
                 ctxSize = size;
-                if (HcommIsSupportHcclCommResetExchangeInfo()) {
+if (HcommIsSupportHcclCommResetExchangeInfo()) {
                     // 算子参数信息已注册，但BatchSendRecv在此处判断资源可复用，不会进行数据交换即不会被读清，需要手动reset
                     CHK_RET(HcclCommResetExchangeInfo(comm));
                 }
+                return HCCL_SUCCESS;
             } else {
                 HCCL_ERROR("failed to get device ctx.");
             }
             return ret;
         }
         // 资源不能直接复用，需要增量建链(会直接在已有的hostCtx中填充)
-        HcclResult ret = HcclGetChannel(comm, param, resRequest, g_hostCtx.at(tagStr));
+        HcclResult ret = HcclGetChannel(comm, param, resRequest, hostCtxObj);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to incrementally create channel."), ret);
-        // 把device侧此tag的ctx销毁
+        // 把device侧此tag的ctx销毁，然后重新创建
         ret = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
-        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to destroy device Ctx."), ret);
-        ret = HcclMemcpyCtxHostToDevice(comm, param, g_hostCtx.at(tagStr), resCtxSequence, ctxSize);
-        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to memcpy hostCtx to device."), ret);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("failed to destroy device Ctx, ret[%d].", ret);
+        }
+        // 重新序列化并拷贝到device侧新Ctx
+        ret = HcclMemcpyCtxHostToDevice(comm, param, hostCtxObj, resCtxSequence, ctxSize);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("failed to memcpy hostCtx to device after incremental channel creation, ret[%d].", ret);
+            // 增量建链失败后销毁host缓存，确保下次调用从头创建资源，避免残留不可恢复状态
+            hostCtxObj->~AlgResourceCtxSerializable();
+            HcclEngineCtxDestroy(comm, tagStr.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+            return ret;
+        }
         HCCL_INFO("Incrementally add channel success");
     }
 
@@ -1084,9 +1113,8 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
 }
 
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize)
+    AlgResourceCtxSerializable* resCtxHost, void **resCtxSequence, uint64_t& ctxSize)
 {
-    // 序列化
     std::vector<char> seq = resCtxHost->Serialize();
     uint64_t size = seq.size();
     void *ctx = nullptr;
@@ -1116,7 +1144,7 @@ HcclResult HcclAllocAlgResourceAICPU(
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost, resPack));
-    CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost));
+    CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost.get()));
     return HCCL_SUCCESS;
 }
 
@@ -1271,7 +1299,7 @@ HcclResult GetMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle &
 }
 
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+                          AlgResourceCtxSerializable* resCtxHost)
 {
     MemRegInfo memRegInfo;
     if (param.opMode == OpMode::OFFLOAD) {
@@ -1301,7 +1329,7 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
 }
 
 HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest,
-                              const CommEngine commEngine, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, MemRegInfo &memRegInfo) {
+                              const CommEngine commEngine, AlgResourceCtxSerializable* resCtxHost, MemRegInfo &memRegInfo) {
     // 获取子通信域的建链数量
     if (channelRequest.empty()) {
         HCCL_INFO("[HcclGetChannelImpl] channelRequest is empty");
