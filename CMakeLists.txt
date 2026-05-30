@@ -153,6 +153,7 @@ elseif(BUILD_OPEN_PROJECT)
     set(HCCL_HEAD
         include/hccl.h
         include/hccl_mc2.h
+        src/common/op_graph/ops_proto_hccl.h
     )
 
     set(HCCL_JSON
