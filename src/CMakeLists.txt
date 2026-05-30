@@ -753,3 +753,15 @@ add_es_library(
 )
 
 add_dependencies(hccl es_hccl)
+
+install(DIRECTORY ${CMAKE_BINARY_DIR}/es_output/include/es_hccl
+    DESTINATION ${INSTALL_INCLUDE_DIR}/hccl/
+    ${INSTALL_OPTIONAL}
+    COMPONENT hccl
+)
+
+install(TARGETS es_hccl
+    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+    ${INSTALL_OPTIONAL}
+    COMPONENT hccl
+)
