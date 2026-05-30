@@ -16,11 +16,12 @@ namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 AG_CCU_SMALL_DATA_SIZE = 4 * 1024 * 1024;
-constexpr u32 AG_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u32 AG_FLATTEN_MAX_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_SMALL_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
 constexpr u64 AG_CCU_CLOS_SMALL_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_SEQUENCE_DATA_SIZE = 1 * 1024 * 1024 * 1024;
+constexpr u32 OMNI_PCIE_AG_DATA_SIZE = 4 * 1024 * 1024;
 
 SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -139,6 +140,10 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0Algo(
             return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (topoInfo->level0PcieMix) {
+            HCCL_WARNING("[AllGatherAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         if (dataSize > AG_CCU_CLOS_SMALL_DATA_SIZE) {
             selectAlgName = "CcuAllGatherMesh1DMem2Mem";
         } else {
@@ -175,15 +180,12 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
-            } else if ((dataSize * topoInfo->userRankSize) <= AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize > 8) {
+            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64) {
                 selectAlgName = "CcuAllGatherMesh1DMem2Mem";
                 return SelectorStatus::MATCH;
-            } else if (dataSize < AG_CCU_SMALL_DATA_SIZE) {
+            } else {
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
                 return SelectorStatus::MATCH;
-            }else {
-                // 4M 以上切aicpu
-                return SelectorStatus::NOT_MATCH;
             }
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "CcuAllGatherNHR1DMem2Mem";
@@ -220,8 +222,12 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
-                selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
-                    "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherParallelMesh1DNHR";
+                if (topoInfo->Level1Hd) {
+                    selectAlgName = "InsAllGatherParallelMesh1DHD";
+                } else {
+                    selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
+                        "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherParallelMesh1DNHR";
+                }
             } else {
                 selectAlgName = "InsAllGatherNHR";
             }
@@ -244,7 +250,11 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
                 if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
                     selectAlgName = "InsAllGatherMesh1D";
                 } else {
-                    selectAlgName = "InsAllGatherParallelMesh1DNHRPcie";
+                    if (dataSize < OMNI_PCIE_AG_DATA_SIZE) {
+                        selectAlgName = "InsAllGatherParallelMesh1DNHRPcie";
+                    } else {
+                        selectAlgName = "InsV2AllGatherOmniPipePcie";
+                    }
                 }
                 HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
                 return SelectorStatus::MATCH;
@@ -289,6 +299,17 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
 
     if (topoInfo->userRankSize > MAX_RANK_SIZE) {
         HCCL_DEBUG("[AllGatherAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+
+    void *cclBufferAddr;
+    uint64_t cclBufferSize;
+    CHK_PRT_RET(HcclGetHcclBuffer(opParam.hcclComm, &cclBufferAddr, &cclBufferSize) != HCCL_SUCCESS,
+        HCCL_WARNING("[AllGatherAutoSelector] HcclGetHcclBuffer failed."), SelectorStatus::NOT_MATCH);
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 totalSize = opParam.DataDes.count * perDataSize * topoInfo->userRankSize;
+    if (totalSize > cclBufferSize * AIV_MAX_CCL_LOOP_NUM) {
+        HCCL_DEBUG("[AllGatherAutoSelector][%s] totalSize[%llu] too large for cclBufferSize [%llu]", __func__, totalSize, cclBufferSize);
         return SelectorStatus::NOT_MATCH;
     }
 

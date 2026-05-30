@@ -49,7 +49,12 @@ def gen_ini():
     if tree.getroot().tag != 'image_info':
         print("error in input xml file")
     if args.hash_list:
-        hash_list_path = os.path.join(args.hash_list_path, ('{}.img'.format('hash-list')))
+        # 防止路径遍历攻击：归一化路径并校验位于预期目录下
+        hash_dest = os.path.abspath(args.hash_list_path)
+        base_dir = os.path.dirname(os.path.realpath(args.inFilePath))
+        if not os.path.abspath(hash_dest).startswith(os.path.abspath(base_dir)):
+            raise ValueError(f"hash_dest must be within base directory: {base_dir}")
+        hash_list_path = os.path.join(hash_dest, ('{}.img'.format('hash-list')))
         if (os.path.exists(hash_list_path)) :
             os.remove(hash_list_path)
         for elem in tree.iter(tag='image'):

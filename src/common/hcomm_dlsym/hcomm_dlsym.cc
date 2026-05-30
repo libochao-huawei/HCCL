@@ -15,10 +15,11 @@
 #include "hccl_inner_dl.h"
 #include "hcomm_host_profiling_dl.h"
 #include "hccl_host_comm_dl.h"
+#include "hccl_res_expt_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <acl/acl.h>
 
 static void* gLibHandle = nullptr;
@@ -71,4 +72,5 @@ void HcommDlInit(void) {
     HcclInnerDlInit(gLibHandle);
     HcommProfilingDlInit(gLibHandle);
     HcclCommDlInit(gLibHandle);
+    HcclResExptDlInit(gLibHandle);
 }

@@ -164,18 +164,23 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::FastLaunch(const OpParam& par
     HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    
+    //重新赋值 isInputOutputEqual
+    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + args[0];
+    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + args[1];
+    uint64_t inputSliceStride   = args[7];
+    uint64_t outputSliceStride  = args[8];
+    uint64_t mySubCommRank      = args[12];
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank == outputAddr + outputSliceStride * mySubCommRank);
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+
     // 计算NHR Multi Jetty特有的参数
     CcuTaskArgAllGatherNHR1DMultiJettyMem2Mem taskArg(
-        PointerToAddr(buffInfo_.inputPtr) + args[0],
-        PointerToAddr(buffInfo_.outputPtr) + args[1],
-        args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]);
+        inputAddr, outputAddr, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], isInputOutputEqual);
 
-    HCCL_INFO("[CcuTaskArgAllGatherNHR1DMultiJettyMem2Mem::FastLaunch] TaskArgs: inputptr[%llu], outputptr[%llu], " 
+    HCCL_DEBUG("[CcuTaskArgAllGatherNHR1DMultiJettyMem2Mem::FastLaunch] TaskArgs: inputptr[%llu], outputptr[%llu], " 
         "sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu], inputSliceStride[%llu], "
-        "outputSliceStride[%llu], inputRepeatStride[%llu],ioutputRepeatStride[%llu], isInputOutputEqual[%llu]",
-        PointerToAddr(buffInfo_.inputPtr) + args[0], PointerToAddr(buffInfo_.outputPtr) + args[1], args[3], args[4],
-        args[5], args[6], args[7], args[8], args[9], args[10], args[11]);
+        "outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], isInputOutputEqual[%llu]",
+        inputAddr, outputAddr, args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], isInputOutputEqual);
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
@@ -242,7 +247,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv,
-        inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual));
+        inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual, mySubCommRank_));
     templateResource.submitInfos.push_back(submitInfo);
     
     HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] Template Run end.");

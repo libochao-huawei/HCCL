@@ -312,8 +312,8 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                     st.step),
                 HcclResult::HCCL_E_INTERNAL);
         } else {
-            CHK_PRT_RET(SendRecvWriteReduce(info, threads[channelIdx]),
-                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u)",
+            CHK_PRT_RET(SendRecvBatchWriteReduce(info, threads[channelIdx]),
+                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvBatchWriteReduce failed (step=%u)",
                     st.step),
                 HcclResult::HCCL_E_INTERNAL);
         }

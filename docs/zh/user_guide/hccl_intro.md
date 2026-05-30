@@ -33,18 +33,28 @@ HCCL包含HCCL集合通信库与HCOMM（Huawei Communication）通信基础库�
 
 ## 支持的产品
 
-<cann-filter npu-type="950">- Ascend 950PR/Ascend 950DT</cann-filter>
-<cann-filter npu-type="A3">- Atlas A3 训练系列产品/Atlas A3 推理系列产品</cann-filter>
-<cann-filter npu-type="910b">- Atlas A2 训练系列产品/Atlas A2 推理系列产品</cann-filter>
-<cann-filter npu-type="910">- Atlas 训练系列产品</cann-filter>
-<cann-filter npu-type="310p">- Atlas 推理系列产品</cann-filter>
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品
+<!-- end id3 -->
+<!-- npu="910" id4 -->
+- Atlas 训练系列产品
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas 推理系列产品
+<!-- end id5 -->
 
-<cann-filter npu-type="910b,310p">
+<!-- npu="910b,310p" id8 -->
 > [!NOTE]说明
-<cann-filter npu-type="910b">
+> <!-- npu="910b" id6 -->
 > - 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，仅支持Atlas 800T A2 训练服务器、Atlas 900 A2 PoD 集群基础单元、Atlas 200T A2 Box16 异构子框。
-</cann-filter>
-<cann-filter npu-type="310p">
+> <!-- end id6 -->
+> <!-- npu="310p" id7 -->
 > - 针对Atlas 推理系列产品，仅支持Atlas 300I Duo 推理卡。
-</cann-filter>
-</cann-filter>
+<!-- end id7 -->
+<!-- end id8 -->

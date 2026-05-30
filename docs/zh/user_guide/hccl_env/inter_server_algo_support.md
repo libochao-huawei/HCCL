@@ -14,7 +14,6 @@
   | Broadcast | int8、int16、int32、int64、uint8、uint16、uint32、uint64、float16、float32、float64、bf16、fp8-e5m2、fp8-e4m3、hif8、fp8-e8m0 | - 单算子模式<br>  - 图模式（Ascend IR） | AI_CPU/CCU_SCHED |
   | Reduce | int8、int16、int32、float16、float32、bfp16 | - 单算子模式<br>  - 图模式（Ascend IR） | AI_CPU/CCU_SCHED |
   | Scatter | int8、int16、int32、int64、uint8、uint16、uint32、uint64、float16、float32、float64、bf16、fp8-e5m2、fp8-e4m3、hif8、fp8-e8m0 | - 单算子模式 | AI_CPU/CCU_SCHED |
-  | Broadcast | int8、int16、int32、int64、uint8、uint16、uint32、uint64、float16、float32、float64、bf16、fp8-e5m2、fp8-e4m3、hif8、fp8-e8m0 | - 单算子模式<br>  - 图模式（Ascend IR） | AI_CPU/CCU_SCHED |
 
 ## Atlas A3 训练系列产品/Atlas A3 推理系列产品
 
@@ -137,9 +136,9 @@
 
   | 集合通信算子 | 数据类型 | 网络运行模式 | 不支持算子处理方法 |
   | --- | --- | --- | --- |
-  | AlltoAll | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式<br>  - 图模式（Ascend IR） | 自动选择为NHR、H-D_R或者ring算法 |
-  | AlltoAllV | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式<br>  - 图模式（Ascend IR） | 自动选择为NHR、H-D_R或者ring算法 |
-  | AlltoAllVC | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式<br>  - 图模式（Ascend IR） | 自动选择为NHR、H-D_R或者ring算法 |
+  | AlltoAll | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式<br>  - 图模式（Ascend IR） | 无 |
+  | AlltoAllV | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式<br>  - 图模式（Ascend IR） | 无 |
+  | AlltoAllVC | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式<br>  - 图模式（Ascend IR） | 无 |
 
 - **CP算法**
 
@@ -147,7 +146,8 @@
   | --- | --- | --- | --- |
   | AlltoAllV | int8、int16、int32、int64、float16、float32、bfp16 | 单算子模式 | 自动选择为pairwise算法 |
 
-<cann-filter npu-type="910">
+<!-- npu="910" id1 -->
+
 ## Atlas 训练系列产品
 
 - **ring算法**
@@ -198,4 +198,4 @@
   | ReduceScatterV | int8、int16、int32、float16、float32、bfp16 | - 单算子模式 | 自动选择为NHR、H-D_R或者ring算法 |
   | AllGatherV | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式 | 自动选择为NHR、H-D_R或者ring算法 |
   | Scatter | int8、int16、int32、int64、float16、float32、bfp16 | - 单算子模式 | 自动选择为NHR、H-D_R或者ring算法 |
-</cann-filter>
+<!-- end id1 -->

@@ -10,8 +10,10 @@
 
 #include "ins_v2_all_reduce_parallel_executor.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_hd.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
+#include "ins_temp_reduce_scatter_hd.h"
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_pcie_mix.h"
@@ -743,7 +745,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_INFO("[InsAllReduceParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsAllReduceParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
 
-    multipleDimensionSplitRatio_ = param.multipleDimensionSplitRatio;
+    multipleDimensionSplitRatio_ = param.opConfig.multipleDimensionSplitRatio;
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
 
@@ -1054,6 +1056,9 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelRSAG, InsAllReduceParallelExecutor,
     TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceFourTemplateMesh1DHD,
+    InsAllReduceParallelExecutor, TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterHD,
+    InsTempAllGatherMesh1D, InsTempAllGatherHD);
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelMesh1DNHRPcie,
     InsAllReduceParallelExecutor, TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR,
     InsTempAllGatherMesh1D, InsTempAllGatherNHR);

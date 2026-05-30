@@ -23,5 +23,10 @@ HcclResult RestoreVarDataReduceScatterV(OpParam &param, const AlgResourceCtxSeri
 
 HcclResult RestoreVarDataAllGatherV(OpParam &param, const AlgResourceCtxSerializable &resCtx);
 
+inline bool IsResCtxCacheReusable(const AlgResourceCtxSerializable &cachedResCtx, const OpParam &param)
+{
+    return cachedResCtx.commInfoPtr == param.hcclComm;
+}
+
 }  // namespace ops_hccl
 #endif

@@ -313,11 +313,9 @@ HcclResult GetPairLinkCounter(HcclComm comm, TopoInfo* topoInfo, std::unordered_
                 // 双向兼容处理：先处理版本号1的字段
                 if (currentLink.header.version >= 1) {
                     // --- 在这里处理 currentLink ---
-                    HCCL_DEBUG("  Link[%u] found between srcRank[%u] and dstRank[%u]:", i, srcRank, dstRank);
-                    HCCL_DEBUG("    LinkType: %u", currentLink.linkAttr.linkProtocol); // 假设有 linkType 成员
-                    HCCL_DEBUG("    srcEndpointDesc: %u", currentLink.srcEndpointDesc); // 假设有此成员
-                    HCCL_DEBUG("    dstEndpointDesc: %u", currentLink.dstEndpointDesc); // 假设有此成员
-
+                    HCCL_DEBUG("Link[%u] found between srcRank[%u] and dstRank[%u]:"
+                               "LinkType: %u, srcEndpointDesc: %u, dstEndpointDesc: %u",
+                    i, srcRank, dstRank, currentLink.linkAttr.linkProtocol, currentLink.srcEndpointDesc, currentLink.dstEndpointDesc);
                     // 可以将链路类型统计起来
                     // 原始代码中的 pairLinkCounter 应该在这里使用
                     pairLinkCounter[static_cast<u32>(currentLink.linkAttr.linkProtocol)]++;
@@ -420,7 +418,7 @@ HcclResult GetModuleMap(HcclComm comm, TopoInfo* topoInfo, std::map<u32, std::ve
             ranksStr += std::to_string(pair.second[i]);
         }
         ranksStr += "}";
-        HCCL_DEBUG("[GetModuleMap]  ModuleIdx[%u]: %s", pair.first, ranksStr.c_str());
+        HCCL_DEBUG("[GetModuleMap] ModuleIdx[%u]: %s", pair.first, ranksStr.c_str());
     }
 
     return HCCL_SUCCESS;
@@ -626,11 +624,35 @@ static HcclResult CalcLevel1Nhr(const HcclComm comm, TopoInfoWithNetLayerDetails
     return HCCL_SUCCESS;
 }
 
+static HcclResult CalcLevel1Hd(TopoInfoWithNetLayerDetails* topoInfo)
+{
+    if (topoInfo->topoLevelNums <= 1 || topoInfo->netLayerDetails.netLayers.size() <= 1) {
+        return HCCL_SUCCESS;
+    }
+    const u32 level1Idx = topoInfo->netLayerDetails.netLayers[1];
+    CHK_PRT_RET(topoInfo->topoInstDetailsOfLayer.size() <= level1Idx,
+        HCCL_WARNING("[TopoHost][CalcLevel1Hd] topoInstDetailsOfLayer size[%zu] <= level1Idx[%u]",
+            topoInfo->topoInstDetailsOfLayer.size(), level1Idx), HCCL_SUCCESS);
+
+    const auto &rankNumForTopoType = topoInfo->topoInstDetailsOfLayer[level1Idx].rankNumForTopoType;
+    auto closIter = rankNumForTopoType.find(CommTopo::COMM_TOPO_CLOS);
+    if (closIter == rankNumForTopoType.end() || closIter->second.size() != 1) {
+        return HCCL_SUCCESS;
+    }
+
+    const u32 closRankSize = closIter->second[0];
+    topoInfo->Level1Hd = closRankSize != 0 && (closRankSize & (closRankSize - 1)) == 0;
+    HCCL_INFO("[TopoHost][CalcLevel1Hd] level1Idx[%u], closRankSize[%u], Level1Hd[%d]", level1Idx,
+        closRankSize, topoInfo->Level1Hd);
+    return HCCL_SUCCESS;
+}
+
 HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 {
     CHK_RET(ExtractNetLayerDetails(comm, topoInfo));
     CHK_RET(CalcLevel1Nhr(comm, topoInfo));
     CHK_RET(ExtractTopoDetails(comm, topoInfo));
+    CHK_RET(CalcLevel1Hd(topoInfo));
     CHK_RET(CalcLevel0TopoShape(comm, topoInfo));
     CHK_RET(Is2DieFullMesh(comm, topoInfo));
     CHK_RET(IsLevel0PcieMix(comm, topoInfo));

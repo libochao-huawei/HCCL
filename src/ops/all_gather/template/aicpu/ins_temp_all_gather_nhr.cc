@@ -25,7 +25,19 @@ HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, con
                                         AlgResourceRequest &resourceRequest)
 {
     std::vector<HcclChannelDesc> level1Channels;
-    CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
+    std::vector<HcclChannelDesc> myChannelDescs;
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_CLOS)); 
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                level1Channels.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[InsTempAllGatherNHR::CalcRes] Get Channel Success!");
+    } else {
+        CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, myChannelDescs));
+        level1Channels = myChannelDescs;
+    }
     resourceRequest.channels.push_back(level1Channels);
     channelsPerRank_ = CalcChannelsPerRank(level1Channels);
     CHK_RET(GetRes(resourceRequest));
@@ -157,15 +169,15 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
         // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
         TxRxChannels sendRecvChannels(channelSend, channelRecv);
-        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
 
         if (isDmaRead_) {
             CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[channelIdx]),
-                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
+                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv batch failed (step=%u)", step),
                 HcclResult::HCCL_E_INTERNAL);
         } else {
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
-                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
+            CHK_PRT_RET(SendRecvBatchWrite(sendRecvInfo, threads[channelIdx]),
+                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv batch failed (step=%u)", step),
                 HcclResult::HCCL_E_INTERNAL);
         }
     }

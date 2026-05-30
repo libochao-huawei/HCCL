@@ -20,7 +20,6 @@
 
 namespace ops_hccl {
 constexpr u32 MAX_RANK_SIZE = 128; // 注意要和device侧的一致
-constexpr u32 MAX_NUM_BLOCKS = 56; // 56-72
  
 constexpr s32 TOPO_LEN = 64;
 
@@ -29,7 +28,9 @@ constexpr u32 AIV_TOPO_ADDR_OFFSET = 32 * 1024;
 constexpr u32 AIV_TOPO_BUFF_LEN = 8 * 1024;
 constexpr u32 AIV_FLAG_ADDR_OFFSET = 40 * 1024;
 constexpr u32 AIV_FLAG_AREA_SIZE = 1000 * 1024;
-constexpr u32 AIV_TAG_BUFF_LEN = 32 * 1024 * 1024;
+constexpr u32 AIV_TAG_BUFF_LEN = 33 * 1024 * 1024;
+
+constexpr u32 AIV_MAX_CCL_LOOP_NUM = 16;
 
 constexpr u32 AIV_ATTRNUM_THREE = 3;
 
@@ -141,6 +142,7 @@ struct AivInstruction {
 using InsQueue = std::vector<AivInstruction>;
 
 extern thread_local std::shared_ptr<InsQueue> g_recordingQueue;
+extern thread_local bool g_recordOnlyMode;
 extern thread_local u64 g_baseInputAddr;
 extern thread_local u64 g_baseOutputAddr;
 

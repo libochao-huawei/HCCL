@@ -19,9 +19,9 @@ HCCL_INTRA_PCIE_ENABLE与HCCL_INTRA_ROCE_ENABLE支持的配置组合如下表所
 
 > [!NOTE]说明
 >
->- 不支持HCCL_INTRA_PCIE_ENABLE和HCCL_INTRA_ROCE_ENABLE同时配置为1。
->- 不支持HCCL_INTRA_PCIE_ENABLE配置为0，HCCL_INTRA_ROCE_ENABLE不配置。
->- 不支持HCCL_INTRA_PCIE_ENABLE不配置，HCCL_INTRA_ROCE_ENABLE配置为0。
+> - 不支持HCCL_INTRA_PCIE_ENABLE和HCCL_INTRA_ROCE_ENABLE同时配置为1。
+> - 不支持HCCL_INTRA_PCIE_ENABLE配置为0，HCCL_INTRA_ROCE_ENABLE不配置。
+> - 不支持HCCL_INTRA_PCIE_ENABLE不配置，HCCL_INTRA_ROCE_ENABLE配置为0。
 
 ## 配置示例
 
@@ -37,6 +37,8 @@ export HCCL_INTRA_PCIE_ENABLE=1
 
 ## 支持的型号
 
-<cann-filter npu-type="910">Atlas 训练系列产品：仅支持此处理器型号下的[Atlas 300T Pro 训练卡](https://support.huawei.com/enterprise/zh/ascend-computing/atlas-300t-pro-pid-256118195)。</cann-filter>
+<!-- npu="910" id1 -->
+Atlas 训练系列产品：仅支持此处理器型号下的[Atlas 300T Pro 训练卡](https://support.huawei.com/enterprise/zh/ascend-computing/atlas-300t-pro-pid-256118195)。
+<!-- end id1 -->
 
 Atlas A2 训练系列产品/Atlas A2 推理系列产品：仅支持此处理器型号下的[Atlas 200T A2 Box16 异构子框](https://support.huawei.com/enterprise/zh/doc/EDOC1100318274/287e0458)。
