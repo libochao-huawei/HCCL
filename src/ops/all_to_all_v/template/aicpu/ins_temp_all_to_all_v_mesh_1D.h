@@ -17,8 +17,6 @@
 
 namespace ops_hccl {
 
-const uint32_t ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE = 16; // fullmesh最大的并发数量
-
 class InsTempAlltoAllVMesh1D : public InsAlgTemplateBase {
 public:
     InsTempAlltoAllVMesh1D() = default;

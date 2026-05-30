@@ -22,6 +22,9 @@ constexpr u32 VMESH_2X2_COL_NUM = 2;
 constexpr u32 VMESH_4X4_RANK_NUM = 16;
 constexpr u32 VMESH_4X4_ROW_NUM = 4;
 constexpr u32 VMESH_4X4_COL_NUM = 4;
+constexpr u32 VMESH_8X8_RANK_NUM = 64;
+constexpr u32 VMESH_8X8_ROW_NUM = 8;
+constexpr u32 VMESH_8X8_COL_NUM = 8;
 
 std::string FormatRankList(const std::vector<u32> &ranks)
 {
@@ -92,11 +95,12 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
         HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] valid channel remoteRank[%u], protocol[%u], notifyNum[%u].",
             channel.remoteRank, channel.channelProtocol, channel.notifyNum);
     }
-    channelsPerRank_ = CalcChannelsPerRank(level0Channels);
-    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] channelsPerRank_ is [%u]", channelsPerRank_);
-    resourceRequest.slaveThreadNum = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1) * channelsPerRank_;
+    channelsPerRank_ = 1;
+    u32 slotNum = rowNum + 1;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] channelsPerRank[%u], slotNum[%u].",
+        channelsPerRank_, slotNum);
+    resourceRequest.slaveThreadNum = slotNum * channelsPerRank_;
     for (u32 index = 0; index < resourceRequest.slaveThreadNum; index++) {
-        // 从流的notify数量以rank间channel数的最大值为准，用于和主流同步以及同一个rank多条链路间的同步
         resourceRequest.notifyNumPerThread.push_back(channelsPerRank_);
     }
     resourceRequest.notifyNumOnMainThread = resourceRequest.slaveThreadNum;
@@ -107,10 +111,16 @@ u64 InsTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
 {
     (void) inBuffType;
     (void) outBuffType;
-    // 分组fullmesh，每轮最多通信maxConcurrentSize_个
-    concurrentSendRecvNum_ = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1);
-    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcScratchMultiple] templateRankSize[%u], concurrentSendRecvNum[%u].",
-        templateRankSize_, concurrentSendRecvNum_);
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    HcclResult ret = GetVmeshShape(rowNum, colNum);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcScratchMultiple] failed to get vmesh shape, ret[%u].", ret);
+        return 0;
+    }
+    concurrentSendRecvNum_ = rowNum + 1;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcScratchMultiple] templateRankSize[%u], rowNum[%u], "
+        "colNum[%u], concurrentSendRecvNum[%u].", templateRankSize_, rowNum, colNum, concurrentSendRecvNum_);
     return concurrentSendRecvNum_;
 }
 
@@ -180,14 +190,19 @@ HcclResult InsTempAlltoAllVMesh1D::CalcCclBuffIdx(u32 remoteRank, u32 &myRankCcl
         return HCCL_E_PARA;
     }
 
-    myRankCclBuffIdx = remoteRankIndex < myRankIndex ? remoteRankIndex : remoteRankIndex - 1;
-    remoteCclBuffIdx = myRankIndex < remoteRankIndex ? myRankIndex : myRankIndex - 1;
     u32 myMeshRow = 0;
     u32 myMeshCol = 0;
     u32 remoteMeshRow = 0;
     u32 remoteMeshCol = 0;
     CHK_RET(GetMesh1DClosCoord(myRank_, myMeshRow, myMeshCol));
     CHK_RET(GetMesh1DClosCoord(remoteRank, remoteMeshRow, remoteMeshCol));
+    if (myMeshCol == remoteMeshCol) {
+        myRankCclBuffIdx = rowNum;
+        remoteCclBuffIdx = rowNum;
+    } else {
+        myRankCclBuffIdx = remoteMeshRow;
+        remoteCclBuffIdx = myMeshRow;
+    }
     HCCL_DEBUG("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] myRank[%u], remoteRank[%u], "
         "myRankIndex[%u], remoteRankIndex[%u], rowNum[%u], colNum[%u], myMeshRow[%u], myMeshCol[%u], "
         "remoteMeshRow[%u], remoteMeshCol[%u], myRankCclBuffIdx[%u], remoteCclBuffIdx[%u].",
@@ -267,7 +282,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     u32 commLoops = 0;
     CHK_RET(CalcCommLoops(commLoops));
     u32 remainRankSize = templateRankSize_ - 1;
-    channelsPerRank_ = CalcChannelsPerRank(channels); // 每个rank的channel数量的最大值
+    channelsPerRank_ = 1;
     HCCL_INFO("[InsTempAlltoAllVMesh1D][RunALLtoALL] commLoops[%u], remainRankSize[%u], "
         "channelsPerRank[%u], threadNum[%u], isDmaRead[%u].",
         commLoops, remainRankSize, channelsPerRank_, threadNum_, isDmaRead_);
@@ -597,6 +612,11 @@ HcclResult InsTempAlltoAllVMesh1D::GetVmeshShape(u32 &rowNum, u32 &colNum) const
     if (templateRankSize_ == VMESH_4X4_RANK_NUM) {
         rowNum = VMESH_4X4_ROW_NUM;
         colNum = VMESH_4X4_COL_NUM;
+        return HCCL_SUCCESS;
+    }
+    if (templateRankSize_ == VMESH_8X8_RANK_NUM) {
+        rowNum = VMESH_8X8_ROW_NUM;
+        colNum = VMESH_8X8_COL_NUM;
         return HCCL_SUCCESS;
     }
     HCCL_ERROR("[InsTempAlltoAllVMesh1D][GetVmeshShape] unsupported templateRankSize[%u].", templateRankSize_);
