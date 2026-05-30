@@ -139,10 +139,9 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
 
     const u64 recvSliceSize = sliceInfoList_.at(myIdx_).size;
     const u64 recvSliceCount = sliceInfoList_.at(myIdx_).count;
+    const u64 recvSliceOffset = recvSliceSize * myIdx_;
 
     for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
-        const u64 recvSliceOffset = recvSliceSize * remoteIdx;
-        
         u64 sendSliceSize = sliceInfoList_.at(remoteIdx).size;
         u64 sendSliceCount = sliceInfoList_.at(remoteIdx).count;
         u64 sendSliceOffset = sliceInfoList_.at(remoteIdx).offset;
@@ -155,8 +154,9 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             if (enableRemoteMemAccess_) {
                 continue; // 图模式跳过本地拷贝到CCL Buffer
             }
+            HCCL_INFO("[SendRecvDataToPeers][LocalCopy] copy data size %d from input src offset %d to hcclbuffer dst offset %d", sendSliceSize, sendSliceOffset, recvSliceOffset);
             DataSlice copySrcSlice(localInBuffPtr, inBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
-            DataSlice copyDstSlice(localHcclBuffPtr, hcclBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
+            DataSlice copyDstSlice(localHcclBuffPtr, hcclBuffBaseOffset + recvSliceOffset, sendSliceSize, sendSliceCount);
             CHK_PRT_RET(LocalCopy(threads.at(remoteIdx), copySrcSlice, copyDstSlice),
                 HCCL_ERROR("[InsTempReduceMesh1DTwoShot][SendRecvDataToPeers] LocalCopy failed."),
                 HcclResult::HCCL_E_INTERNAL);
