@@ -12,6 +12,8 @@
 #define HCCL_CCU_TEMP_REDUCE_SCATTER_V_MESH_1D_MEM2MEM_H
 
 #include "ccu_alg_template_base.h"
+#include "ccu_kernel_alg_base.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -40,7 +42,7 @@ public:
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
 private:
-    uint64_t GetTokenWithFallback(const BuffInfo& buffInfo);
+    uint64_t GetTokenWithFallback(const BuffInfo& buffInfo, uint64_t &token);
 
     uint32_t mySubCommRank_ = 0;
 };
