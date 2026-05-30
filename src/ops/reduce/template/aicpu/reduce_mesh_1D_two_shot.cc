@@ -146,6 +146,7 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
         u64 sendSliceOffset = sliceInfoList_.at(remoteIdx).offset;
 
         const u64 recvSliceOffset = sliceInfoList_.at(remoteIdx).size * myIdx_;
+        const u64 recvDstSliceOffset = sliceInfoList_.at(myIdx_).size * remoteIdx;
 
         if (sendSliceSize == 0 && recvSliceSize == 0) {
             continue;
@@ -172,7 +173,7 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
 
             u64 sendDstOffset = (!enableRemoteMemAccess_) ?   recvSliceOffset + hcclBuffBaseOffset : recvSliceOffset + inBuffBaseOffset;
             //u64 recvDstOffset = (!enableRemoteMemAccess_) ?  sendSliceOffset + hcclBuffBaseOffset : sendSliceOffset + inBuffBaseOffset;
-            u64 recvDstOffset = (!enableRemoteMemAccess_) ?  recvSliceOffset + hcclBuffBaseOffset : recvSliceOffset + inBuffBaseOffset;
+            u64 recvDstOffset = (!enableRemoteMemAccess_) ?  recvDstSliceOffset + hcclBuffBaseOffset : recvDstSliceOffset + inBuffBaseOffset;
 
             DataSlice sendSrcSlice(localInBuffPtr, inBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
             DataSlice sendDstSlice(remoteDstBuffPtr, sendDstOffset, sendSliceSize, sendSliceCount);
@@ -185,7 +186,7 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             std::vector<DataSlice> recvDstSlicesList{recvDstSlice};
             
             HCCL_INFO("[SendRecvDataToPeers] send %d from %d to %d, src offset %d, dst offset %d", sendSliceSize, myRank_, remoteRank, sendSliceOffset, recvSliceOffset);
-            HCCL_INFO("[SendRecvDataToPeers] recv %d from %d to %d, src offset %d, dst offset %d", recvSliceSize, remoteRank, myRank_, recvSliceOffset, sendSliceOffset);
+            HCCL_INFO("[SendRecvDataToPeers] recv %d from %d to %d, src offset %d, dst offset %d", recvSliceSize, remoteRank, myRank_, recvSliceOffset, recvDstSliceOffset);
 
             TxRxChannels sendRecvChannels(sendRecvChannel, sendRecvChannel);
             TxRxSlicesList sendRecvSlicesList({sendSrcSlicesList, sendDstSlicesList}, {recvSrcSlicesList, recvDstSlicesList});
