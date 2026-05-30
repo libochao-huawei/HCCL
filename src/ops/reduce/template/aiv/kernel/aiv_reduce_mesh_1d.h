@@ -154,11 +154,7 @@ private:
                 break;
             }
 
-            uint64_t processCount = sliceCount_;
-            if (targetRank == rankSize_ - 1) {
-                processCount = tailCount_;
-            }
-
+            uint64_t processCount = (targetRank == rankSize_ - 1) ? tailCount_ : sliceCount_;
             if (processCount > 0) {
                 uint64_t srcOffset = input_ + targetRank * sliceCount_ * sizeof(T);
                 uint64_t dstOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + rank_ * processCount * sizeof(T);
@@ -203,11 +199,7 @@ private:
                 break;
             }
 
-            uint64_t processCount = sliceCount_;
-            if (targetRank == rankSize_ - 1) {
-                processCount = tailCount_;
-            }
-
+            uint64_t processCount = (targetRank == rankSize_ - 1) ? tailCount_ : sliceCount_;
             if (processCount > 0) {
                 WaitFlag(targetRank, reduceTagOffset_, syncTag_);
                 uint64_t srcOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]);
