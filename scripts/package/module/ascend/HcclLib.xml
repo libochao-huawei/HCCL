@@ -5,8 +5,6 @@
         <path value="$(TARGET_ENV)/include" install_type="devel"/>
         <path value="$(TARGET_ENV)/include/hccl" install_type="devel"/>
         <path value="$(TARGET_ENV)/include/version" install_type="devel"/>
-        <path value="$(TARGET_ENV)/include/es"/>
-        <path value="$(TARGET_ENV)/include/es/es_hccl"/>
         <path value="opp"/>
         <path value="opp/built-in"/>
         <path value="opp/built-in/op_impl"/>
@@ -15,15 +13,16 @@
         <path value="opp/built-in/op_impl/aicpu/config"/>
         <path value="opp/built-in/op_graph"/>
         <path value="opp/built-in/op_graph/inc"/>
+        <path value="opp/built-in/op_graph/lib"/>
     </dir_info>
     <file_info value="include" copy_type="source" src_path="hccl/include" dst_path="$(TARGET_ENV)/include/hccl" install_path="$(TARGET_ENV)/include/hccl" install_type="devel" install_mod="440">
         <file value="hccl.h"/>
         <file value="hccl_mc2.h"/>
     </file_info>
-    <file_info value="include" copy_type="source" src_path="hccl/src/common/op_graph" dst_path="$(TARGET_ENV)/opp/built-in/op_graph/inc" install_path="$(TARGET_ENV)/opp/built-in/op_graph/inc" install_type="all" install_mod="440">
+    <file_info value="include" copy_type="source" src_path="hccl/src/common/op_graph" dst_path="opp/built-in/op_graph/inc" install_path="opp/built-in/op_graph/inc" install_type="all" install_mod="440">
         <file value="ops_proto_hccl.h"/>
     </file_info>
-    <file_info value="include" copy_type="delivery" src_path="build/es_output/include/es_hccl" dst_path="$(TARGET_ENV)/opp/built-in/op_graph/inc" install_path="$(TARGET_ENV)/opp/built-in/op_graph/inc" install_type="all" install_mod="440">
+    <file_info value="include" copy_type="delivery" src_path="build/es_output/include/es_hccl" dst_path="opp/built-in/op_graph/inc" install_path="opp/built-in/op_graph/inc" install_type="all" install_mod="440">
         <file value="es_hccl_ops.h"/>
         <file value="es_hccl_ops_c.h"/>
         <file value="es_HcomAllGather.h"/>
@@ -40,7 +39,6 @@
         <!-- hccl -->
         <file value="libhccl.so" file_type="shared"/>
         <file value="libhccl_compat.so" file_type="shared"/>
-        <file value="libopgraph_hccl.so" file_type="shared"/>
         <file value="hccl_aiv_reduce_scatter_op_910_95.o" optional="true"/>
         <file value="hccl_aiv_all_gather_op_910_95.o" optional="true"/>
         <file value="hccl_aiv_scatter_op_910_95.o" optional="true"/>
@@ -98,7 +96,10 @@
     <file_info value="json" copy_type="delivery" src_path="build" dst_path="opp/built-in/op_impl/aicpu/config" install_path="opp/built-in/op_impl/aicpu/config" install_type="all" install_mod="440">
         <file value="libscatter_aicpu_kernel.json"/>
     </file_info>
-    <file_info value="lib64" copy_type="delivery" src_path="build/es_output/lib64" dst_path="$(TARGET_ENV)/lib64" install_path="$(TARGET_ENV)/lib64" install_type="all" install_mod="440">
-        <file value="libes_hccl.so"/>
+    <file_info value="lib64" copy_type="delivery" src_path="build" dst_path="opp/built-in/op_graph/lib" install_path="opp/built-in/op_graph/lib" install_type="all" install_mod="440">
+        <file value="libopgraph_hccl.so" file_type="shared"/>
+    </file_info>
+    <file_info value="lib64" copy_type="delivery" src_path="build/es_output/lib64" dst_path="opp/built-in/op_graph/lib" install_path="opp/built-in/op_graph/lib" install_type="all" install_mod="440">
+        <file value="libes_hccl.so" file_type="shared"/>
     </file_info>
 </block>
