@@ -50,11 +50,14 @@ HcclResult CcuTempAllGatherMesh1DMem2MemClosV3::CalcRes(HcclComm comm, const OpP
                              return std::make_unique<CcuKernelAllGatherMesh1DMem2MemClosV3>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
+    std::vector<u32> mainChannelIdxByRank;
+    std::vector<u32> sharedChannelIdxByRank;
     if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestMesh1DFullMesh(comm, param, topoInfo, subCommRanks_, channelDescs));
     } else {
         //CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, CommTopo::COMM_TOPO_1DMESH));
-        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopoClosV3(comm, param, topoInfo, subCommRanks_, channelDescs, CommTopo::COMM_TOPO_1DMESH));
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopoClosV3(comm, param, topoInfo, subCommRanks_, channelDescs,CommTopo::COMM_TOPO_1DMESH, 
+            mainChannelIdxByRank, sharedChannelIdxByRank));
         for(auto channel : channelDescs){
             if(channel.channelProtocol != COMM_PROTOCOL_UBC_CTP){
                 HCCL_ERROR("[CcuTempAllGatherMesh1DMem2MemClosV3][CalcRes] channelProtocol: %u", channel.channelProtocol);
@@ -67,7 +70,9 @@ HcclResult CcuTempAllGatherMesh1DMem2MemClosV3::CalcRes(HcclComm comm, const OpP
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2MemClosV3>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
-                                                                                    subCommRanks_);
+                                                                                    subCommRanks_,
+                                                                                    mainChannelIdxByRank,
+                                                                                    sharedChannelIdxByRank);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -128,6 +133,20 @@ HcclResult CcuTempAllGatherMesh1DMem2MemClosV3::KernelRun(const OpParam& param,
 
     HcclDataType dataType       = param.DataDes.dataType;
     uint64_t dataTypeSize       = DataTypeSizeGet(dataType);
+
+    CHK_PRT_RET(dataTypeSize == 0,
+        HCCL_ERROR("[CcuTempAllGatherMesh1DMem2MemClosV3][KernelRun] invalid dataTypeSize for dataType[%u]", dataType),
+        HcclResult::HCCL_E_PARA);
+    uint64_t mainSliceSize      = normalSliceSize * 80 / 100;
+    mainSliceSize              = mainSliceSize / dataTypeSize * dataTypeSize;
+    uint64_t sharedSliceSize    = normalSliceSize - mainSliceSize;
+    if (mainSliceSize == 0 || sharedSliceSize == 0) {
+        mainSliceSize = normalSliceSize;
+        sharedSliceSize = 0;
+    }
+    HCCL_INFO("[CcuTempAllGatherMesh1DMem2MemClosV3][KernelRun] mainSliceSize[%llu], sharedSliceSize[%llu]",
+              mainSliceSize, sharedSliceSize);
+
     uint64_t dataCount          = normalSliceSize / dataTypeSize;
     if (dataCount == 0 && lastSliceSize == 0) {
         HCCL_INFO("[CcuTempAllGatherMesh1DMem2MemClosV3] DataCount == 0 && lastSliceSize == 0, Template Run Ends.");
@@ -136,7 +155,7 @@ HcclResult CcuTempAllGatherMesh1DMem2MemClosV3::KernelRun(const OpParam& param,
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherMesh1DMem2MemClosV3>(
         inputAddr, outputAddr, token, inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride,
-        normalSliceSize, lastSliceSize, isInputOutputEqual);
+        normalSliceSize, lastSliceSize, isInputOutputEqual,  mainSliceSize, sharedSliceSize);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
     HCCL_INFO("templateResource.threads.size[%zu], templateResource.ccuKernels.size[%zu]", templateResource.threads.size(), templateResource.ccuKernels.size());

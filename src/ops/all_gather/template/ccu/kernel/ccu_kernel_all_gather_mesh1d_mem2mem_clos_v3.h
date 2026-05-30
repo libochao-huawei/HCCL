@@ -11,6 +11,8 @@
 #ifndef HCCL_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_CLOS_V3_H
 #define HCCL_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_CLOS_V3_H
 
+#include <algorithm>
+#include <cstdint>
 #include <vector>
 #include <ios>
 #include "utils.h"
@@ -23,11 +25,15 @@ namespace ops_hccl {
 class CcuKernelArgAllGatherMesh1DMem2MemClosV3 : public hcomm::CcuKernelArg {
 public:
     explicit CcuKernelArgAllGatherMesh1DMem2MemClosV3(uint64_t dimSize, uint32_t rankId, const OpParam& opParam,
-                                                    const std::vector<std::vector<uint32_t>>& subCommRanks)
+                                                    const std::vector<std::vector<uint32_t>>& subCommRanks,
+                                                    const std::vector<uint32_t>& mainChannelIdxByRank = {},
+                                                    const std::vector<uint32_t>& sharedChannelIdxByRank = {})
         : dimSize_(dimSize),
           rankId_(rankId),
           opParam_(opParam),
-          subCommRanks_(subCommRanks)
+          subCommRanks_(subCommRanks),
+          mainChannelIdxByRank_(mainChannelIdxByRank),
+          sharedChannelIdxByRank_(sharedChannelIdxByRank)
     {
         HCCL_DEBUG("[CcuKernelArgAllGatherMesh1DMem2MemClosV3] dimSize: %lu, rankId: %u",
                    dimSize_, rankId_);
@@ -42,6 +48,8 @@ public:
     uint32_t                                rankId_;
     OpParam                                 opParam_;
     std::vector<std::vector<uint32_t>>      subCommRanks_;
+    std::vector<uint32_t>                   mainChannelIdxByRank_;
+    std::vector<uint32_t>                   sharedChannelIdxByRank_;
 };
 
 class CcuTaskArgAllGatherMesh1DMem2MemClosV3 : public hcomm::CcuTaskArg {
@@ -50,11 +58,12 @@ public:
                                                         uint64_t inputSliceStride, uint64_t outputSliceStride,
                                                         uint64_t repeatNum, uint64_t inputRepeatStride,
                                                         uint64_t outputRepeatStride, uint64_t normalSliceSize,
-                                                        uint64_t lastSliceSize, uint64_t isInputOutputEqual)
+                                                        uint64_t lastSliceSize, uint64_t isInputOutputEqual,
+                                                        uint64_t mainSliceSize = 0, uint64_t sharedSliceSize = 0)
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), inputSliceStride_(inputSliceStride),
           outputSliceStride_(outputSliceStride), repeatNum_(repeatNum), inputRepeatStride_(inputRepeatStride),
           outputRepeatStride_(outputRepeatStride), normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize),
-          isInputOutputEqual_(isInputOutputEqual)
+          isInputOutputEqual_(isInputOutputEqual), mainSliceSize_(mainSliceSize), sharedSliceSize_(sharedSliceSize)
     {
         HCCL_DEBUG("[CcuTaskArgAllGatherMesh1DMem2MemClosV3] inputAddr: %lu, outputAddr: %lu, inputSliceStride: %lu, "
                    "outputSliceStride: %lu",
@@ -74,6 +83,9 @@ public:
     uint64_t normalSliceSize_;
     uint64_t lastSliceSize_;
     uint64_t isInputOutputEqual_;
+    // main/shared slice sizes are calculated by the template once with datatype alignment.
+    uint64_t mainSliceSize_;
+    uint64_t sharedSliceSize_;
 };
 
 class CcuKernelAllGatherMesh1DMem2MemClosV3 : public CcuKernelAlgBase {
@@ -86,39 +98,49 @@ public:
 
 private:
     HcclResult InitResource();
+    HcclResult InitChannelIdxByRank();
+    bool HasSharedChannel(uint32_t peerId) const;
     void LoadArgs();
     void PreSync();
     void PostSync();
     void DoRepeatAllGather();
-    void DoAllGather(const hcomm::CcuRep::LocalAddr              &src,
-                                                             const std::vector<hcomm::CcuRep::RemoteAddr> &dst,
-                                                             const CcuRep::Variable            &sliceSize);
+    void DoAllGather();
 
-    // CcuKernelAlgDataWrapper algWrapper;
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
 
     CcuRep::Variable              localInput_;
     std::vector<CcuRep::Variable> output_;
     std::vector<CcuRep::Variable> token_;
+    std::vector<CcuRep::Variable> sharedOutput_;
+    std::vector<CcuRep::Variable> sharedToken_;
     CcuRep::Variable              currentRankSliceInputOffset_;
     CcuRep::Variable              currentRankSliceOutputOffset_;
     CcuRep::Variable              inputRepeatStride_;
     CcuRep::Variable              outputRepeatStride_;
     CcuRep::Variable              normalSliceSize_;
     CcuRep::Variable              lastSliceSize_;
+    CcuRep::Variable              mainSliceSize_;
+    CcuRep::Variable              sharedSliceSize_;
     CcuRep::Variable              isInputOutputEqual_;
     CcuRep::Variable              repeatTimeflag_;
     CcuRep::Variable              tmpRepeatNum_;
     CcuRep::Variable              constVar1_;
     std::vector<CcuRep::CompletedEvent> event_;
+    std::vector<CcuRep::CompletedEvent> sharedEvent_;
+    std::vector<uint16_t> sharedEventMask_;
 
     GroupOpSize localGoSize_;
 
     hcomm::CcuRep::LocalAddr src;
     hcomm::CcuRep::LocalAddr remote_src;
+    hcomm::CcuRep::LocalAddr shared_src;
     std::vector<hcomm::CcuRep::RemoteAddr> dst;
+    std::vector<hcomm::CcuRep::RemoteAddr> sharedDst;
     hcomm::CcuRep::LocalAddr src_loccopy;
+
+    std::vector<uint32_t> mainChannelIdxByRank_;
+    std::vector<uint32_t> sharedChannelIdxByRank_;
 
     CcuRep::Variable srcOffset_;
     CcuRep::Variable dstOffset_;
@@ -127,5 +149,5 @@ private:
     uint16_t allBit_{0};
 };
 
-}// namespace ops_hccl
-#endif // HCCLV3_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_CLOS_V3_H
+} // namespace ops_hccl
+#endif // HCCL_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_CLOS_V3_H
