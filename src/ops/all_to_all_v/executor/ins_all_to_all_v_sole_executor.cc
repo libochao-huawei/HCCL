@@ -245,7 +245,9 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSav
     // 3 ccu kernel handle, taskArg入参
     ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelNum;
     CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
-    kernels[0] = templateAlgRes.submitInfos[0];
+    for (int i = 0; i < ccuKernelNum; i++) {
+        kernels[i] = templateAlgRes.submitInfos[i];
+    }
     return HCCL_SUCCESS;
 }
 
