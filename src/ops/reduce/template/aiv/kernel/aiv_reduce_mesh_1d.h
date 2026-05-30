@@ -199,7 +199,7 @@ private:
         for (uint32_t i = 0; i < maxRankPerCore_; ++i) {
             // 每个core负责的rank间隔为useCoreNum_
             uint32_t targetRank = i * useCoreNum_ + coreIdx_;
-            if (targetRank > rankSize_) {
+            if (targetRank >= rankSize_) {
                 break;
             }
 
