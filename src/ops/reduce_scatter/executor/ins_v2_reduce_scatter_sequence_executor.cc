@@ -253,8 +253,74 @@ HcclResult InsV2ReduceScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         CHK_RET(algTemplateIntra->KernelRun(param, tempAlgParamsIntra, templateResourceIntra));
         processedDataCount += currDataCount;
     }
+
+#ifndef AICPU_COMPILE
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+        CHK_RET(FastLaunchSaveCtx(param, templateResourceInter, templateResourceIntra, resCtx.notifyNumOnMainThread));
+    }
+#endif
+
     return HCCL_SUCCESS;
 }
+
+#ifndef AICPU_COMPILE
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2ReduceScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
+    const OpParam &param, const TemplateResource &templateAlgResInter, const TemplateResource &templateAlgResIntra, u32 notifyNumOnMainThread)
+{
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor] loopTimes==1, save fast launch ctx.");
+    u32 threadNum = threads_.size();
+    u32 ccuKernelNum = templateAlgResInter.submitInfos.size() + templateAlgResIntra.submitInfos.size();
+    if (ccuKernelNum < 1) {
+        HCCL_INFO("[InsV2ReduceScatterSequenceExecutor] ccu kernel num is 0, no need to save.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor][HcclEngineCtxCreate] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
+
+    std::vector<u32> ccuKernelNumList = {static_cast<u32>(templateAlgResInter.submitInfos.size()),
+                                         static_cast<u32>(templateAlgResIntra.submitInfos.size())};
+    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResInter.submitInfos, templateAlgResIntra.submitInfos};
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2ReduceScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
+        const OpParam &param, const CcuFastLaunchCtx *ctx)
+{
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor][FastLaunch] Start");
+    InsAlgTemplate0 tempAlgInter{};
+    InsAlgTemplate1 tempAlgIntra{};
+    
+    TemplateFastLaunchCtx tempFastLaunchCtxInter, tempFastLaunchCtxIntra;
+
+    ThreadHandle *threads = ctx->GetThreadHandlePtr();
+    threads_.assign(threads, threads + ctx->threadNum);
+
+    TemplateResource templateAlgResInter, templateAlgResIntra;
+
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+    
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor][FastLaunch] Inter ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtxInter.threads = threads_;
+    tempFastLaunchCtxInter.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
+    if (ctx->ccuKernelNum[0] > 0) {
+        CHK_RET(tempAlgInter.FastLaunch(param, tempFastLaunchCtxInter));
+    }
+    
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor][FastLaunch] Intra ccuKernelNum[%llu]", ctx->ccuKernelNum[1]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtxIntra.threads = threads_;
+    tempFastLaunchCtxIntra.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
+    if (ctx->ccuKernelNum[1] > 0) {
+        CHK_RET(tempAlgIntra.FastLaunch(param, tempFastLaunchCtxIntra));
+    }
+
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor][FastLaunch] End.");
+    return HCCL_SUCCESS;
+}
+#endif
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
                                 InsReduceScatterSequenceMeshMeshDPU,
