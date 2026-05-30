@@ -58,7 +58,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         return HCCL_E_PARA;
     }
 
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix && param.engine != CommEngine::COMM_ENGINE_AIV) {
         CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
                     HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
                         "with Level0Topo[%u] is not %u",
@@ -432,12 +432,19 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
 }
 #endif
 
-// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
-//     InsTempAlltoAllVMesh1D);
-// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
-//     InsTempAlltoAllVMesh1D);
-// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
-//     InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DSingleChannel, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DUBX, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1DUBX, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+    InsTempAlltoAllVMesh1D);
+    
 #if !defined(HCCL_CANN_COMPAT_850)
 // REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
 //     InsTempDpuAlltoAllMesh);
