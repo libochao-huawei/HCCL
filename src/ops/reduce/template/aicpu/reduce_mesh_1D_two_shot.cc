@@ -139,12 +139,13 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
 
     const u64 recvSliceSize = sliceInfoList_.at(myIdx_).size;
     const u64 recvSliceCount = sliceInfoList_.at(myIdx_).count;
-    const u64 recvSliceOffset = recvSliceSize * myIdx_;
 
     for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
         u64 sendSliceSize = sliceInfoList_.at(remoteIdx).size;
         u64 sendSliceCount = sliceInfoList_.at(remoteIdx).count;
         u64 sendSliceOffset = sliceInfoList_.at(remoteIdx).offset;
+
+        const u64 recvSliceOffset = sliceInfoList_.at(remoteIdx).size * myIdx_;
 
         if (sendSliceSize == 0 && recvSliceSize == 0) {
             continue;
