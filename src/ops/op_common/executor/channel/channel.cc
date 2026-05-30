@@ -747,6 +747,229 @@ HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vect
     return HCCL_SUCCESS;
 }
 
+bool GetFixedLinkIdxForRankPairClosV2(u32 myRank, u32 rank, u32 &fixedIdx)
+{
+    HCCL_INFO("[GetFixedLinkIdxForRankPairClosV2] myRank=%u, rank=%u", myRank, rank);
+    u32 lowRank = std::min(myRank, rank);
+    u32 highRank = std::max(myRank, rank);
+
+    if (highRank >= 16 || lowRank % 4 != highRank % 4) {
+        return false;
+    }
+
+    u32 rankDiff = highRank - lowRank;
+    if (rankDiff == 0 || rankDiff % 4 != 0 || rankDiff > 12) {
+        return false;
+    }
+
+    fixedIdx = rankDiff / 4 - 1;
+    return true;
+}
+
+bool GetFixedLinkIdxForRankPairClosV3(u32 myRank, u32 rank, u32 &fixedIdx)
+{
+    HCCL_INFO("[GetFixedLinkIdxForRankPairClosV3] myRank=%u, rank=%u", myRank, rank);
+    u32 lowRank = std::min(myRank, rank);
+    u32 highRank = std::max(myRank, rank);
+
+    if (highRank >= 16 || lowRank % 4 != highRank % 4) {
+        return false;
+    }
+
+    u32 rankDiff = highRank - lowRank;
+    if (rankDiff == 0 || rankDiff % 4 != 0 || rankDiff > 12) {
+        return false;
+    }
+
+    fixedIdx = rankDiff / 4 - 1;
+    return true;
+}
+
+HcclResult ProcessLinksForChannelClosV2(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo)
+{
+#ifndef AICPU_COMPILE
+    constexpr u32 targetProtocol = static_cast<u32>(CommProtocol::COMM_PROTOCOL_UBC_CTP);
+    uint32_t *netLayers;
+    uint32_t netLayerNum;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+    for (auto netLayer : netLayersVector) {
+        CommLink *linkList = nullptr;
+        u32 listSize;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
+        HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV2] netLayer=%u, linkListSize=%u", netLayer, listSize);
+        
+        std::vector<CommLink> filteredLinks;
+        filteredLinks.reserve(listSize);
+        for (u32 idx = 0; idx < listSize; idx++) {
+            if (linkList[idx].dstEndpointDesc.protocol == targetProtocol) {
+                filteredLinks.push_back(linkList[idx]);
+            }
+        }
+        linkList = filteredLinks.data();
+        listSize = filteredLinks.size();
+        HCCL_INFO("[ProcessLinksForChannelClosV2] netLayer=%u, targetProtocol=%u, linkListSize after protocol filter=%u", netLayer, targetProtocol, listSize);
+        
+        if (listSize == 0) {
+            HCCL_WARNING("[CalcChannelRequestWithPriorTopoClosV2]There is no link between rank[%u] and rank[%u].", myRank,
+                         rank);
+            break;
+        }
+
+        uint32_t priorityLink = 0;
+        CommTopo topoType;
+        u32 fixedIdx = 0;
+        bool useFixedIdx = true;
+        if (GetExternalInputCcuSelectMode() == 2 && GetFixedLinkIdxForRankPairClosV2(myRank, rank, fixedIdx) && fixedIdx < listSize) {
+            priorityLink = fixedIdx;
+            CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[priorityLink], topoType));
+            HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV2] Use fixed link idx[%u] for rank pair[%u, %u], topoType[%u].",
+                      priorityLink, myRank, rank, topoType);
+        } else {
+            for (u32 idx = 0; idx < listSize; idx++) {
+                CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[idx], topoType));
+                if (topoType == priorityTopo) {
+                    priorityLink = idx;
+                    HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV2] Found link[%u] with priority topotype[%u].", idx,
+                              topoType);
+                    break;
+                }
+            }
+        }
+        HcclChannelDesc channelDesc;
+        HcclChannelDescInit(&channelDesc, 1);
+        channelDesc.remoteRank = rank;
+        CommLink link = linkList[priorityLink];
+        channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+        channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+        channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
+        channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+        channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+        channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+        CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[priorityLink], topoType));
+        HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV2]Add channel request between %u and %u with protocol %u "
+                  "and topoType %u. And Priority topoType is %u.",
+                  myRank, channelDesc.remoteRank, channelDesc.remoteEndpoint.protocol, topoType, priorityTopo);
+        channelDesc.channelProtocol = link.srcEndpointDesc.protocol;
+        channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+        channels.push_back(channelDesc);
+        if (listSize > 0) {
+            break;
+        }
+    }
+
+#endif
+    return HCCL_SUCCESS;
+}
+
+constexpr u32 CCU_SHARED_LINK_IDX = 3;
+
+HcclResult AddChannelDescFromPriorityLink(HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer,
+    CommLink &link, u32 linkIdx, std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo,
+    const std::string &funcName)
+{
+    HcclChannelDesc channelDesc;
+    HcclChannelDescInit(&channelDesc, 1);
+    channelDesc.remoteRank = rank;
+    channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+    channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+    channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
+    channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+    channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+    channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+    CommTopo topoType;
+    CHK_RET(GetTopoTypeByLink(comm, netLayer, link, topoType));
+    HCCL_INFO("%s Add channel request between %u and %u with protocol %u and topoType %u. "
+              "Priority topoType is %u, link idx is %u.",
+              funcName.c_str(), myRank, channelDesc.remoteRank, channelDesc.remoteEndpoint.protocol, topoType,
+              priorityTopo, linkIdx);
+    channelDesc.channelProtocol = link.srcEndpointDesc.protocol;
+    channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+    channels.push_back(channelDesc);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ProcessLinksForChannelClosV3(HcclComm comm, u32 myRank, u32 rank,
+    std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo, u32 &mainChannelIdx, u32 &sharedChannelIdx)
+{
+#ifndef AICPU_COMPILE
+    constexpr u32 targetProtocol = static_cast<u32>(CommProtocol::COMM_PROTOCOL_UBC_CTP);
+    mainChannelIdx = INVALID_VALUE_RANKID;
+    sharedChannelIdx = INVALID_VALUE_RANKID;
+
+    uint32_t *netLayers;
+    uint32_t netLayerNum;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+    for (auto netLayer : netLayersVector) {
+        CommLink *linkList = nullptr;
+        u32 listSize;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
+        HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV3] netLayer=%u, linkListSize=%u", netLayer, listSize);
+
+        std::vector<CommLink> filteredLinks;
+        filteredLinks.reserve(listSize);
+        for (u32 idx = 0; idx < listSize; idx++) {
+            if (linkList[idx].dstEndpointDesc.protocol == targetProtocol) {
+                filteredLinks.push_back(linkList[idx]);
+            }
+        }
+        linkList = filteredLinks.data();
+        listSize = filteredLinks.size();
+        HCCL_INFO("[ProcessLinksForChannelClosV3] netLayer=%u, targetProtocol=%u, "
+                  "linkListSize after protocol filter=%u", netLayer, targetProtocol, listSize);
+
+        if (listSize == 0) {
+            HCCL_WARNING("[CalcChannelRequestWithPriorTopoClosV3]There is no link between rank[%u] and rank[%u].",
+                         myRank, rank);
+            break;
+        }
+
+        uint32_t priorityLink = 0;
+        CommTopo topoType;
+        u32 fixedIdx = 0;
+        u32 ccuSelectMode = GetExternalInputCcuSelectMode();
+        bool useFixedIdx = (ccuSelectMode == 2 || ccuSelectMode == 3) &&
+            GetFixedLinkIdxForRankPairClosV3(myRank, rank, fixedIdx) && fixedIdx < listSize;
+        bool useSharedLink = ccuSelectMode == 3 && useFixedIdx && CCU_SHARED_LINK_IDX < listSize;
+        if (useFixedIdx) {
+            priorityLink = fixedIdx;
+            CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[priorityLink], topoType));
+            HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV3] Use fixed link idx[%u] for rank pair[%u, %u], "
+                      "topoType[%u].", priorityLink, myRank, rank, topoType);
+        } else {
+            for (u32 idx = 0; idx < listSize; idx++) {
+                CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[idx], topoType));
+                if (topoType == priorityTopo) {
+                    priorityLink = idx;
+                    HCCL_INFO("[CalcChannelRequestWithPriorTopoClosV3] Found link[%u] with priority topotype[%u].", idx,
+                              topoType);
+                    break;
+                }
+            }
+        }
+
+        // mainChannelIdx/sharedChannelIdx are indices in the kernel channel vector. priorityLink and
+        // CCU_SHARED_LINK_IDX are linkList indices used to select which physical link backs the channel.
+        mainChannelIdx = channels.size();
+        CHK_RET(AddChannelDescFromPriorityLink(comm, myRank, rank, netLayer, linkList[priorityLink], priorityLink,
+            channels, priorityTopo, std::string("[CalcChannelRequestWithPriorTopoClosV3][main]")));
+
+        if (useSharedLink) {
+            sharedChannelIdx = channels.size();
+            CHK_RET(AddChannelDescFromPriorityLink(comm, myRank, rank, netLayer, linkList[CCU_SHARED_LINK_IDX],
+                CCU_SHARED_LINK_IDX, channels, priorityTopo,
+                std::string("[CalcChannelRequestWithPriorTopoClosV3][shared]")));
+        }
+        if (listSize > 0) {
+            break;
+        }
+    }
+
+#endif
+    return HCCL_SUCCESS;
+}
+
 HcclResult CalcChannelRequestMesh1DWithPriorityTopo(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
     const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo)
 {
@@ -765,6 +988,67 @@ HcclResult CalcChannelRequestMesh1DWithPriorityTopo(HcclComm comm, const OpParam
         }
     }
     HCCL_INFO("[%s] success.", __func__);
+#endif
+    return HCCL_SUCCESS;
+}
+
+HcclResult CalcChannelRequestMesh1DWithPriorityTopoClosV2(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo)
+{
+#ifndef AICPU_COMPILE
+    (void) param;
+    channels.clear();
+    auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
+    CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
+                HCCL_ERROR("[CollAlgFactory] [channel] Rank [%d] is not in commInfo.", topoInfo->userRank),
+                HcclResult::HCCL_E_PARA);
+
+    u32 myRank = topoInfo->userRank;
+    for (u32 rank : subcommInfo[COMM_LEVEL0]) {
+        if (rank != myRank) {
+            CHK_RET(ProcessLinksForChannelClosV2(comm, myRank, rank, channels, priorityTopo));
+        }
+    }
+    HCCL_INFO("[%s] success.", __func__);
+#endif
+    return HCCL_SUCCESS;
+}
+
+HcclResult CalcChannelRequestMesh1DWithPriorityTopoClosV3(HcclComm comm, const OpParam& param,
+    const TopoInfo* topoInfo, const std::vector<std::vector<u32>>& subcommInfo,
+    std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo,
+    std::vector<u32> &mainChannelIdxByRank, std::vector<u32> &sharedChannelIdxByRank)
+{
+#ifndef AICPU_COMPILE
+    (void)param;
+    channels.clear();
+    mainChannelIdxByRank.assign(subcommInfo[COMM_LEVEL0].size(), INVALID_VALUE_RANKID);
+    sharedChannelIdxByRank.assign(subcommInfo[COMM_LEVEL0].size(), INVALID_VALUE_RANKID);
+    auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
+    CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
+                HCCL_ERROR("[CollAlgFactory] [channel] Rank [%d] is not in commInfo.", topoInfo->userRank),
+                HcclResult::HCCL_E_PARA);
+
+    u32 myRank = topoInfo->userRank;
+    for (u32 rank : subcommInfo[COMM_LEVEL0]) {
+        if (rank != myRank) {
+            u32 mainChannelIdx = INVALID_VALUE_RANKID;
+            u32 sharedChannelIdx = INVALID_VALUE_RANKID;
+            CHK_RET(ProcessLinksForChannelClosV3(comm, myRank, rank, channels, priorityTopo, mainChannelIdx,
+                sharedChannelIdx));
+            CHK_PRT_RET(mainChannelIdx == INVALID_VALUE_RANKID,
+                HCCL_ERROR("[CalcChannelRequestMesh1DWithPriorityTopoClosV3] Failed to create main channel "
+                           "between myRank=%u and rank=%u.", myRank, rank), HcclResult::HCCL_E_INTERNAL);
+            auto rankIt = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), rank);
+            CHK_PRT_RET(rankIt == subcommInfo[COMM_LEVEL0].end(),
+                HCCL_ERROR("[CalcChannelRequestMesh1DWithPriorityTopoClosV3] Rank [%u] is not in commInfo.", rank),
+                HcclResult::HCCL_E_INTERNAL);
+            u32 rankIdx = std::distance(subcommInfo[COMM_LEVEL0].begin(), rankIt);
+            mainChannelIdxByRank[rankIdx] = mainChannelIdx;
+            sharedChannelIdxByRank[rankIdx] = sharedChannelIdx;
+        }
+    }
+    HCCL_INFO("[%s] success. channelNum[%zu]", __func__, channels.size());
 #endif
     return HCCL_SUCCESS;
 }
