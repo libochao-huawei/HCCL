@@ -123,31 +123,29 @@ HcclResult InsTempAlltoAllVMesh1D::CalcCommRankSetForOneLoop(const u32 roundIdx,
     u32 colNum = 0;
     CHK_RET(GetVmeshShape(rowNum, colNum));
 
-    u32 myRankIndex = 0;
-    CHK_RET(GetRankIndexInSubComm(myRank_, myRankIndex));
-    if (roundIdx >= rowNum) {
-        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCommRankSetForOneLoop] roundIdx[%u] is invalid, rowNum[%u].",
-            roundIdx, rowNum);
+    u32 myMeshRow = 0;
+    u32 myMeshCol = 0;
+    CHK_RET(GetMesh1DClosCoord(myRank_, myMeshRow, myMeshCol));
+    if (roundIdx >= colNum - 1) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCommRankSetForOneLoop] roundIdx[%u] is invalid, colNum[%u].",
+            roundIdx, colNum);
         return HCCL_E_PARA;
     }
-    u32 myRowIdx = myRankIndex / colNum;
-    u32 rowOffset = (roundIdx + 1) % rowNum;
-    u32 targetRowIdx = 0;
-    if ((myRowIdx % 2) == 1) {
-        targetRowIdx = (myRowIdx + rowOffset) % rowNum;
-    } else {
-        targetRowIdx = (myRowIdx + rowNum - rowOffset) % rowNum;
+    u32 mask = roundIdx + 1;
+    u32 targetMeshCol = myMeshCol ^ mask;
+    u32 sameColPeerMeshRow = myMeshRow ^ mask;
+    for (u32 remoteMeshRow = 0; remoteMeshRow < rowNum; remoteMeshRow++) {
+        u32 remoteRank = 0;
+        CHK_RET(GetRankByMesh1DClosCoord(remoteMeshRow, targetMeshCol, remoteRank));
+        commRanks.push_back(remoteRank);
     }
-    for (u32 targetColIdx = 0; targetColIdx < colNum; targetColIdx++) {
-        u32 remoteRankIndex = targetRowIdx * colNum + targetColIdx;
-        u32 remoteRank = subCommRanks_[0][remoteRankIndex];
-        if (remoteRank != myRank_) {
-            commRanks.push_back(remoteRank);
-        }
-    }
+    u32 sameColPeerRank = 0;
+    CHK_RET(GetRankByMesh1DClosCoord(sameColPeerMeshRow, myMeshCol, sameColPeerRank));
+    commRanks.push_back(sameColPeerRank);
     HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcCommRankSetForOneLoop] roundIdx[%u], myRank[%u], "
-        "myRankIndex[%u], rowNum[%u], colNum[%u], myRowIdx[%u], rowOffset[%u], targetRowIdx[%u], commRanks%s.",
-        roundIdx, myRank_, myRankIndex, rowNum, colNum, myRowIdx, rowOffset, targetRowIdx,
+        "rowNum[%u], colNum[%u], myMeshRow[%u], myMeshCol[%u], targetMeshCol[%u], "
+        "sameColPeerMeshRow[%u], commRanks%s.",
+        roundIdx, myRank_, rowNum, colNum, myMeshRow, myMeshCol, targetMeshCol, sameColPeerMeshRow,
         FormatRankList(commRanks).c_str());
     return HCCL_SUCCESS;
 }
@@ -158,7 +156,7 @@ HcclResult InsTempAlltoAllVMesh1D::CalcCommLoops(u32 &commLoops) const
     u32 rowNum = 0;
     u32 colNum = 0;
     CHK_RET(GetVmeshShape(rowNum, colNum));
-    commLoops = rowNum;
+    commLoops = colNum - 1;
     HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcCommLoops] rowNum[%u], colNum[%u], commLoops[%u].",
         rowNum, colNum, commLoops);
     return HCCL_SUCCESS;
@@ -182,41 +180,19 @@ HcclResult InsTempAlltoAllVMesh1D::CalcCclBuffIdx(u32 remoteRank, u32 &myRankCcl
         return HCCL_E_PARA;
     }
 
-    u32 myRowIdx = myRankIndex / colNum;
-    u32 myColIdx = myRankIndex % colNum;
-    u32 remoteRowIdx = remoteRankIndex / colNum;
-    u32 remoteColIdx = remoteRankIndex % colNum;
-    if (myRowIdx == remoteRowIdx) {
-        u32 rowInnerIdx = remoteColIdx < myColIdx ? remoteColIdx : remoteColIdx - 1;
-        u32 remoteRowInnerIdx = myColIdx < remoteColIdx ? myColIdx : myColIdx - 1;
-        myRankCclBuffIdx = colNum * (rowNum - 1) + rowInnerIdx;
-        remoteCclBuffIdx = colNum * (rowNum - 1) + remoteRowInnerIdx;
-    } else {
-        u32 myRowOffset = 0;
-        if ((myRowIdx % 2) == 1) {
-            myRowOffset = (remoteRowIdx + rowNum - myRowIdx) % rowNum;
-        } else {
-            myRowOffset = (myRowIdx + rowNum - remoteRowIdx) % rowNum;
-        }
-        u32 remoteRowOffset = 0;
-        if ((remoteRowIdx % 2) == 1) {
-            remoteRowOffset = (myRowIdx + rowNum - remoteRowIdx) % rowNum;
-        } else {
-            remoteRowOffset = (remoteRowIdx + rowNum - myRowIdx) % rowNum;
-        }
-        if (myRowOffset == 0 || remoteRowOffset == 0) {
-            HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] invalid row offset, myRowIdx[%u], "
-                "remoteRowIdx[%u], myRank[%u], remoteRank[%u].", myRowIdx, remoteRowIdx, myRank_, remoteRank);
-            return HCCL_E_PARA;
-        }
-        myRankCclBuffIdx = colNum * (myRowOffset - 1) + remoteColIdx;
-        remoteCclBuffIdx = colNum * (remoteRowOffset - 1) + myColIdx;
-    }
-    HCCL_DEBUG("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] For my rank[%u] and remote rank[%u], "\
-        "my rank index[%u], remote rank index[%u], rowNum[%u], colNum[%u], my row[%u], my col[%u], "
-        "remote row[%u], remote col[%u], my ccl buff idx is [%u], remote ccl buff idx is [%u].",
-        myRank_, remoteRank, myRankIndex, remoteRankIndex, rowNum, colNum, myRowIdx, myColIdx, remoteRowIdx,
-        remoteColIdx, myRankCclBuffIdx, remoteCclBuffIdx);
+    myRankCclBuffIdx = remoteRankIndex < myRankIndex ? remoteRankIndex : remoteRankIndex - 1;
+    remoteCclBuffIdx = myRankIndex < remoteRankIndex ? myRankIndex : myRankIndex - 1;
+    u32 myMeshRow = 0;
+    u32 myMeshCol = 0;
+    u32 remoteMeshRow = 0;
+    u32 remoteMeshCol = 0;
+    CHK_RET(GetMesh1DClosCoord(myRank_, myMeshRow, myMeshCol));
+    CHK_RET(GetMesh1DClosCoord(remoteRank, remoteMeshRow, remoteMeshCol));
+    HCCL_DEBUG("[InsTempAlltoAllVMesh1D][CalcCclBuffIdx] myRank[%u], remoteRank[%u], "
+        "myRankIndex[%u], remoteRankIndex[%u], rowNum[%u], colNum[%u], myMeshRow[%u], myMeshCol[%u], "
+        "remoteMeshRow[%u], remoteMeshCol[%u], myRankCclBuffIdx[%u], remoteCclBuffIdx[%u].",
+        myRank_, remoteRank, myRankIndex, remoteRankIndex, rowNum, colNum, myMeshRow, myMeshCol, remoteMeshRow,
+        remoteMeshCol, myRankCclBuffIdx, remoteCclBuffIdx);
     return HCCL_SUCCESS;
 }
 
@@ -627,6 +603,40 @@ HcclResult InsTempAlltoAllVMesh1D::GetVmeshShape(u32 &rowNum, u32 &colNum) const
     return HCCL_E_PARA;
 }
 
+HcclResult InsTempAlltoAllVMesh1D::GetMesh1DClosCoord(u32 rank, u32 &meshRow, u32 &meshCol) const
+{
+    meshRow = 0;
+    meshCol = 0;
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    CHK_RET(GetVmeshShape(rowNum, colNum));
+    u32 rankIndex = 0;
+    CHK_RET(GetRankIndexInSubComm(rank, rankIndex));
+    if (rankIndex >= templateRankSize_) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][GetMesh1DClosCoord] rankIndex[%u] is invalid for rank[%u], "
+            "templateRankSize[%u].", rankIndex, rank, templateRankSize_);
+        return HCCL_E_PARA;
+    }
+    meshRow = rankIndex % rowNum;
+    meshCol = rankIndex / rowNum;
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::GetRankByMesh1DClosCoord(u32 meshRow, u32 meshCol, u32 &rank) const
+{
+    rank = 0;
+    u32 rowNum = 0;
+    u32 colNum = 0;
+    CHK_RET(GetVmeshShape(rowNum, colNum));
+    if (meshRow >= rowNum || meshCol >= colNum) {
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][GetRankByMesh1DClosCoord] invalid coord meshRow[%u], meshCol[%u], "
+            "rowNum[%u], colNum[%u].", meshRow, meshCol, rowNum, colNum);
+        return HCCL_E_PARA;
+    }
+    rank = subCommRanks_[0][meshCol * rowNum + meshRow];
+    return HCCL_SUCCESS;
+}
+
 HcclResult InsTempAlltoAllVMesh1D::GetRankIndexInSubComm(u32 rank, u32 &rankIndex) const
 {
     if (subCommRanks_.empty()) {
@@ -654,47 +664,31 @@ HcclResult InsTempAlltoAllVMesh1D::SelectChannel(u32 remoteRank, const std::vect
     u32 colNum = 0;
     CHK_RET(GetVmeshShape(rowNum, colNum));
 
-    u32 myRankIndex = 0;
-    u32 remoteRankIndex = 0;
-    CHK_RET(GetRankIndexInSubComm(myRank_, myRankIndex));
-    CHK_RET(GetRankIndexInSubComm(remoteRank, remoteRankIndex));
-
-    u32 myColIdx = myRankIndex % colNum;
-    u32 remoteColIdx = remoteRankIndex % colNum;
-    HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] myRank[%u], remoteRank[%u], myRankIndex[%u], "
-        "remoteRankIndex[%u], rowNum[%u], colNum[%u], myColIdx[%u], remoteColIdx[%u], allChannelSize[%zu].",
-        myRank_, remoteRank, myRankIndex, remoteRankIndex, rowNum, colNum, myColIdx, remoteColIdx,
+    u32 myMeshRow = 0;
+    u32 myMeshCol = 0;
+    u32 remoteMeshRow = 0;
+    u32 remoteMeshCol = 0;
+    CHK_RET(GetMesh1DClosCoord(myRank_, myMeshRow, myMeshCol));
+    CHK_RET(GetMesh1DClosCoord(remoteRank, remoteMeshRow, remoteMeshCol));
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] myRank[%u], remoteRank[%u], rowNum[%u], colNum[%u], "
+        "myMeshRow[%u], myMeshCol[%u], remoteMeshRow[%u], remoteMeshCol[%u], allChannelSize[%zu].",
+        myRank_, remoteRank, rowNum, colNum, myMeshRow, myMeshCol, remoteMeshRow, remoteMeshCol,
         allChannels.size());
-    if (myColIdx == remoteColIdx) {
-        for (u32 channelIdx = 0; channelIdx < allChannels.size(); channelIdx++) {
-            const auto &channel = allChannels[channelIdx];
-            if (channel.protocol == COMM_PROTOCOL_UBC_CTP) {
-                selectedChannels.push_back(channel);
-                HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] same column selects channelIdx[%u], protocol[%u].",
-                    channelIdx, channel.protocol);
-                return HCCL_SUCCESS;
-            }
-        }
-        HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectChannel] no UBC_CTP channel for remoteRank[%u].", remoteRank);
-        return HCCL_E_PARA;
+    if (myMeshCol == remoteMeshCol) {
+        selectedChannels.push_back(allChannels[0]);
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] same mesh column selects channelIndex[0], protocol[%u].",
+            allChannels[0].protocol);
+        return HCCL_SUCCESS;
     }
-
-    u32 colDistance = (remoteColIdx + colNum - myColIdx) % colNum;
-    if (colDistance == 0) {
-        HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectChannel] invalid col distance, myColIdx[%u], "
-            "remoteColIdx[%u], remoteRank[%u].", myColIdx, remoteColIdx, remoteRank);
-        return HCCL_E_PARA;
-    }
-    u32 channelIndex = colDistance - 1;
+    u32 channelIndex = remoteMeshRow;
     if (channelIndex >= allChannels.size()) {
         HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectChannel] invalid channel index[%u], channel size[%zu], "
-            "myColIdx[%u], remoteColIdx[%u], remoteRank[%u].",
-            channelIndex, allChannels.size(), myColIdx, remoteColIdx, remoteRank);
+            "remoteRank[%u], remoteMeshRow[%u].", channelIndex, allChannels.size(), remoteRank, remoteMeshRow);
         return HCCL_E_PARA;
     }
     selectedChannels.push_back(allChannels[channelIndex]);
-    HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] different column colDistance[%u], select channelIndex[%u], protocol[%u].",
-        colDistance, channelIndex, allChannels[channelIndex].protocol);
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][SelectChannel] cross mesh column selects channelIndex[%u], protocol[%u].",
+        channelIndex, allChannels[channelIndex].protocol);
     return HCCL_SUCCESS;
 }
 } // namespace Hccl

@@ -77,6 +77,8 @@ private:
     HcclResult PostSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
         const std::vector<ThreadHandle> &subThreadsCurRank) const;
     HcclResult GetVmeshShape(u32 &rowNum, u32 &colNum) const;
+    HcclResult GetMesh1DClosCoord(u32 rank, u32 &meshRow, u32 &meshCol) const;
+    HcclResult GetRankByMesh1DClosCoord(u32 meshRow, u32 meshCol, u32 &rank) const;
     HcclResult GetRankIndexInSubComm(u32 rank, u32 &rankIndex) const;
     HcclResult SelectChannel(u32 remoteRank, const std::vector<ChannelInfo> &allChannels,
         std::vector<ChannelInfo> &selectedChannels) const;
