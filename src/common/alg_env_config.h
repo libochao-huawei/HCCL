@@ -43,7 +43,8 @@ struct AlgEnvConfig {
     u8 hcclDeterministic;
     bool aicpuUnfold; 
     uint8_t aicpuCacheEnable;
-    u32 ccuSelectMode; // 0 ccu multi jetty, 1 ccu new sched, 2 ccu new sched with channel selected
+    u32 ccuSelectMode; // 0 ccu multi jetty, 1 ccu new sched, 2 ccu new sched with channel selected, 3 ccu 4 channels
+    u32 ccuMainSharedRatio;
     bool aivMode;
     bool aivOnlyMode;
     bool ccuMSMode;
@@ -71,6 +72,7 @@ struct AlgEnvConfig {
         enableFfts = true;
         aicpuCacheEnable = 1; // 默认开启aicpu cache (只有当aicpuUnfold为true时才生效)
         ccuSelectMode = 3; // 默认开启ccu new sched with channel selected模式
+        ccuMainSharedRatio = 80;
         aivOnlyMode = false;
         execTimeOutSet = false;
         execTimeout = 0;
@@ -150,7 +152,11 @@ HcclResult ParseInconsistentCheckSwitch(const std::string &inconsistentCheckSwit
 
 HcclResult ParseCcuSelectMode();
 
+HcclResult ParseCcuMainSharedRatio();
+
 const u32& GetExternalInputCcuSelectMode();
+
+const u32& GetExternalInputCcuMainSharedRatio();
 
 const u32& GetExternalInputIntraRoceSwitch();
 
