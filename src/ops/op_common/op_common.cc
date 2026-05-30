@@ -55,6 +55,8 @@ namespace ops_hccl {
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 thread_local std::set<std::string> g_inconsistentCheckedList;
+constexpr size_t AIV_CACHE_MAX_SIZE = 1024;
+constexpr double AIV_CACHE_CLEAR_PERCENT = 0.2;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 constexpr u32 HOST_NOTIFY_TIMEOUT_OFFSET = 27;  // host等待Device通知的超时时间偏移量
 constexpr u32 KERNEL_TIMEOUT_OFFSET = 25;       // kernel启动超时时间偏移量
@@ -423,6 +425,12 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         CHK_RET(executor->Orchestrate(param, resCtxHost));
 
         if (useCache && g_recordingQueue) {
+            if (g_hcclCacheMap.size() >= AIV_CACHE_MAX_SIZE) {
+                size_t clearCount = static_cast<size_t>(AIV_CACHE_MAX_SIZE * AIV_CACHE_CLEAR_PERCENT);
+                for (auto it = g_hcclCacheMap.begin(); clearCount > 0 && it != g_hcclCacheMap.end(); --clearCount) {
+                    it = g_hcclCacheMap.erase(it);
+                }
+            }
             g_hcclCacheMap[cacheKey] = g_recordingQueue;
             g_recordingQueue = nullptr;
             g_baseInputAddr = 0;
