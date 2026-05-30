@@ -153,11 +153,14 @@ constexpr uint64_t CHUNK_SIZE = 2048;
 constexpr int32_t TAG_INIT_VALUE = 1;
 constexpr int32_t TAG_RESET_COUNT = 1000;
 constexpr uint32_t AIV_FLAG_CLEAR_OFFSET = 16 * 1024 * 1024;
+constexpr uint32_t AIV_FLAG_EMPTY_OFFSET = 17 * 1024 * 1024;
 
-// 当前每个kernel最多使用4组同步标记，这里预留6组
-constexpr uint32_t MAX_FLAG_SIZE_PER_KERNEL = AIV_FLAG_CLEAR_OFFSET - MAX_RANK_SIZE * FLAG_SIZE;
-
-#define BASE_FLAG_OFFSET (MAX_FLAG_SIZE_PER_KERNEL)
+/**
+ *     GM_OUT                  BarrierBase(大小n*FLAG_SIZE)             Tag(大小4)                    Clear
+ * 0 | 40K(FLAG_ADDR_OFFSET) | 16M(AIV_FLAG_CLEAR_OFFSET)-n*FLAG_SIZE | 16M(AIV_FLAG_CLEAR_OFFSET) | 17M(AIV_FLAG_EMPTY_OFFSET)
+ */ 
+// 相对于GM_OUT，前同步、尾同步使用的同步标记区的偏移，也是普通标记区的大小
+constexpr uint32_t BASE_FLAG_OFFSET = (AIV_FLAG_CLEAR_OFFSET - FLAG_ADDR_OFFSET) - MAX_RANK_SIZE * FLAG_SIZE;
 
 class AivCommBase {
 public:
@@ -334,6 +337,8 @@ public:
 
     __aicore__ inline bool IsFirstOP(int32_t sliceId);
 
+    __aicore__ inline void ClearGM();
+
     __aicore__ inline void BarrierForFirstOP();
 
     __aicore__ inline void SendRecvBarrierForFirstOP(uint32_t myRank, uint32_t remoteRank);
@@ -495,8 +500,20 @@ __aicore__ inline bool AivCommBase::IsFirstOP(int32_t sliceId)
     return sliceId == 1 && tag_ == 1;
 }
 
+__aicore__ inline void AivCommBase::ClearGM()
+{
+    uint32_t emptyOffset = AIV_FLAG_EMPTY_OFFSET - FLAG_ADDR_OFFSET;
+    uint32_t blockCount = BASE_FLAG_OFFSET / numBlocks_;
+    uint32_t blockOffset = blockCount * block_idx;
+    CpGM2GM(GM_OUT[rank_] + blockOffset, GM_OUT[rank_] + blockOffset + emptyOffset, blockCount);
+}
+
 __aicore__ inline void AivCommBase::BarrierForFirstOP()
 {
+    // 清零标记区
+    ClearGM();
+    SyncAll<true>();
+
     // 每个核分配多个rank
     uint32_t perCoreRankNum = rankSize_ / numBlocks_;
     uint32_t remainRankNum = rankSize_ % numBlocks_;
@@ -520,6 +537,10 @@ __aicore__ inline void AivCommBase::BarrierForFirstOP()
 // 为sendRecv单独设计
 __aicore__ inline void AivCommBase::SendRecvBarrierForFirstOP(uint32_t myRank, uint32_t remoteRank)
 {
+    // 清零标记区
+    ClearGM();
+    SyncAll<true>();
+
     if (GetBlockIdx() == 0) {
         pipe_barrier(PIPE_ALL);
         for (int i = 0; i < rankSize_; i++) {
