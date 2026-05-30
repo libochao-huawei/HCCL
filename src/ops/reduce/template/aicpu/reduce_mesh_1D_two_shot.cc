@@ -227,7 +227,7 @@ HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgP
             continue;
         }
         HCCL_INFO("[DoLocalReduce] idx %d, rank %d, src offset %d, dst offset %d, size %d", myIdx_, myRank_, sliceInfoList_.at(remoteIdx).offset, recvSliceOffset, recvSliceSize);
-        DataSlice curSrcSlice(localBuffPtr, sliceInfoList_.at(remoteIdx).offset + localBuffBaseOffset, recvSliceSize, recvSliceCount);
+        DataSlice curSrcSlice(localBuffPtr, recvSliceSize * remoteIdx + localBuffBaseOffset, recvSliceSize, recvSliceCount);
         CHK_PRT_RET(LocalReduce(threads.at(0), curSrcSlice, finalDstSlice, dataType_, reduceOp_),
             HCCL_ERROR("[InsTempReduceMesh1DTwoShot][DoLocalReduce] LocalReduce failed."),
             HcclResult::HCCL_E_INTERNAL);
