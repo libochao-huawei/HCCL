@@ -253,6 +253,7 @@ HcclResult InsV2ReduceScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         CHK_RET(algTemplateIntra->KernelRun(param, tempAlgParamsIntra, templateResourceIntra));
         processedDataCount += currDataCount;
     }
+
     return HCCL_SUCCESS;
 }
 
