@@ -139,9 +139,10 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
 
     const u64 recvSliceSize = sliceInfoList_.at(myIdx_).size;
     const u64 recvSliceCount = sliceInfoList_.at(myIdx_).count;
-    const u64 recvSliceOffset = sliceInfoList_.at(myIdx_).offset;
 
     for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
+        const u64 recvSliceOffset = recvSliceSize * remoteIdx;
+        
         u64 sendSliceSize = sliceInfoList_.at(remoteIdx).size;
         u64 sendSliceCount = sliceInfoList_.at(remoteIdx).count;
         u64 sendSliceOffset = sliceInfoList_.at(remoteIdx).offset;
@@ -226,7 +227,7 @@ HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgP
         if (remoteIdx == myIdx_) {
             continue;
         }
-        HCCL_INFO("[DoLocalReduce] idx %d, rank %d, src offset %d, dst offset %d, size %d", myIdx_, myRank_, sliceInfoList_.at(remoteIdx).offset, recvSliceOffset, recvSliceSize);
+        HCCL_INFO("[DoLocalReduce] idx %d, rank %d, src offset %d, dst offset %d, size %d", myIdx_, myRank_, recvSliceSize * remoteIdx, recvSliceOffset, recvSliceSize);
         DataSlice curSrcSlice(localBuffPtr, recvSliceSize * remoteIdx + localBuffBaseOffset, recvSliceSize, recvSliceCount);
         CHK_PRT_RET(LocalReduce(threads.at(0), curSrcSlice, finalDstSlice, dataType_, reduceOp_),
             HCCL_ERROR("[InsTempReduceMesh1DTwoShot][DoLocalReduce] LocalReduce failed."),
