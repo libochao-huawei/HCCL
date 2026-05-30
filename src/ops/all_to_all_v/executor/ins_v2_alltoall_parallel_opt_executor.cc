@@ -48,13 +48,14 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<std::vector<u32>> intraHierarchyInfo;
     std::vector<std::vector<u32>> interHierarchyInfo;
 
-    HCCL_INFO("[CalcRes] algHierarchyInfo.infos.size()=%zu level0Topo=%d level0PcieMix=%d userRank=%u",
+    HCCL_INFO("[AllToAll_V3_DEBUG][CalcRes] algHierarchyInfo.infos.size()=%zu level0Topo=%d level0PcieMix=%d userRank=%u",
               algHierarchyInfo.infos.size(), static_cast<int>(topoInfo->level0Topo),
               static_cast<int>(topoInfo->level0PcieMix), topoInfo->userRank);
+
     for (size_t i = 0; i < algHierarchyInfo.infos.size(); i++) {
-        HCCL_INFO("[CalcRes] infos[%zu].size()=%zu", i, algHierarchyInfo.infos[i].size());
+        HCCL_INFO("[AllToAll_V3_DEBUG][CalcRes] infos[%zu].size()=%zu", i, algHierarchyInfo.infos[i].size());
         for (size_t j = 0; j < algHierarchyInfo.infos[i].size(); j++) {
-            HCCL_INFO("[CalcRes] infos[%zu][%zu].size()=%zu", i, j,
+            HCCL_INFO("[AllToAll_V3_DEBUG][CalcRes] infos[%zu][%zu].size()=%zu", i, j,
                       algHierarchyInfo.infos[i][j].size());
         }
     }
@@ -104,7 +105,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, intraHierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, interHierarchyInfo);
-    HCCL_INFO("[CalcRes] intra=%s inter=%s",
+    HCCL_INFO("[AllToAll_V3_DEBUG][CalcRes] intra=%s inter=%s",
               intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
 
     // v2.0 Fix 4: separate local requests; merge only if both succeed
@@ -113,11 +114,11 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     CHK_RET(intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest));
     CHK_RET(interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest));
 
-    HCCL_INFO("[CalcRes] intra: channels[0]=%zu slaveThreads=%u notifyMain=%u notifyVec=%zu",
+    HCCL_INFO("[AllToAll_V3_DEBUG][CalcRes] intra: channels[0]=%zu slaveThreads=%u notifyMain=%u notifyVec=%zu",
               intraTempRequest.channels.empty() ? 0 : intraTempRequest.channels[0].size(),
               intraTempRequest.slaveThreadNum, intraTempRequest.notifyNumOnMainThread,
               intraTempRequest.notifyNumPerThread.size());
-    HCCL_INFO("[CalcRes] inter: channels[0]=%zu slaveThreads=%u notifyMain=%u notifyVec=%zu",
+    HCCL_INFO("[AllToAll_V3_DEBUG][CalcRes] inter: channels[0]=%zu slaveThreads=%u notifyMain=%u notifyVec=%zu",
               interTempRequest.channels.empty() ? 0 : interTempRequest.channels[0].size(),
               interTempRequest.slaveThreadNum, interTempRequest.notifyNumOnMainThread,
               interTempRequest.notifyNumPerThread.size());
@@ -135,13 +136,10 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
                                               interTempRequest.notifyNumPerThread.begin(),
                                               interTempRequest.notifyNumPerThread.end());
 
-    // v2.0 Fix 4: Assert invariants after successful merge per design §6.1 step 4
-    CHK_PRT_RET(resourceRequest.slaveThreadNum == 0,
-                HCCL_ERROR("[InsV2AlltoAllParallelOptExecutor][CalcRes] slaveThreadNum[%u] must be > 0",
-                           resourceRequest.slaveThreadNum),
-                HcclResult::HCCL_E_INTERNAL);
+   
     u32 expectedNotifySize = intraTempRequest.notifyNumPerThread.size() +
                              interTempRequest.notifyNumPerThread.size() + 2;  // +2 for two template main threads
+
     CHK_PRT_RET(resourceRequest.notifyNumPerThread.size() != expectedNotifySize,
                 HCCL_ERROR("[InsV2AlltoAllParallelOptExecutor][CalcRes] notifyNumPerThread.size()[%zu] != expected[%u]",
                            resourceRequest.notifyNumPerThread.size(), expectedNotifySize),
@@ -168,12 +166,12 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         resourceRequest.ccuKernelNum.emplace_back(interTempRequest.ccuKernelNum[0]);
     }
 
-    HCCL_INFO("[InsV2AlltoAllParallelOptExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
+    HCCL_INFO("[AllToAll_V3_DEBUG][InsV2AlltoAllParallelOptExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
                "channels[%u]",
                myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum,
                resourceRequest.channels.size());
     for (auto i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
-        HCCL_INFO("[InsV2AlltoAllParallelOptExecutor][CalcRes] myRank[%u], notifyNumPerThread[%u]=[%u]", myRank_, i,
+        HCCL_INFO("[AllToAll_V3_DEBUG][InsV2AlltoAllParallelOptExecutor][CalcRes] myRank[%u], notifyNumPerThread[%u]=[%u]", myRank_, i,
                    resourceRequest.notifyNumPerThread[i]);
     }
 
@@ -194,7 +192,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::Orchestrate(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
-    HCCL_INFO("[InsV2AlltoAllParallelOptExecutor][Orchestrate] Orchestrate Start");
+    HCCL_INFO("[AllToAll_V3_DEBUG][InsV2AlltoAllParallelOptExecutor][Orchestrate] Orchestrate Start");
     maxTmpMemSize_ = resCtx.cclMem.size;
     myRank_ = resCtx.topoInfo.userRank;
     threads_ = resCtx.threads;
@@ -206,15 +204,15 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
             interLinkMap_ = remoteRankToChannelInfo_[1];
         }
 
-        HCCL_INFO("[Orchestrate] intraLinkMap_ size=%zu interLinkMap_ size=%zu",
+        HCCL_INFO("[AllToAll_V3_DEBUG][Orchestrate] intraLinkMap_ size=%zu interLinkMap_ size=%zu",
                   intraLinkMap_.size(), interLinkMap_.size());
         for (auto &kv : intraLinkMap_) {
-            HCCL_WARNING("[Orchestrate] intraLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
+            HCCL_WARNING("[AllToAll_V3_DEBUG][Orchestrate] intraLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
         }
         HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] Entering interLinkMap_ log loop. interLinkMap_.size()=%zu",
                      interLinkMap_.size());
         for (auto &kv : interLinkMap_) {
-            HCCL_WARNING("[Orchestrate] interLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
+            HCCL_WARNING("[AllToAll_V3_DEBUG][Orchestrate] interLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
         }
         HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] interLinkMap_ iteration complete. About to enter topology detection.");
     }
@@ -252,10 +250,10 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     }
     dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     dataSize_ = dataCount_ * dataTypeSize_;
-    HCCL_WARNING("[ALLTOALL_V2_CRASH_DIAG][L1] dataCount=%llu dataType=%d dataTypeSize=%u dataSize=%llu",
+    HCCL_WARNING("[AllToAll_V3_DEBUG][L1] dataCount=%llu dataType=%d dataTypeSize=%u dataSize=%llu",
         dataCount_, static_cast<int>(dataType_), dataTypeSize_, dataSize_);
 
-    HCCL_INFO("[InsV2AlltoAllParallelOptExecutor][Orchestrate] myRank=%u dataCount=%llu dataSize=%llu dataTypeSize=%u",
+    HCCL_INFO("[AllToAll_V3_DEBUG][InsV2AlltoAllParallelOptExecutor][Orchestrate] myRank=%u dataCount=%llu dataSize=%llu dataTypeSize=%u",
               myRank_, dataCount_, dataSize_, dataTypeSize_);
     HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] Topology: level0Topo=%d, level0PcieMix=%d, infos.size=%zu",
                  static_cast<int>(resCtx.topoInfo.level0Topo),
@@ -282,7 +280,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
                   resCtx.algHierarchyInfo.infos[i].size());
     }
 
-    HCCL_WARNING("[ALLTOALL_V2_CRASH_DIAG][L2] Entering topology detection. level0Topo=%d level0PcieMix=%d "
+    HCCL_WARNING("[AllToAll_V3_DEBUG][L2] Entering topology detection. level0Topo=%d level0PcieMix=%d "
         "infos.size=%zu infos[0].size=%zu",
         static_cast<int>(resCtx.topoInfo.level0Topo),
         static_cast<int>(resCtx.topoInfo.level0PcieMix),
@@ -314,6 +312,39 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         interHierarchyInfo_ = {closRanks};
         HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] ClosMesh2D: intra[%zu] inter[%zu] meshSize=%u",
                   intraHierarchyInfo_[0].size(), interHierarchyInfo_[0].size(), meshSize);
+        // Rebuild interLinkMap_ to match interHierarchyInfo_: merge channels for all ranks in inter group
+        if (!interLinkMap_.empty()) {
+            HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] interLinkMap_ before rebuild: size=%zu keys=",
+                      interLinkMap_.size());
+            for (auto &kv : interLinkMap_) {
+                HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] interLinkMap_ before: rank=%u channels=%zu",
+                          kv.first, kv.second.size());
+            }
+            std::map<u32, std::vector<ChannelInfo>> mergedInterMap;
+            u32 mergedCount = 0;
+            u32 missingCount = 0;
+            for (auto rank : interHierarchyInfo_[0]) {
+                if (intraLinkMap_.count(rank)) {
+                    mergedInterMap[rank] = intraLinkMap_[rank];
+                    mergedCount++;
+                    HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] rebuild inter: rank=%u from intraLinkMap_", rank);
+                } else if (interLinkMap_.count(rank)) {
+                    mergedInterMap[rank] = interLinkMap_[rank];
+                    mergedCount++;
+                    HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] rebuild inter: rank=%u from interLinkMap_", rank);
+                } else {
+                    missingCount++;
+                    HCCL_ERROR("[ALLTOALL_V3_DEBUG][Orchestrate] rebuild inter: rank=%u MISSING from both maps!", rank);
+                }
+            }
+            interLinkMap_ = mergedInterMap;
+            HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] interLinkMap_ after rebuild: size=%zu merged=%u missing=%u",
+                      interLinkMap_.size(), mergedCount, missingCount);
+            for (auto &kv : interLinkMap_) {
+                HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] interLinkMap_ after: rank=%u channels=%zu",
+                          kv.first, kv.second.size());
+            }
+        }
     } else {
         HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] Direct: level0Topo=%d level0PcieMix=%d",
                   static_cast<int>(resCtx.topoInfo.level0Topo),

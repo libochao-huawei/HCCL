@@ -51,7 +51,7 @@ HcclResult InsTempAlltoAllMeshClosV3::CalcRes(HcclComm comm, const OpParam &para
 {
     HCCL_INFO("[InsTempAlltoAllMeshClosV3][CalcRes] start");
     std::vector<HcclChannelDesc> levelChannels;
-    CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, levelChannels));
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, levelChannels));
     resourceRequest.channels.push_back(levelChannels);
 
     channelsPerRank_ = levelChannels.empty() ? 1 : CalcChannelsPerRank(levelChannels);
@@ -109,7 +109,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
     bool isPcie = IsPcieProtocol(channels);
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     u64 totalSliceSize = tempAlgParams_.sliceSize;
-    u64 actualChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+    u64 actualChunkSize = (totalSliceSize + rankSize_ - 1) / rankSize_;
     u64 chunkCount = actualChunkSize / dataTypeSize;
     HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] Stride config: "
         "inputSliceStride=%llu outputSliceStride=%llu inBuffType=%d outBuffType=%d "
@@ -122,12 +122,6 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
         tempAlgParams_.buffInfo.outputSize,
         actualChunkSize);
 
-    // v3.0 Fix B: per-link lastPeerSize for ceiling over-shoot
-    u64 lastPeerSize = totalSliceSize - actualChunkSize * (templateRankSize_ - 1);
-    if (lastPeerSize <= 0) {
-        lastPeerSize = actualChunkSize;
-    }
-    u32 lastPeerIndex = templateRankSize_ - 1;
 
     for (u32 peer = 0; peer < subCommRanks_[0].size(); ++peer) {
         u32 rankInSubcomm = subCommRanks_[0][peer];
