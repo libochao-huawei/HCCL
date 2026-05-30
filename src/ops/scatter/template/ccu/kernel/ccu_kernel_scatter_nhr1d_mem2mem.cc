@@ -15,7 +15,8 @@ namespace ops_hccl {
 
 constexpr uint16_t SCRATCH_XN_ID       = 1;
 constexpr uint16_t TOKEN_XN_ID         = 2;
-constexpr uint16_t STEP_POST_SYNC_ID   = 3;
+constexpr uint16_t POST_SYNC_ID        = 3;
+constexpr uint16_t STEP_POST_SYNC_ID   = 4;
 constexpr uint16_t CKE_IDX_0           = 0;
 constexpr uint16_t RANK_NUM_PER_CKE    = 16;
 
@@ -53,11 +54,6 @@ static CcuResult InitResource(ScatterNHR1DContext &ctx)
 		ctx.scratch[channelIdx] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelIdx], SCRATCH_XN_ID);
         ctx.token[channelIdx] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
     }
-    // local scratch/token
-    ccu::Variable localScratch;
-    ccu::Variable localToken;
-    ctx.scratch.push_back(localScratch);
-    ctx.token.push_back(localToken);
     return CCU_SUCCESS;
 }
 
@@ -361,6 +357,17 @@ static CcuResult DoScatterNHR(ScatterNHR1DContext &ctx)
     return CCU_SUCCESS;
 }
 
+static CcuResult PostSync(ScatterNHR1DContext &ctx)
+{
+    for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
+        ccu::NotifyRecord(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+    }
+    for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
+        ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+    }
+    return CCU_SUCCESS;
+}
+
 CcuResult CcuScatterNHR1DMem2MemKernel(CcuKernelArg arg)
 {
     auto *kernelArg = static_cast<CcuKernelArgScatterNHRMem2Mem1D *>(arg);
@@ -372,6 +379,7 @@ CcuResult CcuScatterNHR1DMem2MemKernel(CcuKernelArg arg)
 
     CCU_CHK_RET(PreSync(ctx));
     CCU_CHK_RET(DoScatterNHR(ctx));
+    CCU_CHK_RET(PostSync(ctx));
     return CCU_SUCCESS;
 }
 
