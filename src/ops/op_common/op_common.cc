@@ -16,7 +16,7 @@
 #include <cstdlib>  // 包含getenv函数
 #include <cstring>  // 包含strcmp函数
 #include <stdexcept>
-#include <new>
+
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_comm.h>
 #include "hccl/base.h"
@@ -1032,10 +1032,10 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
     bool increCreateChannelFlag, const ResPackGraphMode &resPack)
 {
-    std::string tagStr = param.algTag;
+    std::string hostCacheTag = std::string(param.algTag) + "_hostCache";
     void *hostCtxPtr = nullptr;
     uint64_t hostCtxSize = 0;
-    HcclResult hostCtxRet = HcclEngineCtxGet(comm, tagStr.c_str(), CommEngine::COMM_ENGINE_CPU_TS, &hostCtxPtr, &hostCtxSize);
+    HcclResult hostCtxRet = HcclEngineCtxGet(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, &hostCtxPtr, &hostCtxSize);
 
     if (!increCreateChannelFlag || hostCtxRet != HCCL_SUCCESS) {
         // 非增量建链流程，直接创建host侧Ctx
@@ -1044,32 +1044,36 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
         resCtxHost->algHierarchyInfo = algHierarchyInfo;
         HcclResult ret = HcclAllocAlgResourceAICPU(comm, param, resRequest, resCtxHost, resPack);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to alloc alg resource."), ret);
-        // 在device侧创建Ctx，并将host资源拷贝到device侧
-        ret = HcclMemcpyCtxHostToDevice(comm, param, resCtxHost.get(), resCtxSequence, ctxSize);
+        // 序列化hostCtx，拷贝到device侧并缓存
+        std::vector<char> hostCtxSeq = resCtxHost->Serialize();
+        ret = HcclMemcpyCtxHostToDevice(comm, param, hostCtxSeq, resCtxSequence, ctxSize);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to memcpy hostCtx to device."), ret);
 
         if (increCreateChannelFlag) {
-            // 转移hostCtx的所有权到EngineCtx缓存（placement new + move assignment）
-            // 注意：AlgResourceCtxSerializable含std::vector成员，placement new构造后
-            // HcclComm生命周期结束时HCOM释放EngineCtx内存但不调用C++析构函数，
-            // vector内部heap数据会泄漏。泄漏量有限（每algTag每comm一次），与
-            // GetAlgResAiv(line 1530)的EngineCtx用法共享此风险。
-            HcclResult createRet = HcclEngineCtxCreate(comm, tagStr.c_str(), CommEngine::COMM_ENGINE_CPU_TS, sizeof(AlgResourceCtxSerializable), &hostCtxPtr);
+            // 存入EngineCtx缓存，HCOM释放EngineCtx时无heap泄漏
+            HcclResult createRet = HcclEngineCtxCreate(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, hostCtxSeq.size(), &hostCtxPtr);
             if (createRet != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to create host EngineCtx for caching, ret[%d].", createRet);
-                // host缓存创建失败，销毁刚创建的device ctx避免孤立项阻塞重试
-                HcclEngineCtxDestroy(comm, param.algTag, COMM_ENGINE_AICPU_TS);
+                HcclResult destroyRet = HcclEngineCtxDestroy(comm, param.algTag, COMM_ENGINE_AICPU_TS);
+                if (destroyRet != HCCL_SUCCESS) {
+                    HCCL_ERROR("failed to destroy device ctx on host ctx create failure rollback, ret[%d].", destroyRet);
+                }
                 return createRet;
             }
-            AlgResourceCtxSerializable* hostCtxObj = new(hostCtxPtr) AlgResourceCtxSerializable();
-            *hostCtxObj = std::move(*resCtxHost);
-            resCtxHost.reset();
+            errno_t memcpyRet = memcpy_s(hostCtxPtr, hostCtxSeq.size(), hostCtxSeq.data(), hostCtxSeq.size());
+            if (memcpyRet != EOK) {
+                HCCL_ERROR("memcpy_s failed writing to host EngineCtx cache, ret=%d.", memcpyRet);
+                HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+                HcclEngineCtxDestroy(comm, param.algTag, COMM_ENGINE_AICPU_TS);
+                return HCCL_E_INTERNAL;
+            }
         }
     } else {
-        // 增量建链流程：从EngineCtx缓存中获取host侧Ctx
-        AlgResourceCtxSerializable* hostCtxObj = static_cast<AlgResourceCtxSerializable*>(hostCtxPtr);
-        // 先比对需要的channel和已建链的channel
-        CompReqChannelWithExistChannel(hostCtxObj->channels, resRequest);
+        // 增量建链流程：从EngineCtx缓存反序列化host侧Ctx
+        std::vector<char> cachedData(static_cast<char*>(hostCtxPtr), static_cast<char*>(hostCtxPtr) + hostCtxSize);
+        AlgResourceCtxSerializable hostCtxObj;
+        hostCtxObj.DeSerialize(cachedData);
+        CompReqChannelWithExistChannel(hostCtxObj.channels, resRequest);
         if (resRequest.channels[0].size() == 0) {
             // 资源可以直接复用，直接获取到device的ctx资源
             void *ctx = nullptr;
@@ -1088,8 +1092,8 @@ if (HcommIsSupportHcclCommResetExchangeInfo()) {
             }
             return ret;
         }
-        // 资源不能直接复用，需要增量建链(会直接在已有的hostCtx中填充)
-        HcclResult ret = HcclGetChannel(comm, param, resRequest, hostCtxObj);
+        // 资源不能直接复用，需要增量建链
+        HcclResult ret = HcclGetChannel(comm, param, resRequest, &hostCtxObj);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to incrementally create channel."), ret);
         // 把device侧此tag的ctx销毁，然后重新创建
         ret = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
@@ -1097,13 +1101,37 @@ if (HcommIsSupportHcclCommResetExchangeInfo()) {
             HCCL_ERROR("failed to destroy device Ctx, ret[%d].", ret);
         }
         // 重新序列化并拷贝到device侧新Ctx
-        ret = HcclMemcpyCtxHostToDevice(comm, param, hostCtxObj, resCtxSequence, ctxSize);
+        std::vector<char> newSeq = hostCtxObj.Serialize();
+        ret = HcclMemcpyCtxHostToDevice(comm, param, newSeq, resCtxSequence, ctxSize);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("failed to memcpy hostCtx to device after incremental channel creation, ret[%d].", ret);
-            // 增量建链失败后销毁host缓存，确保下次调用从头创建资源，避免残留不可恢复状态
-            hostCtxObj->~AlgResourceCtxSerializable();
-            HcclEngineCtxDestroy(comm, tagStr.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+            HcclResult destroyRet = HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+            if (destroyRet != HCCL_SUCCESS) {
+                HCCL_ERROR("failed to destroy host ctx on incremental path failure rollback, ret[%d].", destroyRet);
+            }
             return ret;
+        }
+        // 更新host缓存：复用序列化结果存储
+        HcclResult destroyRet = HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+        if (destroyRet != HCCL_SUCCESS) {
+            HCCL_ERROR("failed to destroy old host EngineCtx for cache update, ret[%d].", destroyRet);
+        }
+        void *newHostCtxPtr = nullptr;
+        HcclResult cacheRet = HcclEngineCtxCreate(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, newSeq.size(), &newHostCtxPtr);
+        if (cacheRet != HCCL_SUCCESS) {
+            HCCL_ERROR("failed to create host EngineCtx for cache update, ret[%d].", cacheRet);
+            HcclResult devDestroyRet = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
+            if (devDestroyRet != HCCL_SUCCESS) {
+                HCCL_ERROR("failed to destroy device ctx on host cache update failure rollback, ret[%d].", devDestroyRet);
+            }
+            return cacheRet;
+        }
+        errno_t memcpyRet = memcpy_s(newHostCtxPtr, newSeq.size(), newSeq.data(), newSeq.size());
+        if (memcpyRet != EOK) {
+            HCCL_ERROR("memcpy_s failed writing to updated host EngineCtx cache, ret=%d.", memcpyRet);
+            HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+            HcclEngineCtxDestroy(comm, param.algTag, param.engine);
+            return HCCL_E_INTERNAL;
         }
         HCCL_INFO("Incrementally add channel success");
     }
@@ -1113,9 +1141,8 @@ if (HcommIsSupportHcclCommResetExchangeInfo()) {
 }
 
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
-    AlgResourceCtxSerializable* resCtxHost, void **resCtxSequence, uint64_t& ctxSize)
+    const std::vector<char>& seq, void **resCtxSequence, uint64_t& ctxSize)
 {
-    std::vector<char> seq = resCtxHost->Serialize();
     uint64_t size = seq.size();
     void *ctx = nullptr;
     // 创建Context, aicpu和host dpu申请device内存
