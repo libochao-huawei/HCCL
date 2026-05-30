@@ -120,7 +120,7 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
                                     AlgResourceRequest &resRequest);
 
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
-    AlgResourceCtxSerializable* resCtxHost, void **resCtxSequence, uint64_t& ctxSize);
+    const std::vector<char>& seq, void **resCtxSequence, uint64_t& ctxSize);
 
 HcclResult SingleRankProc(HcclComm comm, OpParam &param);
 
