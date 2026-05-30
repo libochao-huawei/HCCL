@@ -278,12 +278,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, AivAllGatherMesh1D, InsV2AllGa
     AivTempAllGatherMesh1D);
 
 #if !defined(HCCL_CANN_COMPAT_850)
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuKernelAllGather2DiesMeshMem2Mem1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
-    CcuTempAllGather2DiesMeshMem2Mem1D);
-#endif /* !HCCL_CANN_COMPAT_850 */
-
-#if !defined(HCCL_CANN_COMPAT_850)
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuKernelAllGather2DiesMesh1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh2Die, InsV2AllGatherSoleExecutor, TopoMatch1D,
     CcuTempAllGather2DiesMesh1D);
 #endif /* !HCCL_CANN_COMPAT_850 */
 
