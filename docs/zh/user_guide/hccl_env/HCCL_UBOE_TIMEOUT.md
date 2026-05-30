@@ -22,3 +22,4 @@ export HCCL_UBOE_TIMEOUT=16
 ## 支持的型号
 
 Ascend 950PR/Ascend 950DT
+

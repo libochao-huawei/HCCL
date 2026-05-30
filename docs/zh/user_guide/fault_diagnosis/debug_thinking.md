@@ -22,7 +22,7 @@
 
 - [HCCL_ENTRY_LOG_ENABLE](../hccl_env/HCCL_ENTRY_LOG_ENABLE.md)
 
-  HCCL算子级入参记录开关，如果集群行为一致性问题无法通过其他手段锁定异常原因时，可以开启此环境变量，记录不同rank上的集合通信行为，通过卡间横向比对辅助找到行为差异引入点。
+  HCCL算子级入参记录开关，如果集群行为一致性问题无法通过其他手段锁定异常原因时，可以使能此环境变量，记录不同rank上的集合通信行为，通过卡间横向比对辅助找到行为差异引入点。
 
 - [HCCL_DEBUG_CONFIG](../hccl_env/HCCL_DEBUG_CONFIG.md)
 
@@ -136,7 +136,7 @@ HCCL的日志信息会记录在CANN日志中，CANN的相关日志说明请参�
     [INFO] HCCL(1595259,alltoall_test):2026-01-06-15:38:29.882.131 [externalinput.cc:1800] [1595259][HCCL_ENV] HCCL_DEBUG_CONFIG is not set, debugConfig set by default to 0x0
     ```
 
-    针对Ascend 950PR/Ascend 950DT，可通过检索关键字“base_config”查询当前已设置的环境变量。
+    针对Ascend 950PR/Ascend 950DT，可通过检索关键字“base\_config”查询当前已设置的环境变量。
 
     ```text
     [INFO] HCCL(229424,python3.8):2025-12-23-22:31:40.239.170[base_config.cc:33][229424][Init][EnvVarParam]Env config "HCCL_IF_IP" is not set. Default value is used. 

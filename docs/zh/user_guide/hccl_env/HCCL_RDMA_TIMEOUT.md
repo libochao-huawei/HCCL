@@ -9,10 +9,10 @@ RDMA网卡重传超时时间最小值的计算公式为：4.096μs \* 2^timeout�
 - 针对Ascend 950PR/Ascend 950DT，该环境变量配置为整数，取值范围为\[5,24\]，默认值为20。
 - 针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，该环境变量配置为整数，取值范围为\[5,20\]，默认值为20。
 - 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，该环境变量配置为整数，取值范围为\[5,20\]，默认值为20。
-<!-- npu="910" id1 -->
-- 针对Atlas 训练系列产品，该环境变量配置为整数，取值范围为\[5,24\]，默认值为20。<!-- end id1 -->
-<!-- npu="310p" id2 -->
-- 针对Atlas 推理系列产品，该环境变量配置为整数，取值范围是\[5,24\]，默认值为20。<!-- end id2 -->
+<cann-filter npu-type="910">
+- 针对Atlas 训练系列产品，该环境变量配置为整数，取值范围为\[5,24\]，默认值为20。</cann-filter>
+<cann-filter npu-type="310p">
+- 针对Atlas 推理系列产品，该环境变量配置为整数，取值范围是\[5,24\]，默认值为20。</cann-filter>
 
 ## 配置示例
 
@@ -31,12 +31,8 @@ Ascend 950PR/Ascend 950DT
 
 Atlas A3 训练系列产品/Atlas A3 推理系列产品
 
-Atlas A2 训练系列产品/Atlas A2 推理系列产品
+Atlas A2 训练系列产品/Atlas A2 推理系列产品（针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，仅支持Atlas 800T A2 训练服务器、Atlas 900 A2 PoD 集群基础单元、Atlas 200T A2 Box16 异构子框。）
 
-<!-- npu="910" id3 -->
-Atlas 训练系列产品
-<!-- end id3 -->
+<cann-filter npu-type="910">Atlas 训练系列产品</cann-filter>
 
-<!-- npu="310p" id4 -->
-Atlas 推理系列产品
-<!-- end id4 -->
+<cann-filter npu-type="310p">Atlas 推理系列产品（针对Atlas 推理系列产品，仅支持Atlas 300I Duo 推理卡。）</cann-filter>
