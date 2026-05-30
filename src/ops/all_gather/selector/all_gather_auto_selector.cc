@@ -226,7 +226,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
                     selectAlgName = "InsAllGatherParallelMesh1DHD";
                 } else {
                     selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
-                        "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherParallelMesh1DNHR";
+                        "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherPipelinedMesh1DNHR";
                 }
             } else {
                 selectAlgName = "InsAllGatherNHR";
