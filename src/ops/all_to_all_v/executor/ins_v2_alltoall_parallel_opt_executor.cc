@@ -377,8 +377,8 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, intraHierarchyInfo_);
     InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, interHierarchyInfo_);
 
-    intraTempAlg.SetMeshDimensions(rankSizeLevel0_ + rankSizeLevel1_, myRank_, rankSizeLevel0_, rankSizeLevel1_);
-    interTempAlg.SetMeshDimensions(rankSizeLevel0_ + rankSizeLevel1_, myRank_, rankSizeLevel0_, rankSizeLevel1_);
+    intraTempAlg.SetMeshDimensions(rankSizeLevel0_ + rankSizeLevel1_ - 1, myRank_, rankSizeLevel0_, rankSizeLevel1_);
+    interTempAlg.SetMeshDimensions(rankSizeLevel0_ + rankSizeLevel1_ - 1, myRank_, rankSizeLevel0_, rankSizeLevel1_);
 
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS ||
         param.engine == CommEngine::COMM_ENGINE_AIV) {
@@ -473,7 +473,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     interTempAlgRes.channels = interLinkMap_;
 
     // 总 rank 数
-    u64 totalRankCount = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 totalRankCount = rankSizeLevel0_ + rankSizeLevel1_ - 1;
     u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
 
 
@@ -485,6 +485,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         tempAlgParams.buffInfo.inputSize = param.inputSize;
         tempAlgParams.buffInfo.inBuffBaseOff = 0;
         tempAlgParams.inputSliceStride = perPeerInputChunkSize;
+
         tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
         tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
         tempAlgParams.buffInfo.hcclBuffSize = resCtx.cclMem.size;
@@ -493,7 +494,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         // 不需要 copy out
         tempAlgParams.buffInfo.outputPtr = param.outputPtr;
         tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
-        tempAlgParams.buffInfo.outputSize = param.outputSize;
+        tempAlgParams.buffInfo.outputSize = param.outputSize * dataTypeSize_;
         tempAlgParams.buffInfo.outBuffBaseOff = 0;
         tempAlgParams.outputSliceStride = perPeerInputChunkSize;
 

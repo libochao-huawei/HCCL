@@ -243,9 +243,23 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
 
         HcclResult dmaResult;
         if (isPcie) {
+            // 远端读 因为是 1-1 配对的，需要在开始前 把对端要读的数据 加载到hccl buffer内。由于是对端的数据 所以是 connectedRank 
+            u64 inputOffset = tempAlgParams_.buffInfo.inBuffBaseOff + connectedRank * actualChunkSize;
+            u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + connectedRank * actualChunkSize;
+            DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, actualChunkSize, chunkCount);
+            DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
+            CHK_RET(LocalCopy(threads[linkIdx], srcSlice, dstSlice));
+
             dmaResult = SendRecvRead(sendRecvInfo, threads[linkIdx]);
         } else {
             dmaResult = SendRecvWrite(sendRecvInfo, threads[linkIdx]);
+
+            // 远端写 因为是 1-1 配对的，需要在结束后， 把对端写好的数据，copy到 out buffer 内，由于是对端的数据 所以是 connectedRank 
+            u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + connectedRank * actualChunkSize;
+            u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + connectedRank * actualChunkSize;
+            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
+            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, actualChunkSize, chunkCount);
+            CHK_RET(LocalCopy(threads[linkIdx], srcSlice, dstSlice));
         }
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
