@@ -145,7 +145,7 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
         u64 sendSliceCount = sliceInfoList_.at(remoteIdx).count;
         u64 sendSliceOffset = sliceInfoList_.at(remoteIdx).offset;
 
-        const u64 recvSliceOffset = sliceInfoList_.at(remoteIdx).size * myIdx_;
+        const u64 recvSliceOffset = sliceInfoList_.at(remoteIdx).size * remoteIdx;
         const u64 recvDstSliceOffset = sliceInfoList_.at(myIdx_).size * remoteIdx;
 
         if (sendSliceSize == 0 && recvSliceSize == 0) {
@@ -337,6 +337,7 @@ HcclResult ReduceMesh1DTwoShot::SendToRoot(const TemplateDataParams &tempAlgPara
     void* localBufferPtr = (!enableRemoteMemAccess_) ? info.localHcclBuffPtr : info.localInBuffPtr;
     u64 localBuffBaseOffset = (!enableRemoteMemAccess_) ? info.hcclBuffBaseOffset : info.inBuffBaseOffset;
 
+    
     DataSlice sendSrcSlice(localBufferPtr, localBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
     DataSlice sendDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount); // SendRead tx 信息不使用
     const SlicesList sendSlicesList({sendSrcSlice}, {sendDstSlice});
