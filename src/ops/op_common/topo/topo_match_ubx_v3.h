@@ -14,10 +14,10 @@
 #include "topo_match_base.h"
 
 namespace ops_hccl {
-class TOPO_MATCH_UBX_V3 : public TopoMatchBase {
+class TopoMatchUBX_V3 : public TopoMatchBase {
 public:
-    explicit TOPO_MATCH_UBX_V3();
-    ~TOPO_MATCH_UBX_V3() override;
+    explicit TopoMatchUBX_V3();
+    ~TopoMatchUBX_V3() override;
     std::string Describe() const override
     {
         return "Topo Match for combined Algorithm: layer 0 Mesh, layer 1 NHR.";
