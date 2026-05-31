@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "TopoMatchUBX_V3.h"
+#include "topo_match_ubx_v3.h"
 
 namespace ops_hccl {
 TopoMatchUBX_V3::TopoMatchUBX_V3()
