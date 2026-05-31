@@ -157,7 +157,7 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             if (enableRemoteMemAccess_) {
                 continue; // 图模式跳过本地拷贝到CCL Buffer
             }
-            HCCL_INFO("[SendRecvDataToPeers][LocalCopy] copy data size %d from input src offset %d to hcclbuffer dst offset %d", sendSliceSize, sendSliceOffset, recvDstSliceOffset);
+            HCCL_INFO("[SendRecvDataToPeers][LocalCopy] copy data size %d from input src offset %d to hcclbuffer dst offset %d", sendSliceSize, mySliceOffSet, recvDstSliceOffset);
             DataSlice copySrcSlice(localInBuffPtr, inBuffBaseOffset + mySliceOffSet, sendSliceSize, sendSliceCount);
             DataSlice copyDstSlice(localHcclBuffPtr, hcclBuffBaseOffset + recvDstSliceOffset, sendSliceSize, sendSliceCount);
             CHK_PRT_RET(LocalCopy(threads.at(remoteIdx), copySrcSlice, copyDstSlice),
@@ -230,7 +230,7 @@ HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgP
         if (remoteIdx == myIdx_) {
             continue;
         }
-        HCCL_INFO("[DoLocalReduce] idx %d, rank %d, src offset %d, dst offset %d, size %d", myIdx_, myRank_, recvSliceSize * remoteIdx, recvSliceOffset, recvSliceSize);
+        HCCL_INFO("[DoLocalReduce] cur rank %d, src offset %d, dst offset %d, size %d", myRank_, recvSliceSize * remoteIdx, recvSliceSize * static_cast<u64>(myIdx_), recvSliceSize);
         DataSlice curSrcSlice(localBuffPtr, recvSliceSize * remoteIdx + localBuffBaseOffset, recvSliceSize, recvSliceCount);
         CHK_PRT_RET(LocalReduce(threads.at(0), curSrcSlice, finalDstSlice, dataType_, reduceOp_),
             HCCL_ERROR("[InsTempReduceMesh1DTwoShot][DoLocalReduce] LocalReduce failed."),
@@ -286,7 +286,7 @@ HcclResult ReduceMesh1DTwoShot::GatherLocalData(const TemplateDataParams &tempAl
     if (info.sliceSize == 0) {
         return HCCL_SUCCESS;
     }
-    DataSlice copySrcSlice(localBuffPtr, localBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
+    DataSlice copySrcSlice(localBuffPtr, localBuffBaseOffset + info.sliceSize * static_cast<u64>(myIdx_), info.sliceSize, info.sliceCount);
     DataSlice copyDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
     CHK_PRT_RET(LocalCopy(threads.at(myIdx_), copySrcSlice, copyDstSlice),
         HCCL_ERROR("[InsTempReduceMesh1DTwoShot][GatherLocalData] LocalCopy failed."),
@@ -311,12 +311,12 @@ HcclResult ReduceMesh1DTwoShot::GatherRemoteData(const TemplateDataParams &tempA
         if (curSize == 0) {
             continue;
         }
-        u64 remoteSrcOffset = sliceInfoList_.at(remoteIdx).offset;
+        u64 remoteSrcOffset = info.sliceSize * static_cast<u64>(remoteIdx);
         const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(remoteIdx)).at(0);
         void* remoteBuffPtr = (!enableRemoteMemAccess_) ? channel.remoteCclMem.addr : channel.remoteInputGraphMode.addr;
 
         DataSlice recvSrcSlice(remoteBuffPtr, remoteBaseOffset + remoteSrcOffset, curSize, curCount);
-        DataSlice recvDstSlice(localOutBuffPtr, outBuffBaseOffset + remoteSrcOffset, curSize, curCount);
+        DataSlice recvDstSlice(localOutBuffPtr, outBuffBaseOffset + sliceInfoList_.at(remoteIdx).offset, curSize, curCount);
         const SlicesList recvSlicesList({recvSrcSlice}, {recvDstSlice});
         const DataInfo recvInfo(channel, recvSlicesList);
         CHK_PRT_RET(RecvRead(recvInfo, threads.at(remoteIdx)),
@@ -338,7 +338,7 @@ HcclResult ReduceMesh1DTwoShot::SendToRoot(const TemplateDataParams &tempAlgPara
     u64 localBuffBaseOffset = (!enableRemoteMemAccess_) ? info.hcclBuffBaseOffset : info.inBuffBaseOffset;
 
     
-    DataSlice sendSrcSlice(localBufferPtr, localBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
+    DataSlice sendSrcSlice(localBufferPtr, localBuffBaseOffset + info.sliceSize * static_cast<u64>(myIdx_), info.sliceSize, info.sliceCount);
     DataSlice sendDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount); // SendRead tx 信息不使用
     const SlicesList sendSlicesList({sendSrcSlice}, {sendDstSlice});
     const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(root_)).at(0);
