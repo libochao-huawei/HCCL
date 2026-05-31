@@ -146,8 +146,8 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
         u64 sendSliceCount = sliceInfoList_.at(remoteIdx).count;
         u64 sendSliceOffset = sliceInfoList_.at(remoteIdx).offset;
 
-        const u64 sendDstSliceOffset = sliceInfoList_.at(remoteIdx).size * myIdx_;
-        const u64 recvDstSliceOffset = sliceInfoList_.at(myIdx_).size * remoteIdx;
+        const u64 sendDstSliceOffset = sliceInfoList_.at(remoteIdx).size * static_cast<u64>(myIdx_);
+        const u64 recvDstSliceOffset = sliceInfoList_.at(myIdx_).size * static_cast<u64>(remoteIdx);
 
         if (sendSliceSize == 0 && recvSliceSize == 0) {
             continue;
@@ -214,7 +214,7 @@ HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgP
         return HCCL_SUCCESS;
     }
 
-    u64 destOffset = recvSliceOffset + localBuffBaseOffset;
+    u64 destOffset = recvSliceSize * static_cast<u64>(myIdx_) + localBuffBaseOffset;
     DataSlice finalDstSlice(localBuffPtr, destOffset, recvSliceSize, recvSliceCount);
 
     if (dataType_ == HcclDataType::HCCL_DATA_TYPE_INT64 || dataType_ == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
