@@ -97,7 +97,7 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
 
 HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherToAllRanks(
     const std::vector<ThreadHandle> &threads,
-    const std::map<u32, std::vector<ChannelInfo>> &channels)
+    const std::map<u32, std::vector<ChannelInfo>> &channels, u32 step)
 {
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
