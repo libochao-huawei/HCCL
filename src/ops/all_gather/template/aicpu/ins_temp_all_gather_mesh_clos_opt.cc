@@ -102,7 +102,7 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherToAllRanks(
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
-        u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
+        u32 connectedRank = subCommRanks_[0][(myRank_ + 1 + neighborIdx) % subCommRanks_[0].size()];
 
         if (connectedRank ^ myRank_ % rankSize_ != step) {
             continue;
@@ -135,7 +135,7 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherToAllRanks(
         u64 sliceSize = tempAlgParams1_.buffInfo.inputSize;
         u64 sliceCount = sliceSize / dataTypeSize;
         u64 outputSliceStride = tempAlgParams1_.outputSliceStride;
-        u64 inputSliceStride = tempAtempAlgParams1_lgParams_.inputSliceStride;
+        u64 inputSliceStride = tempAlgParams1_.inputSliceStride;
         
         // 远端写 不应该启动
         void *txSrcPtr = tempAlgParams1_.buffInfo.inputPtr;
@@ -158,9 +158,9 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherToAllRanks(
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
         TxRxChannels sendRecvChannels(linkRemote, linkRemote);
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-        CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threadIdx]),
-                    HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvWrite failed"), HcclResult::HCCL_E_INTERNAL);
-
+        CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threads.size() - 1]),
+                     HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvRead failed"), HcclResult::HCCL_E_INTERNAL);
+                    
     }
     return HCCL_SUCCESS;
 
