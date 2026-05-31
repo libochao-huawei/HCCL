@@ -49,31 +49,26 @@ private:
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
         const u32 myRankCclBuffIdx, const u32 remoteRank, const u64 &sendSize,
         const u64 &sendCount, const u64 &sendOffset) const;
-    HcclResult PreCopyByLoop(const std::vector<u32> &commRanks,
-        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
-        const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
         const u32 myRankCclBuffIdx, const u32 remoteRank, const u64 &recvSize,
         const u64 &recvCount, const u64 &recvOffset) const;
     HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
-    HcclResult CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize,
-        std::vector<u32> &commRanks) const;
+    HcclResult CalcCommRankBySlot(const u32 roundIdx, const u32 slotIdx, u32 &remoteRank) const;
     HcclResult CalcCommLoops(u32 &commLoops) const;
     HcclResult CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const;
-    HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
+    HcclResult RunSendRecvBySlot(const u32 slotIdx, const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
-        const u32 roundIdx, const u32 commLoops);
+        const u32 commLoops);
+    HcclResult RunSendRecvByRemoteRank(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
+        const u32 remoteRank, const u32 slotIdx);
     HcclResult RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
         const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
-        const std::vector<ThreadHandle> &threads, const u32 commLoops) const;
+        const std::vector<ThreadHandle> &threads, const u32 slotIdx) const;
     HcclResult RunSendRecv(const TemplateDataParams &tempAlgParams,
         const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
         const ThreadHandle& thread, const u32 channelId) const;
-    HcclResult PreSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
-        const std::vector<ThreadHandle> &subThreadsCurRank) const;
-    HcclResult PostSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
-        const std::vector<ThreadHandle> &subThreadsCurRank) const;
     HcclResult GetVmeshShape(u32 &rowNum, u32 &colNum) const;
     HcclResult GetMesh1DClosCoord(u32 rank, u32 &meshRow, u32 &meshCol) const;
     HcclResult GetRankByMesh1DClosCoord(u32 meshRow, u32 meshCol, u32 &rank) const;
