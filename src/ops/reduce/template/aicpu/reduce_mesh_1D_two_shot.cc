@@ -311,7 +311,7 @@ HcclResult ReduceMesh1DTwoShot::GatherRemoteData(const TemplateDataParams &tempA
         if (curSize == 0) {
             continue;
         }
-        u64 remoteSrcOffset = info.sliceSize * static_cast<u64>(remoteIdx);
+        u64 remoteSrcOffset = curSize * static_cast<u64>(remoteIdx);
         const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(remoteIdx)).at(0);
         void* remoteBuffPtr = (!enableRemoteMemAccess_) ? channel.remoteCclMem.addr : channel.remoteInputGraphMode.addr;
 
