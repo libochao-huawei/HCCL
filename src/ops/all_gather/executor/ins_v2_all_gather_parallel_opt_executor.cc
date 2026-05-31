@@ -451,7 +451,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
 };
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosOptMultiJetty,
-                               InsV2AllGatherParallelOptExecutor, TopoMatchUBX,
+                               InsV2AllGatherParallelOptExecutor, TopoMatchUBX_V3,
                                InsTempAllGatherMesh1DOpt, InsTempAllGatherMeshClosOpt);
 
 }

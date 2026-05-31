@@ -17,7 +17,7 @@ namespace ops_hccl {
 
 InsTempAllGatherMeshClosOpt::InsTempAllGatherMeshClosOpt(const OpParam &param, const u32 rankId,
                                                        const std::vector<std::vector<u32>> &subCommRanks)
-    : InsTempAllGatherMesh1D(param, rankId, subCommRanks)
+    : InsTempAllGatherMesh1DOpt(param, rankId, subCommRanks)
 {
 }
 
@@ -173,7 +173,7 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
-        u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
+        u32 connectedRank = subCommRanks_[0][(myRank_ + 1 + neighborIdx) % subCommRanks_[0].size()];
 
         if (connectedRank % meshSize_ != myRank_ % meshSize_) {
             continue; // 只处理同一clos内的通信
@@ -236,7 +236,7 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
             TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
             TxRxChannels sendRecvChannels(linkRemote, linkRemote);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[linkIdx]),
                         HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvWrite failed"), HcclResult::HCCL_E_INTERNAL);
 
         } else {
@@ -265,7 +265,7 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
                 TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
                 TxRxChannels sendRecvChannels(linkRemote, linkRemote);
                 SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threadIdx]),
+                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[linkIdx]),
                             HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvRead failed"), HcclResult::HCCL_E_INTERNAL);
             }
         }
