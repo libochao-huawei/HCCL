@@ -8,52 +8,49 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef INS_TEMP_ALL_GATHER_MESH_CLOS_V3_H
-#define INS_TEMP_ALL_GATHER_MESH_CLOS_V3_H
+#ifndef INS_TEMP_ALL_GATHER_MESH_CLOS_OPT_H
+#define INS_TEMP_ALL_GATHER_MESH_CLOS_OPT_H
 
-#include "ins_temp_all_gather_mesh_clos_v2.h"
+#include "ins_temp_all_gather_mesh_1D_opt.h"
 
 namespace ops_hccl {
 
-class InsTempAllGatherMeshClosV3 : public InsTempAllGatherMeshClosV2 {
+class InsTempAllGatherMeshClosOpt : public InsTempAllGatherMesh1DOpt {
 public:
-    InsTempAllGatherMeshClosV3() = default;
-    explicit InsTempAllGatherMeshClosV3(const OpParam &param, const u32 rankId,
+    InsTempAllGatherMeshClosOpt() = default;
+    explicit InsTempAllGatherMeshClosOpt(const OpParam &param, const u32 rankId,
                                         const std::vector<std::vector<u32>> &subCommRanks);
-    ~InsTempAllGatherMeshClosV3() override;
+    ~InsTempAllGatherMeshClosOpt() override;
 
     std::string Describe() const override
     {
-        std::string info = "Template of all gather MeshClosV3 (shared port + dynamic port count) with tempRankSize ";
+        std::string info = "Template of all gather MeshClosV2 (hash-based link selection) with tempRankSize ";
         info += std::to_string(templateRankSize_);
         return info;
     }
 
-    u64 GetThreadNum() const override;
+    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
+                       AlgResourceRequest &resourceRequest) override;
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
-
-    void SetStageConfig(u32 stage, bool sharedPortMode);
-    void SetSharedLinkRatio(double ratio) { sharedLinkRatio_ = ratio; }
-    bool IsSharedLink(u32 linkIdx) const;
+    u64 GetThreadNum() const override;
 
 protected:
     HcclResult RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
                                 const std::map<u32, std::vector<ChannelInfo>> &channels) override;
+
+    u64 allGatherToAllRanksCounts = 0;
 
 private:
     HcclResult RunAllGatherOnLink(const std::vector<ThreadHandle> &threads,
                                   const std::map<u32, std::vector<ChannelInfo>> &channels,
                                   u32 linkIdx);
 
-    HcclResult HandleSendRecv(const std::vector<ThreadHandle> &threads,
-                              const std::map<u32, std::vector<ChannelInfo>> &channels,
-                              u32 linkIdx, u32 connectedRank, u32 connectedAlgRank,
-                              u64 sliceSize, u64 scratchSliceOffset, double sharedLinkRatio);
+    HcclResult RunAllGatherToAllRanks(const std::vector<ThreadHandle> &threads,
+                                      const std::map<u32, std::vector<ChannelInfo>> &channels,
+                                      u32 step);
 
-    u32 stage_ = 1;
-    double sharedLinkRatio_ = 0.8;
 };
 
 }  // namespace ops_hccl
 
-#endif  // INS_TEMP_ALL_GATHER_MESH_CLOS_V3_H
+#endif  // INS_TEMP_ALL_GATHER_MESH_CLOS_V2_H

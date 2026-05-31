@@ -381,7 +381,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgoMeshClosV2(
                 }
             } else if (isClosNumMultipleOfMeshNum && dataSize > SMALL_COUNT_512KB) {
                 if (IsAllGatherAsymmetricOptEnabled()) {
-                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosV3Opt";
+                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptMultiJetty";
                     HCCL_INFO("[AllGatherAutoSelector] asymmetric opt enabled, select V3Opt [%s]", selectAlgName.c_str());
                 } else {
                     selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2MultiJetty";

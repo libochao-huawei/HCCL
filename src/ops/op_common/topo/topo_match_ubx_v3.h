@@ -8,16 +8,16 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef TOPO_MATCH_UBX_V2
-#define TOPO_MATCH_UBX_V2
+#ifndef TOPO_MATCH_UBX_V3
+#define TOPO_MATCH_UBX_V3
 
 #include "topo_match_base.h"
 
 namespace ops_hccl {
-class TopoMatchUBX_V2 : public TopoMatchBase {
+class TOPO_MATCH_UBX_V3 : public TopoMatchBase {
 public:
-    explicit TopoMatchUBX_V2();
-    ~TopoMatchUBX_V2() override;
+    explicit TOPO_MATCH_UBX_V3();
+    ~TOPO_MATCH_UBX_V3() override;
     std::string Describe() const override
     {
         return "Topo Match for combined Algorithm: layer 0 Mesh, layer 1 NHR.";
