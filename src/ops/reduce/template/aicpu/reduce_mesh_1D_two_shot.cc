@@ -184,9 +184,6 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             DataSlice recvDstSlice(localDstBuffPtr, recvDstOffset, recvSliceSize, recvSliceCount);
             std::vector<DataSlice> recvSrcSlicesList{recvSrcSlice};
             std::vector<DataSlice> recvDstSlicesList{recvDstSlice};
-            
-            HCCL_INFO("[SendRecvDataToPeers] send %d from %d to %d, src offset %d, dst offset %d", sendSliceSize, myRank_, remoteRank, sendSliceOffset, sendDstSliceOffset);
-            HCCL_INFO("[SendRecvDataToPeers] recv %d from %d to %d, src offset %d, dst offset %d", recvSliceSize, remoteRank, myRank_, mySliceOffSet, recvDstSliceOffset);
 
             TxRxChannels sendRecvChannels(sendRecvChannel, sendRecvChannel);
             TxRxSlicesList sendRecvSlicesList({sendSrcSlicesList, sendDstSlicesList}, {recvSrcSlicesList, recvDstSlicesList});
@@ -230,7 +227,6 @@ HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgP
         if (remoteIdx == myIdx_) {
             continue;
         }
-        HCCL_INFO("[DoLocalReduce] cur rank %d, src offset %d, dst offset %d, size %d", myRank_, recvSliceSize * remoteIdx, recvSliceSize * static_cast<u64>(myIdx_), recvSliceSize);
         DataSlice curSrcSlice(localBuffPtr, recvSliceSize * remoteIdx + localBuffBaseOffset, recvSliceSize, recvSliceCount);
         CHK_PRT_RET(LocalReduce(threads.at(0), curSrcSlice, finalDstSlice, dataType_, reduceOp_),
             HCCL_ERROR("[InsTempReduceMesh1DTwoShot][DoLocalReduce] LocalReduce failed."),

@@ -221,7 +221,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
         if (dataSize >= REDUCE_AICPU_1D_MAX_DATA_SIZE) {
             selectAlgName = "ReduceMesh1DTwoShot";
         } else {
-            selectAlgName = "ReduceMesh1DTwoShot"; //"ReduceMesh1D";
+            selectAlgName = "ReduceMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         if (topoInfo->level0PcieMix) {
