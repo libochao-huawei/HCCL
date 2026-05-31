@@ -146,6 +146,7 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
         u64 sendSliceCount = sliceInfoList_.at(remoteIdx).count;
         u64 sendSliceOffset = sliceInfoList_.at(remoteIdx).offset;
 
+        const u64 sendDstSliceOffset = sliceInfoList_.at(remoteIdx).size * myIdx_;
         const u64 recvDstSliceOffset = sliceInfoList_.at(myIdx_).size * remoteIdx;
 
         if (sendSliceSize == 0 && recvSliceSize == 0) {
@@ -171,10 +172,10 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             void* remoteDstBuffPtr = (!enableRemoteMemAccess_) ? sendRecvChannel.remoteCclMem.addr : sendRecvChannel.remoteInputGraphMode.addr;
             void* localDstBuffPtr = (!enableRemoteMemAccess_) ? localHcclBuffPtr : localInBuffPtr;
 
-            u64 sendDstOffset = (!enableRemoteMemAccess_) ?   recvDstSliceOffset + hcclBuffBaseOffset : recvDstSliceOffset + inBuffBaseOffset;
+            u64 sendDstOffset = (!enableRemoteMemAccess_) ?   sendDstSliceOffset + hcclBuffBaseOffset : sendDstSliceOffset + inBuffBaseOffset;
             u64 recvDstOffset = (!enableRemoteMemAccess_) ?  recvDstSliceOffset + hcclBuffBaseOffset : recvDstSliceOffset + inBuffBaseOffset;
 
-            DataSlice sendSrcSlice(localInBuffPtr, inBuffBaseOffset + mySliceOffSet, sendSliceSize, sendSliceCount);
+            DataSlice sendSrcSlice(localInBuffPtr, inBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
             DataSlice sendDstSlice(remoteDstBuffPtr, sendDstOffset, sendSliceSize, sendSliceCount);
             std::vector<DataSlice> sendSrcSlicesList{sendSrcSlice};
             std::vector<DataSlice> sendDstSlicesList{sendDstSlice};
@@ -184,7 +185,7 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             std::vector<DataSlice> recvSrcSlicesList{recvSrcSlice};
             std::vector<DataSlice> recvDstSlicesList{recvDstSlice};
             
-            HCCL_INFO("[SendRecvDataToPeers] send %d from %d to %d, src offset %d, dst offset %d", sendSliceSize, myRank_, remoteRank, mySliceOffSet, recvDstSliceOffset);
+            HCCL_INFO("[SendRecvDataToPeers] send %d from %d to %d, src offset %d, dst offset %d", sendSliceSize, myRank_, remoteRank, sendSliceOffset, sendDstSliceOffset);
             HCCL_INFO("[SendRecvDataToPeers] recv %d from %d to %d, src offset %d, dst offset %d", recvSliceSize, remoteRank, myRank_, mySliceOffSet, recvDstSliceOffset);
 
             TxRxChannels sendRecvChannels(sendRecvChannel, sendRecvChannel);
