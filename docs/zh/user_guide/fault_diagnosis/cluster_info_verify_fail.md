@@ -36,7 +36,7 @@ hccn_tool -i {deviceId} -ip -g
 hccn_tool -i {deviceId} -ip -inet6 -g
 ```
 
-同一次作业的所有rank的IP Family应保持一致。HCCL默认先使用IPv4协议，若Device侧没有配置IPv4协议的IP，则会使用IPv6协议对应的ip。可以使用HCCL\_SOCKET\_FAMILY环境变量指定需要使用的网卡IP协议。
+同一次作业的所有rank的IP Family应保持一致。HCCL默认先使用IPv4协议，若Device侧没有配置IPv4协议的IP，则会使用IPv6协议对应的ip。可以使用HCCL_SOCKET_FAMILY环境变量指定需要使用的网卡IP协议。
 
 **注意**：family打印为枚举值，枚举值及对应关系如下表所示。
 
@@ -71,7 +71,7 @@ hccn_tool -i {deviceId} -ip -inet6 -g
     hccn_tool -i <device_id> -tls -g
     ```
 
-    其中<device\_id\>为Device设备的逻辑ID，您也可以通过如下for语句，一次性查询所有Device设备的TLS信息。
+    其中<device_id\>为Device设备的逻辑ID，您也可以通过如下for语句，一次性查询所有Device设备的TLS信息。
 
     ```bash
     for i in `seq 0 7`; do hccn_tool -i $i -tls -g; done    # 0，7分别为需要查询的Device ID的起始与结束值。
@@ -134,7 +134,7 @@ hccn_tool -i {deviceId} -ip -inet6 -g
 
     -i为Device ID，-path为指定证书/私钥/吊销列表存放路径，pri为私钥名字，pub为设备证书文件名，ca1/ca2/crl分别为根证书、二级根证书、吊销列表文件名。
 
-    关于hccn\_tool工具的更多用法及参数解释，可查看对应版本的《[HCCN Tool 接口参考](https://support.huawei.com/enterprise/zh/ascend-computing/ascend-hdk-pid-252764743?category=developer-documents&subcategory=interface-reference)》。
+    关于hccn_tool工具的更多用法及参数解释，可查看对应版本的《[HCCN Tool 接口参考](https://support.huawei.com/enterprise/zh/ascend-computing/ascend-hdk-pid-252764743?category=developer-documents&subcategory=interface-reference)》。
 
 ## superDeviceId重复（EI0014）
 
@@ -155,15 +155,15 @@ npu-smi info -t spod-info -i id -c chip_id
 ```
 
 - id：设备id，通过npu-smi info -l命令查出的NPU ID即为设备id。
-- chip\_id：芯片id，通过npu-smi info -m命令查出的Chip ID即为芯片id。
+- chip_id：芯片id，通过npu-smi info -m命令查出的Chip ID即为芯片id。
 
 回显中的“SDID”即为superDeviceID。
 
 出现此问题的可能原因是：
 
 - 硬件配置异常。
-- 通过[HCCL\_LOGIC\_SUPERPOD\_ID](../hccl_env/HCCL_LOGIC_SUPERPOD_ID.md)环境变量将不同的物理超节点配置在了同一个逻辑超节点内，导致superDeviceId重复。
+- 通过[HCCL_LOGIC_SUPERPOD_ID](../hccl_env/HCCL_LOGIC_SUPERPOD_ID.md)环境变量将不同的物理超节点配置在了同一个逻辑超节点内，导致superDeviceId重复。
 
 ### 解决方法
 
-修改硬件配置或正确配置[HCCL\_LOGIC\_SUPERPOD\_ID](../hccl_env/HCCL_LOGIC_SUPERPOD_ID.md)环境变量，避免同一个超节点内出现superDeviceId相同的设备。
+修改硬件配置或正确配置[HCCL_LOGIC_SUPERPOD_ID](../hccl_env/HCCL_LOGIC_SUPERPOD_ID.md)环境变量，避免同一个超节点内出现superDeviceId相同的设备。
