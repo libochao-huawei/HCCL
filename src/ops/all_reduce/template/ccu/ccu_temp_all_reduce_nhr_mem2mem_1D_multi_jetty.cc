@@ -8,12 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
-
 #include <algorithm>
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "alg_template_base.h"
+#include "ccu_launch.h"
+#include "ccu_kernel_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
 
 namespace ops_hccl {
 constexpr u32 PORT_NUM = 1;
@@ -71,12 +70,17 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const 
 
     // 创建每个kernel的KernelArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-        return std::make_unique<CcuKernelAllReduceNhr1DMem2MemMultiJetty>(arg);
-    };
-
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty>(
-        templateRankSize_, localRank_, portNum_, param, algStepInfoList, channelIdxMap, subCommRanks_);
+    strcpy(kernelInfo.kernelFuncName, "CcuKernelAllReduceNhrMem2Mem1DMultiJetty");
+    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllReduceNhrMem2Mem1DMultiJettyKernel);
+    auto kernelArg = std::make_shared<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty>();
+    kernelArg->rankSize = templateRankSize_;
+    kernelArg->rankId = localRank_;
+    kernelArg->portNum = portNum_;
+    kernelArg->algStepInfoList = algStepInfoList;
+    kernelArg->channelIdxMap = channelIdxMap;
+    kernelArg->opParam = param;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelInfo.setKernelArg(kernelArg);
 
     kernelInfo.channels = channelDescs;
 
@@ -85,6 +89,48 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const 
     HCCL_DEBUG("[%s] finish. rankSize[%u], channelDescs.size[%zu], ccuKernelInfos.size[%zu].",
                __func__, templateRankSize_, channelDescs.size(), resourceRequest.ccuKernelInfos.size());
 
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[%s] begin.", __func__);
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+
+    // 计算NHR Multi Jetty特有的参数
+    std::vector<uint64_t> taskArgs = {
+        PointerToAddr(buffInfo_.inputPtr) + args[0],
+        PointerToAddr(buffInfo_.outputPtr) + args[1],
+        args[2], // outputToken
+        args[3], // isInplace
+        args[4], // dataSizePerRank
+        args[5], // dataSizePerPort
+        args[6], // lastRankSliceSize
+        args[7], // lastPortSliceSize
+        args[8],  // localCopyGoSize[0]
+        args[9],  // localCopyGoSize[1]
+        args[10], // localCopyGoSize[2]
+        args[11], // localCopyGoSize[3]
+        args[12], // localCopyGoSizeLastSlice[0]
+        args[13], // localCopyGoSizeLastSlice[1]
+        args[14], // localCopyGoSizeLastSlice[2]
+        args[15]  // localCopyGoSizeLastSlice[3]
+    };
+    uint64_t argSize = taskArgs.size();
+
+    CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgs.data(), argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[%s] kernel launch failed, ccuRet -> %d", __func__, launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
+
+    HCCL_DEBUG("[%s] end.", __func__);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -128,14 +174,36 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
                __func__, inputAddr, outputAddr, isInplace, dataSize, sliceDivisor, dataSizePerPort,
                dataSizePerRank, lastRankSliceSize, lastPortSliceSize);
 
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllReduceNhrMem2Mem1DMultiJetty>(
-        inputAddr, outputAddr, outputToken, isInplace, dataSizePerRank, dataSizePerPort, lastRankSliceSize,
-        lastPortSliceSize);
+    // go size of group operations
+    LoopGroupConfig config{};
+    config.msInterleave = CCU_MS_INTERLEAVE;
+    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
+    config.memSlice     = CCU_MS_SIZE;
+    auto localCopyGoSize = CalGoSize(dataSizePerRank, config);
+    auto localCopyGoSizeLastSlice = CalGoSize(lastRankSliceSize, config);
 
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, outputToken, isInplace, 
+        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize};
+    taskArgs.insert(taskArgs.end(), localCopyGoSize.cbegin(), localCopyGoSize.cend());
+    taskArgs.insert(taskArgs.end(), localCopyGoSizeLastSlice.cbegin(), localCopyGoSizeLastSlice.cend());
+    uint64_t argSize = taskArgs.size();
 
-    CHK_RET(
-        HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+    CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0],
+        taskArgs.data(), argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[%s] kernel launch failed, ccuRet -> %d", __func__, launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
+
+    
+    // 下发完再保存参数信息
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, outputToken, isInplace,
+        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize, localCopyGoSize[0], 
+        localCopyGoSize[1], localCopyGoSize[2], localCopyGoSize[3], localCopyGoSizeLastSlice[0], 
+        localCopyGoSizeLastSlice[1], localCopyGoSizeLastSlice[2], localCopyGoSizeLastSlice[3]));
+    templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[%s] end.", __func__);
 
@@ -277,5 +345,10 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetRes(AlgResourceRequest& re
     resourceRequest.slaveThreadNum = 0;
 
     return HcclResult::HCCL_SUCCESS;
+}
+
+u64 CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetThreadNum() const
+{
+    return 1;
 }
 } // namespace ops_hccl

@@ -11,9 +11,8 @@
 #ifndef HCCL_CCU_KERNEL_ALLREDUCE_MESH_1D_2DIE_ONE_SHOT_H
 #define HCCL_CCU_KERNEL_ALLREDUCE_MESH_1D_2DIE_ONE_SHOT_H
 
-#include <array>
-#include <ios>
 #include <vector>
+#include <ios>
 #include "utils.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
@@ -21,82 +20,54 @@
 namespace ops_hccl {
 
 struct CcuKernelArgAllreduceMesh1D2DieOneShot : CcuKernelArgBase {
-    uint64_t dimSize_;
-    uint32_t rankId_;
-    OpParam opParam_;
-    std::vector<std::vector<uint32_t>> subCommRanks_;
-    bool rmtReduceWithMyRank_;
+    uint64_t rankSize{0};
+    uint32_t rankId{0};
+    OpParam opParam;
+    std::vector<std::vector<uint32_t>> subCommRanks;
+    bool rmtReduceWithMyRank{false};
 };
 
-struct BufferedReduceVar {
-    ccu::LocalAddr loopDst[2];
-    std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteSrc;
-    std::array<std::vector<ccu::LocalAddr>, 2> loopLocalSrc;
-    ccu::Variable loopLen[2];
-    ccu::Variable loopLenExp[2];
-};
+struct AllreduceMesh1D2DieOneShotContext : CcuKernelCtxBase {
+    const CcuKernelArgAllreduceMesh1D2DieOneShot *arg;
 
-class CcuKernelAllreduceMesh1D2DieOneShot : public CcuKernelCtxBase {
-public:
-    explicit CcuKernelAllreduceMesh1D2DieOneShot(const CcuKernelArgAllreduceMesh1D2DieOneShot *arg);
-    ~CcuKernelAllreduceMesh1D2DieOneShot() = default;
+    bool rmtReduceWithMyRank{false};
+    uint32_t rankId{0};
+    uint32_t rankSize{0};
 
-    CcuResult Algorithm();
+    uint32_t rmtReduceRankNum{0};
+    uint32_t rmtSyncMyBit{0};
+    uint32_t rmtSyncWaitBit{0};
 
-private:
-    CcuResult InitResource();
-    CcuResult LoadArgs();
-    CcuResult PreSync();
-    CcuResult PostSync(uint32_t signalIndex);
-    CcuResult MissionSync(uint32_t maskIndex);
-    CcuResult DoRmtReduce();
-    std::string GetLoopBlockTag(std::string loopType, int32_t index) const;
-    CcuResult DoLocalReduce();
-    CcuResult ReduceLoopGroup(ccu::LocalAddr outDstOrg, std::vector<ccu::RemoteAddr> remoteSrcOrg,
-        std::vector<ccu::LocalAddr> localSrcOrg, GroupOpSizeVars goSize, HcclDataType dataType,
-        HcclDataType outputDataType, HcclReduceOp opType, const std::string &loopName);
-    CcuResult CreateReduceLoop(BufferedReduceVar &var, const std::string &loopName, uint32_t remoteCount,
-        uint32_t localCount, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
-    void SetReduceLoopInput(BufferedReduceVar &var, uint32_t index, const ccu::LocalAddr &dst,
-        const std::vector<ccu::RemoteAddr> &remoteSrc, const std::vector<ccu::LocalAddr> &localSrc,
-        const ccu::Variable &len, const ccu::Variable &lenExp);
+    HcclDataType dataType;
+    HcclDataType outputDataType;
+    HcclReduceOp reduceOp;
 
-    const CcuKernelArgAllreduceMesh1D2DieOneShot *kernelArg_;
-    bool rmtReduceWithMyRank_;
-    uint32_t myRankId_;
-    uint32_t rankSize_;
+    uint32_t missionSyncMybit{0};
+    uint32_t missionSyncWaitBit{0};
 
-    uint32_t rmtReduceRankNum_;
+    uint16_t selfBit{0};
+    uint16_t allBit{0};
 
-    HcclDataType dataType_;
-    HcclDataType outputDataType_;
-    HcclReduceOp reduceOp_;
+    ccu::Variable myInput;
+    ccu::Variable myOutput;
+    ccu::Variable myScratch;
+    ccu::Variable myToken;
 
-    uint32_t missionSyncMybit_;
-    uint32_t missionSyncWaitBit_;
+    std::vector<ccu::Variable> input;
+    std::vector<ccu::Variable> remoteToken;
 
-    ccu::Variable myInput_;
-    ccu::Variable myOutput_;
-    ccu::Variable myScratch_;
-    ccu::Variable myToken_;
+    ccu::Variable scratchBaseOffset0;
+    ccu::Variable scratchBaseOffset1;
 
-    std::vector<ccu::Variable> input_;
-    std::vector<ccu::Variable> remoteToken_;
+    ccu::Variable localReduceSliceOffset0;
+    ccu::Variable localReduceSliceOffset1;
 
-    ccu::Variable scratchBaseOffset0_;
-    ccu::Variable scratchBaseOffset1_;
-
-    ccu::Variable localReduceSliceOffset0_;
-    ccu::Variable localReduceSliceOffset1_;
-
-    GroupOpSizeVars rmtReduceGoSize_;
-    GroupOpSizeVars localReduceGoSize0_;
-    GroupOpSizeVars localReduceGoSize1_;
-    std::vector<ChannelHandle> channels_;
+    GroupOpSizeVars rmtReduceGoSize;
+    GroupOpSizeVars localReduceGoSize0;
+    GroupOpSizeVars localReduceGoSize1;
 };
 
 CcuResult CcuAllreduceMesh1D2DieOneShotKernel(CcuKernelArg arg);
 
 } // namespace ops_hccl
-
-#endif // HCCL_CCU_KERNEL_ALLREDUCE_MESH_1D_2DIE_ONE_SHOT_H
+#endif // HCCLV2_CCU_KERNEL_ALLREDUCE_MESH_1D_2DIE_ONE_SHOT_H

@@ -12,9 +12,9 @@
 #include "ins_all_to_all_v_sole_executor.h"
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
-#include "ccu_temp_all_to_all_v_mesh_1D.h"
+// #include "ccu_temp_all_to_all_v_mesh_1D.h"
 // #include "ccu_temp_all_to_all_v_mesh2die.h"
-// #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
+#include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
@@ -77,7 +77,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
     std::shared_ptr<InsAlgTemplate> algTemplate = 
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
     // 调用计算资源的函数
-    algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
 
     return HCCL_SUCCESS;
 }
@@ -165,10 +165,16 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     const OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
     HCCL_INFO("[InsAlltoAllVSoleExecutor][OrchestrateLoop] Start");
-    
+
+    std::vector<std::vector<u32>> tempAlgHierachyInfo;
+    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
+        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
+    } else {
+        tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
+    }
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
-        std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
+        std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, tempAlgHierachyInfo);
     algTemplate->SetA2ASendRecvInfo(localSendRecvInfo_);
 
     // 准备资源
@@ -245,9 +251,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSav
     // 3 ccu kernel handle, taskArg入参
     ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelNum;
     CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
-    for (int i = 0; i < ccuKernelNum; i++) {
-        kernels[i] = templateAlgRes.submitInfos[i];
-    }
+    kernels[0] = templateAlgRes.submitInfos[0];
     return HCCL_SUCCESS;
 }
 
@@ -279,27 +283,27 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
 
 // 第二个参数是All to AllV的template文件
 #ifndef AICPU_COMPILE
-#if !defined(HCCL_CANN_COMPAT_850)
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAlltoAllVMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
-    CcuTempAlltoAllVMesh1D);
-#endif /* !HCCL_CANN_COMPAT_850 */
+// #if !defined(HCCL_CANN_COMPAT_850)
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAlltoAllVMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
+//     CcuTempAlltoAllVMesh1D);
+// #endif /* !HCCL_CANN_COMPAT_850 */
 
-#if !defined(HCCL_CANN_COMPAT_850)
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, CcuAlltoAllVCMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
-    CcuTempAlltoAllVMesh1D);
-#endif /* !HCCL_CANN_COMPAT_850 */
+// #if !defined(HCCL_CANN_COMPAT_850)
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, CcuAlltoAllVCMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
+//     CcuTempAlltoAllVMesh1D);
+// #endif /* !HCCL_CANN_COMPAT_850 */
 
-#if !defined(HCCL_CANN_COMPAT_850)
+// #if !defined(HCCL_CANN_COMPAT_850)
 // REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
 //     CcuTempAlltoAllVMesh2Die);
-#endif /* !HCCL_CANN_COMPAT_850 */
+// #endif /* !HCCL_CANN_COMPAT_850 */
 
 #if !defined(HCCL_CANN_COMPAT_850)
-// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
-//                 CcuAllToAllVMesh1DMultiJetty,
-//                 InsAlltoAllVSoleExecutor,
-//                 TopoMatchUBX,
-//                 CcuTempAllToAllVMesh1DMultiJetty);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
+                CcuAllToAllVMesh1DMultiJetty,
+                InsAlltoAllVSoleExecutor,
+                TopoMatchUBX,
+                CcuTempAllToAllVMesh1DMultiJetty);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }
