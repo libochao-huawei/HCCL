@@ -48,6 +48,10 @@ HcclResult CreateChannelRequestByRankId(HcclComm comm, const OpParam& param, u32
 HcclResult CalcChannelRequestMesh1DWithPriorityTopo(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
                                                     const std::vector<std::vector<u32>> &subcommInfo,
                                                     std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo);
+HcclResult CalcChannelRequestMesh1DByTopo(HcclComm comm, const OpParam &param,
+                                          const TopoInfoWithNetLayerDetails *topoInfo,
+                                          const std::vector<std::vector<u32>> &subcommInfo,
+                                          std::vector<HcclChannelDesc> &channels, CommTopo topoType);
 HcclResult CalcChannelRequestNHRWithPriorityTopo(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
                                                  const std::vector<std::vector<u32>> &subcommInfo,
                                                  std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo);

@@ -45,10 +45,10 @@ HcclResult InsTempAllGatherMeshClosOpt::CalcRes(HcclComm comm, const OpParam &pa
 {
     HCCL_INFO("[InsTempAllGatherMeshClosOpt][CalcRes] start");
     std::vector<HcclChannelDesc> levelChannels;
-    CHK_RET(CalcChannelRequestMesh1DLevel1(comm, param, topoInfo, subCommRanks_, levelChannels));
+    CHK_RET(CalcChannelRequestMesh1DByTopo(comm, param, topoInfo, subCommRanks_, levelChannels,
+                                           CommTopo::COMM_TOPO_CLOS));
     CHK_PRT_RET(levelChannels.empty(),
-                HCCL_ERROR("[InsTempAllGatherMeshClosOpt][CalcRes] Rank[%u] Level1 CLOS channel request is empty. "
-                           "UBX mesh_1d_clos rankGraph may not expose CLOS as netLayer1.",
+                HCCL_ERROR("[InsTempAllGatherMeshClosOpt][CalcRes] Rank[%u] CLOS channel request is empty.",
                            topoInfo->userRank),
                 HcclResult::HCCL_E_INTERNAL);
     resourceRequest.channels.push_back(levelChannels);
