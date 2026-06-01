@@ -8,17 +8,15 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef CCU_UTILS_DL_H
-#define CCU_UTILS_DL_H
-
-#include <exception>
-#include <string>
+#ifndef CCU_UTILS_DL_HPP
+#define CCU_UTILS_DL_HPP
 
 #if CANN_VERSION_NUM >= 90100000
-#include "ccu_types.h"   // 原始头文件，包含所有类型和声明
+#include "ccu_utils.hpp"
 #else
+#include <exception>
+#include <string>
 #include "ccu_types_dl.h"
-#endif
 
 namespace AscendC {
 namespace ccu {
@@ -87,4 +85,5 @@ public:
         }                                                                        \
     } while (0)
 
-#endif // CCU_UTILS_DL_H
+#endif // CANN_VERSION_NUM >= 90100000
+#endif // CCU_UTILS_DL_HPP

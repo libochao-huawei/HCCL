@@ -8,22 +8,17 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef CCU_VARIABLE_DL_H
-#define CCU_VARIABLE_DL_H
+#ifndef CCU_VARIABLE_DL_HPP
+#define CCU_VARIABLE_DL_HPP
 
+#if CANN_VERSION_NUM >= 90100000
+#include "ccu_variable.hpp"
+#else
 #include <cstdint>
 #include <type_traits>
-
-#include "dlsym_common.h"
-#if CANN_VERSION_NUM >= 90100000
-#include "ccu_types.h"
-#include "ccu_utils.h"
-#include "ccu_primitives_impl.h"
-#else
 #include "ccu_types_dl.h"
-#include "ccu_utils_dl.h"
+#include "ccu_utils_dl.hpp"
 #include "ccu_primitives_impl_dl.h"
-#endif
 
 namespace AscendC {
 namespace ccu {
@@ -113,4 +108,5 @@ inline void AscendC::ccu::detail::CcuArithmeticOperator<AscendC::ccu::Variable,
 {
 }
 
-#endif // CCU_VARIABLE_DL_H
+#endif // CANN_VERSION_NUM >= 90100000
+#endif // CCU_VARIABLE_DL_HPP
