@@ -25,6 +25,8 @@ set(INCLUDE_LIST
     ${OPS_BASE_DIR}/experimental/
     ${OPS_BASE_DIR}/experimental/ops/
     ${OPS_BASE_DIR}/experimental/ops/op_common/
+    ${OPS_BASE_DIR}/experimental/ops/op_common/template
+    ${OPS_BASE_DIR}/experimental/ops/op_common/topo
     ${OPS_BASE_DIR}/experimental/ops/reduce_scatter/
     ${OPS_BASE_DIR}/experimental/ops/reduce_scatter/birs/
     ${OPS_BASE_DIR}/experimental/ops/reduce_scatter/birs/template/

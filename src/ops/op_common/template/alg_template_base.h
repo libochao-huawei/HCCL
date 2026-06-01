@@ -130,13 +130,6 @@ public:
                          const std::vector<Slice> &slices = std::vector<Slice>(ZERO_SLICE),
                          const u64 baseOffset = 0, const bool disableDMAReduce = false);
     
-    virtual HcclResult Prepare(HcclMem &inputMem, HcclMem &outputMem, HcclMem &scratchMem, const u64 count,
-                        const HcclDataType dataType, ThreadHandle thread, const std::vector<ThreadHandle> &slaveThreads,
-                        const HcclReduceOp reductionOp = HCCL_REDUCE_RESERVED,
-                        const u32 root = INVALID_VALUE_RANKID,
-                        const std::vector<Slice> &slices = std::vector<Slice>(ZERO_SLICE),
-                        const u64 baseOffset = 0, const bool disableDMAReduce = false);
-
     virtual HcclResult Prepare(PrepareData &param);
 
     // ScatterMesh

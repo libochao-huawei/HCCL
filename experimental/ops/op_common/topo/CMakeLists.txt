@@ -7,11 +7,8 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-add_subdirectory(template)
-add_subdirectory(topo)
-
 set(src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_common_experimental.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/topo_experimental.cc
 )
 
 target_sources(hccl PRIVATE
