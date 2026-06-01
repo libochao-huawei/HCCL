@@ -12,7 +12,7 @@ add_subdirectory(aiv)
 add_subdirectory(registry)
 add_subdirectory(wrapper)
 add_subdirectory(dpu)
-if(NOT HCCL_CANN_COMPAT_850 AND NOT HCCL_CANN_COMPAT_900)
+if(NOT HCCL_CANN_COMPAT_850)
     add_subdirectory(ccu)
 endif()
 
