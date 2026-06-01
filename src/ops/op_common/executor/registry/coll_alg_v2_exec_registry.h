@@ -92,6 +92,17 @@ private:
     REGISTER_EXECUTOR_BY_TWO_TEMPS_HELPER_1(__COUNTER__, type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0,             \
         InsAlgTemplate1)
 
+#define REGISTER_EXECUTOR_BY_THREE_TEMPS_HELPER(ctr, type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2)    \
+    static HcclResult g_func_##name##_##ctr = CollAlgExecRegistryV2::Instance().Register(                                     \
+        type, std::string(#name), DefaultExecCreatorV2<insCollAlgBase<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>>)
+
+#define REGISTER_EXECUTOR_BY_THREE_TEMPS_HELPER_1(ctr, type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2)  \
+    REGISTER_EXECUTOR_BY_THREE_TEMPS_HELPER(ctr, type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2)
+
+#define REGISTER_EXECUTOR_BY_THREE_TEMPS(type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2)              \
+    REGISTER_EXECUTOR_BY_THREE_TEMPS_HELPER_1(__COUNTER__, type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0,             \
+        InsAlgTemplate1, InsAlgTemplate2)
+
 #define REGISTER_EXECUTOR_BY_FOUR_TEMPS_HELPER(ctr, type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3)    \
     static HcclResult g_func_##name##_##ctr = CollAlgExecRegistryV2::Instance().Register(                                     \
         type, std::string(#name), DefaultExecCreatorV2<insCollAlgBase<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>>)
