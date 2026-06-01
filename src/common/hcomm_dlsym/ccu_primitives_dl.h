@@ -20,6 +20,17 @@ namespace AscendC {
 namespace ccu {
 
 // ==================== 类型别名 ====================
+typedef struct {
+    uint64_t addrOffset;
+    uint64_t loopIterNum;
+} CcuLoopConfig;
+typedef struct {
+    uint64_t addrOffset;
+    uint64_t bufferOffset;
+    uint64_t eventOffset;
+    uint64_t repeatNum;
+    uint64_t repeatLoopIdx;
+} CcuLoopGroupConfig;
 using LoopConfig      = ::CcuLoopConfig;
 using LoopGroupConfig = ::CcuLoopGroupConfig;
 
