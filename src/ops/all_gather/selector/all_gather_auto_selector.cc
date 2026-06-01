@@ -209,7 +209,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
                        && topoInfo->serverNum > 1) {
                 selectAlgName = "InsAllGatherParallelMesh1DNHRTest";
             } else {
-                selectAlgName = "InsTestAlgorithm";
+                selectAlgName = "InsAllGatherNHR";
             }
         // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
         } else if (topoInfo->Level1Nhr) {
