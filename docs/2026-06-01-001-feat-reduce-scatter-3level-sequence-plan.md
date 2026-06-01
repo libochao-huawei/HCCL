@@ -23,7 +23,7 @@ deepened: 2026-06-01
 
 ## Requirements
 
-- R1. 新建 `InsV2ReduceScatterSequenceExecutorAicpu3Level` 类，3 个算法模板参数 `<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，`SEQUENCE_EXECUTOR_LEVEL_NUM = 3`
+- R1. 新建 `InsV2ReduceScatterSequenceExecutor3Level` 类（通用 3 级编排层，不绑定 aicpu），3 个算法模板参数 `<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，`SEQUENCE_EXECUTOR_LEVEL_NUM = 3`
 - R2. 数据流为线性串行 3 步：INPUT → Mesh(level0) → CCL → NHR(level1) → CCL → NHR(level2) → OUTPUT
 - R3. 支持 loop 分片循环处理大数据量
 - R4. 新增 `REGISTER_EXECUTOR_BY_THREE_TEMPS` 宏，注册名 `InsReduceScatterSequenceMesh1DNHRNHR`
@@ -58,8 +58,8 @@ deepened: 2026-06-01
 
 ### Relevant Code and Patterns
 
-- **现有 2 级 executor（aicpu版）**: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc` — 数据流 INPUT→Mesh→CCL→NHR→OUTPUT，**整段 CCL 复用**（不分区），3 级应沿用此模式
-- **现有 2 级 executor（非aicpu版）**: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor.cc` — 使用 `ccl_in + ccl_out` 双段分区模式，这是因为 DPU 模式需要 npu2DpuShmemPtr/dpu2NpuShmemPtr 共享内存机制，3 级 aicpu executor 不涉及 DPU，不需要此模式
+- **现有 2 级 executor（aicpu版）**: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc` — 数据流 INPUT→Mesh→CCL→NHR→OUTPUT，**整段 CCL 复用**（不分区），3 级 aicpu 场景沿用此模式
+- **现有 2 级 executor（非aicpu版）**: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor.cc` — 使用 `ccl_in + ccl_out` 双段分区模式，这是因为 DPU 模式需要 npu2DpuShmemPtr/dpu2NpuShmemPtr 共享内存机制，后续 CCU 等引擎复用 3 级 executor 时根据引擎特性决定是否使用此模式
 - **注册宏**: `src/ops/op_common/executor/registry/coll_alg_v2_exec_registry.h` — `REGISTER_EXECUTOR_BY_TWO_TEMPS` 使用 `__COUNTER__` + `DefaultExecCreatorV2` 模式
 - **TopoMatchMultilevel**: `src/ops/op_common/topo/topo_match_multilevel.cc` — 当前 `infos.resize(COMM_LAYER_SIZE_2)` 拒绝 >2 层拓扑，`COMM_LAYER_SIZE_3=3` 常量已定义但未使用
 - **Selector**: `src/ops/reduce_scatter/selector/reduce_scatter_auto_selector.cc` — `SelectAicpuAlgo` 在 `topoLevelNums>1` 且大数据量时选择 `InsReduceScatterSequenceMesh1DNhr`
@@ -68,8 +68,8 @@ deepened: 2026-06-01
 
 ### Institutional Learnings
 
-- CCL Buffer 整段复用模式已在 2 级 aicpu executor 中验证可行——NHR 算法是原地累加，每个 rank 只修改自己的 slice 区域，不会覆盖其他 rank 的数据，因此 3 级 aicpu 同样可以使用整段 CCL 而无需分区
-- 非 aicpu executor 的双段分区是因为 DPU 模式需要共享内存机制，与 3 级 aicpu executor 无关
+- CCL Buffer 整段复用模式已在 2 级 aicpu executor 中验证可行——NHR 算法是原地累加，每个 rank 只修改自己的 slice 区域，不会覆盖其他 rank 的数据，因此 aicpu 场景下同样可以使用整段 CCL 而无需分区
+- CCU 等非 aicpu 引擎复用此 executor 时，需根据引擎特性决定 Buffer 策略（DPU 模式需要双段分区是因为共享内存机制）
 - `AlgHierarchyInfoForAllLevel.infos` 是 3D vector `[level][instance_group][rank_list]`，Mesh1D 对应 1 个 inner vector，Mesh2D 对应 2 个
 - `AlgResourceRequest.channels` 外层维度对应层级数，3 级需要 3 个元素
 
@@ -78,7 +78,7 @@ deepened: 2026-06-01
 ## Key Technical Decisions
 
 - **注册宏**: 新建 `REGISTER_EXECUTOR_BY_THREE_TEMPS`，与现有 `BY_TWO_TEMPS`/`BY_FOUR_TEMPS` 模式一致，命名清晰（而非复用 variadic `REGISTER_EXEC_V2_MULTI`）
-- **CCL Buffer 管理**: 采用整段复用模式（与 2 级 aicpu executor 一致）——NHR 是原地累加算法，每个 rank 只修改自己的 slice，3 步串行中 Mesh 结果被 NHR1 结果原地替代，NHR1 结果被 NHR2 结果原地替代，无需分区隔离。非 aicpu 的双段分区是因为 DPU 共享内存需求，与本 executor 无关
+- **CCL Buffer 管理**: executor 本身为通用 3 级编排层，不绑定特定引擎。aicpu 场景下采用整段复用模式（与 2 级 aicpu executor 一致）——NHR 是原地累加算法，每个 rank 只修改自己的 slice，3 步串行中 Mesh 结果被 NHR1 结果原地替代，NHR1 结果被 NHR2 结果原地替代，无需分区隔离。后续 CCU 等引擎复用此 executor 时，根据引擎特性（如 DPU 共享内存需求）决定是否使用双段分区模式
 - **TopoMatch 扩展方式**: 扩展 `TopoMatchMultilevel`（新增 `TopoForLayer2`），而非新建类
 - **rankIdx/rankSize 计算**: 3 级需要 `rankIdxLevel0`, `rankIdxLevel1`, `rankIdxLevel2` 和对应的 `rankSizeLevel0/1/2`
 
@@ -103,8 +103,8 @@ deepened: 2026-06-01
 ## Output Structure
 
     src/ops/reduce_scatter/executor/
-        ins_v2_reduce_scatter_sequence_executor_aicpu_3level.h   (新增)
-        ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc  (新增)
+        ins_v2_reduce_scatter_sequence_executor_3level.h   (新增)
+        ins_v2_reduce_scatter_sequence_executor_3level.cc  (新增)
         CMakeLists.txt                                           (修改: 新增 3level.cc 到 src_list)
     src/ops/op_common/executor/registry/
         coll_alg_v2_exec_registry.h                              (修改: 新增宏)
@@ -139,29 +139,29 @@ deepened: 2026-06-01
 
 | # | 文件 | 变化类型 | 变化点 | 需求映射 |
 |---|------|---------|--------|----------|
-| U3-1 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.h` | 新增 | 新建类声明 `InsV2ReduceScatterSequenceExecutorAicpu3Level<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，继承 `InsCollAlgBase`，`SEQUENCE_EXECUTOR_LEVEL_NUM = 3` | R1 |
-| U3-2 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `CalcAlgHierarchyInfo` 覆写：调用 `TopoMatchMultilevel::MatchTopo` 生成 3 层 `algHierarchyInfo.infos.size() == 3` | R1, R10 |
-| U3-3 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `CalcRes` 实现：3 级模板分别调用 CalcRes，合并 `slaveThreadNum = max(res0, res1, res2)`，`notifyNumPerThread` 各级取 max，`channels[0/1/2]` 对应各级独立 channel 映射 | R5 |
-| U3-4 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `CalcScratchMultiple` 实现：`templateScratchMultiplier = multiplier0 * multiplier1 * multiplier2` | R6 |
-| U3-5 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `Orchestrate` 实现：计算 `rankIdxLevel0 = myRank % rankSizeLevel0`、`rankIdxLevel1 = (myRank / rankSizeLevel0) % rankSizeLevel1`、`rankIdxLevel2 = myRank / (rankSizeLevel0 * rankSizeLevel1)`，以及对应的 `rankSizeLevel0/1/2` | R1 |
-| U3-6 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `OrchestrateLoop` 实现：整段 CCL 复用，3 步串行执行，`maxCountPerLoop` 基于 `cclMem.size / templateScratchMultiplier` 计算 | R2, R3 |
-| U3-7 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenIntraTemplateParams` (level0)：`buffInfo.inBuffType=INPUT, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel1 * rankSizeLevel2, inputSliceStride = dataSize_, outputSliceStride = currDataCount * dataTypeSize_, inputRepeatStride = rankSizeLevel0 * dataSize_, outputRepeatStride = rankSizeLevel0 * currDataCount * dataTypeSize_` | R7 |
-| U3-8 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenInterTemplateParams1` (level1)：`buffInfo.inBuffType=HCCL_BUFFER, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel2, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0` | R8 |
-| U3-9 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenInterTemplateParams2` (level2)：`buffInfo.inBuffType=HCCL_BUFFER, outBuffType=OUTPUT, hcclBuffType=HCCL_BUFFER, repeatNum = 1, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0` | R9 |
-| U3-10 | `src/ops/reduce_scatter/executor/CMakeLists.txt` | 修改 | 在 `src_list` 中追加 `${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | R1 |
+| U3-1 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.h` | 新增 | 新建类声明 `InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，继承 `InsCollAlgBase`，`SEQUENCE_EXECUTOR_LEVEL_NUM = 3` | R1 |
+| U3-2 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 新增 | `CalcAlgHierarchyInfo` 覆写：调用 `TopoMatchMultilevel::MatchTopo` 生成 3 层 `algHierarchyInfo.infos.size() == 3` | R1, R10 |
+| U3-3 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 新增 | `CalcRes` 实现：3 级模板分别调用 CalcRes，合并 `slaveThreadNum = max(res0, res1, res2)`，`notifyNumPerThread` 各级取 max，`channels[0/1/2]` 对应各级独立 channel 映射 | R5 |
+| U3-4 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 新增 | `CalcScratchMultiple` 实现：`templateScratchMultiplier = multiplier0 * multiplier1 * multiplier2` | R6 |
+| U3-5 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 新增 | `Orchestrate` 实现：计算 `rankIdxLevel0 = myRank % rankSizeLevel0`、`rankIdxLevel1 = (myRank / rankSizeLevel0) % rankSizeLevel1`、`rankIdxLevel2 = myRank / (rankSizeLevel0 * rankSizeLevel1)`，以及对应的 `rankSizeLevel0/1/2` | R1 |
+| U3-6 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 新增 | `OrchestrateLoop` 实现：整段 CCL 复用，3 步串行执行，`maxCountPerLoop` 基于 `cclMem.size / templateScratchMultiplier` 计算 | R2, R3 |
+| U3-7 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 新增 | `GenIntraTemplateParams` (level0)：`buffInfo.inBuffType=INPUT, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel1 * rankSizeLevel2, inputSliceStride = dataSize_, outputSliceStride = currDataCount * dataTypeSize_, inputRepeatStride = rankSizeLevel0 * dataSize_, outputRepeatStride = rankSizeLevel0 * currDataCount * dataTypeSize_` | R7 |
+| U3-8 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 新增 | `GenInterTemplateParams1` (level1)：`buffInfo.inBuffType=HCCL_BUFFER, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel2, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0` | R8 |
+| U3-9 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 新增 | `GenInterTemplateParams2` (level2)：`buffInfo.inBuffType=HCCL_BUFFER, outBuffType=OUTPUT, hcclBuffType=HCCL_BUFFER, repeatNum = 1, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0` | R9 |
+| U3-10 | `src/ops/reduce_scatter/executor/CMakeLists.txt` | 修改 | 在 `src_list` 中追加 `${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sequence_executor_3level.cc` | R1 |
 
 ### U4. 注册 + Selector 更新
 
 | # | 文件 | 变化类型 | 变化点 | 需求映射 |
 |---|------|---------|--------|----------|
-| U4-1 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 修改 | 文件末尾新增注册调用：`REGISTER_EXECUTOR_BY_THREE_TEMPS(HCCL_CMD_REDUCE_SCATTER, InsReduceScatterSequenceMesh1DNHRNHR, InsV2ReduceScatterSequenceExecutorAicpu3Level, TopoMatchMultilevel, InsTempReduceScatterMesh1DZAxisDetour, InsTempReduceScatterNHR, InsTempReduceScatterNHR)` | R4 |
+| U4-1 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc` | 修改 | 文件末尾新增注册调用：`REGISTER_EXECUTOR_BY_THREE_TEMPS(HCCL_CMD_REDUCE_SCATTER, InsReduceScatterSequenceMesh1DNHRNHR, InsV2ReduceScatterSequenceExecutor3Level, TopoMatchMultilevel, InsTempReduceScatterMesh1DZAxisDetour, InsTempReduceScatterNHR, InsTempReduceScatterNHR)` | R4 |
 | U4-2 | `src/ops/reduce_scatter/selector/reduce_scatter_auto_selector.cc` | 修改 | BRANCH 4（line 288-290 `localNetInsSizeOfLayer[0] > 1 && level0Topo == MESH_1D`）入口处新增 `if (topoInfo->topoLevelNums >= 3)` 分支，返回 `"InsReduceScatterSequenceMesh1DNHRNHR"`，3 层拓扑统一走 3 级不区分数据量，其余所有逻辑不变 | R11 |
 
 ### 汇总
 
 | 类型 | 数量 | 文件 |
 |------|------|------|
-| 新增文件 | 2 | `ins_v2_reduce_scatter_sequence_executor_aicpu_3level.h`, `ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` |
+| 新增文件 | 2 | `ins_v2_reduce_scatter_sequence_executor_3level.h`, `ins_v2_reduce_scatter_sequence_executor_3level.cc` |
 | 修改文件 | 5 | `coll_alg_v2_exec_registry.h`, `topo_match_multilevel.h`, `topo_match_multilevel.cc`, `reduce_scatter_auto_selector.cc`, `reduce_scatter/executor/CMakeLists.txt` |
 | 涉及模块 | 3 | 注册宏、拓扑匹配、reduce_scatter executor/selector |
 
@@ -178,7 +178,7 @@ deepened: 2026-06-01
 **解决:** 在 Output Structure 中补充 `src/ops/reduce_scatter/executor/CMakeLists.txt`（修改: 新增 3level.cc 到 src_list）；在 U3 Files 中补充该文件；在 Change List 中新增 U3-10 条目。
 
 **建议:** 在 U3 的 Files 列表中补充：
-- Modify: `src/ops/reduce_scatter/executor/CMakeLists.txt`（或对应构建文件）— 新增 `ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` 到编译目标
+- Modify: `src/ops/reduce_scatter/executor/CMakeLists.txt`（或对应构建文件）— 新增 `ins_v2_reduce_scatter_sequence_executor_3level.cc` 到编译目标
 
 ---
 
@@ -292,7 +292,7 @@ for each loop chunk:
 ### CCL Buffer 管理
 
 ```
-整段 CCL 复用，不分区：
+aicpu 场景下整段 CCL 复用（后续 CCU 等引擎由引擎特化决定 Buffer 管理方式）：
 
 Step0: hcclBuff = cclMem(整段), inputPtr = INPUT, outputPtr = cclMem.addr
        outBuffType = HCCL_BUFFER → Mesh 规约结果写入 CCL
@@ -305,7 +305,7 @@ maxCountPerLoop = cclMem.size / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN
                   * HCCL_MIN_SLICE_ALIGN / dataTypeSize_
 ```
 
-NHR 原地累加原理：每个 rank 只修改自己的 slice 区域（offset = rankIdxLevel0 × sliceSize），不同 rank 的 slice 按 stride 间隔排列互不重叠。Step1 的 NHR 结果替代 Mesh 结果（Mesh 数据已被消耗），Step2 的 NHR 结果替代 Step1 结果（Step1 数据已被消耗），串行执行天然保证安全。
+NHR 原地累加原理：每个 rank 只修改自己的 slice 区域（offset = rankIdxLevel0 × sliceSize），不同 rank 的 slice 按 stride 间隔排列互不重叠。Step1 的 NHR 结果替代 Mesh 结果（Mesh 数据已被消耗），Step2 的 NHR 结果替代 Step1 结果（Step1 数据已被消耗），串行执行天然保证安全。此原理适用于所有使用整段 CCL 复用的引擎场景（aicpu）。后续 CCU 等引擎若使用双段分区模式，Buffer 管理方式由引擎特化决定。
 
 ---
 
@@ -377,28 +377,28 @@ NHR 原地累加原理：每个 rank 只修改自己的 slice 区域（offset = 
 
 ---
 
-### U3. 创建 InsV2ReduceScatterSequenceExecutorAicpu3Level 类
+### U3. 创建 InsV2ReduceScatterSequenceExecutor3Level 类
 
-**Goal:** 新建 3 级 sequence executor 类，实现 3 步串行数据流编排、3 级资源计算、3 级模板参数生成。
+**Goal:** 新建通用 3 级 sequence executor 类（不绑定特定引擎，aicpu/CCU 等均可复用），实现 3 步串行数据流编排、3 级资源计算、3 级模板参数生成。
 
 **Requirements:** R1, R2, R3, R5, R6, R7, R8, R9
 
 **Dependencies:** U1（注册宏），U2（TopoMatchMultilevel 3 层支持）
 
 **Files:**
-- Create: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.h`
-- Create: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc`
-- Modify: `src/ops/reduce_scatter/executor/CMakeLists.txt`（在 `src_list` 中追加 `${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc`，参照现有 2 级 aicpu executor 的添加位置，置于 `ins_v2_reduce_scatter_sequence_executor_aicpu.cc` 之后）
+- Create: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.h`
+- Create: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc`
+- Modify: `src/ops/reduce_scatter/executor/CMakeLists.txt`（在 `src_list` 中追加 `${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sequence_executor_3level.cc`，参照现有 2 级 aicpu executor 的添加位置，置于 `ins_v2_reduce_scatter_sequence_executor_aicpu.cc` 之后）
 
 **Approach:**
-- 类模板参数 `<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，继承 `InsCollAlgBase`
+- 类模板参数 `<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，继承 `InsCollAlgBase`，不绑定特定引擎（aicpu/CCU 等通过不同模板参数复用）
 - `SEQUENCE_EXECUTOR_LEVEL_NUM = 3`
 - `CalcAlgHierarchyInfo`: 覆写该方法，调用 `AlgTopoMatch::MatchTopo(comm, topoInfo, algHierarchyInfo)` 生成 3 层 algHierarchyInfo，验证 `algHierarchyInfo.infos.size() == 3`（与 2 级 aicpu executor 的 CalcAlgHierarchyInfo 实现模式一致：`myRank_ = topoInfo->userRank; rankSize_ = topoInfo->userRankSize; AlgTopoMatch topoMatch; CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));`）
 - `CalcRes`: 3 级模板分别调用 `CalcRes`，合并 `slaveThreadNum = max(res0,res1,res2)`，`notifyNumPerThread` 各级取 max，`channels[0/1/2]` 对应各级。3 级模板共享 `slaveThreadNum`（取 max 后足够任一级使用），`notify` 按各级 max 合并后由 Orchestrator 在各级 KernelRun 前通过 `GenTempResource(resCtx, level, algTemplate, templateResource)` 分配，`channels[0/1/2]` 直接映射到各级模板的 channel 需求（与 2 级 aicpu executor 的 CalcRes 合并模式一致）
 - `Orchestrate`: 计算 `rankIdxLevel0/1/2` 和 `rankSizeLevel0/1/2`，3 级索引为 `myRank % rankSizeLevel0`、`(myRank / rankSizeLevel0) % rankSizeLevel1`、`myRank / (rankSizeLevel0 * rankSizeLevel1)`
-- `OrchestrateLoop`: 整段 CCL 复用（与 2 级 aicpu 一致），3 步串行
+- `OrchestrateLoop`: aicpu 场景下整段 CCL 复用（与 2 级 aicpu 一致），3 步串行。后续 CCU 等引擎复用时根据引擎特性调整 Buffer 管理方式
 - `CalcScratchMultiple`: `templateScratchMultiplier = multiplier0 * multiplier1 * multiplier2`
-- `maxCountPerLoop`: 基于 `cclMem.size / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_` 计算（整段 CCL，不分区，与 2 级 aicpu 一致）
+- `maxCountPerLoop`: 基于 `cclMem.size / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_` 计算（aicpu 场景下整段 CCL，不分区，与 2 级 aicpu 一致）
 - **currDataCount 语义**: `currDataCount` 表示每轮 loop 中每 rank 最终输出的数据量（即 `dataCount_` 的一个分片，`dataCount_ = dataSize_ / userRankSize_）。所有 3 步共用同一 `currDataCount`，与 2 级 aicpu executor 的语义一致。各级间每 rank 数据量递减是靠 repeatNum 体现而非 currDataCount 变化：Step0 Mesh 输入每 rank 为 `currDataCount × rankSizeLevel0 × rankSizeLevel1 × rankSizeLevel2` 的总输入数据分片（通过 repeatNum=rankSizeLevel1×rankSizeLevel2 拆分为多组 Mesh 操作），Step1 NHR 输入每 rank 为 `currDataCount × rankSizeLevel0` 的 CCL 数据（通过 repeatNum=rankSizeLevel2 拆分为多组 NHR 操作），Step2 NHR 输入每 rank 为 `currDataCount` 的 CCL 数据（repeatNum=1）
 - `GenIntraTemplateParams` (level0): `buffInfo.inBuffType=INPUT, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel1 * rankSizeLevel2, inputSliceStride = dataSize_, outputSliceStride = currDataCount * dataTypeSize_, inputRepeatStride = rankSizeLevel0 * dataSize_, outputRepeatStride = rankSizeLevel0 * currDataCount * dataTypeSize_`（参照 2 级 aicpu 的 GenIntraTemplateParams，2 级的 repeatNum=rankSizeLevel1，3 级扩展为 rankSizeLevel1×rankSizeLevel2）
 - `GenInterTemplateParams1` (level1): `buffInfo.inBuffType=HCCL_BUFFER, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel2, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, hcclBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0`（参照 2 级 aicpu 的 GenInterTemplateParams，2 级的 inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_，3 级的 repeatNum 从 1 扩展为 rankSizeLevel2，需要新增 inputRepeatStride/outputRepeatStride）
@@ -411,7 +411,7 @@ NHR 原地累加原理：每个 rank 只修改自己的 slice 区域（offset = 
 
 ```
 OrchestrateLoop pseudo-flow:
-  // 整段 CCL 复用，与 2 级 aicpu 一致
+  // aicpu 场景下整段 CCL 复用，后续 CCU 等引擎复用时根据引擎特性调整
   algTemplateLevel0 = InsAlgTemplate0(param, myRank_, infos[0])
   algTemplateLevel1 = InsAlgTemplate1(param, myRank_, infos[1])
   algTemplateLevel2 = InsAlgTemplate2(param, myRank_, infos[2])
@@ -463,7 +463,7 @@ OrchestrateLoop pseudo-flow:
 **Dependencies:** U1（注册宏），U2（TopoMatchMultilevel 3 层支持），U3（executor 类）
 
 **Files:**
-- Modify: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc`（注册调用）
+- Modify: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_3level.cc`（注册调用）
 - Modify: `src/ops/reduce_scatter/selector/reduce_scatter_auto_selector.cc`（line 288-290 else 分支内新增 topoLevelNums >= 3 判断）
 
 **Approach:**
@@ -474,7 +474,7 @@ OrchestrateLoop pseudo-flow:
 ```
 REGISTER_EXECUTOR_BY_THREE_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
     InsReduceScatterSequenceMesh1DNHRNHR,
-    InsV2ReduceScatterSequenceExecutorAicpu3Level,
+    InsV2ReduceScatterSequenceExecutor3Level,
     TopoMatchMultilevel,
     InsTempReduceScatterMesh1DZAxisDetour,
     InsTempReduceScatterNHR,
@@ -560,7 +560,7 @@ REGISTER_EXECUTOR_BY_THREE_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
 | Risk | Mitigation |
 |------|------------|
 | TopoMatchMultilevel 扩展可能影响现有 2 层拓扑匹配逻辑 | 2 层场景保持 `infos.resize(2)` 不变，只在 `topoLevelNums>=3` 时 resize 为 3 |
-| CCL Buffer 整段复用可能因 scratchMultiplier 更大导致 maxCountPerLoop 减小、loop 次数增加 | 与 2 级 aicpu 一致使用整段 CCL（非半段），每级数据量递减（level2 只处理 1/(rankSizeLevel0×rankSizeLevel1) 的量），带宽收益远大于 loop overhead |
+| CCL Buffer aicpu 场景整段复用可能因 scratchMultiplier 更大导致 maxCountPerLoop 减小、loop 次数增加 | aicpu 场景与 2 级 aicpu 一致使用整段 CCL（非半段），每级数据量递减（level2 只处理 1/(rankSizeLevel0×rankSizeLevel1) 的量），带宽收益远大于 loop overhead。后续 CCU 等引擎复用时根据引擎特性决定 Buffer 策略 |
 | 3 级串行延迟叠加 | 每级数据量递减，实际延迟影响远小于带宽收益；流水线模式留作后续优化 |
 | TopoForLayer2 的 rank 筛选逻辑可能有不对称 pod 场景的边界问题 | 参照 TopoForLayer1 的 GCD 处理模式，对不对称场景做 GCD 计算 |
 | Selector 3 层分支最小修改，仅在 2 级 parallel 的 else 分支内新增 `topoLevelNums >= 3` 判断 | 修改范围极小：只改 line 288-290 的 else 分支，不影响 Level1Hd、小数据、Level1Nhr、64-bit/PROD 等任何其他分支 |

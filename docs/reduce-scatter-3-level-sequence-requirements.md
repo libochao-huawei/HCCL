@@ -45,7 +45,7 @@ topic: reduce-scatter-3-level-sequence
 
 **Executor 框架**
 
-- R1. 新建 `InsV2ReduceScatterSequenceExecutorAicpu3Level` 类，接受 3 个算法模板参数 `<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，`SEQUENCE_EXECUTOR_LEVEL_NUM = 3`
+- R1. 新建 `InsV2ReduceScatterSequenceExecutor3Level` 类（通用 3 级编排层，不绑定 aicpu，后续 CCU 等引擎可复用），接受 3 个算法模板参数 `<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，`SEQUENCE_EXECUTOR_LEVEL_NUM = 3`
 - R2. 数据流为线性串行 3 步：INPUT → Mesh(level0) → CCL Buffer → NHR(level1) → CCL Buffer → NHR(level2) → OUTPUT，每步串行执行、级间数据通过 CCL Buffer 传递
 - R3. 支持 loop 分片循环处理大数据量，每轮循环依次执行 3 级算法，与现有 2 级的 loop 机制一致
 - R4. 注册宏需要支持 3 个模板参数（新增 `REGISTER_EXECUTOR_BY_THREE_TEMPS` 或等效机制），注册名称为 `InsReduceScatterSequenceMesh1DNHRNHR`
