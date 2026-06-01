@@ -19,6 +19,7 @@
 #include "executor_v2_base.h"
 #include "coll_alg_v2_exec_registry.h"
 #include "hccl_aiv_utils.h"
+#include "aiv_kernel_def.h"
 
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
 {
@@ -194,11 +195,18 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     HCCL_INFO("[HcclSelectAlgGraphMode] Start: group[%s] count[%llu] dataType[%u] reduceOp[%u] opType[%u] aivCoreLimit[%u]",
         group, count, dataType, op, opType, aivCoreLimit);
     
+    if (g_aivKernelInfoMap.find(opType) == g_aivKernelInfoMap.end()) {
+        HCCL_INFO("[HcclSelectAlgGraphMode] Unsupported aiv op.");
+        return HCCL_SUCCESS;
+    }
     if (group == nullptr || ifAiv == nullptr || algName == nullptr) {
         HCCL_ERROR("[HcclSelectAlgGraphMode] Invalid parameters");
         return HCCL_E_PARA;
     }
-    
+
+    s32 deviceLogicId = 0;
+    CHK_PRT_RET(aclrtGetDevice(&deviceLogicId) != ACL_SUCCESS,
+        HCCL_WARNING("[HcclSelectAlgGraphMode] device is not set."), HCCL_SUCCESS);
     HcclComm hcclComm = nullptr;
     CHK_RET(HcomGetCommHandleByGroup(group, &hcclComm));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
@@ -221,7 +229,8 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     param.enableDetour = false;
     param.deviceType = deviceType;
 
-    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL || opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         param.varMemSize = ops_hccl::ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64);
         param.all2AllVDataDes.sendType = dataType;
         param.all2AllVDataDes.recvType = dataType;
