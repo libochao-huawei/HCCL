@@ -13,7 +13,9 @@
 
 #include "dlsym_common.h"
 #if CANN_VERSION_NUM >= 90100000
-#include "ccu_res.h"   // 原始头文件，包含所有类型和声明
+#include "ccu_types.h"
+#else
+#include "ccu_types_dl.h"
 #endif
 
 #ifdef __cplusplus
