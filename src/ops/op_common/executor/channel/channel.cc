@@ -85,7 +85,7 @@ HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& su
     }
     return HcclResult::HCCL_SUCCESS;
 #else
-    return HcclResult::HCCL_SUCCESS;
+    return HcclResult::HCCL_E_INTERNAL;
 #endif
 }
 
@@ -110,6 +110,8 @@ HcclResult ProcessFlattenLink(HcclComm comm, u32 myRank, const std::vector<std::
     }
     channels = channelsPerDie[0];
     return HcclResult::HCCL_SUCCESS;
+#else
+    return HcclResult::HCCL_E_INTERNAL;
 #endif
 }
 
@@ -419,6 +421,8 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
         CHK_RET(ProcessFlattenLink(comm, myRank, subcommInfo, channels));
     }
     return HCCL_SUCCESS;
+#else
+    return HCCL_E_INTERNAL;
 #endif
 }
 
