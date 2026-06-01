@@ -71,9 +71,9 @@ HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(const HcclComm comm
     std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName) const
 {
     protocolFound = false;
-    for (auto expectedProtocol : expectedProtocols) {
+    for (auto Protocol : expectedProtocols) {
         for (u32 idx = 0; idx < linkList.size(); idx++) {
-            if (linkList[idx].linkAttr.linkProtocol == expectedProtocol) {
+            if (linkList[idx].linkAttr.linkProtocol == Protocol) {
                 CHK_RET(CreateChannelFromLink(comm, myRank, remoteRank, netLayer, idx, linkList[idx],
                     funcName, channels));
                 protocolFound = true;
@@ -139,16 +139,16 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
         std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
 
         for (auto netLayer : netLayersVector) {
-            CommLink *linkList = nullptr;
             u32 listSize;
+            CommLink *linkList = nullptr;
             CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
 
             if (listSize == 0) {
                 continue;
             }
 
-            std::vector<CommLink> links(linkList, linkList + listSize);
             bool protocolFound = false;
+            std::vector<CommLink> links(linkList, linkList + listSize);
             CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
                 std::string("[CalcChannelRequestMesh1D]")));
 

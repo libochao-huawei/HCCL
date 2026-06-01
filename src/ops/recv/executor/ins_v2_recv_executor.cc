@@ -25,11 +25,11 @@ namespace ops_hccl {
     {
         (void) comm;
         (void) algHierarchyInfo;
-        myRank_ = topoInfo->userRank;
         rankSize_ = topoInfo->userRankSize;
         devType_ = topoInfo->deviceType;
         remoteRank_ = param.sendRecvRemoteRank;
         dataCount_ = param.DataDes.count;
+        myRank_ = topoInfo->userRank;
         dataType_ = param.DataDes.dataType;
         dataTypeSize_ = static_cast<u64>(DATATYPE_SIZE_TABLE[dataType_]);
 
