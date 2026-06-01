@@ -218,8 +218,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     }
     // v1.4 Fix: OpParam uses a union — must read the correct variant based on opType.
     // AlltoAllV (and AlltoAll converted to AlltoAllV) populates all2AllVDataDes, not DataDes.
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
-        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
         dataType_ = param.all2AllVDataDes.sendType;
         // AlltoAllV has per-peer counts; compute total dataCount by summing sendCounts
         // For AlltoAll (uniform), sendCounts[i] == sendCount for all i

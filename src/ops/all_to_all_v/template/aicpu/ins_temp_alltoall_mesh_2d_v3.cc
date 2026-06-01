@@ -289,7 +289,7 @@ HcclResult InsTempAlltoAllMesh2DV3::RunAlltoAllMesh(
 
     // 本地拷贝 输入 到 输出
     u64 inputOffset = tempAlgParams_.buffInfo.inBuffBaseOff + myRank_ * actualChunkSize;
-    u64 outputOffsetBase = tempAlgParams_.buffInfo.inBuffBaseOff +  myRank_ * actualChunkSize;
+    u64 outputOffsetBase = tempAlgParams_.buffInfo.outBuffBaseOff +  myRank_ * actualChunkSize;
     
     DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, actualChunkSize, chunkCount);
     DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffsetBase, actualChunkSize, chunkCount);
