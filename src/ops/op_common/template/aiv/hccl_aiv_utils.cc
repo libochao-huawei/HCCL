@@ -207,8 +207,8 @@ static HcclResult SaveAivDfxTaskInfo(const AivOpArgs &opArgs)
     taskInfo.blockDim = opArgs.numBlocks;
     taskInfo.rankSize = opArgs.rankSize;
     taskInfo.aivRdmaStep = 0;
-    u64* buffersOutArray = reinterpret_cast<u64*>(static_cast<u8*>(opArgs.buffersIn) + AIV_TAG_ADDR_OFFSET);
-    taskInfo.flagMem = reinterpret_cast<void *>(buffersOutArray[opArgs.rank] + AIV_FLAG_ADDR_OFFSET);
+    taskInfo.flagMem = static_cast<void *>(opArgs.buffersIn == nullptr ? nullptr :
+        static_cast<u8 *>(opArgs.buffersIn) + AIV_FLAG_ADDR_OFFSET);
     taskInfo.rank = opArgs.rank;
     taskInfo.isOpbase = opArgs.isOpBase;
     taskInfo.reduceOp = opArgs.op;
