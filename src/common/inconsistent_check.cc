@@ -22,7 +22,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, CommEngine engine, const AlgRes
                 CHK_RET(InconsisrentCheckParams(comm, exchangeInfo, resRequest.channels[level]));
             }
         } else {
-            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
+            for (auto &kernelInfo: resRequest.ccuKernelInfos) {
                 CHK_RET(InconsisrentCheckParams(comm, exchangeInfo, kernelInfo.channels));
             }
         }
