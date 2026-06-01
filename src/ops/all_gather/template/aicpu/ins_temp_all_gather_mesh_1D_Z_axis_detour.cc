@@ -91,7 +91,7 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::SetchannelsPerRank(
 }
 
 std::vector<ChannelInfo> InsTempAllGatherMesh1D1DZAxisDetour::PrepareMergedChannels(
-    const std::map<u32, std::vector<ChannelInfo>> &channels)
+    const std::map<u32, std::vector<ChannelInfo>> &channels) const
 {
     std::vector<ChannelInfo> mergedChannels;
     auto& ranks = subCommRanks_[COMM_LEVEL0];
@@ -162,7 +162,7 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::ExecuteSendRecvForChannel(
     u32 threadIdx, bool dmaRead, const std::vector<ThreadHandle> &threads,
     const ChannelInfo &linkRemote,
     const std::vector<DataSlice> &txSrcSlicesAll, const std::vector<DataSlice> &txDstSlicesAll,
-    const std::vector<DataSlice> &rxSrcSlicesAll, const std::vector<DataSlice> &rxDstSlicesAll)
+    const std::vector<DataSlice> &rxSrcSlicesAll, const std::vector<DataSlice> &rxDstSlicesAll) const
 {
     TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
     TxRxChannels sendRecvChannels(linkRemote, linkRemote);

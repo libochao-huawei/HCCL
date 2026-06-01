@@ -86,7 +86,7 @@ HcclResult InsTempSendHostNicDpu::KernelRun(const OpParam &param, const Template
     dpuRunInfo.subCommRanks = subCommRanks_;
     u32 sendMsgId = 0;
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
-    if (HcommSendRequest(static_cast<uint64_t>((uintptr_t)resource.npu2DpuShmemPtr), param.algTag,
+    if (HcommSendRequest(reinterpret_cast<uint64_t>(resource.npu2DpuShmemPtr), param.algTag,
         static_cast<void *>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
         HCCL_ERROR("InsTempSendHostNicDpu HcommSendRequest failed");
         return HCCL_E_INTERNAL;
@@ -97,7 +97,7 @@ HcclResult InsTempSendHostNicDpu::KernelRun(const OpParam &param, const Template
     // 等待DPU数据传输，然后回写结果回来
     void *recvData = nullptr;
     u32 recvMsgId = 0;
-    if (HcommWaitResponse(static_cast<uint64_t>((uintptr_t)resource.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
+    if (HcommWaitResponse(reinterpret_cast<uint64_t>(resource.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
         HCCL_ERROR("InsTempSendHostNicDpu HcommWaitResponse failed");
         return HCCL_E_INTERNAL;
     }
@@ -126,6 +126,7 @@ HcclResult InsTempSendHostNicDpu::DPUKernelRun(const TemplateDataParams &tempAlg
 #ifndef AICPU_COMPILE
     uint64_t sizePerRound = 0;
     uint64_t offset = 0;
+    uint64_t timeOutSize = 120000;
     std::vector<u32> rankIds = subCommRanks[0];
     for (u32 rankIdx = 0; rankIdx < rankIds.size(); rankIdx++) {
         if (rankIdx == myRank) {
@@ -141,7 +142,7 @@ HcclResult InsTempSendHostNicDpu::DPUKernelRun(const TemplateDataParams &tempAlg
             // 前同步
             CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, channels.at(rankIdx)[0].handle, 0)));
             CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, channels.at(rankIdx)[0].handle,
-                0, 120000)));
+                0, timeOutSize)));
 
             // 写数据
             offset += sizePerRound;
@@ -156,7 +157,7 @@ HcclResult InsTempSendHostNicDpu::DPUKernelRun(const TemplateDataParams &tempAlg
 
             // 后同步
             CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, channels.at(rankIdx)[0].handle,
-                2, 120000)));
+                2, timeOutSize)));
             CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, channels.at(rankIdx)[0].handle)));
         }
     }

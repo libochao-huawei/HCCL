@@ -43,7 +43,7 @@ public:
     HcclResult PreSyncInterTemplates();
     HcclResult PostSyncInterTemplates();
 #ifndef AICPU_COMPILE
-    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *ctx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
                                  const TemplateResource &templateAlgResInter, u32 notifyNumOnMainThread);
 #endif
