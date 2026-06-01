@@ -123,7 +123,8 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     // 计算最小传输大小
     u64 maxDataSizePerLoop = 0;
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
-    u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
+    u64 transportBoundDataSize = (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) ?
+        maxTmpMemSize_ : UB_MAX_DATA_SIZE;
     HCCL_INFO("[InsV2AllReduceSoleExecutor]maxTmpMemSize_ [%u]", maxTmpMemSize_);
     if (templateScratchMultiplier != 0) {
         u64 scratchBoundDataSize = maxTmpMemSize_ / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN
@@ -133,6 +134,8 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         maxDataSizePerLoop = transportBoundDataSize;
     }
     // 单次循环处理的数据量大小
+    CHK_PRT_RET(dataTypeSize_ == 0,
+        HCCL_ERROR("[InsV2AllReduceSoleExecutor][OrchestrateOpbase] dataTypeSize_ is 0"), HCCL_E_INTERNAL);
     u64 maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize_;
     HCCL_INFO(
         "[InsV2AllReduceSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop[%llu], maxDataSizePerLoop[%llu], "

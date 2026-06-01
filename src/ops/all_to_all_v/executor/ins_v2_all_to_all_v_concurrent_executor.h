@@ -33,12 +33,23 @@ public:
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes0,
+                                 const TemplateResource &templateAlgRes1, u32 notifyNumOnMainThread);
+#endif
+
 protected:
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
     HcclResult SetAlltoAllLocalSendRecvInfo(const OpParam &param);
     HcclResult SplitA2ASendRecvInfo(A2ASendRecvInfo &sendRecvInfoFirst, A2ASendRecvInfo &sendRecvInfoLast);
     HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, const bool multijetty) const;
     A2ASendRecvInfo localSendRecvInfo_;
+    std::vector<ThreadHandle> threads_;
+    std::vector<ThreadHandle> temp0Threads_;
+    ThreadHandle temp0ThreadMain_ = 0;
+    std::vector<ThreadHandle> temp1Threads_;
+    ThreadHandle temp1ThreadMain_ = 0;
 };
 }
 

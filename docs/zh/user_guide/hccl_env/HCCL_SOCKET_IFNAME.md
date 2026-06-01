@@ -56,8 +56,12 @@ Ascend 950PR/Ascend 950DT
 
 Atlas A3 训练系列产品/Atlas A3 推理系列产品
 
-Atlas A2 训练系列产品/Atlas A2 推理系列产品（针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，仅支持Atlas 800T A2 训练服务器、Atlas 900 A2 PoD 集群基础单元、Atlas 200T A2 Box16 异构子框。）
+Atlas A2 训练系列产品/Atlas A2 推理系列产品
 
-<cann-filter npu-type="910">Atlas 训练系列产品</cann-filter>
+<!-- npu="910" id1 -->
+Atlas 训练系列产品
+<!-- end id1 -->
 
-<cann-filter npu-type="310p">Atlas 推理系列产品（针对Atlas 推理系列产品，仅支持Atlas 300I Duo 推理卡。）</cann-filter>
+<!-- npu="310p" id2 -->
+Atlas 推理系列产品
+<!-- end id2 -->

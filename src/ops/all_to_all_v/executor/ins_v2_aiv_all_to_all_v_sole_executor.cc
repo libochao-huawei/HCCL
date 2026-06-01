@@ -48,29 +48,8 @@ HcclResult InsV2AivAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         HCCL_ERROR("algHierarchyInfo level num is zero!");
         return HCCL_E_PARA;
     }
-
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
-                    HCCL_ERROR("[InsV2AivAlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
-                        "with Level0Topo[%u] is not %u",
-                        algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, INST_NUM_NET),
-                    HCCL_E_PARA);
-        if (topoInfo->topoLevelNums == 1 || param.engine == CommEngine::COMM_ENGINE_AIV ||
-            param.engine == CommEngine::COMM_ENGINE_CCU) {
-            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
-        } else {
-            CHK_PRT_RET(algHierarchyInfo.infos[0][1].size() >= algHierarchyInfo.infos[1][0].size(),
-                        HCCL_ERROR("[InsV2AivAlltoAllVSoleExecutor][CalcRes] ranknum [%zu] in Layer0 with Level0Topo[%u] "
-                                   "should be smaller than ranknum [%zu] in Layer1",
-                                   algHierarchyInfo.infos[0][1].size(), topoInfo->level0Topo,
-                                   algHierarchyInfo.infos[1][0].size()),
-                        HCCL_E_PARA);
-            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]); // 跨框时，增加框内通信域，用于AICPU框内申请流资源
-            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
-        }
-    } else {
-        tempAlgHierachyInfo = algHierarchyInfo.infos[0];
-    }
+    
+    tempAlgHierachyInfo = algHierarchyInfo.infos[0];
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);

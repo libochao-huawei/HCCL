@@ -391,7 +391,6 @@ InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, I
         u32 level2StepCount = omniPipeSliceInfo.dataSliceLevel2.size();
         u32 level0StepCount = omniPipeSliceInfo.dataSliceLevel0.size() / omniPipeSliceInfo.dataSliceLevel2.size();
 
-        HCCL_ERROR("myRank_[%d] level2StepCount[%d], level0StepCount[%d]", myRank_, level2StepCount, level0StepCount);
         for (int i = 0; i < level2StepCount; i++) {
             if (rankSizeLevel_[OMNIPIPE_LEVEL2] > 1) {
                 CHK_RET(GenTemplateAlgParamsByDimData(tempAlgParamMap[OMNIPIPE_LEVEL2],
