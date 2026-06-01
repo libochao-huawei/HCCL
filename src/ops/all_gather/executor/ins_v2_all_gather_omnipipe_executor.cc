@@ -14,6 +14,7 @@
 #include "alg_data_trans_wrapper.h"
 #include "alg_param.h"
 #include "topo_match_ubx.h"
+#include "topo_match_3_level.h"
 #include "ins_temp_all_gather_omnipipe_mesh_1D.h"
 #include "ins_temp_all_gather_omnipipe_nhr_dpu.h"
 #include "ins_temp_all_gather_omnipipe_nhr.h"
@@ -56,32 +57,45 @@ InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, I
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2>
-HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::CalcRes(
-    HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-    const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest)
+HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::BuildSubCommAndTempMap(
+    const OpParam& param,
+    const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+    std::vector<std::vector<u32>>& subCommRanks0,
+    std::vector<std::vector<u32>>& subCommRanks1,
+    std::vector<std::vector<u32>>& subCommRanks2,
+    std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap)
 {
-    // 初始化一些基本成员变量
-    InitCommInfo(param, topoInfo, algHierarchyInfo);
-    CHK_RET(InitExectorInfo(param));
-
-    // 计算subCommRanks
-    int index = 0;
-    std::vector<std::vector<u32>> subCommRanks0{algHierarchyInfo.infos[0][0]};
-    std::vector<std::vector<u32>> subCommRanks2;
-    std::vector<std::vector<u32>> subCommRanks1;
-
-    if (!algHierarchyInfo_.infos[1].empty() && !algHierarchyInfo_.infos[1][0].empty()) {
-        subCommRanks2.push_back(algHierarchyInfo.infos[1][0]);
+    if (topoType_ == TopoType::THREE_LEVEL) {
+        if (!algHierarchyInfo.infos[0].empty() && !algHierarchyInfo.infos[0][0].empty()) {
+            subCommRanks0.push_back(algHierarchyInfo.infos[0][0]);
+        } else {
+            subCommRanks0.emplace_back(std::vector<u32>{myRank_});
+        }
+        if (!algHierarchyInfo.infos[1].empty() && !algHierarchyInfo.infos[1][0].empty()) {
+            subCommRanks1.push_back(algHierarchyInfo.infos[1][0]);
+        } else {
+            subCommRanks1.emplace_back(std::vector<u32>{myRank_});
+        }
+        if (!algHierarchyInfo.infos[2].empty() && !algHierarchyInfo.infos[2][0].empty()) {
+            subCommRanks2.push_back(algHierarchyInfo.infos[2][0]);
+        } else {
+            subCommRanks2.emplace_back(std::vector<u32>{myRank_});
+        }
     } else {
-        subCommRanks2.emplace_back(std::vector<u32>{myRank_});
+        subCommRanks0.push_back(algHierarchyInfo.infos[0][0]);
+        if (!algHierarchyInfo_.infos[1].empty() && !algHierarchyInfo_.infos[1][0].empty()) {
+            subCommRanks2.push_back(algHierarchyInfo.infos[1][0]);
+        } else {
+            subCommRanks2.emplace_back(std::vector<u32>{myRank_});
+        }
+        subCommRanks1.resize(1);
+        for (int i = myRank_ % rankSizeLevel_[OMNIPIPE_LEVEL0]; i < algHierarchyInfo.infos[0][1].size();
+             i += rankSizeLevel_[OMNIPIPE_LEVEL0]) {
+            subCommRanks1[0].push_back(algHierarchyInfo.infos[0][1][i]);
+        }
     }
-    subCommRanks1.resize(1);
 
-    for (int i = myRank_ % rankSizeLevel_[0]; i < algHierarchyInfo.infos[0][1].size(); i += rankSizeLevel_[0]) {
-        subCommRanks1[0].push_back(algHierarchyInfo.infos[0][1][i]);
-    }
-    std::map<u32, std::shared_ptr<InsAlgTemplateBase>> tempMap;
-
+    tempMap.clear();
     if (rankSizeLevel_[OMNIPIPE_LEVEL0] > 1) {
         tempMap[OMNIPIPE_LEVEL0] = std::make_shared<InsAlgTemplate0>(param, myRank_, subCommRanks0);
     }
@@ -91,11 +105,29 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     if (rankSizeLevel_[OMNIPIPE_LEVEL2] > 1) {
         tempMap[OMNIPIPE_LEVEL2] = std::make_shared<InsAlgTemplate2>(param, myRank_, subCommRanks2);
     }
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2>
+HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::CalcRes(
+    HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest)
+{
+    InitCommInfo(param, topoInfo, algHierarchyInfo);
+    CHK_RET(InitExectorInfo(param));
+
+    std::vector<std::vector<u32>> subCommRanks0;
+    std::vector<std::vector<u32>> subCommRanks1;
+    std::vector<std::vector<u32>> subCommRanks2;
+    std::map<u32, std::shared_ptr<InsAlgTemplateBase>> tempMap;
+
+    CHK_RET(BuildSubCommAndTempMap(param, algHierarchyInfo,
+        subCommRanks0, subCommRanks1, subCommRanks2, tempMap));
 
     for (auto& temp : tempMap) {
         CHK_RET(CalcResLevel(comm, param, topoInfo, temp.second, resourceRequest));
     }
-    HCCL_DEBUG("[InInsV2AllGatherOmniPipeExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
+    HCCL_DEBUG("[InsV2AllGatherOmniPipeExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
                "channels[%u]",
         myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum,
         resourceRequest.channels.size());
@@ -169,38 +201,17 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     HCCL_INFO("[InsV2AllGatherOmniPipeExecutor][Orchestrate] Orchestrate Start");
 
-    maxTmpMemSize_ = resCtx.cclMem.size;  // maxTmpMemSize_设定为cclIn的大小，op中将申请的HcclBuff全给了cclIn
+    maxTmpMemSize_ = resCtx.cclMem.size;
     CHK_RET(InitExectorInfo(param));
 
-    // 计算subCommRanks
-    int index = 0;
-    std::vector<std::vector<u32>> subCommRanks0{resCtx.algHierarchyInfo.infos[0][0]};
-    std::vector<std::vector<u32>> subCommRanks2;
+    std::vector<std::vector<u32>> subCommRanks0;
     std::vector<std::vector<u32>> subCommRanks1;
-
-    if (!algHierarchyInfo_.infos[1].empty() && !algHierarchyInfo_.infos[1][0].empty()) {
-        subCommRanks2.push_back(algHierarchyInfo_.infos[1][0]);
-    } else {
-        subCommRanks2.emplace_back(std::vector<u32>{myRank_});
-    }
-    subCommRanks1.resize(1);
-    for (int i = myRank_ % rankSizeLevel_[OMNIPIPE_LEVEL0]; i < resCtx.algHierarchyInfo.infos[0][1].size();
-         i += rankSizeLevel_[0]) {
-        subCommRanks1[0].push_back(resCtx.algHierarchyInfo.infos[0][1][i]);
-    }
+    std::vector<std::vector<u32>> subCommRanks2;
     std::map<u32, std::shared_ptr<InsAlgTemplateBase>> tempMap;
 
-    if (rankSizeLevel_[OMNIPIPE_LEVEL0] > 1) {
-        tempMap[OMNIPIPE_LEVEL0] = std::make_shared<InsAlgTemplate0>(param, myRank_, subCommRanks0);
-    }
-    if (rankSizeLevel_[OMNIPIPE_LEVEL1] > 1) {
-        tempMap[OMNIPIPE_LEVEL1] = std::make_shared<InsAlgTemplate1>(param, myRank_, subCommRanks1);
-    }
-    if (rankSizeLevel_[OMNIPIPE_LEVEL2] > 1) {
-        tempMap[OMNIPIPE_LEVEL2] = std::make_shared<InsAlgTemplate2>(param, myRank_, subCommRanks2);
-    }
+    CHK_RET(BuildSubCommAndTempMap(param, resCtx.algHierarchyInfo,
+        subCommRanks0, subCommRanks1, subCommRanks2, tempMap));
 
-    // 为temp分配thread
     threads_ = resCtx.threads;
     controlThread_ = threads_.at(0);
     levelThreads_.resize(OMNIPIPE_LEVEL_NUM);
@@ -210,7 +221,6 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 
     CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
 
-    // 算法展开
     HcclResult ret = OrchestrateLoop(param, resCtx, tempMap);
     CHK_PRT_RET(
         ret != HCCL_SUCCESS,
@@ -222,18 +232,42 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2>
 HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1,
-                                          InsAlgTemplate2>::InitExectorInfo(const OpParam& param)
+                                           InsAlgTemplate2>::InitExectorInfo(const OpParam& param)
 {
     rankSizeLevel_.resize(OMNIPIPE_LEVEL_NUM);
     rankIdxLevel_.resize(OMNIPIPE_LEVEL_NUM);
-    // 处理分层
-    rankSizeLevel_[OMNIPIPE_LEVEL0] = algHierarchyInfo_.infos[0][0].size();
-    rankSizeLevel_[OMNIPIPE_LEVEL1] = algHierarchyInfo_.infos[0][1].size() / algHierarchyInfo_.infos[0][0].size();
 
-    if (!algHierarchyInfo_.infos[1].empty() && !algHierarchyInfo_.infos[1][0].empty()) {
-        rankSizeLevel_[OMNIPIPE_LEVEL2] = algHierarchyInfo_.infos[1][0].size();
+    if (algHierarchyInfo_.infos.size() == 3 &&
+        !algHierarchyInfo_.infos[2].empty() && !algHierarchyInfo_.infos[2][0].empty()) {
+        topoType_ = TopoType::THREE_LEVEL;
     } else {
-        rankSizeLevel_[OMNIPIPE_LEVEL2] = 1;
+        topoType_ = TopoType::UBX_2LEVEL;
+    }
+
+    if (topoType_ == TopoType::THREE_LEVEL) {
+        if (!algHierarchyInfo_.infos[0].empty() && !algHierarchyInfo_.infos[0][0].empty()) {
+            rankSizeLevel_[OMNIPIPE_LEVEL0] = algHierarchyInfo_.infos[0][0].size();
+        } else {
+            rankSizeLevel_[OMNIPIPE_LEVEL0] = 1;
+        }
+        if (!algHierarchyInfo_.infos[1].empty() && !algHierarchyInfo_.infos[1][0].empty()) {
+            rankSizeLevel_[OMNIPIPE_LEVEL1] = algHierarchyInfo_.infos[1][0].size();
+        } else {
+            rankSizeLevel_[OMNIPIPE_LEVEL1] = 1;
+        }
+        if (!algHierarchyInfo_.infos[2].empty() && !algHierarchyInfo_.infos[2][0].empty()) {
+            rankSizeLevel_[OMNIPIPE_LEVEL2] = algHierarchyInfo_.infos[2][0].size();
+        } else {
+            rankSizeLevel_[OMNIPIPE_LEVEL2] = 1;
+        }
+    } else {
+        rankSizeLevel_[OMNIPIPE_LEVEL0] = algHierarchyInfo_.infos[0][0].size();
+        rankSizeLevel_[OMNIPIPE_LEVEL1] = algHierarchyInfo_.infos[0][1].size() / algHierarchyInfo_.infos[0][0].size();
+        if (!algHierarchyInfo_.infos[1].empty() && !algHierarchyInfo_.infos[1][0].empty()) {
+            rankSizeLevel_[OMNIPIPE_LEVEL2] = algHierarchyInfo_.infos[1][0].size();
+        } else {
+            rankSizeLevel_[OMNIPIPE_LEVEL2] = 1;
+        }
     }
 
     rankIdxLevel_[OMNIPIPE_LEVEL0] = myRank_ % rankSizeLevel_[OMNIPIPE_LEVEL0];
@@ -420,6 +454,9 @@ InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, I
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsV2AllGatherOmniPipe,
                        InsV2AllGatherOmniPipeExecutor, TopoMatchUBX, InsTempAllGatherOmniPipeMesh1D,
+                       InsTempAllGatherOmniPipeNHR, InsTempAllGatherOmniPipeNHRDPU);
+REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsTestAlgorithm,
+                       InsV2AllGatherOmniPipeExecutor, TopoMatch3Level, InsTempAllGatherOmniPipeMesh1D,
                        InsTempAllGatherOmniPipeNHR, InsTempAllGatherOmniPipeNHRDPU);
 #endif
 }  // namespace ops_hccl
