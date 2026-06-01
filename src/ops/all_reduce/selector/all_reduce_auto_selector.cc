@@ -309,7 +309,17 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
         opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
 
     if (topoInfo->topoLevelNums > 1) {
-        if (isDataTypeOrReduceTypeSpecial) {
+        if (topoInfo->topoLevelNums == 3) {
+            if (topoInfo->deviceNumPerModule == 8) {
+                selectAlgName = "InsV2AllReduce3Level";
+            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4
+                        && topoInfo->serverNum > 1) {
+                selectAlgName = "InsAllReduceParallelRSAGTest";
+            } else {
+                selectAlgName = "InsAllReduceNHR";
+            }
+        // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
+        } else if (isDataTypeOrReduceTypeSpecial) {
             selectAlgName = "InsAllReduceAicpuReduceNHR";
         } else if (topoInfo->Level1Nhr) {
             // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
@@ -505,6 +515,11 @@ SelectorStatus AllReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDe
     HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u", opParam.opType,
               algos[0], algos[1], algos[2], algos[3]);
     if (topoInfo->topoLevelNums > 1) {
+        if (topoInfo->topoLevelNums == 3) {
+ 	             selectAlgName = "InsV2AllReduce3Level";
+                 HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+ 	             return SelectorStatus::MATCH;
+ 	    }
         if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAllReduceSequenceMeshNhrDPU";//对应executor最后register的第二个参数
             HCCL_INFO("Using algo InsAllReduceSequenceMeshNhrDPU");
