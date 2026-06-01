@@ -11,6 +11,7 @@
 #ifndef REDUCE_SCATTER_BIRS_EXECUTOR_H
 #define REDUCE_SCATTER_BIRS_EXECUTOR_H
 #include "reduce_scatter_executor_base.h"
+#include "alg_template_base_experimental.h"
 #include "coll_alg_exec_registry.h"
 
 namespace ops_hccl_experimental {

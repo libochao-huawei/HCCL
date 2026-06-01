@@ -10,6 +10,7 @@
 
 #include <numeric>
 #include "reduce_scatter_birs_executor.h"
+#include "topo_experimental.h"
 
 namespace ops_hccl_experimental {
 
@@ -96,17 +97,19 @@ HcclResult ReduceScatterBIRSExecutor::KernelRunLevel0(const OpParam &param, Exec
     std::vector<Slice> dataSegsSlice;
     CHK_RET(PrepareDataSlice(execMem.count, unitSize_, sliceNum, dataSegsSlice));
 
-    std::unique_ptr<AlgTemplateBase> level0TempAlg;
+    std::unique_ptr<AlgTemplateBase> level0TempAlg = std::make_unique<AlgTemplateBaseExperimental>();
     bool isSingleServer = (topoInfo_->serverNum == 1);
     CHK_RET(SelectAndPrepareBirsTemplate(isSingleServer, level0LocalRank, level0LocalRankSize, level0TempAlg));
 
     HcclMem UsrInputMem{HCCL_MEM_TYPE_DEVICE, execMem.inputPtr, execMem.count * unitSize_};
     HcclMem UsrOutputMem{HCCL_MEM_TYPE_DEVICE, execMem.outputPtr, execMem.count * unitSize_};
     
-    CHK_RET(level0TempAlg->Prepare(UsrInputMem, UsrOutputMem, execMem.inputMem, execMem.count,
-    param.DataDes.dataType, thread_, slaveThreads_, param.reduceType, 0, dataSegsSlice));
+    if (auto exp = dynamic_cast<AlgTemplateBaseExperimental*>(level0TempAlg.get())) {
+        CHK_RET(exp->Prepare(UsrInputMem, UsrOutputMem, execMem.inputMem, execMem.count,
+            param.DataDes.dataType, thread_, slaveThreads_, param.reduceType, 0, dataSegsSlice, 0, false));
 
-    CHK_RET(level0TempAlg->RunAsync(level0LocalRank, level0LocalRankSize, channels_[COMM_LEVEL0]));
+        CHK_RET(exp->RunAsync(level0LocalRank, level0LocalRankSize, channels_[COMM_LEVEL0]));
+    }
 
     return HCCL_SUCCESS;
 }

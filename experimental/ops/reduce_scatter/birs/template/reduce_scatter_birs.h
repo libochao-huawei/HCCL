@@ -13,13 +13,14 @@
 
 #include "alg_template_base.h"
 #include "alg_data_trans_wrapper.h"
+#include "alg_template_base_experimental.h"
 
 namespace ops_hccl_experimental {
 using ops_hccl::AlgTemplateBase;
 using ops_hccl::Slice;
 using ops_hccl::ChannelInfo;
 
-class ReduceScatterBIRS : public AlgTemplateBase {
+class ReduceScatterBIRS : public AlgTemplateBaseExperimental {
 public:
     explicit ReduceScatterBIRS();
 

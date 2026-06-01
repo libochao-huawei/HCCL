@@ -23,7 +23,7 @@ using ops_hccl::PreSyncInterThreads;
 using ops_hccl::TemplateType;
 using ops_hccl::DefaultTemplateCreator;
 
-ReduceScatterBIRS::ReduceScatterBIRS() : AlgTemplateBase()
+ReduceScatterBIRS::ReduceScatterBIRS() : AlgTemplateBaseExperimental()
 {
 }
 
