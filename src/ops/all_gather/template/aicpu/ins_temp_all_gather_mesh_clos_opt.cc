@@ -275,11 +275,6 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
 
         const ChannelInfo &linkRemote = it->second[linkIdx];
         void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
-
-        std::vector<DataSlice> txSrcSlicesAll;
-        std::vector<DataSlice> txDstSlicesAll;
-        std::vector<DataSlice> rxDstSlicesAll;
-        std::vector<DataSlice> rxSrcSlicesAll;
         
         u64 sliceSize = tempAlgParams_.buffInfo.inputSize;
         u64 sliceCount = sliceSize / dataTypeSize;
@@ -287,6 +282,11 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
         u64 inputSliceStride = tempAlgParams_.inputSliceStride;
 
         if (remoteWrite) {
+            std::vector<DataSlice> txSrcSlicesAll;
+            std::vector<DataSlice> txDstSlicesAll;
+            std::vector<DataSlice> rxDstSlicesAll;
+            std::vector<DataSlice> rxSrcSlicesAll;
+            
             // 阶段1 远端写， 从本地的 input ptr 到 远端的 hccl buffer
             // 需要确保 当前场景下配置的repeatNum 为 1
 
@@ -323,7 +323,11 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
         } else {
             // 阶段 2 远端读， 从远端的 hccl buffer 到 本地的 output buffer
             for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
-                
+                std::vector<DataSlice> txSrcSlicesAll;
+                std::vector<DataSlice> txDstSlicesAll;
+                std::vector<DataSlice> rxDstSlicesAll;
+                std::vector<DataSlice> rxSrcSlicesAll;
+
                 // tx 远端写, 不应该启动
                 void *txSrcPtr = tempAlgParams_.buffInfo.inputPtr;
                 u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff;

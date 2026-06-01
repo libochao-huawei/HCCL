@@ -93,7 +93,7 @@ HcclResult InsTempAllGatherMesh1DOpt::KernelRun(const OpParam &param, const Temp
             u64 sliceSize = tempAlgParams_.buffInfo.inputSize;
             u64 sliceCount = sliceSize / dataTypeSize;
 
-            u32 localMeshRank = ((myRank_ + rpt * rankSize_ / meshSize_) % rankSize_);
+            u32 localMeshRank = ((myRank_ + rpt * meshSize_) % rankSize_);
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + localMeshRank * tempAlgParams_.outputSliceStride;;
             u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + localMeshRank * tempAlgParams_.outputSliceStride;
 
@@ -139,17 +139,16 @@ HcclResult InsTempAllGatherMesh1DOpt::RunAllGatherMesh(const std::vector<ThreadH
         const ChannelInfo &linkRemote = channels.at(connectedRank)[0];
         void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
 
-        std::vector<DataSlice> txSrcSlicesAll;
-        std::vector<DataSlice> txDstSlicesAll;
-        std::vector<DataSlice> rxDstSlicesAll;
-        std::vector<DataSlice> rxSrcSlicesAll;
-        
         u64 sliceSize = tempAlgParams_.buffInfo.inputSize;
         u64 sliceCount = sliceSize / dataTypeSize;
         u64 outputSliceStride = tempAlgParams_.outputSliceStride;
         u64 inputSliceStride = tempAlgParams_.inputSliceStride;
 
         if (remoteWrite) {
+            std::vector<DataSlice> txSrcSlicesAll;
+            std::vector<DataSlice> txDstSlicesAll;
+            std::vector<DataSlice> rxDstSlicesAll;
+            std::vector<DataSlice> rxSrcSlicesAll;
             // 阶段1 远端写， 从本地的 input ptr 到 远端的 hccl buffer
             // 需要确保 当前场景下配置的repeatNum 为 1
 
@@ -180,7 +179,11 @@ HcclResult InsTempAllGatherMesh1DOpt::RunAllGatherMesh(const std::vector<ThreadH
         } else {
             // 阶段 2 远端读， 从远端的 hccl buffer 到 本地的 output buffer
             for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
-                
+                std::vector<DataSlice> txSrcSlicesAll;
+                std::vector<DataSlice> txDstSlicesAll;
+                std::vector<DataSlice> rxDstSlicesAll;
+                std::vector<DataSlice> rxSrcSlicesAll;
+
                 // tx 远端写, 不应该启动
                 void *txSrcPtr = tempAlgParams_.buffInfo.inputPtr;
                 u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
@@ -193,11 +196,11 @@ HcclResult InsTempAllGatherMesh1DOpt::RunAllGatherMesh(const std::vector<ThreadH
 
                 // rx 远端读
                 void *rxSrcPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
-                u64 rxSrcOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + ((connectedRank + rpt * rankSize_ / meshSize_) % rankSize_) * outputSliceStride;
+                u64 rxSrcOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + ((connectedRank + rpt * meshSize_) % rankSize_) * outputSliceStride;
                 rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, sliceSize, sliceCount);
                 
                 void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
-                u64 rxOutOffset = tempAlgParams_.buffInfo.outBuffBaseOff + ((connectedRank + rpt * rankSize_ / meshSize_) % rankSize_) * outputSliceStride;
+                u64 rxOutOffset = tempAlgParams_.buffInfo.outBuffBaseOff + ((connectedRank + rpt * meshSize_) % rankSize_) * outputSliceStride;
                 rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, sliceSize, sliceCount);
 
                 TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
