@@ -335,9 +335,8 @@ HcclResult InsTempReduceScatterNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo
     // ReduceScatterNHR 将本rank号转换成算法使用的索引号
     u32 u32x = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], u32x));
-    stepInfoList.clear();
-
     u32 nSteps = GetNHRStepNum(templateRankSize_);
+    stepInfoList.clear();
     stepInfoList.resize(nSteps);
     for (u32 step = 0; step < nSteps; step++) {
         // ReduceScatter NHR计算通信对象
@@ -346,10 +345,10 @@ HcclResult InsTempReduceScatterNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo
         u32 recvFrom = (u32x + deltaRank) % templateRankSize_;
 
         // ReduceScatterNHR 数据份数和数据编号增量
-        u32 nSlices = (templateRankSize_ - 1 + (1 << step)) / (1 << (step + 1));
-        u32 deltaSliceIndex = 1 << (step + 1);
         u32 txSliceIdx = sendTo;
         u32 rxSliceIdx = u32x;
+        u32 nSlices = (templateRankSize_ - 1 + (1 << step)) / (1 << (step + 1));
+        u32 deltaSliceIndex = 1 << (step + 1);
 
         AicpuNHRStepInfo &currStepInfo = stepInfoList[step];
         currStepInfo.step = step;

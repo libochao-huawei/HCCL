@@ -80,6 +80,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(const HcclComm comm
             }
         }
         if (protocolFound) {
+            HCCL_INFO("[ProcessLinkForProtocol]protocolFound=%d", protocolFound);
             break;
         }
     }
