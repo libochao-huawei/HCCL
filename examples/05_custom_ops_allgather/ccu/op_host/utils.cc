@@ -10,7 +10,6 @@
 
 #include <string>
 #include <vector>
-#include <runtime/rt_external.h>
 #include "log.h"
 #include "common.h"
 #include "ccu_kernel.h"
@@ -186,22 +185,6 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxS
 
     HCCL_INFO("End to execute AllocAlgResourceCCU success.");
     return HCCL_SUCCESS;
-}
-
-uint64_t GetTokenInfo(uint64_t va, uint64_t size)
-{
-    rtMemUbTokenInfo info{};
-    info.va   = va;
-    info.size = size;
-
-    auto ret = rtUbDevQueryInfo(QUERY_PROCESS_TOKEN, &info);
-
-    constexpr uint32_t TOKEN_ID_RIGHT_SHIF = 8;
-    info.tokenId = info.tokenId >> TOKEN_ID_RIGHT_SHIF;
-
-    return ((1 & SetBits(tokenValidBitNum)) << tokenValidShiftBit)
-           | ((info.tokenId & SetBits(tokenIdBitNum)) << tokenIdShiftBit)
-           | ((info.tokenValue & SetBits(tokenValueBitNum)) << tokenValueShiftBit);
 }
 
 } // namespace ops_hccl_ag

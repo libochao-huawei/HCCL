@@ -51,9 +51,9 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtxSerializable &resCtx
     uint64_t baseInputAddr = reinterpret_cast<uint64_t>(param.inputPtr);
     uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(param.outputPtr);
     if (param.inputPtr != nullptr) {
-        token = GetTokenInfo(baseInputAddr, static_cast<uint64_t>(dataSize));
+        HcommCcuGetMemToken(baseInputAddr, static_cast<uint64_t>(dataSize), &token);
     } else if (param.outputPtr != nullptr) {
-        token = GetTokenInfo(baseOutputAddr, static_cast<uint64_t>(dataSize));
+        HcommCcuGetMemToken(baseOutputAddr, static_cast<uint64_t>(dataSize), &token);
     } 
 
     for (uint64_t loop = 0; loop < loopCount; loop++) {
