@@ -484,8 +484,8 @@ target_compile_options(hccl PRIVATE
     -fno-common
     -fno-strict-aliasing
     -pipe
-    $<$<CONFIG:Release>:-O3>
-    $<$<CONFIG:Debug>:-O3 -g>
+    -g
+    -O0
     $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
     -fstack-protector-all
 )
@@ -531,7 +531,6 @@ if(NOT STATIC_MODE)
         -Wl,-z,relro
         -Wl,-z,now
         -Wl,-z,noexecstack
-        $<$<CONFIG:Release>:-s>
     )
 endif()
 
