@@ -197,9 +197,17 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     auto interThreadsNum = intraTempRequest.slaveThreadNum + 1;
     auto intraNotifyOnMainThread = intraTempRequest.notifyNumOnMainThread;
     auto interNotifyOnMainThread = interTempRequest.notifyNumOnMainThread;
+    HCCL_WARNING("[InsV2AllGatherParallelOptExecutor][PrepareResForTemplate] totalThreads[%zu] "
+                 "intraThreadsNum[%llu] interThreadsNumByIntra[%llu] interRequestThreadsNum[%u] "
+                 "intraNotifyMain[%u] interNotifyMain[%u] intraNotifyVec[%zu] interNotifyVec[%zu]",
+                 threads_.size(), intraThreadsNum, interThreadsNum,
+                 interTempRequest.slaveThreadNum + 1, intraNotifyOnMainThread, interNotifyOnMainThread,
+                 intraTempRequest.notifyNumPerThread.size(), interTempRequest.notifyNumPerThread.size());
 
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + intraThreadsNum + 1);
     interThreads_.assign(threads_.begin() + intraThreadsNum + 1, threads_.end());
+    HCCL_WARNING("[InsV2AllGatherParallelOptExecutor][PrepareResForTemplate] sliced intraThreads[%zu] interThreads[%zu]",
+                 intraThreads_.size(), interThreads_.size());
     // 用于两个算法同步
     mainThread_ = threads_.at(0);
     templateMainThreads_.emplace_back(intraThreads_.at(0));

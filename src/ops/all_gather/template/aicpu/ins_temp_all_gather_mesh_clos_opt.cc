@@ -26,9 +26,6 @@ InsTempAllGatherMeshClosOpt::~InsTempAllGatherMeshClosOpt() {}
 u64 InsTempAllGatherMeshClosOpt::GetThreadNum() const
 {
     return channelsPerRank_;
-    // 最多使用 min(链路数, 邻居数) 个线程
-    // u32 numNeighbors = std::max(1u, templateRankSize_ - 1);
-    // return std::min(channelsPerRank_, numNeighbors);
 }
 
 HcclResult InsTempAllGatherMeshClosOpt::GetRes(AlgResourceRequest &resourceRequest) const
@@ -48,12 +45,30 @@ HcclResult InsTempAllGatherMeshClosOpt::CalcRes(HcclComm comm, const OpParam &pa
 {
     HCCL_INFO("[InsTempAllGatherMeshClosOpt][CalcRes] start");
     std::vector<HcclChannelDesc> levelChannels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, levelChannels));
+    CHK_RET(CalcChannelRequestMesh1DLevel1(comm, param, topoInfo, subCommRanks_, levelChannels));
+    CHK_PRT_RET(levelChannels.empty(),
+                HCCL_ERROR("[InsTempAllGatherMeshClosOpt][CalcRes] Rank[%u] Level1 CLOS channel request is empty. "
+                           "UBX mesh_1d_clos rankGraph may not expose CLOS as netLayer1.",
+                           topoInfo->userRank),
+                HcclResult::HCCL_E_INTERNAL);
     resourceRequest.channels.push_back(levelChannels);
 
     channelsPerRank_ = levelChannels.empty() ? 1 : CalcChannelsPerRank(levelChannels);
     HCCL_INFO("[InsTempAllGatherMeshClosOpt][CalcRes] totalLinks[%u], channelCount[%zu]",
               channelsPerRank_, levelChannels.size());
+    std::map<u32, u32> peerChannelCount;
+    for (const auto &channel : levelChannels) {
+        peerChannelCount[channel.remoteRank]++;
+    }
+    for (const auto &peerInfo : peerChannelCount) {
+        HCCL_WARNING("[InsTempAllGatherMeshClosOpt][CalcRes] Rank[%u] peer[%u] channelCount[%u]",
+                     topoInfo->userRank, peerInfo.first, peerInfo.second);
+    }
+    if (channelsPerRank_ != 4) {
+        HCCL_ERROR("[InsTempAllGatherMeshClosOpt][CalcRes] Rank[%u] channelsPerRank[%u] is not expected clos link num 4.",
+                   topoInfo->userRank, channelsPerRank_);
+        return HcclResult::HCCL_E_INTERNAL;
+    }
 
     CHK_RET(GetRes(resourceRequest));
     return HCCL_SUCCESS;
@@ -66,8 +81,21 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
     HCCL_INFO("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] templateRankSize[%u] totalLinks[%u].",
               myRank_, templateRankSize_, channelsPerRank_);
     // ========== 新增日志 ==========
-    HCCL_INFO("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] threads.size=%zu, channels.size=%zu",
-              threads.size(), channels.size());
+    HCCL_WARNING("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] remoteWrite[%d] threads.size[%zu] "
+                 "channels.size[%zu] repeatNum0[%u] repeatNum1[%u] allGatherToAllRanksCounts[%llu] "
+                 "inputSize0[%llu] inputSize1[%llu] outStride0[%llu] outStride1[%llu]",
+                 myRank_, remoteWrite, threads.size(), channels.size(), tempAlgParams_.repeatNum,
+                 tempAlgParams1_.repeatNum, allGatherToAllRanksCounts,
+                 tempAlgParams_.buffInfo.inputSize, tempAlgParams1_.buffInfo.inputSize,
+                 tempAlgParams_.outputSliceStride, tempAlgParams1_.outputSliceStride);
+    if (threads.size() != channelsPerRank_) {
+        HCCL_WARNING("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] threads.size[%zu] != channelsPerRank[%u].",
+                     myRank_, threads.size(), channelsPerRank_);
+    }
+    for (const auto &peerInfo : channels) {
+        HCCL_WARNING("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] channelMap peer[%u] channels[%zu]",
+                     myRank_, peerInfo.first, peerInfo.second.size());
+    }
     // ============================
     if (templateRankSize_ <= 1) {
         return HCCL_SUCCESS;
@@ -146,6 +174,11 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherToAllRanks(
 
         u32 totalLinksToNeighbor = it->second.size();
         u32 linkIdx = totalLinksToNeighbor - 1;
+        CHK_PRT_RET(linkIdx >= it->second.size() || threads.empty(),
+                    HCCL_ERROR("[InsTempAllGatherMeshClosOpt][RunAllGatherToAllRanks] Rank[%d] invalid link/thread. "
+                               "connectedRank[%u] linkIdx[%u] peerChannels[%zu] threads[%zu]",
+                               myRank_, connectedRank, linkIdx, it->second.size(), threads.size()),
+                    HcclResult::HCCL_E_INTERNAL);
 
 
         HCCL_INFO("[InsTempAllGatherMeshClosOpt] Rank[%d] linkIdx[%u] matched connectedRank[%u] "
@@ -187,8 +220,16 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherToAllRanks(
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
         TxRxChannels sendRecvChannels(linkRemote, linkRemote);
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-        CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threads.size() - 1]),
-                     HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvRead failed"), HcclResult::HCCL_E_INTERNAL);
+        u32 threadIdx = threads.size() - 1;
+        HCCL_WARNING("[InsTempAllGatherMeshClosOpt][C_PRE] Rank[%d] step[%u] peer[%u] linkIdx[%u] threadIdx[%u] "
+                     "peerChannels[%zu] txDstOff[%llu] rxSrcOff[%llu] rxDstOff[%llu] size[%llu]",
+                     myRank_, step, connectedRank, linkIdx, threadIdx, it->second.size(), txDstOffset,
+                     rxSrcOffset, rxOutOffset, sliceSize);
+        HcclResult ret = SendRecvRead(sendRecvInfo, threads[threadIdx]);
+        HCCL_WARNING("[InsTempAllGatherMeshClosOpt][C_POST] Rank[%d] step[%u] peer[%u] linkIdx[%u] threadIdx[%u] ret[%d]",
+                     myRank_, step, connectedRank, linkIdx, threadIdx, ret);
+        CHK_PRT_RET(ret, HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvRead failed"),
+                    HcclResult::HCCL_E_INTERNAL);
                     
     }
     return HCCL_SUCCESS;
@@ -217,6 +258,11 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
 
         u32 totalLinksToNeighbor = it->second.size();
         u32 selectedLinkIdx = (myRank_ ^ connectedRank) % (threads.size() - 1);
+        CHK_PRT_RET(linkIdx >= it->second.size(),
+                    HCCL_ERROR("[InsTempAllGatherMeshClosOpt][RunAllGatherOnLink] Rank[%d] invalid link. "
+                               "connectedRank[%u] linkIdx[%u] peerChannels[%zu] threads[%zu]",
+                               myRank_, connectedRank, linkIdx, it->second.size(), threads.size()),
+                    HcclResult::HCCL_E_INTERNAL);
 
         if (selectedLinkIdx != linkIdx) {
             continue;
@@ -265,8 +311,14 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
             TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
             TxRxChannels sendRecvChannels(linkRemote, linkRemote);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[linkIdx]),
-                        HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvWrite failed"), HcclResult::HCCL_E_INTERNAL);
+            HCCL_WARNING("[InsTempAllGatherMeshClosOpt][B_WRITE_PRE] Rank[%d] peer[%u] linkIdx[%u] "
+                         "peerChannels[%zu] txSrcOff[%llu] txDstOff[%llu] size[%llu]",
+                         myRank_, connectedRank, linkIdx, it->second.size(), txSrcOffset, txDstOffset, sliceSize);
+            HcclResult ret = SendRecvWrite(sendRecvInfo, threads[linkIdx]);
+            HCCL_WARNING("[InsTempAllGatherMeshClosOpt][B_WRITE_POST] Rank[%d] peer[%u] linkIdx[%u] ret[%d]",
+                         myRank_, connectedRank, linkIdx, ret);
+            CHK_PRT_RET(ret, HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvWrite failed"),
+                        HcclResult::HCCL_E_INTERNAL);
 
         } else {
             // 阶段 2 远端读， 从远端的 hccl buffer 到 本地的 output buffer
@@ -296,8 +348,16 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherOnLink(
                 TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
                 TxRxChannels sendRecvChannels(linkRemote, linkRemote);
                 SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[linkIdx]),
-                            HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvRead failed"), HcclResult::HCCL_E_INTERNAL);
+                HCCL_WARNING("[InsTempAllGatherMeshClosOpt][B_READ_PRE] Rank[%d] peer[%u] rpt[%u] remoteRank[%u] "
+                             "linkIdx[%u] peerChannels[%zu] rxSrcOff[%llu] rxDstOff[%llu] size[%llu]",
+                             myRank_, connectedRank, rpt, remoteRank, linkIdx, it->second.size(), rxSrcOffset,
+                             rxOutOffset, sliceSize);
+                HcclResult ret = SendRecvRead(sendRecvInfo, threads[linkIdx]);
+                HCCL_WARNING("[InsTempAllGatherMeshClosOpt][B_READ_POST] Rank[%d] peer[%u] rpt[%u] remoteRank[%u] "
+                             "linkIdx[%u] ret[%d]",
+                             myRank_, connectedRank, rpt, remoteRank, linkIdx, ret);
+                CHK_PRT_RET(ret, HCCL_ERROR("[InsTempAllGatherMesh1DOpt] RunAllGather SendRecvRead failed"),
+                            HcclResult::HCCL_E_INTERNAL);
             }
         }
     }
