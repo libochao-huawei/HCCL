@@ -13,7 +13,7 @@
 #include "ccu_temp_all_reduce_mesh_1D.h"
 #include "kernel/ccu_kernel_all_reduce_mesh1d.h"
 #include <set>
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 
 namespace ops_hccl {
 

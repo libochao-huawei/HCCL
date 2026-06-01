@@ -86,6 +86,9 @@ DECL_WEAK_FUNC(int32_t, HcommThreadSynchronize, ThreadHandle thread);
 DECL_WEAK_FUNC(int32_t, HcommSendRequest, uint64_t handle, const char* msgTag, const void* src, size_t sizeByte, uint32_t* msgId);
 DECL_WEAK_FUNC(int32_t, HcommWaitResponse, uint64_t handle, void* dst, size_t sizeByte, uint32_t* msgId);
 DECL_WEAK_FUNC(HcclResult, HcommThreadJoin, ThreadHandle thread, uint32_t timeout);
+DECL_WEAK_FUNC(int32_t, HcommWriteWithNotifyNbiOnThread, ThreadHandle thread, ChannelHandle channel,
+    void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx);
+DECL_WEAK_FUNC(int32_t, HcommChannelFenceOnThread, ThreadHandle thread, ChannelHandle channel);
 DECL_SUPPORT_FLAG(HcommBatchTransferOnThread);
 int32_t HcclHcommBatchTransferOnThread(ThreadHandle thread, ChannelHandle channel,
     const HcclHcommBatchTransferDesc *transferDescs, uint32_t transferDescNum);
