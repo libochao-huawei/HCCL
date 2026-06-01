@@ -42,6 +42,11 @@ SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDet
         return SelectorStatus::NOT_MATCH;
     }
 
+    if(IsInputOutputOverlap(opParam) == true){
+        HCCL_WARNING("[ReduceAutoSelector] ccu_ms mode not support inplace.");
+        return SelectorStatus::NOT_MATCH;
+    }
+
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[ReduceAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
@@ -121,6 +126,13 @@ SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLa
         return SelectorStatus::NOT_MATCH;
     }
     
+<<<<<<< HEAD
+=======
+    if(IsInputOutputOverlap(opParam) == true){
+        HCCL_WARNING("[ReduceAutoSelector] ccu_sched mode not support inplace.");
+        return SelectorStatus::NOT_MATCH;
+    }
+>>>>>>> 74278ef (060101)
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) == 1) {
