@@ -722,7 +722,7 @@ HcclResult AlltoAllVEntryLog(const void *sendBuf, const void *recvBuf, const voi
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
             "tag[%s], sendBuf[%p], recvBuf[%p], sendCounts[%llu], recvCounts[%llu], sdispls[%llu], rdispls[%llu], sendType[%s], recvType[%s], streamId[%d], deviceLogicId[%d]",
-            tag.c_str(), sendBuf, recvBuf, PointerToAddr(sendCounts), PointerToAddr(recvCounts), PointerToAddr(sdispls), PointerToAddr(rdispls), GetDataTypeEnumStr(sendType).c_str(),
+            tag.c_str(), sendBuf, recvBuf, GetDataArrayStr(sendCounts, rankSize).c_str(), GetDataArrayStr(recvCounts, rankSize).c_str(), GetDataArrayStr(sdispls, rankSize).c_str(), GetDataArrayStr(rdispls, rankSize).c_str(), GetDataTypeEnumStr(sendType).c_str(),
             GetDataTypeEnumStr(recvType).c_str(), streamId, deviceLogicId);
 
         CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
