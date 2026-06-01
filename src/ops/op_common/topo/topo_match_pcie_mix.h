@@ -38,9 +38,9 @@ private:
         return oss.str();
     }
     HcclResult LoadTopoInstRanks(const HcclComm comm, uint32_t netLayer, uint32_t topoInstId,
-        std::vector<uint32_t> &rankList);
+        std::vector<uint32_t> &rankList) const;
     HcclResult DeduplicateLevelRanks(const uint32_t myRank, std::vector<uint32_t> &level0Ranks,
-        std::vector<uint32_t> &level1Ranks);
+        std::vector<uint32_t> &level1Ranks) const;
 };
 }  // namespace Hccl
-#endif  // !TOPO_MATCH_PCIE_MIX
+#endif  // !TOPO_MATCH_PCIE_MIX

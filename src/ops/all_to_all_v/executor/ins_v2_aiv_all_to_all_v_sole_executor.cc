@@ -85,15 +85,15 @@ HcclResult InsV2AivAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestr
     }
 
     dataType_ = param.all2AllVDataDes.sendType;
-    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     rankSize_ = resCtx.topoInfo.userRankSize;
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     sendTypeSize_ = DATATYPE_SIZE_TABLE[param.all2AllVDataDes.sendType];
     recvTypeSize_ = DATATYPE_SIZE_TABLE[param.all2AllVDataDes.recvType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
     // Init sendRevc data for alltoall/alltoallV/alltoallVC algorithm
     CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize_ * sizeof(u64),
-        HCCL_ERROR("[CalcAlltoAllVSendRecvInfo] param.varMemSize [%llu] is invalid", param.varMemSize),
+        HCCL_ERROR("[InsV2AivAlltoAllVSoleExecutor] param.varMemSize [%llu] is invalid", param.varMemSize),
         HCCL_E_PARA);
     localSendRecvInfo_.sendCounts.resize(rankSize_, 0);
     localSendRecvInfo_.sendDispls.resize(rankSize_, 0);
@@ -224,7 +224,7 @@ HcclResult InsV2AivAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestr
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AivAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread) const
 {
     HCCL_INFO("[InsV2AivAlltoAllVSoleExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = 1;

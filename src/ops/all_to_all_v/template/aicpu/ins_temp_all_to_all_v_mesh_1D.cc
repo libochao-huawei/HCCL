@@ -339,6 +339,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecv(const TemplateDataParams &tempAlg
     const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
     const ThreadHandle& thread, const u32 channelId) const
 {
+    (void) tempAlgParams;
     if (isDmaRead_) {
         if (sendSizeSplit_[channelId] > 0 && recvSizeSplit_[channelId] > 0) {
             CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread),
@@ -380,6 +381,7 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopyByLoop(const std::vector<u32> &commRan
     const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
     const TemplateDataParams &tempAlgParams, const u32 myAlgRank)
 {
+    (void) myAlgRank;
     for (u32 rankIdx = 0; rankIdx < commRanks.size(); rankIdx++) {
         u32 remoteRank = commRanks[rankIdx];
         u32 myRankCclBuffIdx = 0; // myRank与remoteRank交互时myRank提供的cclbuffer index
