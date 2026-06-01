@@ -11,11 +11,12 @@
 #ifndef CCU_RES_DL_H
 #define CCU_RES_DL_H
 
-#if CANN_VERSION_NUM >= 90100000
-#include "ccu_res.h"
-#else
 #include "dlsym_common.h"
+#if CANN_VERSION_NUM >= 90100000
+#include "ccu_types.h"
+#else
 #include "ccu_types_dl.h"
+#endif // CANN_VERSION_NUM >= 90100000
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,7 +29,5 @@ void CcuResDlInit(void* libHcommHandle);
 #ifdef __cplusplus
 }
 #endif
-
-#endif // CANN_VERSION_NUM >= 90100000
 
 #endif // CCU_RES_DL_H
