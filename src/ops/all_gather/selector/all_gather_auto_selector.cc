@@ -21,6 +21,7 @@ constexpr u64 AG_AICPU_SMALL_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
 constexpr u64 AG_CCU_CLOS_SMALL_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_SEQUENCE_DATA_SIZE = 1 * 1024 * 1024 * 1024;
+constexpr u32 OMNI_PCIE_AG_DATA_SIZE = 4 * 1024 * 1024;
 
 SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -46,7 +47,12 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "CcuAllGatherMesh1D";
+        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+            return SelectorStatus::NOT_MATCH;
+        } else {
+            selectAlgName = "CcuAllGatherMesh1D";
+            return SelectorStatus::MATCH;
+        }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
         if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
@@ -221,8 +227,12 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
-                selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
-                    "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherParallelMesh1DNHR";
+                if (topoInfo->Level1Hd) {
+                    selectAlgName = "InsAllGatherParallelMesh1DHD";
+                } else {
+                    selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
+                        "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherParallelMesh1DNHR";
+                }
             } else {
                 selectAlgName = "InsAllGatherNHR";
             }
@@ -245,7 +255,11 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
                 if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
                     selectAlgName = "InsAllGatherMesh1D";
                 } else {
-                    selectAlgName = "InsAllGatherParallelMesh1DNHRPcie";
+                    if (dataSize < OMNI_PCIE_AG_DATA_SIZE) {
+                        selectAlgName = "InsAllGatherParallelMesh1DNHRPcie";
+                    } else {
+                        selectAlgName = "InsV2AllGatherOmniPipePcie";
+                    }
                 }
                 HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
                 return SelectorStatus::MATCH;
@@ -290,6 +304,17 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
 
     if (topoInfo->userRankSize > MAX_RANK_SIZE) {
         HCCL_DEBUG("[AllGatherAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+
+    void *cclBufferAddr;
+    uint64_t cclBufferSize;
+    CHK_PRT_RET(HcclGetHcclBuffer(opParam.hcclComm, &cclBufferAddr, &cclBufferSize) != HCCL_SUCCESS,
+        HCCL_WARNING("[AllGatherAutoSelector] HcclGetHcclBuffer failed."), SelectorStatus::NOT_MATCH);
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 totalSize = opParam.DataDes.count * perDataSize * topoInfo->userRankSize;
+    if (totalSize > cclBufferSize * AIV_MAX_CCL_LOOP_NUM) {
+        HCCL_DEBUG("[AllGatherAutoSelector][%s] totalSize[%llu] too large for cclBufferSize [%llu]", __func__, totalSize, cclBufferSize);
         return SelectorStatus::NOT_MATCH;
     }
 

@@ -24,6 +24,7 @@ constexpr u64 RS_CCU_CLOS_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
 constexpr u64 RS_CCU_64P_MIN_DATA_SIZE = 128 * 1024 * 1024;
 constexpr u64 RS_CCU_8P_MIN_DATA_SIZE = 64 * 1024 * 1024;
 constexpr u64 RS_AICPU_SEQUENCE_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
+constexpr u64 OMNI_PCIE_RS_DATA_SIZE = 4 * 1024 * 1024;
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -282,8 +283,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > RS_AICPU_1D_MIN_DATA_SIZE) {
-                selectAlgName = (dataSize * topoInfo->userRankSize > RS_AICPU_SEQUENCE_SIZE_THRESHOLD) ?
-                    "InsReduceScatterSequenceMesh1DNhr" : "InsReduceScatterParallelMesh1DNHR";
+                if (topoInfo->Level1Hd) {
+                    selectAlgName = "InsReduceScatterParallelMesh1DHD";
+                } else {
+                    selectAlgName = (dataSize * topoInfo->userRankSize > RS_AICPU_SEQUENCE_SIZE_THRESHOLD) ?
+                        "InsReduceScatterSequenceMesh1DNhr" : "InsReduceScatterParallelMesh1DNHR";
+                }
             } else {
                 selectAlgName = "InsReduceScatterNHR";
             }
@@ -375,6 +380,17 @@ SelectorStatus ReduceScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLay
         return SelectorStatus::NOT_MATCH;
     }
 
+    void *cclBufferAddr;
+    uint64_t cclBufferSize;
+    CHK_PRT_RET(HcclGetHcclBuffer(opParam.hcclComm, &cclBufferAddr, &cclBufferSize) != HCCL_SUCCESS,
+        HCCL_WARNING("[ReduceScatterAutoSelector] HcclGetHcclBuffer failed."), SelectorStatus::NOT_MATCH);
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 totalSize = opParam.DataDes.count * perDataSize * topoInfo->userRankSize;
+    if (totalSize > cclBufferSize * AIV_MAX_CCL_LOOP_NUM) {
+        HCCL_DEBUG("[ReduceScatterAutoSelector][%s] totalSize[%llu] too large for cclBufferSize [%llu]", __func__, totalSize, cclBufferSize);
+        return SelectorStatus::NOT_MATCH;
+    }
+
     selectAlgName = "AivReduceScatterMesh1D";
     HCCL_DEBUG("[ReduceScatterAutoSelector][%s] end, selectAlgName[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
@@ -413,7 +429,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuForMesh1DClos(const
         } else if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";
         } else {
-            selectAlgName = "InsReduceScatterParallelMesh1DNHRPcie";
+            if (dataSize < OMNI_PCIE_RS_DATA_SIZE) {
+                selectAlgName = "InsReduceScatterParallelMesh1DNHRPcie";
+            } else {
+                selectAlgName = "InsV2ReduceScatterOmniPipePcie";
+            }
         }
     } else if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
         // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法

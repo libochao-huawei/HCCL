@@ -25,6 +25,7 @@ constexpr u32 MAX_RANK_NUM_FOR_REDUCE_MS_ALGO = 8;
 constexpr u64 AR_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_CCU_CLOS_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_SEQUENCE_DATA_SIZE = 1 * 1024 * 1024 * 1024;
+constexpr u64 OMNI_PCIE_AR_DATA_SIZE = 32 * 1024 * 1024;
 
 SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -317,8 +318,12 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > AR_AICPU_1D_64P_SMALL_DATA_SIZE) {
-                selectAlgName = (dataSize > AR_AICPU_SEQUENCE_DATA_SIZE) ?
-                    "InsAllReduceSequenceMesh1DNhr" : "InsAllReduceParallelRSAG";
+                if (topoInfo->Level1Hd) {
+                    selectAlgName = "InsAllReduceFourTemplateMesh1DHD";
+                } else {
+                    selectAlgName = (dataSize > AR_AICPU_SEQUENCE_DATA_SIZE) ?
+                        "InsAllReduceSequenceMesh1DNhr" : "InsAllReduceParallelRSAG";
+                }
             } else {
                 selectAlgName = "InsAllReduceNHR";
             }
@@ -428,7 +433,11 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
                 if (isDataTypeOrReduceTypeSpecial) {
                     selectAlgName = "InsAllReduceAicpuReduceNHR";
                 } else {
-                    selectAlgName = "InsAllReduceParallelMesh1DNHRPcie";
+                    if (dataSize < OMNI_PCIE_AR_DATA_SIZE) {
+                        selectAlgName = "InsAllReduceParallelMesh1DNHRPcie";
+                    } else {
+                        selectAlgName = "InsV2AllReduceOmniPipePcie";
+                    }
                 }
             }
         } else { 
@@ -467,8 +476,17 @@ SelectorStatus AllReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
         return SelectorStatus::NOT_MATCH;
     }
  
+    void *cclBufferAddr;
+    uint64_t cclBufferSize;
+    CHK_PRT_RET(HcclGetHcclBuffer(opParam.hcclComm, &cclBufferAddr, &cclBufferSize) != HCCL_SUCCESS,
+        HCCL_WARNING("[AllReduceAutoSelector] HcclGetHcclBuffer failed."), SelectorStatus::NOT_MATCH);
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
+    if (dataSize > cclBufferSize * AIV_MAX_CCL_LOOP_NUM) {
+        HCCL_DEBUG("[AllReduceAutoSelector][%s] dataSize[%llu] too large for cclBufferSize [%llu]", __func__, dataSize, cclBufferSize);
+        return SelectorStatus::NOT_MATCH;
+    }
+
     if (IsSmallData(dataSize)) {
         selectAlgName = "AivAllReduceMesh1DOneShot";
     } else {
