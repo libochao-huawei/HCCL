@@ -84,6 +84,8 @@ HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& su
         }
     }
     return HcclResult::HCCL_SUCCESS;
+#else
+    return HcclResult::HCCL_SUCCESS;
 #endif
 }
 
