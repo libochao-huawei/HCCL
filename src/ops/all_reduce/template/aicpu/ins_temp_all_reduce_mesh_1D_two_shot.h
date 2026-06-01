@@ -44,13 +44,13 @@ public:
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
         AlgResourceRequest& resourceRequest) override;
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
+    HcclResult KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
+        TemplateResource& templateResource) override;
     u64 GetThreadNum() const override;
 
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
-    HcclResult KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
-        TemplateResource& templateResource) override;
 
 private:
     HcclResult SplitData();

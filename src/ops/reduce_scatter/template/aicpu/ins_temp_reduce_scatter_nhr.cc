@@ -252,10 +252,8 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
         std::vector<DataSlice> txDstSlices;
         std::vector<DataSlice> rxSrcSlices;
         std::vector<DataSlice> rxDstSlices;
-        // std::vector<DataSlice> rxSlices;
         txSrcSlices.reserve(st.nSlices * rptNum);
         txDstSlices.reserve(st.nSlices * rptNum);
-        // rxSlices.reserve(st.nSlices);
         rxSrcSlices.reserve(st.nSlices * rptNum);
         rxDstSlices.reserve(st.nSlices * rptNum);
         
@@ -334,7 +332,7 @@ u64 InsTempReduceScatterNHR::CalcScratchMultiple(BufferType inBuffType, BufferTy
 //  计算每轮收发的对端以及slice编号
 HcclResult InsTempReduceScatterNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoList)
 {
-    // 将本 rank 号转换成算法使用的索引号
+    // ReduceScatterNHR 将本rank号转换成算法使用的索引号
     u32 u32x = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], u32x));
     stepInfoList.clear();
@@ -342,12 +340,12 @@ HcclResult InsTempReduceScatterNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo
     u32 nSteps = GetNHRStepNum(templateRankSize_);
     stepInfoList.resize(nSteps);
     for (u32 step = 0; step < nSteps; step++) {
-        // 计算通信对象
+        // ReduceScatter NHR计算通信对象
         u32 deltaRank = 1 << step;
         u32 sendTo = (u32x + templateRankSize_ - deltaRank) % templateRankSize_;
         u32 recvFrom = (u32x + deltaRank) % templateRankSize_;
 
-        // 数据份数和数据编号增量
+        // ReduceScatterNHR 数据份数和数据编号增量
         u32 nSlices = (templateRankSize_ - 1 + (1 << step)) / (1 << (step + 1));
         u32 deltaSliceIndex = 1 << (step + 1);
         u32 txSliceIdx = sendTo;
@@ -360,7 +358,7 @@ HcclResult InsTempReduceScatterNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo
         currStepInfo.toRank = sendTo;
         currStepInfo.fromRank = recvFrom;
 
-        // 计算本rank在每轮收/发中的slice编号
+        // ReduceScatterNHR 计算本rank在每轮收/发中的slice编号
         currStepInfo.txSliceIdxs.reserve(nSlices);
         currStepInfo.rxSliceIdxs.reserve(nSlices);
         for (u32 i = 0; i < nSlices; i++) {

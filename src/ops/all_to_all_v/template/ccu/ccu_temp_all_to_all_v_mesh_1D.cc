@@ -106,29 +106,29 @@ void CcuTempAlltoAllVMesh1D::InitInsAlgTemplate(
     rdispls_ = rdispls;
 
     for (u32 i = 0; i < templateRankSize_; i++) {
-        HCCL_INFO("InitInsAlgTemplate, sendCounts[%u] is [%u]", i, sendCounts[i]);
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D] InitInsAlgTemplate, sendCounts[%u] is [%u]", i, sendCounts[i]);
     }
     for (u32 i = 0; i < templateRankSize_; i++) {
-        HCCL_INFO("InitInsAlgTemplate, recvCounts[%u] is [%u]", i, recvCounts[i]);
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D] InitInsAlgTemplate, recvCounts[%u] is [%u]", i, recvCounts[i]);
     }
     for (u32 i = 0; i < templateRankSize_; i++) {
-        HCCL_INFO("InitInsAlgTemplate, sdispls[%u] is [%u]", i, sdispls[i]);
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D] InitInsAlgTemplate, sdispls[%u] is [%u]", i, sdispls[i]);
     }
     for (u32 i = 0; i < templateRankSize_; i++) {
-        HCCL_INFO("InitInsAlgTemplate, rdispls[%u] is [%u]", i, rdispls[i]);
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D] InitInsAlgTemplate, rdispls[%u] is [%u]", i, rdispls[i]);
     }
 
     for (u32 i = 0; i < templateRankSize_; i++) {
-        HCCL_INFO("InitInsAlgTemplate, sendCounts_[%u] is [%u]", i, sendCounts_[i]);
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D] InitInsAlgTemplate, sendCounts_[%u] is [%u]", i, sendCounts_[i]);
     }
     for (u32 i = 0; i < templateRankSize_; i++) {
-        HCCL_INFO("InitInsAlgTemplate, recvCounts_[%u] is [%u]", i, recvCounts_[i]);
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D] InitInsAlgTemplate, recvCounts_[%u] is [%u]", i, recvCounts_[i]);
     }
     for (u32 i = 0; i < templateRankSize_; i++) {
-        HCCL_INFO("InitInsAlgTemplate, sdispls_[%u] is [%u]", i, sdispls_[i]);
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D] InitInsAlgTemplate, sdispls_[%u] is [%u]", i, sdispls_[i]);
     }
     for (u32 i = 0; i < templateRankSize_; i++) {
-        HCCL_INFO("InitInsAlgTemplate, rdispls_[%u] is [%u]", i, rdispls_[i]);
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D] InitInsAlgTemplate, rdispls_[%u] is [%u]", i, rdispls_[i]);
     }
 }
 

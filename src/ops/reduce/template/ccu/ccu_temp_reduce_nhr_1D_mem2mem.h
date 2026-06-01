@@ -57,7 +57,7 @@ private:
                                   std::vector<NHRStepInfo>& stepInfoVector, std::map<u32, u32>& rank2ChannelIdx,
                                   u32 enableDieNum, std::vector<std::vector<HcclChannelDesc>>& channelsPerDie);
     HcclResult SplitDataFor2Dies(const OpParam& param, const TemplateDataParams& templateDataParams, uint64_t& die0Size,
-                                 uint64_t& die1Size) const;
+                                 uint64_t& die1DataSize) const;
     HcclResult CalcSliceInfoAllReduce(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;    
 };
 
