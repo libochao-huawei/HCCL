@@ -126,7 +126,12 @@ HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const OpParam& param,
         u32 nextRank = (myRank_ + queIdx) % templateRankSize_;
         u32 fromRank = subCommRanks_[0][nextRank];
         u32 toRank = subCommRanks_[0][nextRank];
-
+        CHK_PRT_RET(channels.find(fromRank) == channels.end() || channels.at(fromRank).empty(),
+            HCCL_ERROR("[InsTempAllReduceMesh1DOneShot] RunAllReduce fromRank[%d] not found in channels", fromRank),
+            HcclResult::HCCL_E_INTERNAL);
+        CHK_PRT_RET(channels.find(toRank) == channels.end() || channels.at(toRank).empty(),
+            HCCL_ERROR("[InsTempAllReduceMesh1DOneShot] RunAllReduce toRank[%d] not found in channels", toRank),
+            HcclResult::HCCL_E_INTERNAL);
         const ChannelInfo &linkRecv = channels.at(fromRank)[0]; // linkRecv - 从fromRank接收的链路
         const ChannelInfo &linkSend = channels.at(toRank)[0]; // linkSend - 向toRank发送的链路
 

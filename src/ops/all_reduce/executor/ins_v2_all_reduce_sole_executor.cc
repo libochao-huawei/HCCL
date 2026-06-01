@@ -75,6 +75,10 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.DataDes.dataType];
+    if (dataCount > UINT64_MAX / dataTypeSize_) {
+        CHK_PRT_RET(true, HCCL_ERROR("[InsV2AllReduceSoleExecutor][Orchestrate] dataCount[%llu] * dataTypeSize_[%llu] overflow",
+            dataCount, dataTypeSize_), HCCL_E_INTERNAL);
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
@@ -94,6 +98,9 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         templateAlgRes.ccuKernels = resCtx.ccuKernels;
     }  
     if (param.engine != CommEngine::COMM_ENGINE_AIV && remoteRankToChannelInfo_.size() > 0) {
+        CHK_RET(remoteRankToChannelInfo_[0].size() > 0,
+            HCCL_ERROR("[InsV2AllReduceSoleExecutor][OrchestrateLoop] remoteRankToChannelInfo_[0].size() is 0"),
+            HCCL_E_INTERNAL);
         templateAlgRes.channels = remoteRankToChannelInfo_[0];
     }
     templateAlgRes.threads = resCtx.threads;
@@ -198,7 +205,7 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchS
     void *ctxPtr = nullptr;
     HCCL_INFO("[InsV2AllReduceSoleExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
     CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
-
+    CHK_PRT_RET(ctxPtr == nullptr, HCCL_ERROR("[InsV2AllReduceSoleExecutor][FastLaunchSaveCtx] ctxPtr is nullptr"), HcclResult::HCCL_E_INTERNAL);
     CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
     // 1 算法名
     CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
