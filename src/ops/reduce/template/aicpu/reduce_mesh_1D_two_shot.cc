@@ -270,7 +270,7 @@ ReduceMesh1DTwoShot::LocalSliceInfo ReduceMesh1DTwoShot::GetLocalSliceInfo(const
 }
 
 HcclResult ReduceMesh1DTwoShot::GatherLocalData(const TemplateDataParams &tempAlgParam,
-    const std::vector<ThreadHandle> &threads)
+    const std::vector<ThreadHandle> &threads) const
 {
     LocalSliceInfo info = GetLocalSliceInfo(tempAlgParam);
     void* localBuffPtr = (!enableRemoteMemAccess_) ? info.localHcclBuffPtr : info.localInBuffPtr;
