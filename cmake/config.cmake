@@ -131,15 +131,9 @@ if(EXISTS "${_hccl_cann_version_header}")
          REGEX "^#define[ \t]+CANN_VERSION_NUM[ \t]+")
     message(STATUS "CANN version line: [${_hccl_cann_ver_line}]")
     if(_hccl_cann_ver_line)
-        # 形如: #define CANN_VERSION_NUM ((8 * 10000000) + (5 * 100000) + (0 * 1000))
-        string(REGEX MATCH
-               "\\(([0-9]+) \\* 10000000\\) \\+ \\(([0-9]+) \\* 100000\\) \\+ \\(([0-9]+) \\* 1000\\)"
-               _ "${_hccl_cann_ver_line}")
-        message(STATUS "Matched: m1=[${CMAKE_MATCH_1}] m2=[${CMAKE_MATCH_2}] m3=[${CMAKE_MATCH_3}]")
-        if(NOT CMAKE_MATCH_1 STREQUAL "" AND NOT CMAKE_MATCH_2 STREQUAL "" AND NOT CMAKE_MATCH_3 STREQUAL "")
-            math(EXPR HCCL_CANN_VERSION_NUM
-                 "${CMAKE_MATCH_1} * 10000000 + ${CMAKE_MATCH_2} * 100000 + ${CMAKE_MATCH_3} * 1000")
-        endif()
+        # 提取CANN版本号
+        string(REGEX REPLACE "^#define[ \t]+CANN_VERSION_NUM[ \t]+(.+)$" "\\1" CANN_EXPR "${_hccl_cann_ver_line}")
+        math(EXPR HCCL_CANN_VERSION_NUM "${CANN_EXPR}" OUTPUT_FORMAT DECIMAL)
     endif()
 endif()
 message(STATUS "Detected CANN_VERSION_NUM = ${HCCL_CANN_VERSION_NUM}")
