@@ -157,12 +157,10 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             if (enableRemoteMemAccess_) {
                 continue; // 图模式跳过本地拷贝到CCL Buffer
             }
-            HCCL_INFO("[SendRecvDataToPeers][LocalCopy] copy data size %d from input src offset %d to hcclbuffer dst offset %d", sendSliceSize, mySliceOffSet, recvDstSliceOffset);
             DataSlice copySrcSlice(localInBuffPtr, inBuffBaseOffset + mySliceOffSet, sendSliceSize, sendSliceCount);
             DataSlice copyDstSlice(localHcclBuffPtr, hcclBuffBaseOffset + recvDstSliceOffset, sendSliceSize, sendSliceCount);
             CHK_PRT_RET(LocalCopy(threads.at(remoteIdx), copySrcSlice, copyDstSlice),
-                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][SendRecvDataToPeers] LocalCopy failed."),
-                HcclResult::HCCL_E_INTERNAL);
+                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][SendRecvDataToPeers] LocalCopy failed."), HcclResult::HCCL_E_INTERNAL);
         } else {
             u32 remoteRank = rankList_.at(remoteIdx);
             const ChannelInfo &sendRecvChannel = channels.at(remoteRank).at(0);
@@ -189,8 +187,7 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
             TxRxSlicesList sendRecvSlicesList({sendSrcSlicesList, sendDstSlicesList}, {recvSrcSlicesList, recvDstSlicesList});
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
             CHK_PRT_RET(SendRecvBatchWrite(sendRecvInfo, threads.at(remoteIdx)),
-                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][SendRecvDataToPeers] SendRecv failed."),
-                HcclResult::HCCL_E_INTERNAL);
+                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][SendRecvDataToPeers] SendRecv failed."), HcclResult::HCCL_E_INTERNAL);
         }
     }
     return HCCL_SUCCESS;
