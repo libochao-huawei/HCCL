@@ -21,6 +21,8 @@
 using namespace HcclSim;
 using namespace ops_hccl;
 
+void RunAllGatherVMultilevel(const TopoMeta &topoInfo, VDataDesTag vDataDes);
+
 class ST_ALL_GATHER_V_TEST : public ::testing::Test {
 protected:
     void SetUp() override
