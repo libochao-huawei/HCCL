@@ -13,7 +13,7 @@
 #include "log.h"
 #include "channel.h"
 #include "ccu_kernel_all_reduce_mesh1d_one_shot.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 
 namespace ops_hccl {
 

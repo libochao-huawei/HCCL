@@ -11,7 +11,7 @@
 #include "channel.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
 #include "ccu_kernel_reduce_scatter_nhr1d_mem2mem.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 
 namespace ops_hccl {
 

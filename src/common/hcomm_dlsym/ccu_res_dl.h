@@ -11,8 +11,12 @@
 #ifndef CCU_RES_DL_H
 #define CCU_RES_DL_H
 
+#if CANN_VERSION_NUM >= 90100000
+#include "ccu_res.h"
+#else
 #include "dlsym_common.h"
-#include "ccu_res.h"   // 原始头文件，包含所有类型和声明
+#include "ccu_types_dl.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

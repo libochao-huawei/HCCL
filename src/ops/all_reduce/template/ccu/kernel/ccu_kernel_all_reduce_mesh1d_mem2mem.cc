@@ -20,7 +20,6 @@ constexpr int CKE_IDX_0     = 0;
 constexpr uint16_t BIT_NUM_PER_CKE = 16;
 constexpr uint16_t GROUP_REDUCE_MAX_PIECE_CNT = 8;
 
-
 static CcuResult ParseKernelArg(AllReduceMeshMem2Mem1DContext &ctx, CcuKernelArgAllReduceMeshMem2Mem1D *kernelArg)
 {
     ctx.dataType        = kernelArg->opParam.DataDes.dataType;
