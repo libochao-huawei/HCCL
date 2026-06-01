@@ -14,4 +14,4 @@
     export HCCL_TEST_PROFILING_PATH=/home/profiling
     ```
 
-    若开启HCCL\_TEST\_PROFILING，HCCL Test工具执行完成后会在HCCL\_TEST\_PROFILING\_PATH指定目录下生成Profiling数据，性能数据的解析请参考《[性能调优工具用户指南](https://hiascend.com/document/redirect/CannCommunityToolProfiling)》的“使用msprof命令解析、查询与导出性能数据”章节。
+    若开启HCCL_TEST_PROFILING，HCCL Test工具执行完成后会在HCCL_TEST_PROFILING_PATH指定目录下生成Profiling数据，性能数据的解析请参考《[性能调优工具用户指南](https://hiascend.com/document/redirect/CannCommunityToolProfiling)》的“使用msprof命令解析、查询与导出性能数据”章节。
