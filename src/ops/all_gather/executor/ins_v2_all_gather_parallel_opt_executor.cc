@@ -241,7 +241,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     u64 dataSizeAxis1 = dataCountAxis1 * dataTypeSize_;
     u64 dataSizeAxis2 = dataCountAxis2 * dataTypeSize_;
 
-    u64 rankSize = rankIdxLevel1_;
+    u64 rankSize = rankSizeLevel1_;
 
     TemplateResource interTempAlgRes;
     interTempAlgRes.channels = interLinkMap_;
@@ -262,6 +262,9 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     TemplateDataParams tempAlgParamsIntra1;
     TemplateDataParams tempAlgParamsInter1;
     TemplateDataParams tempAlgParamsAll1;
+
+    tempAlgIntra.SetMeshDimensions(rankSizeLevel1_, myRank_, rankSizeLevel0_, rankSizeLevel1_);
+    tempAlgInter.SetMeshDimensions(rankSizeLevel1_, myRank_, rankSizeLevel0_, rankSizeLevel1_);
 
     // Stage 0 远端写模式
     tempAlgIntra.SetRemoteWrite(true);
@@ -307,7 +310,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
         tempAlgParamsInter0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
         tempAlgParamsInter0.buffInfo.hcclBuffSize = dataSize_ * rankSize;
         tempAlgParamsInter0.buffInfo.hcclBuffBaseOff = dataSizeAxis0;
-        tempAlgParamsIntra0.outputSliceStride = dataSize_;
+        tempAlgParamsInter0.outputSliceStride = dataSize_;
 
         // 不需要 copy out
         tempAlgParamsInter0.buffInfo.outputPtr = nullptr;
@@ -367,12 +370,12 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
         tempAlgParamsIntra1.buffInfo.inBuffBaseOff = dataSizeAxis0;
         tempAlgParamsIntra1.inputSliceStride = dataSize_;
 
-        tempAlgParamsIntra1.repeatNum = rankIdxLevel1_ / rankIdxLevel0_;
+        tempAlgParamsIntra1.repeatNum = rankSizeLevel1_ / rankSizeLevel0_;
 
         tempAlgParamsIntra1.buffInfo.hcclBuff = resCtx.cclMem;
         tempAlgParamsIntra1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
         tempAlgParamsIntra1.buffInfo.hcclBuffSize = dataSize_ * rankSize;
-        tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff = 0;
+        tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff = dataSizeAxis0;
 
         // 不需要 copy out
         tempAlgParamsIntra1.buffInfo.outputPtr = param.outputPtr;
@@ -394,7 +397,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
         tempAlgParamsInter1.buffInfo.inBuffBaseOff = 0;
         tempAlgParamsInter1.inputSliceStride = dataSize_;
 
-        tempAlgParamsInter1.repeatNum = rankIdxLevel0_;
+        tempAlgParamsInter1.repeatNum = rankSizeLevel0_;
 
         tempAlgParamsInter1.buffInfo.hcclBuff = resCtx.cclMem;
         tempAlgParamsInter1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
@@ -421,12 +424,12 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
         tempAlgParamsAll1.buffInfo.inBuffBaseOff = dataSizeAxis0 + dataSizeAxis1;
         tempAlgParamsAll1.inputSliceStride = dataSize_;
 
-        tempAlgParamsAll1.repeatNum = rankIdxLevel1_ - 4; // 先发4份
+        tempAlgParamsAll1.repeatNum = rankSizeLevel1_ - 4; // 先发4份
 
         tempAlgParamsAll1.buffInfo.hcclBuff = resCtx.cclMem;
         tempAlgParamsAll1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
         tempAlgParamsAll1.buffInfo.hcclBuffSize = dataSize_ * rankSize;
-        tempAlgParamsAll1.buffInfo.hcclBuffBaseOff = 0;
+        tempAlgParamsAll1.buffInfo.hcclBuffBaseOff = dataSizeAxis0 + dataSizeAxis1;
 
         tempAlgParamsAll1.buffInfo.outputPtr = param.outputPtr;
         tempAlgParamsAll1.buffInfo.outBuffType = BufferType::OUTPUT;
