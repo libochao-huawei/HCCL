@@ -17,14 +17,13 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, CommEngine engine, const AlgRes
     OpExchangeInfo &exchangeInfo)
 {
     if (HcommIsSupportHcclCommGetExchangeInfo()) {
-            if (engine != COMM_ENGINE_CCU) {
-                for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                    CHK_RET(InconsisrentCheckParams(comm, exchangeInfo, resRequest.channels[level]));
-                }
-            } else {
-                for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                    CHK_RET(InconsisrentCheckParams(comm, exchangeInfo, kernelInfo.channels));
-                }
+        if (engine != COMM_ENGINE_CCU) {
+            for (u32 level = 0; level < resRequest.channels.size(); level++) {
+                CHK_RET(InconsisrentCheckParams(comm, exchangeInfo, resRequest.channels[level]));
+            }
+        } else {
+            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
+                CHK_RET(InconsisrentCheckParams(comm, exchangeInfo, kernelInfo.channels));
             }
         }
     }
