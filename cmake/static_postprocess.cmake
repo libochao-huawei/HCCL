@@ -14,7 +14,7 @@ set(_STATIC_POSTPROCESS_DIR "${CMAKE_CURRENT_LIST_DIR}")
 set(HCCL_STATIC_INTERMEDIATE "${CMAKE_BINARY_DIR}/src/libhccl_static.a")
 
 # device侧AICPU包
-set(HCCL_AICPU_TAR "${CMAKE_BINARY_DIR}/hccl_device/signatures/aicpu_hccl.tar.gz")
+set(HCCL_AICPU_TAR "${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz")
 
 # 最终静态库（含内核）
 set(HCCL_STATIC_FINAL_LIB "${CMAKE_BINARY_DIR}/libhccl_static_final.a")
@@ -52,6 +52,7 @@ add_custom_command(
     COMMENT "复制到兼容路径"
 )
 add_custom_target(hccl_static_compat ALL DEPENDS ${HCCL_STATIC_COMPAT_LIB})
+add_dependencies(hccl_static_compat hccl_static_final)
 
 # 兼容旧打包格式: build_out/cann-hccl-static_*.tar.gz
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386|i686")
@@ -71,9 +72,10 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E make_directory ${HCCL_STATIC_PKG_DIR}/lib64
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/include ${HCCL_STATIC_PKG_DIR}/include
     COMMAND ${CMAKE_COMMAND} -E copy ${HCCL_STATIC_FINAL_LIB} ${HCCL_STATIC_PKG_DIR}/lib64/libhccl_static.a
-    COMMAND ${CMAKE_COMMAND} -E tar czf ${HCCL_STATIC_TAR} include lib64
-    WORKING_DIRECTORY ${HCCL_STATIC_PKG_DIR}
+    COMMAND ${CMAKE_COMMAND} -E chdir ${HCCL_STATIC_PKG_DIR}
+            ${CMAKE_COMMAND} -E tar czf ${HCCL_STATIC_TAR} include lib64
     DEPENDS ${HCCL_STATIC_FINAL_LIB}
     COMMENT "打包静态库tar.gz"
 )
 add_custom_target(hccl_static_package ALL DEPENDS ${HCCL_STATIC_TAR})
+add_dependencies(hccl_static_package hccl_static_final)

@@ -75,16 +75,16 @@ foreach(aiv_o ${aiv_objects})
         COMMAND ${CMAKE_COMMAND} -E copy ${aiv_o} ${aiv_bin}
         RESULT_VARIABLE ret
     )
-    if(NOT ret EQUAL 0)
-        message(FATAL_ERROR "Failed to copy AIV kernel: ${aiv_basename}")
+    if(NOT ret EQUAL 0 OR NOT EXISTS "${aiv_bin}")
+        message(FATAL_ERROR "Failed to copy AIV kernel to ${aiv_bin}: ${aiv_basename}")
     endif()
 
     execute_process(
-        COMMAND ld -r -b binary -o ${aiv_stem}_embed.o ${aiv_stem}.bin
-        WORKING_DIRECTORY ${_EXTRACT_DIR}
+        COMMAND ${CMAKE_COMMAND} -E chdir ${_EXTRACT_DIR}
+                ld -r -b binary -o ${aiv_stem}_embed.o ${aiv_stem}.bin
         RESULT_VARIABLE ret
     )
-    if(NOT ret EQUAL 0)
+    if(NOT ret EQUAL 0 OR NOT EXISTS "${aiv_embed}")
         message(FATAL_ERROR "Failed to embed AIV kernel: ${aiv_basename}")
     endif()
 
