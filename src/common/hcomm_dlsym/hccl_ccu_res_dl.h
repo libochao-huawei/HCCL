@@ -13,10 +13,8 @@
 
 #include "dlsym_common.h"
 #if CANN_VERSION_NUM >= 90100000
-#include "hccl_types.h"
 #include "ccu_types.h"
 #else
-#include "hccl_types_dl.h"
 #include "ccu_types_dl.h"
 #endif
 
