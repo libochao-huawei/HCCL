@@ -11,8 +11,12 @@
 #ifndef CCU_LAUNCH_DL_H
 #define CCU_LAUNCH_DL_H
 
+#if CANN_VERSION_NUM >= 90100000
+#include "ccu_launch.h"
+#else
 #include "dlsym_common.h"
-#include "ccu_launch.h"   // 原始头文件，包含所有类型和声明
+#include "ccu_types_dl.h"
+#include "hccl_res_dl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,5 +32,7 @@ void CcuLaunchDlInit(void* libHcommHandle);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // CANN_VERSION_NUM >= 90100000
 
 #endif // CCU_LAUNCH_DL_H

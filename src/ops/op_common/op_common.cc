@@ -50,8 +50,8 @@
 #include "hcom.h"
 #include "hccl_res_expt_dl.h"
 #if CANN_VERSION_NUM >= 90000000
-#include "ccu_launch.h"
-#include "hccl_ccu_res.h"
+#include "ccu_launch_dl.h"
+#include "hccl_ccu_res_dl.h"
 #endif
 
 namespace ops_hccl {
@@ -894,14 +894,14 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     bool isChecked = GetInconsistentCheckSwitch() == 0 &&
         (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
     if (HcommIsSupportHcclCommAddExchangeInfo()) {
-        if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
-            isChecked = true; // isChecked 为 false 时做参数比较
-        } else {
-            CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
-            CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
-            g_inconsistentCheckedList.insert(tagStr);
-            isChecked = false;
-        }
+    if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
+        isChecked = true; // isChecked 为 false 时做参数比较
+    } else {
+        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
+        CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
+        g_inconsistentCheckedList.insert(tagStr);
+        isChecked = false;
+    }
     }
 
     CHK_RET(GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size,
@@ -918,19 +918,19 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
             resCtxHost->threads.size(), channelNumInfo.c_str(), resCtxHost->ccuKernels.size());
     }
 
+    // 参数一致性校验
     if (HcommIsSupportHcclCommGetExchangeInfo()) {
-        // 参数一致性校验
-        if (!isChecked) {
-            if (param.engine != COMM_ENGINE_CCU) {
-                for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                    CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
-                }
-            } else {
-                for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                    CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
-                }
+    if (!isChecked) {
+        if (param.engine != COMM_ENGINE_CCU) {
+            for (u32 level = 0; level < resRequest.channels.size(); level++) {
+                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
+            }
+        } else {
+            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
+                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
             }
         }
+    }
     }
 
     return HCCL_SUCCESS;
@@ -1064,8 +1064,8 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
                 *resCtxSequence = ctx;
                 ctxSize = size;
                 if (HcommIsSupportHcclCommResetExchangeInfo()) {
-                    // 算子参数信息已注册，但BatchSendRecv在此处判断资源可复用，不会进行数据交换即不会被读清，需要手动reset
-                    CHK_RET(HcclCommResetExchangeInfo(comm));
+                // 算子参数信息已注册，但BatchSendRecv在此处判断资源可复用，不会进行数据交换即不会被读清，需要手动reset
+                CHK_RET(HcclCommResetExchangeInfo(comm));
                 }
             } else {
                 HCCL_ERROR("failed to get device ctx.");
@@ -1734,7 +1734,7 @@ std::string GetSupportDataType(bool needReduce)
     std::vector<HcclDataType> supportList = {HCCL_DATA_TYPE_INT8, HCCL_DATA_TYPE_INT16, HCCL_DATA_TYPE_INT32,
                                              HCCL_DATA_TYPE_INT64, HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP32};
     if (needReduce) {
-        supportList.insert(supportList.end(), {HCCL_DATA_TYPE_BFP16, HCCL_DATA_TYPE_UINT64,
+        supportList.insert(supportList.end(), {HCCL_DATA_TYPE_BFP16, HCCL_DATA_TYPE_UINT64, HCCL_DATA_TYPE_UINT64,
                                                HCCL_DATA_TYPE_FP64});
     } else {
         supportList.insert(supportList.end(), {HCCL_DATA_TYPE_UINT8, HCCL_DATA_TYPE_UINT16,

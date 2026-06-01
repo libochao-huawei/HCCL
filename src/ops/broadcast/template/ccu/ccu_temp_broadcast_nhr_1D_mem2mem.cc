@@ -9,7 +9,7 @@
  */
 
 #include "channel.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 #include "ccu/ccu_temp_broadcast_nhr_1D_mem2mem.h"
 #include "alg_data_trans_wrapper.h"
 

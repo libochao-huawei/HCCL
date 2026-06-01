@@ -9,7 +9,7 @@
  */
 
 #include "channel.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 #include "ccu_kernel_broadcast_mesh1d.h"
 #include "ccu/ccu_temp_broadcast_mesh_1D.h"
 // #include "ccu_control_api.h"
