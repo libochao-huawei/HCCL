@@ -763,13 +763,13 @@ add_es_library(
 add_dependencies(hccl es_hccl)
 
 install(DIRECTORY ${CMAKE_BINARY_DIR}/es_output/include/es_hccl
-    DESTINATION ${INSTALL_OPGRAPH_INCLUDE_DIR}
+    DESTINATION ${INSTALL_INCLUDE_DIR}/es/
     ${INSTALL_OPTIONAL}
     COMPONENT hccl
 )
 
 install(FILES ${CMAKE_BINARY_DIR}/es_output/lib64/libes_hccl.so
-    DESTINATION ${INSTALL_OPGRAPH_LIBRARY_DIR}
+    DESTINATION ${INSTALL_LIBRARY_DIR}
     ${INSTALL_OPTIONAL}
     COMPONENT hccl
 )
