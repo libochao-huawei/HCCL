@@ -9,7 +9,6 @@
  */
 
 #include "gtest/gtest.h"
-#include "sim_world.h"
 #include "hccl.h"
 #include "hccl/hccl_types.h"
 #include "acl/acl_rt.h"
@@ -17,8 +16,8 @@
 #include "check_utils.h"
 #include <thread>
 #include "alg_env_config.h"
+#include "v_testcase_common.h"
 
-using namespace HcclSim;
 using namespace ops_hccl;
 
 void RunAllGatherVMultilevel(const TopoMeta &topoInfo, VDataDesTag vDataDes);
@@ -51,17 +50,6 @@ TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_aicpu_test)
     RunAllGatherVMultilevel(topoMeta, vDataDes);
 }
 
-static inline u32 AnalyseRankSizeAGV(const TopoMeta &topoInfo)
-{
-    u32 rankSize = 0;
-    for (const auto &superPod : topoInfo) {
-        for (const auto &podIdx : superPod) {
-            rankSize += podIdx.size();
-        }
-    }
-    return rankSize;
-}
-
 void RunAllGatherVMultilevel(const TopoMeta &topoInfo, VDataDesTag vDataDes)
 {
     // 仿真模型初始化
@@ -71,7 +59,7 @@ void RunAllGatherVMultilevel(const TopoMeta &topoInfo, VDataDesTag vDataDes)
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
 
     // 算子执行参数设置
-    auto rankSize = AnalyseRankSizeAGV(topoInfo);
+    auto rankSize = AnalyseRankSize(topoInfo);
 
     u64 sumRecvCount = 0;
     for (auto rankId = 0; rankId < rankSize; ++rankId) {
