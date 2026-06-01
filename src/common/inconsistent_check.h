@@ -18,7 +18,7 @@
 
 namespace ops_hccl {
 HcclResult CompareOpExchangeInfos(HcclComm comm, CommEngine engine, const AlgResourceRequest &resRequest,
-    OpExchangeInfo &exchangeInfo);
+    const OpExchangeInfo &exchangeInfo);
 
 HcclResult InconsisrentCheckParams(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels);

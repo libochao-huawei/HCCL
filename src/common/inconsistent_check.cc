@@ -14,7 +14,7 @@
 
 namespace ops_hccl {
 HcclResult CompareOpExchangeInfos(HcclComm comm, CommEngine engine, const AlgResourceRequest &resRequest,
-    OpExchangeInfo &exchangeInfo)
+    const OpExchangeInfo &exchangeInfo)
 {
     if (HcommIsSupportHcclCommGetExchangeInfo()) {
         if (engine != COMM_ENGINE_CCU) {
