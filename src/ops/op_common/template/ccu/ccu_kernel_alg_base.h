@@ -17,7 +17,7 @@
 #include <memory>
 
 #include "log.h"
-#include "ccu_primitives_dl.h"
+#include "ccu_primitives_dl.hpp"
 #include "ccu_log.h"
 // #include "ccu_kernel.h"
 namespace ccu = ::AscendC::ccu;
