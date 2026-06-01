@@ -11,7 +11,7 @@
 #include "channel.h"
 #include "alg_data_trans_wrapper.h"
 #include "ccu_launch.h"
-
+#include "ccu_res.h"
 #include "ccu_temp_all_to_all_mesh2die.h"
 #include "kernel/ccu_kernel_all_to_all_mesh2die.h"
 
@@ -135,10 +135,10 @@ HcclResult CcuTempAllToAllMesh2Die::KernelRun(const OpParam &param, const Templa
         std::vector<uint64_t> taskArgs;
         taskArgs.push_back(inputAddr);
         taskArgs.push_back(outputAddr);
-        taskArgs.push_back(tokenInfo);
+        taskArgs.push_back(token);
         taskArgs.push_back(sliceSize);
         taskArgs.push_back(inputSliceStride);
-        taskArgs.push_back(outputSliceStride);
+        taskArgs.push_back(outputSliceStride * myRank_);
         for (auto val : goSize) {
             taskArgs.push_back(val);
         }
@@ -153,7 +153,7 @@ HcclResult CcuTempAllToAllMesh2Die::KernelRun(const OpParam &param, const Templa
         }
     }
 
-    std::vector<u32> notifyIdxSubToMain(1, 0);  // 可能会改
+    std::vector<u32> notifyIdxSubToMain(1, 0);
     CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
 
     HCCL_DEBUG("[CcuTempAllToAllMesh2Die][KernelRun] end. Rank[%d]", myRank_);

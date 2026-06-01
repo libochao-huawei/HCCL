@@ -14,6 +14,7 @@
 #include "kernel/ccu_kernel_all_to_all_v_mesh2die.h"
 #include "ccu_temp_all_to_all_v_mesh2die.h"
 #include "ccu_launch.h"
+#include "ccu_res.h"
 
 namespace ops_hccl {
 
@@ -114,23 +115,6 @@ void CcuTempAlltoAllVMesh2Die::SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRec
     localSendRecvInfo_ = sendRecvInfo;
 }
 
-HcclResult CcuTempAlltoAllVMesh2Die::GetTokenWithFallback(const BuffInfo &buffInfo, uint64_t &token)
-{
-    if (buffInfo.outputPtr != nullptr && buffInfo.outputSize != 0) {
-        HcommCcuGetMemToken(PointerToAddr(buffInfo.outputPtr),
-                            static_cast<uint64_t>(buffInfo.outputSize),
-                            &token);
-        return HCCL_SUCCESS;
-    } else if (buffInfo.hcclBuff.addr != nullptr && buffInfo.hcclBuff.size != 0) {
-        HcommCcuGetMemToken(PointerToAddr(buffInfo.hcclBuff.addr),
-                            static_cast<uint64_t>(buffInfo.hcclBuff.size),
-                            &token);
-        return HCCL_SUCCESS;
-    }
-    HCCL_WARNING("[GetTokenWithFallback] outputMem and hcclBuff are all null");
-    return HCCL_E_PTR;
-}
-
 HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
     TemplateResource& templateResource)
 {
@@ -149,8 +133,8 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
         "sendType[%d], recvType[%d]", myRank_, inputAddr, param.inputPtr, outputAddr, param.outputPtr,
         param.all2AllVDataDes.sendType, param.all2AllVDataDes.recvType);
 
-    uint64_t tokenInfo;
-    CHK_RET(GetTokenWithFallback(buffInfo_, tokenInfo));
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo, token));
 
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -161,7 +145,7 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
         std::vector<uint64_t> taskArgs;
         taskArgs.push_back(inputAddr);
         taskArgs.push_back(outputAddr);
-        taskArgs.push_back(tokenInfo);
+        taskArgs.push_back(token);
 
         LoopGroupConfig config{};
         config.msInterleave = CCU_MS_INTERLEAVE;

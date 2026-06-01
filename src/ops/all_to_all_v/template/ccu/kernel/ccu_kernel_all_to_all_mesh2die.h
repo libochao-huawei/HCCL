@@ -34,16 +34,11 @@ struct CcuKernelArgAllToAllMesh2Die : CcuKernelArgBase {
 struct AllToAllMesh2DieContext : CcuKernelCtxBase {
     const CcuKernelArgAllToAllMesh2Die *arg;
 
-    // uint64_t rankSize{0};
-    // uint32_t rankId{0};
     uint16_t virRankSize{0};
     uint64_t logicRankSize{0};
     ccu::Variable input;
     std::vector<ccu::Variable> output;
     std::vector<ccu::Variable> token;
-    // std::vector<ChannelHandle> channels;
-    bool withMyRank = true;
-    std::vector<RankId> rankGroup;
     ccu::Variable sliceSize;
     ccu::Variable inputSliceStride;
     ccu::Variable outputoffset;
