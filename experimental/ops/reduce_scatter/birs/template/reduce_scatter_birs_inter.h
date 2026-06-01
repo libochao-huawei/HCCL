@@ -12,6 +12,7 @@
 #define REDUCE_SCATTER_BIRS_INTER_H
 
 #include "reduce_scatter_birs.h"
+#include "alg_template_base_experimental.h"
 
 namespace ops_hccl_experimental {
 using ops_hccl::AlgTemplateBase;

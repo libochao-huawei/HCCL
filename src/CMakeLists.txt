@@ -25,6 +25,8 @@ set(INCLUDE_LIST
     ${OPS_BASE_DIR}/experimental/
     ${OPS_BASE_DIR}/experimental/ops/
     ${OPS_BASE_DIR}/experimental/ops/op_common/
+    ${OPS_BASE_DIR}/experimental/ops/op_common/template
+    ${OPS_BASE_DIR}/experimental/ops/op_common/topo
     ${OPS_BASE_DIR}/experimental/ops/reduce_scatter/
     ${OPS_BASE_DIR}/experimental/ops/reduce_scatter/birs/
     ${OPS_BASE_DIR}/experimental/ops/reduce_scatter/birs/template/
@@ -279,6 +281,9 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu/ins_temp_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu/ins_temp_scatter_nhr.cc
     
+        ${OPS_BASE_DIR}/experimental/ops/op_common/template/alg_template_base_experimental.cc
+        ${OPS_BASE_DIR}/experimental/ops/op_common/topo/topo_experimental.cc
+
         ${OPS_BASE_DIR}/experimental/ops/reduce_scatter/birs/reduce_scatter_birs_executor.cc
         ${OPS_BASE_DIR}/experimental/ops/reduce_scatter/birs/reduce_scatter_executor_base.cc
         

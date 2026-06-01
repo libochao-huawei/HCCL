@@ -14,6 +14,7 @@
 #include "alg_param.h"
 #include "executor_base.h"
 #include "config_log.h"
+#include "alg_template_base_experimental.h"
 
 namespace ops_hccl_experimental {
 using ops_hccl::ExecutorBase;
