@@ -202,7 +202,7 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchS
     void *ctxPtr = nullptr;
     HCCL_INFO("[InsV2AllReduceSoleExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
     CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
-    CHK_NULLPTR_RET(ctxPtr, HCCL_ERROR("[InsV2AllReduceSoleExecutor][FastLaunchSaveCtx] ctxPtr is nullptr"), HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(ctxPtr == nullptr, HCCL_ERROR("[InsV2AllReduceSoleExecutor][FastLaunchSaveCtx] ctxPtr is nullptr"), HcclResult::HCCL_E_INTERNAL);
     CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
     // 1 算法名
     CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
