@@ -11,7 +11,11 @@
 #include "channel.h"
 #include "ccu_kernel_reduce_mesh1d_mem2mem.h"
 #include "ccu_temp_reduce_mesh_1D_mem2mem.h"
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_launch.h"
+#else
+#include "ccu_launch_dl.h"
+#endif
 
 namespace ops_hccl {
 
