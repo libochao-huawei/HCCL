@@ -16,7 +16,7 @@
 #include "topo_match_1d.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_reduce_mesh_1D.h"
-#if CANN_VERSION_NUM >= 90100000
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_mesh_1D.h"
 #include "ccu_temp_reduce_nhr_1D_mem2mem.h"
@@ -259,14 +259,14 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, ReduceAicpuReduceNHR, ReduceSoleE
 
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, AivReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, AivTempReduceMesh1D);
-#if CANN_VERSION_NUM >= 90100000
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(
     HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1DMem2Mem);
 #endif /* !HCCL_CANN_COMPAT_850 */
-#if CANN_VERSION_NUM >= 90100000
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1D);
 #endif /* !HCCL_CANN_COMPAT_850 */
-#if CANN_VERSION_NUM >= 90100000
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(
     HcclCMDType::HCCL_CMD_REDUCE, CcuReduceNHR1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceNHR1DMem2Mem);
 #endif /* !HCCL_CANN_COMPAT_850 */

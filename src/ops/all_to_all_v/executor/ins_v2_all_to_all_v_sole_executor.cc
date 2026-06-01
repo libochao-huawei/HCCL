@@ -14,7 +14,7 @@
 #ifndef AICPU_COMPILE
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
-#if CANN_VERSION_NUM >= 90100000
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_mesh_1D.h"
 // #include "ccu_temp_all_to_all_mesh2die.h"
 // #include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
@@ -463,7 +463,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, I
 #endif /* !HCCL_CANN_COMPAT_850 */
 
 #ifndef AICPU_COMPILE
-#if CANN_VERSION_NUM >= 90100000
+#if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
         CcuTempAlltoAllMesh1D);
     // REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh1D2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,

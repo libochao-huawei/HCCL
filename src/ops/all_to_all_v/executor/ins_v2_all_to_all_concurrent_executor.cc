@@ -565,7 +565,7 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 InsTempAlltoAllVMesh1D,
                                 InsTempAlltoAllVMesh1D);
 #ifndef AICPU_COMPILE
-#if CANN_VERSION_NUM >= 90100000
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
                                 CcuAllToAllMesh1DConcurrent,
                                 InsV2AllToAllConcurrentExecutor,
