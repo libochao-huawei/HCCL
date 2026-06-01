@@ -43,7 +43,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<InsCollA
 
 HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo);
 
-HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
+HcclResult FillOpExchangeInfoFromDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
 
 HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
