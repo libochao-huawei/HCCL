@@ -45,9 +45,12 @@ protected:
 
 private:
     HcclResult RunAlltoAllOnLink(
-        const std::vector<ThreadHandle> &threads,
+        const std::vector<ThreadHandle> &commThreads,
+        const std::vector<ThreadHandle> &copyThreads,
         const std::map<u32, std::vector<ChannelInfo>> &channels,
         u32 linkIdx, u32 step, u32 numSteps);
+
+    u32 GetCopyNotifySlotCount() const;
 };
 
 }  // namespace ops_hccl

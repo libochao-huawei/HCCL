@@ -13,6 +13,10 @@
 #include "template_utils.h"
 #include "channel.h"
 namespace ops_hccl {
+namespace {
+constexpr u32 COPY_THREAD_NUM = 1;
+constexpr u32 COPY_NOTIFY_BASE_IDX = 1;
+}
 
 InsTempAlltoAllMeshClosV3::InsTempAlltoAllMeshClosV3(const OpParam &param, const u32 rankId,
                                                      const std::vector<std::vector<u32>> &subCommRanks)
@@ -31,7 +35,18 @@ std::string InsTempAlltoAllMeshClosV3::Describe() const
 
 u64 InsTempAlltoAllMeshClosV3::GetThreadNum() const
 {
-    return channelsPerRank_;
+    return channelsPerRank_ + COPY_THREAD_NUM;
+}
+
+u32 InsTempAlltoAllMeshClosV3::GetCopyNotifySlotCount() const
+{
+    u32 commThreadNum = channelsPerRank_ == 0 ? 1 : channelsPerRank_;
+    u32 peerNum = templateRankSize_ > 0 ? templateRankSize_ - 1 : 0;
+    if (peerNum == 0) {
+        return 1;
+    }
+    u32 stepNum = (peerNum + commThreadNum - 1) / commThreadNum;
+    return stepNum * commThreadNum;
 }
 
 HcclResult InsTempAlltoAllMeshClosV3::GetRes(AlgResourceRequest &resourceRequest) const
@@ -39,7 +54,8 @@ HcclResult InsTempAlltoAllMeshClosV3::GetRes(AlgResourceRequest &resourceRequest
     u32 threadNum = GetThreadNum();
     resourceRequest.slaveThreadNum = threadNum > 1 ? threadNum - 1 : 0;
     if (resourceRequest.slaveThreadNum > 0) {
-        resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+        resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, COPY_NOTIFY_BASE_IDX);
+        resourceRequest.notifyNumPerThread.back() = COPY_NOTIFY_BASE_IDX + GetCopyNotifySlotCount();
     }
     resourceRequest.notifyNumOnMainThread = threadNum > 1 ? threadNum - 1 : 0;
     return HCCL_SUCCESS;
@@ -74,10 +90,20 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllMesh(
     if (templateRankSize_ <= 1) {
         return HCCL_SUCCESS;
     }
-    u32 numSteps = (subCommRanks_[0].size() - 1 + threads.size() - 1) / threads.size(); // ceil((p-1)/threadNum)
+    CHK_PRT_RET(threads.size() < channelsPerRank_ + COPY_THREAD_NUM,
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] threads[%zu] < required[%u]. "
+                           "commThreads=%u copyThreads=%u myRank=%d",
+                           threads.size(), channelsPerRank_ + COPY_THREAD_NUM, channelsPerRank_, COPY_THREAD_NUM,
+                           myRank_),
+                HcclResult::HCCL_E_INTERNAL);
+
+    std::vector<ThreadHandle> commThreads(threads.begin(), threads.begin() + channelsPerRank_);
+    std::vector<ThreadHandle> copyThreads(threads.begin() + channelsPerRank_,
+                                          threads.begin() + channelsPerRank_ + COPY_THREAD_NUM);
+    u32 numSteps = (subCommRanks_[0].size() - 1 + commThreads.size() - 1) / commThreads.size();
     for (u32 step = 0; step < numSteps; step++) {
-        for (u32 linkIdx = 0; linkIdx < threads.size(); linkIdx++) {
-            CHK_RET(RunAlltoAllOnLink(threads, channels, linkIdx, step, numSteps));
+        for (u32 linkIdx = 0; linkIdx < commThreads.size(); linkIdx++) {
+            CHK_RET(RunAlltoAllOnLink(commThreads, copyThreads, channels, linkIdx, step, numSteps));
         }
     }
 
@@ -93,14 +119,20 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllMesh(
 }
 
 HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
-    const std::vector<ThreadHandle> &threads,
+    const std::vector<ThreadHandle> &commThreads,
+    const std::vector<ThreadHandle> &copyThreads,
     const std::map<u32, std::vector<ChannelInfo>> &channels,
     u32 linkIdx, u32 step, u32 numSteps)
 {
-    CHK_PRT_RET(linkIdx >= threads.size(),
-                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] >= threads.size()[%zu] "
+    CHK_PRT_RET(linkIdx >= commThreads.size(),
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] >= commThreads.size()[%zu] "
                            "myRank=%d templateRank=%u",
-                           linkIdx, threads.size(), myRank_, templateRankSize_),
+                           linkIdx, commThreads.size(), myRank_, templateRankSize_),
+                HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(copyThreads.empty(),
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] copyThreads is empty. "
+                           "myRank=%d templateRank=%u",
+                           myRank_, templateRankSize_),
                 HcclResult::HCCL_E_INTERNAL);
 
     u32 myAlgRank = 0;
@@ -161,7 +193,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
         }
 
         u32 totalLinksToNeighbor = it->second.size();
-        u32 selectedLinkIdx = (myRank_ ^ connectedRank) % threads.size();
+        u32 selectedLinkIdx = (myRank_ ^ connectedRank) % commThreads.size();
 
         if (selectedLinkIdx >= it->second.size()) {
             HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] selectedLinkIdx OOB: "
@@ -185,7 +217,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
                   "myRank=%d connectedRank=%u selectedLinkIdx=%u/%u threads=%zu "
                   "enableRemoteMemAccess=%d isPcie=%d",
                   linkIdx, myRank_, connectedRank, selectedLinkIdx,
-                  totalLinksToNeighbor, threads.size(),
+                  totalLinksToNeighbor, commThreads.size(),
                   enableRemoteMemAccess_, isPcie);
 
         if (linkIdx >= channels.at(connectedRank).size()) {
@@ -248,18 +280,20 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + connectedRank * actualChunkSize;
             DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, actualChunkSize, chunkCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
-            CHK_RET(LocalCopy(threads[linkIdx], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(commThreads[linkIdx], srcSlice, dstSlice));
 
-            dmaResult = SendRecvRead(sendRecvInfo, threads[linkIdx]);
+            dmaResult = SendRecvRead(sendRecvInfo, commThreads[linkIdx]);
         } else {
-            dmaResult = SendRecvWrite(sendRecvInfo, threads[linkIdx]);
+            dmaResult = SendRecvWrite(sendRecvInfo, commThreads[linkIdx]);
 
-            // 远端写 因为是 1-1 配对的，需要在结束后， 把对端写好的数据，copy到 out buffer 内，由于是对端的数据 所以是 connectedRank 
+            // 远端写完成后只依赖当前 chunk，把后置 copy 放到专用线程，避免阻塞后续通信队列。
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + connectedRank * actualChunkSize;
             u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + connectedRank * actualChunkSize;
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, actualChunkSize, chunkCount);
-            CHK_RET(LocalCopy(threads[linkIdx], srcSlice, dstSlice));
+            u32 notifyIdx = COPY_NOTIFY_BASE_IDX + step * commThreads.size() + linkIdx;
+            CHK_RET(PreSyncInterThreads(commThreads[linkIdx], copyThreads, {notifyIdx}));
+            CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
         }
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
