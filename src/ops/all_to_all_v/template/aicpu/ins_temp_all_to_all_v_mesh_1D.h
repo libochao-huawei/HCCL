@@ -17,8 +17,6 @@
 
 namespace ops_hccl {
 
-const uint32_t ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE = 16; // fullmesh最大的并发数量
-
 class InsTempAlltoAllVMesh1D : public InsAlgTemplateBase {
 public:
     InsTempAlltoAllVMesh1D() = default;
@@ -51,30 +49,32 @@ private:
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
         const u32 myRankCclBuffIdx, const u32 remoteRank, const u64 &sendSize,
         const u64 &sendCount, const u64 &sendOffset) const;
-    HcclResult PreCopyByLoop(const std::vector<u32> &commRanks,
-        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
-        const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
         const u32 myRankCclBuffIdx, const u32 remoteRank, const u64 &recvSize,
         const u64 &recvCount, const u64 &recvOffset) const;
     HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
-    void CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize, std::vector<u32> &commRanks) const;
-    u32 CalcCommLoops() const;
-    void CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const;
-    HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
+    HcclResult CalcCommRankBySlot(const u32 roundIdx, const u32 slotIdx, u32 &remoteRank) const;
+    HcclResult CalcCommLoops(u32 &commLoops) const;
+    HcclResult CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const;
+    HcclResult RunSendRecvBySlot(const u32 slotIdx, const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
-        const u32 roundIdx, const u32 commLoops);
+        const u32 commLoops);
+    HcclResult RunSendRecvByRemoteRank(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
+        const u32 remoteRank, const u32 slotIdx);
     HcclResult RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
-        const u32 curValidChannelsSize, const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
-        const std::vector<ThreadHandle> &threads, const u32 commLoops) const;
+        const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
+        const std::vector<ThreadHandle> &threads, const u32 slotIdx) const;
     HcclResult RunSendRecv(const TemplateDataParams &tempAlgParams,
         const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
         const ThreadHandle& thread, const u32 channelId) const;
-    HcclResult PreSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
-        const std::vector<ThreadHandle> &subThreadsCurRank) const;
-    HcclResult PostSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
-        const std::vector<ThreadHandle> &subThreadsCurRank) const;
+    HcclResult GetVmeshShape(u32 &rowNum, u32 &colNum) const;
+    HcclResult GetMesh1DClosCoord(u32 rank, u32 &meshRow, u32 &meshCol) const;
+    HcclResult GetRankByMesh1DClosCoord(u32 meshRow, u32 meshCol, u32 &rank) const;
+    HcclResult GetRankIndexInSubComm(u32 rank, u32 &rankIndex) const;
+    HcclResult SelectChannel(u32 remoteRank, const std::vector<ChannelInfo> &allChannels,
+        std::vector<ChannelInfo> &selectedChannels) const;
 
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
