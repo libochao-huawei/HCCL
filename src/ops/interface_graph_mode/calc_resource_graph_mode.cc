@@ -200,17 +200,17 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     }
     
     HcclComm hcclComm = nullptr;
-    CHK_RET(HcomGetCommHandleByGroup(group, &hcclComm));
+    CHK_PRT_RET(HcomGetCommHandleByGroup(group, &hcclComm) != HCCL_SUCCESS, HCCL_WARNING("HcomGetCommHandleByGroup failed"), HCCL_SUCCESS);
     u32 rankSize = INVALID_VALUE_RANKSIZE;
-    CHK_RET(HcclGetRankSize(hcclComm, &rankSize));
+    CHK_PRT_RET(HcclGetRankSize(hcclComm, &rankSize) != HCCL_SUCCESS, HCCL_WARNING("HcclGetRankSize failed"), HCCL_SUCCESS);
 
-    CHK_RET(InitEnvConfig());
+    CHK_PRT_RET(InitEnvConfig() != HCCL_SUCCESS, HCCL_WARNING("InitEnvConfig failed"), HCCL_SUCCESS);
     
     ops_hccl::OpParam param;
-    CHK_RET(HcclGetCommName(hcclComm, param.commName));
+    CHK_PRT_RET(HcclGetCommName(hcclComm, param.commName) != HCCL_SUCCESS, HCCL_WARNING("HcclGetCommName failed"), HCCL_SUCCESS);
     
     DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
+    CHK_PRT_RET(hrtGetDeviceType(deviceType) != HCCL_SUCCESS, HCCL_WARNING("hrtGetDeviceType failed"), HCCL_SUCCESS);
     
     param.opType = opType;
     param.DataDes.count = count;
@@ -221,7 +221,8 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     param.enableDetour = false;
     param.deviceType = deviceType;
 
-    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL || opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         param.varMemSize = ops_hccl::ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64);
         param.all2AllVDataDes.sendType = dataType;
         param.all2AllVDataDes.recvType = dataType;
@@ -257,13 +258,13 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     }
 
     int ret = sprintf_s(param.tag, sizeof(param.tag), "SelectAlg_%d_%s", static_cast<int>(opType), param.commName);
-    CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclSelectAlgGraphMode] failed to fill param.tag"), HCCL_E_INTERNAL);
+    CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclSelectAlgGraphMode] failed to fill param.tag"), HCCL_SUCCESS);
     
-    CHK_RET(ops_hccl::HcclGetOpExpansionMode(hcclComm, param));
+    CHK_PRT_RET(ops_hccl::HcclGetOpExpansionMode(hcclComm, param) != HCCL_SUCCESS, HCCL_WARNING("HcclGetOpExpansionMode failed"), HCCL_SUCCESS);
 
     std::unique_ptr<ops_hccl::TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<ops_hccl::TopoInfoWithNetLayerDetails>();
     std::string localAlgName;
-    CHK_RET(ops_hccl::Selector(hcclComm, param, topoInfo, localAlgName));
+    CHK_PRT_RET(ops_hccl::Selector(hcclComm, param, topoInfo, localAlgName) != HCCL_SUCCESS, HCCL_WARNING("Selector failed"), HCCL_SUCCESS);
     
     *ifAiv = (param.engine == CommEngine::COMM_ENGINE_AIV);
     
