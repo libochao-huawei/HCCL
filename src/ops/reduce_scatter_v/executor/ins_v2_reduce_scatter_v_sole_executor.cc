@@ -9,7 +9,6 @@
  */
 
 #include "ins_v2_reduce_scatter_v_sole_executor.h"
-#include "topo_match_1d.h"
 #include "ins_temp_reduce_scatter_v_mesh_1D.h"
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_reduce_scatter_v_mesh_1D_mem2mem.h"
