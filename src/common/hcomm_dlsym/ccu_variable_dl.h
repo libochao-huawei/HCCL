@@ -1,23 +1,29 @@
 /**
-* Copyright (c) 2026 Huawei Technologies Co., Ltd.
-* This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-* CANN Open Software License Agreement Version 2.0 (the "License").
-* Please refer to the License for details. You may not use this file except in compliance with the License.
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-* INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
-* See LICENSE in the root of the software repository for the full text of the License.
-*/
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
-#ifndef CCU_VARIABLE_H
-#define CCU_VARIABLE_H
+#ifndef CCU_VARIABLE_DL_H
+#define CCU_VARIABLE_DL_H
 
 #include <cstdint>
 #include <type_traits>
 
 #include "dlsym_common.h"
+#if CANN_VERSION_NUM >= 90100000
 #include "ccu_types.h"
-#include "ccu_utils.hpp"
+#include "ccu_utils.h"
 #include "ccu_primitives_impl.h"
+#else
+#include "ccu_types_dl.h"
+#include "ccu_utils_dl.h"
+#include "ccu_primitives_impl_dl.h"
+#endif
 
 namespace AscendC {
 namespace ccu {
@@ -107,4 +113,4 @@ inline void AscendC::ccu::detail::CcuArithmeticOperator<AscendC::ccu::Variable,
 {
 }
 
-#endif //CCU_VARIABLE_H
+#endif // CCU_VARIABLE_DL_H
