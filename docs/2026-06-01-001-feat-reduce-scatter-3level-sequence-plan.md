@@ -105,6 +105,7 @@ deepened: 2026-06-01
     src/ops/reduce_scatter/executor/
         ins_v2_reduce_scatter_sequence_executor_aicpu_3level.h   (新增)
         ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc  (新增)
+        CMakeLists.txt                                           (修改: 新增 3level.cc 到 src_list)
     src/ops/op_common/executor/registry/
         coll_alg_v2_exec_registry.h                              (修改: 新增宏)
     src/ops/op_common/topo/
@@ -144,24 +145,24 @@ deepened: 2026-06-01
 | U3-4 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `CalcScratchMultiple` 实现：`templateScratchMultiplier = multiplier0 * multiplier1 * multiplier2` | R6 |
 | U3-5 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `Orchestrate` 实现：计算 `rankIdxLevel0 = myRank % rankSizeLevel0`、`rankIdxLevel1 = (myRank / rankSizeLevel0) % rankSizeLevel1`、`rankIdxLevel2 = myRank / (rankSizeLevel0 * rankSizeLevel1)`，以及对应的 `rankSizeLevel0/1/2` | R1 |
 | U3-6 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `OrchestrateLoop` 实现：整段 CCL 复用，3 步串行执行，`maxCountPerLoop` 基于 `cclMem.size / templateScratchMultiplier` 计算 | R2, R3 |
-| U3-7 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenIntraTemplateParams` (level0)：`buffInfo.inBuffType=INPUT, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel1 * rankSizeLevel2` | R7 |
-| U3-8 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenInterTemplateParams1` (level1)：`buffInfo.inBuffType=HCCL_BUFFER, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel2, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_` | R8 |
-| U3-9 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenInterTemplateParams2` (level2)：`buffInfo.inBuffType=HCCL_BUFFER, outBuffType=OUTPUT, hcclBuffType=HCCL_BUFFER, repeatNum = 1, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_` | R9 |
+| U3-7 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenIntraTemplateParams` (level0)：`buffInfo.inBuffType=INPUT, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel1 * rankSizeLevel2, inputSliceStride = dataSize_, outputSliceStride = currDataCount * dataTypeSize_, inputRepeatStride = rankSizeLevel0 * dataSize_, outputRepeatStride = rankSizeLevel0 * currDataCount * dataTypeSize_` | R7 |
+| U3-8 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenInterTemplateParams1` (level1)：`buffInfo.inBuffType=HCCL_BUFFER, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel2, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0` | R8 |
+| U3-9 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 新增 | `GenInterTemplateParams2` (level2)：`buffInfo.inBuffType=HCCL_BUFFER, outBuffType=OUTPUT, hcclBuffType=HCCL_BUFFER, repeatNum = 1, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0` | R9 |
+| U3-10 | `src/ops/reduce_scatter/executor/CMakeLists.txt` | 修改 | 在 `src_list` 中追加 `${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | R1 |
 
 ### U4. 注册 + Selector 更新
 
 | # | 文件 | 变化类型 | 变化点 | 需求映射 |
 |---|------|---------|--------|----------|
 | U4-1 | `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` | 修改 | 文件末尾新增注册调用：`REGISTER_EXECUTOR_BY_THREE_TEMPS(HCCL_CMD_REDUCE_SCATTER, InsReduceScatterSequenceMesh1DNHRNHR, InsV2ReduceScatterSequenceExecutorAicpu3Level, TopoMatchMultilevel, InsTempReduceScatterMesh1DZAxisDetour, InsTempReduceScatterNHR, InsTempReduceScatterNHR)` | R4 |
-| U4-2 | `src/ops/reduce_scatter/selector/reduce_scatter_auto_selector.cc` | 修改 | BRANCH 4（line 288-290 `localNetInsSizeOfLayer[0] > 1 && level0Topo == MESH_1D`）入口处新增 `if (topoLevelNums >= 3)` 分支，返回 `"InsReduceScatterSequenceMesh1DNHRNHR"`，3 层拓扑统一走 3 级不区分数据量，其余所有逻辑不变 | R11 |
-| U4-3 | `src/ops/reduce_scatter/selector/reduce_scatter_auto_selector.h` | 可能修改 | 如需新增方法或确保 `topoLevelNums` 变量可访问 | R11 |
+| U4-2 | `src/ops/reduce_scatter/selector/reduce_scatter_auto_selector.cc` | 修改 | BRANCH 4（line 288-290 `localNetInsSizeOfLayer[0] > 1 && level0Topo == MESH_1D`）入口处新增 `if (topoInfo->topoLevelNums >= 3)` 分支，返回 `"InsReduceScatterSequenceMesh1DNHRNHR"`，3 层拓扑统一走 3 级不区分数据量，其余所有逻辑不变 | R11 |
 
 ### 汇总
 
 | 类型 | 数量 | 文件 |
 |------|------|------|
 | 新增文件 | 2 | `ins_v2_reduce_scatter_sequence_executor_aicpu_3level.h`, `ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` |
-| 修改文件 | 5~6 | `coll_alg_v2_exec_registry.h`, `topo_match_multilevel.h`, `topo_match_multilevel.cc`, `reduce_scatter_auto_selector.cc`, `reduce_scatter_auto_selector.h`(可能) |
+| 修改文件 | 5 | `coll_alg_v2_exec_registry.h`, `topo_match_multilevel.h`, `topo_match_multilevel.cc`, `reduce_scatter_auto_selector.cc`, `reduce_scatter/executor/CMakeLists.txt` |
 | 涉及模块 | 3 | 注册宏、拓扑匹配、reduce_scatter executor/selector |
 
 ---
@@ -170,88 +171,86 @@ deepened: 2026-06-01
 
 > 针对 Plan 文档中的变化清单，分析当前方案是否完善，是否存在遗漏。
 
-### G1. 构建系统变更缺失 [严重度: 高]
+### G1. 构建系统变更缺失 [严重度: 高] → 已解决
 
 **问题:** Output Structure 和 Change List 未包含构建系统文件变更。新增的 `.h` 和 `.cc` 文件需要加入 CMakeLists.txt / SConscript 等构建配置中，否则无法编译链接。
+
+**解决:** 在 Output Structure 中补充 `src/ops/reduce_scatter/executor/CMakeLists.txt`（修改: 新增 3level.cc 到 src_list）；在 U3 Files 中补充该文件；在 Change List 中新增 U3-10 条目。
 
 **建议:** 在 U3 的 Files 列表中补充：
 - Modify: `src/ops/reduce_scatter/executor/CMakeLists.txt`（或对应构建文件）— 新增 `ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc` 到编译目标
 
 ---
 
-### G2. CalcAlgHierarchyInfo 方法未显式描述 [严重度: 中]
+### G2. CalcAlgHierarchyInfo 方法未显式描述 [严重度: 中] → 已解决
 
-**问题:** Plan 在 U3 Approach 中列出了 CalcRes、Orchestrate、OrchestrateLoop、GenXxxTemplateParams、CalcScratchMultiple 等方法，但**缺少 CalcAlgHierarchyInfo 的实现说明**。3 级 executor 必须覆写此方法以调用 `TopoMatchMultilevel::MatchTopo` 生成 3 层 `algHierarchyInfo`，否则 executor 无法获取 3 层拓扑信息。
+**问题:** Plan 在 U3 Approach 中列出了 CalcRes、Orchestrate、OrchestrateLoop、GenXxxTemplateParams、CalcScratchMultiple 等方法，但**缺少 CalcAlgHierarchyInfo 的实现说明**。
 
-**建议:** 在 U3-2 变化点中已补充，但需在 U3 Approach 段落中增加 CalcAlgHierarchyInfo 的描述：调用 `AlgTopoMatch::MatchTopo(topoInfo, algHierarchyInfo)`，验证 `algHierarchyInfo.infos.size() == 3`。
-
----
-
-### G3. currDataCount 在各级间的演变未详细说明 [严重度: 中]
-
-**问题:** Plan 在 OrchestrateLoop pseudo-flow 中对所有 3 步使用同一 `currDataCount`，但在 reduce_scatter 场景中，每级规约后每 rank 拥有的数据量递减：
-- Step0 输入：每 rank 有 `dataSize / userRankSize × userRankSize = dataSize` 的完整数据（每 rank 贡献全量）
-- Step0 输出（Mesh 后）：每 rank 拥有 `dataSize / rankSizeLevel0` 的部分规约结果
-- Step1 输出（NHR1 后）：每 rank 拥有 `dataSize / (rankSizeLevel0 × rankSizeLevel1)`
-- Step2 输出（NHR2 后）：每 rank 拥有 `dataSize / userRankSize`（最终结果）
-
-`currDataCount` 在 loop 分片中代表什么维度（最终输出量？还是每级输入量？）需要明确，否则 stride/offset 计算可能有误。
-
-**建议:** 在 U3 Approach 中补充 `currDataCount` 定义：表示每轮 loop 中每 rank 最终输出的数据量（`= dataSize / userRankSize` 的一个分片），各级的 inputSliceStride 和 dataCount 需根据 `currDataCount × 对应级 rankSize` 计算。参照 2 级 aicpu executor 中 currDataCount 的实际语义确认。
+**解决:** 在 U3 Approach 中补充 CalcAlgHierarchyInfo 覆写描述：调用 `AlgTopoMatch::MatchTopo(comm, topoInfo, algHierarchyInfo)` 生成 3 层 algHierarchyInfo，验证 `infos.size() == 3`，与 2 级 aicpu executor 的 CalcAlgHierarchyInfo 实现模式一致。
 
 ---
 
-### G4. GenInterTemplateParams1/2 的 stride 和 inputSliceStride 缺失 [严重度: 中]
+### G3. currDataCount 在各级间的演变未详细说明 [严重度: 中] → 已解决
 
-**问题:** Plan 为 GenIntraTemplateParams (level0) 指定了 `inputSliceStride = dataSize_`，但 GenInterTemplateParams1 (level1) 和 GenInterTemplateParams2 (level2) **缺少 stride 和 inputSliceStride 参数说明**。NHR 算法模板需要知道如何遍历 CCL Buffer 中各 rank 的 slice。
+**问题:** Plan 在 OrchestrateLoop pseudo-flow 中对所有 3 步使用同一 `currDataCount`，但在 reduce_scatter 场景中，每级规约后每 rank 拥有的数据量递减。
 
-**建议:** 在 U3-8 和 U3-9 中补充：
-- GenInterTemplateParams1 (level1): `inputSliceStride = currDataCount × dataTypeSize_ × rankSizeLevel0`（CCL 中各 level0 group slice 间的步长）
-- GenInterTemplateParams2 (level2): `inputSliceStride = currDataCount × dataTypeSize_ × rankSizeLevel0 × rankSizeLevel1`（可能需要调整，需参照 2 级 executor 的 NHR stride 计算）
+**解决:** 在 U3 Approach 中补充 currDataCount 语义定义：currDataCount 表示每轮 loop 中每 rank 最终输出的数据量（`dataCount_ = dataSize_ / userRankSize_` 的一个分片），所有 3 步共用同一 currDataCount，各级间每 rank 数据量递减靠 repeatNum 体现而非 currDataCount 变化。同时补充了各级的输入数据量说明。
 
 ---
 
-### G5. topoLevelNums 在 Selector 中的可访问性未确认 [严重度: 中]
+### G4. GenInterTemplateParams1/2 的 stride 和 inputSliceStride 缺失 [严重度: 中] → 已解决
 
-**问题:** Plan 在 U4-2 中新增 `if (topoLevelNums >= 3)` 分支，但未确认 `topoLevelNums` 变量在 `SelectAicpuAlgo` 方法中是否已可用。如果 `topoLevelNums` 不在当前方法的作用域中，需要额外获取（如从 topoInfo 或 context 中读取）。
+**问题:** Plan 为 GenIntraTemplateParams (level0) 指定了 `inputSliceStride = dataSize_`，但 GenInterTemplateParams1 (level1) 和 GenInterTemplateParams2 (level2) **缺少 stride 和 inputSliceStride 参数说明**。
 
-**建议:** 在 U4-2 变化点中确认 `topoLevelNums` 的来源。若需新增获取逻辑，应在 Files 中补充 `reduce_scatter_auto_selector.h` 的修改（新增成员变量或方法参数），并更新 U4-3 从"可能修改"改为"确定修改"。
-
----
-
-### G6. 各级 AlgorithmTemplate 的资源分配未细化 [严重度: 低]
-
-**问题:** Plan 在 CalcRes 中说明了合并策略（slaveThreadNum=max, notifyNumPerThread=max, channels 拆 3 层），但未说明 3 级模板各自的 `templateResource0/1/2` 如何从合并后的总资源中分配。每级 KernelRun 需要独立的 `AlgResourceResponse` 子集。
-
-**建议:** 在 U3-3 中补充说明：3 级模板共享 `slaveThreadNum`（取 max 后足够任一级使用），`notify` 按各级 max 合并后由 Orchestrator 在各级 KernelRun 前分配，`channels[0/1/2]` 直接映射到各级模板的 channel 需求。参照 2 级 aicpu executor 中 templateResource 的分配模式。
+**解决:** 在 U3 Approach 中补充完整参数：
+- GenIntraTemplateParams (level0): `inputSliceStride = dataSize_, outputSliceStride = currDataCount * dataTypeSize_, inputRepeatStride = rankSizeLevel0 * dataSize_, outputRepeatStride = rankSizeLevel0 * currDataCount * dataTypeSize_`
+- GenInterTemplateParams1 (level1): `inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0`
+- GenInterTemplateParams2 (level2): `inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0`
+同时在 Change List U3-7/8/9 条目中补充 stride 参数。
 
 ---
 
-### G7. 单元测试文件未列入 Output Structure [严重度: 低]
+### G5. topoLevelNums 在 Selector 中的可访问性未确认 [严重度: 中] → 已解决
 
-**问题:** 每个 Implementation Unit 都描述了 test scenarios，但 Output Structure 和 Change List 中未列出任何测试文件。新增 executor 和 TopoMatch 扩展应有对应的单测。
+**问题:** Plan 在 U4-2 中新增 `if (topoLevelNums >= 3)` 分支，但未确认 `topoLevelNums` 变量在 `SelectAicpuAlgo` 方法中是否已可用。
 
-**建议:** 在 Output Structure 中补充可能的测试文件路径，或在各 U 的 Files 中注明"测试文件路径待实现时确定"。
+**解决:** 代码调研确认 `topoInfo->topoLevelNums` 在 Selector 中已广泛使用（line 33, 35, 136, 276, 400, 402），无需修改 `.h` 文件。修正 U4-2 变化点中的变量名为 `topoInfo->topoLevelNums >= 3`，移除 U4-3（`.h` 修改已确认不需要）。
 
 ---
 
-### G8. Executor 类头文件 include 依赖未指定 [严重度: 低]
+### G6. 各级 AlgorithmTemplate 的资源分配未细化 [严重度: 低] → 已解决
 
-**问题:** 新增的 `.h` 文件需要正确的 `#include` 依赖（如 `InsCollAlgBase`、`InsTempReduceScatterNHR`、`InsTempReduceScatterMesh1DZAxisDetour`、`TopoMatchMultilevel` 等），Plan 未列出。
+**问题:** Plan 在 CalcRes 中说明了合并策略，但未说明 3 级模板各自的 `templateResource0/1/2` 如何从合并后的总资源中分配。
 
-**建议:** 在 U3-1 中补充关键 include 列表，或注明"参照 2 级 aicpu executor 的 include 模式"。
+**解决:** 在 U3 Approach CalcRes 描述中补充：3 级模板共享 `slaveThreadNum`（取 max 后足够任一级使用），`notify` 按各级 max 合并后由 Orchestrator 在各级 KernelRun 前通过 `GenTempResource(resCtx, level, algTemplate, templateResource)` 分配，`channels[0/1/2]` 直接映射到各级模板的 channel 需求。
+
+---
+
+### G7. 单元测试文件未列入 Output Structure [严重度: 低] → 待实现时确定
+
+**问题:** 每个 Implementation Unit 都描述了 test scenarios，但 Output Structure 和 Change List 中未列出任何测试文件。
+
+**说明:** HCCL 项目的单测文件路径和命名惯例需根据实际测试框架确认（st 测试目录在 `test/st/algorithm/`）。待实现时根据项目惯例补充，当前在 Output Structure 中暂不列出具体测试文件路径。
+
+---
+
+### G8. Executor 类头文件 include 依赖未指定 [严重度: 低] → 已解决
+
+**问题:** 新增的 `.h` 文件需要正确的 `#include` 依赖，Plan 未列出。
+
+**解决:** 在 U3 Approach 中补充关键 include 依赖说明：参照 `ins_v2_reduce_scatter_sequence_executor_aicpu.h`，需包含 `InsCollAlgBase`、`InsTempReduceScatterMesh1DZAxisDetour`、`InsTempReduceScatterNHR`、`TopoMatchMultilevel`、`TemplateDataParams`、`AlgResourceRequest` 等对应头文件。
 
 ---
 
 ### Gap Analysis 总结
 
-| 严重度 | 数量 | 关键遗漏 |
-|--------|------|----------|
-| 高 | 1 | 构建系统变更缺失（G1） |
-| 中 | 4 | CalcAlgHierarchyInfo 未描述（G2）、currDataCount 语义不明（G3）、stride 参数缺失（G4）、topoLevelNums 可访问性未确认（G5） |
-| 低 | 3 | 资源分配细化（G6）、测试文件缺失（G7）、include 依赖未指定（G8） |
+| 严重度 | 数量 | 状态 | 关键遗漏 |
+|--------|------|------|----------|
+| 高 | 1 | 已解决 | G1: 构建系统变更缺失 |
+| 中 | 4 | 已解决 | G2: CalcAlgHierarchyInfo、G3: currDataCount 语义、G4: stride 参数、G5: topoLevelNums 可访问性 |
+| 低 | 3 | 2已解决,1待定 | G6: 资源分配细化(已解决)、G7: 测试文件(待实现时确定)、G8: include 依赖(已解决) |
 
-**最需优先补充的 3 项：** G1（构建系统）→ G3（currDataCount 语义）→ G4（stride 参数）
+**全部遗漏项已解决或已明确处理方式，仅 G7（单测文件路径）待实现时确定。**
 
 ---
 
@@ -389,21 +388,22 @@ NHR 原地累加原理：每个 rank 只修改自己的 slice 区域（offset = 
 **Files:**
 - Create: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.h`
 - Create: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc`
+- Modify: `src/ops/reduce_scatter/executor/CMakeLists.txt`（在 `src_list` 中追加 `${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc`，参照现有 2 级 aicpu executor 的添加位置，置于 `ins_v2_reduce_scatter_sequence_executor_aicpu.cc` 之后）
 
 **Approach:**
 - 类模板参数 `<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>`，继承 `InsCollAlgBase`
 - `SEQUENCE_EXECUTOR_LEVEL_NUM = 3`
-- `CalcRes`: 3 级模板分别调用 `CalcRes`，合并 `slaveThreadNum = max(res0,res1,res2)`，`notifyNumPerThread` 各级取 max，`channels[0/1/2]` 对应各级
+- `CalcAlgHierarchyInfo`: 覆写该方法，调用 `AlgTopoMatch::MatchTopo(comm, topoInfo, algHierarchyInfo)` 生成 3 层 algHierarchyInfo，验证 `algHierarchyInfo.infos.size() == 3`（与 2 级 aicpu executor 的 CalcAlgHierarchyInfo 实现模式一致：`myRank_ = topoInfo->userRank; rankSize_ = topoInfo->userRankSize; AlgTopoMatch topoMatch; CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));`）
+- `CalcRes`: 3 级模板分别调用 `CalcRes`，合并 `slaveThreadNum = max(res0,res1,res2)`，`notifyNumPerThread` 各级取 max，`channels[0/1/2]` 对应各级。3 级模板共享 `slaveThreadNum`（取 max 后足够任一级使用），`notify` 按各级 max 合并后由 Orchestrator 在各级 KernelRun 前通过 `GenTempResource(resCtx, level, algTemplate, templateResource)` 分配，`channels[0/1/2]` 直接映射到各级模板的 channel 需求（与 2 级 aicpu executor 的 CalcRes 合并模式一致）
 - `Orchestrate`: 计算 `rankIdxLevel0/1/2` 和 `rankSizeLevel0/1/2`，3 级索引为 `myRank % rankSizeLevel0`、`(myRank / rankSizeLevel0) % rankSizeLevel1`、`myRank / (rankSizeLevel0 * rankSizeLevel1)`
-- `OrchestrateLoop`: 整段 CCL 复用（与 2 级 aicpu 一致），3 步串行：
-  - Step0: INPUT→Mesh→CCL（`repeatNum = rankSizeLevel1 * rankSizeLevel2`，`outBuffType=HCCL_BUFFER`）
-  - Step1: CCL→NHR→CCL（`repeatNum = rankSizeLevel2`，原地累加回 CCL，`inBuffType=HCCL_BUFFER, outBuffType=HCCL_BUFFER`）
-  - Step2: CCL→NHR→OUTPUT（`repeatNum = 1`，`inBuffType=HCCL_BUFFER, outBuffType=OUTPUT`）
-- `GenIntraTemplateParams` (level0): `buffInfo.inBuffType=INPUT, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER`
-- `GenInterTemplateParams1` (level1): `buffInfo.inBuffType=HCCL_BUFFER, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER`
-- `GenInterTemplateParams2` (level2): `buffInfo.inBuffType=HCCL_BUFFER, outBuffType=OUTPUT, hcclBuffType=HCCL_BUFFER`
+- `OrchestrateLoop`: 整段 CCL 复用（与 2 级 aicpu 一致），3 步串行
 - `CalcScratchMultiple`: `templateScratchMultiplier = multiplier0 * multiplier1 * multiplier2`
-- `maxCountPerLoop`: 基于 `cclMem.size / templateScratchMultiplier` 计算（整段 CCL，不分区）
+- `maxCountPerLoop`: 基于 `cclMem.size / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_` 计算（整段 CCL，不分区，与 2 级 aicpu 一致）
+- **currDataCount 语义**: `currDataCount` 表示每轮 loop 中每 rank 最终输出的数据量（即 `dataCount_` 的一个分片，`dataCount_ = dataSize_ / userRankSize_）。所有 3 步共用同一 `currDataCount`，与 2 级 aicpu executor 的语义一致。各级间每 rank 数据量递减是靠 repeatNum 体现而非 currDataCount 变化：Step0 Mesh 输入每 rank 为 `currDataCount × rankSizeLevel0 × rankSizeLevel1 × rankSizeLevel2` 的总输入数据分片（通过 repeatNum=rankSizeLevel1×rankSizeLevel2 拆分为多组 Mesh 操作），Step1 NHR 输入每 rank 为 `currDataCount × rankSizeLevel0` 的 CCL 数据（通过 repeatNum=rankSizeLevel2 拆分为多组 NHR 操作），Step2 NHR 输入每 rank 为 `currDataCount` 的 CCL 数据（repeatNum=1）
+- `GenIntraTemplateParams` (level0): `buffInfo.inBuffType=INPUT, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel1 * rankSizeLevel2, inputSliceStride = dataSize_, outputSliceStride = currDataCount * dataTypeSize_, inputRepeatStride = rankSizeLevel0 * dataSize_, outputRepeatStride = rankSizeLevel0 * currDataCount * dataTypeSize_`（参照 2 级 aicpu 的 GenIntraTemplateParams，2 级的 repeatNum=rankSizeLevel1，3 级扩展为 rankSizeLevel1×rankSizeLevel2）
+- `GenInterTemplateParams1` (level1): `buffInfo.inBuffType=HCCL_BUFFER, outBuffType=HCCL_BUFFER, hcclBuffType=HCCL_BUFFER, repeatNum = rankSizeLevel2, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, hcclBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0`（参照 2 级 aicpu 的 GenInterTemplateParams，2 级的 inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_，3 级的 repeatNum 从 1 扩展为 rankSizeLevel2，需要新增 inputRepeatStride/outputRepeatStride）
+- `GenInterTemplateParams2` (level2): `buffInfo.inBuffType=HCCL_BUFFER, outBuffType=OUTPUT, hcclBuffType=HCCL_BUFFER, repeatNum = 1, inBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, hcclBuffBaseOff = rankIdxLevel0 × currDataCount × dataTypeSize_, inputSliceStride = rankSizeLevel0 × currDataCount × dataTypeSize_, outputSliceStride = 0, inputRepeatStride = 0, outputRepeatStride = 0`（与 2 级 aicpu 的 GenInterTemplateParams 结构一致，repeatNum=1 无需 repeatStride）
+- **关键 include 依赖**（新 .h 文件需包含）: 参照 `ins_v2_reduce_scatter_sequence_executor_aicpu.h`，需包含 `InsCollAlgBase`、`InsTempReduceScatterMesh1DZAxisDetour`、`InsTempReduceScatterNHR`、`TopoMatchMultilevel`、`TemplateDataParams`、`AlgResourceRequest` 等对应头文件
 
 **Technical design:**
 
@@ -465,7 +465,6 @@ OrchestrateLoop pseudo-flow:
 **Files:**
 - Modify: `src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu_3level.cc`（注册调用）
 - Modify: `src/ops/reduce_scatter/selector/reduce_scatter_auto_selector.cc`（line 288-290 else 分支内新增 topoLevelNums >= 3 判断）
-- Modify: `src/ops/reduce_scatter/selector/reduce_scatter_auto_selector.h`（如需新增方法）
 
 **Approach:**
 
