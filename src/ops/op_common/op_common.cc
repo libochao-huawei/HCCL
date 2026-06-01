@@ -1027,6 +1027,93 @@ HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest
     return HCCL_SUCCESS;
 }
 
+HcclResult CacheHostCtxToEngine(HcclComm comm, const char *algTag, const std::string &hostCacheTag,
+    const std::vector<char> &hostCtxSeq)
+{
+    void *hostCtxPtr = nullptr;
+    HcclResult createRet = HcclEngineCtxCreate(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS,
+        hostCtxSeq.size(), &hostCtxPtr);
+    if (createRet != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to create host EngineCtx for caching, ret[%d].", createRet);
+        HcclResult destroyRet = HcclEngineCtxDestroy(comm, algTag, COMM_ENGINE_AICPU_TS);
+        if (destroyRet != HCCL_SUCCESS) {
+            HCCL_ERROR("failed to destroy device ctx on host ctx create failure rollback, ret[%d].", destroyRet);
+        }
+        return createRet;
+    }
+    errno_t memcpyRet = memcpy_s(hostCtxPtr, hostCtxSeq.size(), hostCtxSeq.data(), hostCtxSeq.size());
+    if (memcpyRet != EOK) {
+        HCCL_ERROR("memcpy_s failed writing to host EngineCtx cache, ret=%d.", memcpyRet);
+        HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+        HcclEngineCtxDestroy(comm, algTag, COMM_ENGINE_AICPU_TS);
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReuseCachedDeviceCtx(HcclComm comm, const OpParam &param, void **resCtxSequence, uint64_t &ctxSize)
+{
+    void *ctx = nullptr;
+    uint64_t size = 0;
+    HcclResult ret = HcclEngineCtxGet(comm, param.algTag, param.engine, &ctx, &size);
+    if (ret == HCCL_SUCCESS) {
+        *resCtxSequence = ctx;
+        ctxSize = size;
+        if (HcommIsSupportHcclCommResetExchangeInfo()) {
+            CHK_RET(HcclCommResetExchangeInfo(comm));
+        }
+        return HCCL_SUCCESS;
+    }
+    HCCL_ERROR("failed to get device ctx.");
+    return ret;
+}
+
+HcclResult IncrementalCreateChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+    AlgResourceCtxSerializable &hostCtxObj, const std::string &hostCacheTag, void **resCtxSequence,
+    uint64_t &ctxSize)
+{
+    HcclResult ret = HcclGetChannel(comm, param, resRequest, &hostCtxObj);
+    CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to incrementally create channel."), ret);
+    ret = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to destroy device Ctx, ret[%d].", ret);
+    }
+    std::vector<char> newSeq = hostCtxObj.Serialize();
+    ret = HcclMemcpyCtxHostToDevice(comm, param, newSeq, resCtxSequence, ctxSize);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to memcpy hostCtx to device after incremental channel creation, ret[%d].", ret);
+        HcclResult destroyRet = HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+        if (destroyRet != HCCL_SUCCESS) {
+            HCCL_ERROR("failed to destroy host ctx on incremental path failure rollback, ret[%d].", destroyRet);
+        }
+        return ret;
+    }
+    HcclResult destroyRet = HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+    if (destroyRet != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to destroy old host EngineCtx for cache update, ret[%d].", destroyRet);
+    }
+    void *newHostCtxPtr = nullptr;
+    HcclResult cacheRet = HcclEngineCtxCreate(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS,
+        newSeq.size(), &newHostCtxPtr);
+    if (cacheRet != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to create host EngineCtx for cache update, ret[%d].", cacheRet);
+        HcclResult devDestroyRet = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
+        if (devDestroyRet != HCCL_SUCCESS) {
+            HCCL_ERROR("failed to destroy device ctx on host cache update failure rollback, ret[%d].", devDestroyRet);
+        }
+        return cacheRet;
+    }
+    errno_t memcpyRet = memcpy_s(newHostCtxPtr, newSeq.size(), newSeq.data(), newSeq.size());
+    if (memcpyRet != EOK) {
+        HCCL_ERROR("memcpy_s failed writing to updated host EngineCtx cache, ret=%d.", memcpyRet);
+        HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
+        HcclEngineCtxDestroy(comm, param.algTag, param.engine);
+        return HCCL_E_INTERNAL;
+    }
+    HCCL_INFO("Incrementally add channel success");
+    return HCCL_SUCCESS;
+}
+
 HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
@@ -1035,105 +1122,31 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
     std::string hostCacheTag = std::string(param.algTag) + "_hostCache";
     void *hostCtxPtr = nullptr;
     uint64_t hostCtxSize = 0;
-    HcclResult hostCtxRet = HcclEngineCtxGet(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, &hostCtxPtr, &hostCtxSize);
+    HcclResult hostCtxRet = HcclEngineCtxGet(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS,
+        &hostCtxPtr, &hostCtxSize);
 
     if (!increCreateChannelFlag || hostCtxRet != HCCL_SUCCESS) {
-        // 非增量建链流程，直接创建host侧Ctx
         resCtxHost->commInfoPtr = static_cast<void*>(comm);
         resCtxHost->topoInfo = *topoInfo;
         resCtxHost->algHierarchyInfo = algHierarchyInfo;
         HcclResult ret = HcclAllocAlgResourceAICPU(comm, param, resRequest, resCtxHost, resPack);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to alloc alg resource."), ret);
-        // 序列化hostCtx，拷贝到device侧并缓存
         std::vector<char> hostCtxSeq = resCtxHost->Serialize();
         ret = HcclMemcpyCtxHostToDevice(comm, param, hostCtxSeq, resCtxSequence, ctxSize);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to memcpy hostCtx to device."), ret);
-
         if (increCreateChannelFlag) {
-            // 存入EngineCtx缓存，HCOM释放EngineCtx时无heap泄漏
-            HcclResult createRet = HcclEngineCtxCreate(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, hostCtxSeq.size(), &hostCtxPtr);
-            if (createRet != HCCL_SUCCESS) {
-                HCCL_ERROR("failed to create host EngineCtx for caching, ret[%d].", createRet);
-                HcclResult destroyRet = HcclEngineCtxDestroy(comm, param.algTag, COMM_ENGINE_AICPU_TS);
-                if (destroyRet != HCCL_SUCCESS) {
-                    HCCL_ERROR("failed to destroy device ctx on host ctx create failure rollback, ret[%d].", destroyRet);
-                }
-                return createRet;
-            }
-            errno_t memcpyRet = memcpy_s(hostCtxPtr, hostCtxSeq.size(), hostCtxSeq.data(), hostCtxSeq.size());
-            if (memcpyRet != EOK) {
-                HCCL_ERROR("memcpy_s failed writing to host EngineCtx cache, ret=%d.", memcpyRet);
-                HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
-                HcclEngineCtxDestroy(comm, param.algTag, COMM_ENGINE_AICPU_TS);
-                return HCCL_E_INTERNAL;
-            }
+            CHK_RET(CacheHostCtxToEngine(comm, param.algTag, hostCacheTag, hostCtxSeq));
         }
     } else {
-        // 增量建链流程：从EngineCtx缓存反序列化host侧Ctx
         std::vector<char> cachedData(static_cast<char*>(hostCtxPtr), static_cast<char*>(hostCtxPtr) + hostCtxSize);
         AlgResourceCtxSerializable hostCtxObj;
         hostCtxObj.DeSerialize(cachedData);
         CompReqChannelWithExistChannel(hostCtxObj.channels, resRequest);
         if (resRequest.channels[0].size() == 0) {
-            // 资源可以直接复用，直接获取到device的ctx资源
-            void *ctx = nullptr;
-            uint64_t size = 0;
-            HcclResult ret = HcclEngineCtxGet(comm, param.algTag, param.engine, &ctx, &size);
-            if (ret == HCCL_SUCCESS) {
-                *resCtxSequence = ctx;
-                ctxSize = size;
-if (HcommIsSupportHcclCommResetExchangeInfo()) {
-                    // 算子参数信息已注册，但BatchSendRecv在此处判断资源可复用，不会进行数据交换即不会被读清，需要手动reset
-                    CHK_RET(HcclCommResetExchangeInfo(comm));
-                }
-                return HCCL_SUCCESS;
-            } else {
-                HCCL_ERROR("failed to get device ctx.");
-            }
-            return ret;
+            return ReuseCachedDeviceCtx(comm, param, resCtxSequence, ctxSize);
         }
-        // 资源不能直接复用，需要增量建链
-        HcclResult ret = HcclGetChannel(comm, param, resRequest, &hostCtxObj);
-        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to incrementally create channel."), ret);
-        // 把device侧此tag的ctx销毁，然后重新创建
-        ret = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to destroy device Ctx, ret[%d].", ret);
-        }
-        // 重新序列化并拷贝到device侧新Ctx
-        std::vector<char> newSeq = hostCtxObj.Serialize();
-        ret = HcclMemcpyCtxHostToDevice(comm, param, newSeq, resCtxSequence, ctxSize);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to memcpy hostCtx to device after incremental channel creation, ret[%d].", ret);
-            HcclResult destroyRet = HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
-            if (destroyRet != HCCL_SUCCESS) {
-                HCCL_ERROR("failed to destroy host ctx on incremental path failure rollback, ret[%d].", destroyRet);
-            }
-            return ret;
-        }
-        // 更新host缓存：复用序列化结果存储
-        HcclResult destroyRet = HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
-        if (destroyRet != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to destroy old host EngineCtx for cache update, ret[%d].", destroyRet);
-        }
-        void *newHostCtxPtr = nullptr;
-        HcclResult cacheRet = HcclEngineCtxCreate(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, newSeq.size(), &newHostCtxPtr);
-        if (cacheRet != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to create host EngineCtx for cache update, ret[%d].", cacheRet);
-            HcclResult devDestroyRet = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
-            if (devDestroyRet != HCCL_SUCCESS) {
-                HCCL_ERROR("failed to destroy device ctx on host cache update failure rollback, ret[%d].", devDestroyRet);
-            }
-            return cacheRet;
-        }
-        errno_t memcpyRet = memcpy_s(newHostCtxPtr, newSeq.size(), newSeq.data(), newSeq.size());
-        if (memcpyRet != EOK) {
-            HCCL_ERROR("memcpy_s failed writing to updated host EngineCtx cache, ret=%d.", memcpyRet);
-            HcclEngineCtxDestroy(comm, hostCacheTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS);
-            HcclEngineCtxDestroy(comm, param.algTag, param.engine);
-            return HCCL_E_INTERNAL;
-        }
-        HCCL_INFO("Incrementally add channel success");
+        CHK_RET(IncrementalCreateChannel(comm, param, resRequest, hostCtxObj, hostCacheTag,
+            resCtxSequence, ctxSize));
     }
 
     HCCL_INFO("Execute GetAlgResAICPU success.");
