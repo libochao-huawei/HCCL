@@ -11,8 +11,17 @@
 #pragma once
 
 #include "sim_world.h"
+#include "hccl.h"
+#include "hccl/hccl_types.h"
+#include "acl/acl_rt.h"
+#include "hccl_verifier.h"
+#include "check_utils.h"
+#include "gtest/gtest.h"
+#include <thread>
+#include <functional>
 
 using namespace HcclSim;
+using namespace ops_hccl;
 
 static inline u32 AnalyseRankSize(const TopoMeta &topoInfo)
 {
@@ -23,4 +32,49 @@ static inline u32 AnalyseRankSize(const TopoMeta &topoInfo)
         }
     }
     return rankSize;
+}
+
+template<typename DispatchFn, typename VerifyFn>
+void RunVMultilevelTest(const TopoMeta &topoInfo, VDataDesTag vDataDes,
+    std::function<void()> extraEnvSetup, DispatchFn dispatchFn, VerifyFn verifyFn)
+{
+    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
+    setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
+    if (extraEnvSetup) { extraEnvSetup(); }
+
+    auto rankSize = AnalyseRankSize(topoInfo);
+
+    u64 totalCount = 0;
+    for (u32 rankId = 0; rankId < rankSize; ++rankId) {
+        totalCount += vDataDes.counts[rankId];
+    }
+
+    std::vector<std::thread> threads;
+    for (u32 rankId = 0; rankId < rankSize; ++rankId) {
+        threads.emplace_back([=]() {
+            aclrtSetDevice(rankId);
+            aclrtStream stream = nullptr;
+            aclrtCreateStream(&stream);
+            HcclComm comm = nullptr;
+            HcclResult ret = HcclCommInitClusterInfo("./ranktable.json", rankId, &comm);
+            if (ret != HCCL_SUCCESS) { return ret; }
+
+            ret = dispatchFn(rankId, totalCount, vDataDes, comm, stream);
+            if (ret != HCCL_SUCCESS) { return ret; }
+
+            ret = HcclCommDestroy(comm);
+            if (ret != HCCL_SUCCESS) { return ret; }
+            return HCCL_SUCCESS;
+        });
+    }
+
+    for (auto &thread : threads) {
+        thread.join();
+    }
+
+    auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
+    HcclResult res = verifyFn(taskQueues, rankSize, vDataDes);
+    EXPECT_TRUE(res == HCCL_SUCCESS);
+
+    SimWorld::Global()->Deinit();
 }
