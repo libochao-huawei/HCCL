@@ -51,6 +51,11 @@ SelectorStatus ScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetL
         }
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            if (IsInputOutputOverlap(opParam) == true) {
+                // 不支持 inplace 场景
+                HCCL_WARNING("[ScatterAutoSelector] ccu_ms mode not support inplace.");
+                return SelectorStatus::NOT_MATCH;
+            }
             if (topoInfo->is2DieFullMesh) {
                 HCCL_WARNING("[ScatterAutoSelector] 2DieFullMesh is not supported yet for schedule mode.");
                 return SelectorStatus::NOT_MATCH;

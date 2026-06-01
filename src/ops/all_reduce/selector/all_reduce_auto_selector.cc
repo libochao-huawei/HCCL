@@ -38,7 +38,10 @@ SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayer
         HCCL_DEBUG("[AllReduceAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
     }
-
+    if(IsInputOutputOverlap(opParam) == true){
+        HCCL_WARNING("[AllReduceAutoSelector] ccu_ms mode not support inplace.");
+        return SelectorStatus::NOT_MATCH;
+    }
     // MS 模式不支持 int8
     CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
         HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu_ms mode.",
