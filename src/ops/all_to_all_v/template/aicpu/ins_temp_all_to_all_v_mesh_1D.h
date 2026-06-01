@@ -46,6 +46,30 @@ public:
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
 private:
+    struct MatrixAlltoAllSlot {
+        u32 txRank{INVALID_VALUE_RANKID};
+        u32 rxRank{INVALID_VALUE_RANKID};
+        u32 channelIdx{0};
+        u32 cclBuffIdx{0};
+        bool isMesh{false};
+    };
+
+    bool IsMatrixAlltoAllRankSize(u32 &matrixDim) const;
+    bool IsMatrixAlltoAllParam(const OpParam &param) const;
+    bool IsMatrixAlltoAllTopo(const TopoInfoWithNetLayerDetails *topoInfo) const;
+    u32 CalcMatrixRank(const u32 row, const u32 col, const u32 matrixDim) const;
+    HcclResult CalcMatrixAlltoAllRoundPlan(const u32 round, const u32 myAlgRank,
+        std::vector<MatrixAlltoAllSlot> &slotPlans) const;
+    HcclResult CheckMatrixAlltoAllChannels(const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const u32 matrixDim, const u32 myAlgRank) const;
+    HcclResult SelectMatrixAlltoAllChannel(const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const MatrixAlltoAllSlot &slotPlan, const bool selectTxChannel, ChannelInfo &channel) const;
+    HcclResult RunMatrixAlltoAll(const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
+    HcclResult RunMatrixAlltoAllSlot(const TemplateDataParams &tempAlgParams,
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const MatrixAlltoAllSlot &slotPlan,
+        const ThreadHandle &thread, const u32 round) const;
+
     HcclResult RunALLtoALL(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
