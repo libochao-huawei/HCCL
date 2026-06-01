@@ -1178,7 +1178,7 @@ CcuResult GroupLocalReduce(CcuKernelCtxBase &ctx, ccu::LocalAddr outDstOrg, std:
         paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
         ccu::Variable offsetCfg;
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
-
+        loops.loopParam[0] = loopParam;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0] };
         ccu::LoopGroup group(paraCfg, offsetCfg, 1, grpLoops);
     }
@@ -1241,6 +1241,8 @@ CcuResult GroupLocalReduce(CcuKernelCtxBase &ctx, ccu::LocalAddr outDstOrg, std:
         loopCfg1 = GetLoopParam(0, 0, 1);
         ccu::Variable offsetCfg;
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+        loops.loopParam[0] = loopCfg0;
+        loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
         ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
     }
