@@ -71,15 +71,16 @@ protected:
     HcclResult PrepareResForTemplateLevelRS(u32 level, std::shared_ptr<InsAlgTemplateBase>& tempBase);
     HcclResult PrepareResForTemplateLevelAG(u32 level, std::shared_ptr<InsAlgTemplateBase>& tempBase);
 
-    HcclResult InitSubCommRanks(std::vector<std::vector<u32>>& subCommRanks0,
+    HcclResult BuildSubCommAndTempMap(
+        const OpParam& param,
+        const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+        const TopoInfoWithNetLayerDetails* topoInfo,
+        std::vector<std::vector<u32>>& subCommRanks0,
         std::vector<std::vector<u32>>& subCommRanks1,
         std::vector<std::vector<u32>>& subCommRanks2,
-        const TopoInfoWithNetLayerDetails* topoInfo);
+        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap);
 
-    HcclResult InitTemplate(const OpParam &param, std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap,
-        const std::vector<std::vector<u32>>& subCommRanks0,
-        const std::vector<std::vector<u32>>& subCommRanks1,
-        const std::vector<std::vector<u32>>& subCommRanks2);
+    HcclResult InitTemplate(const OpParam &param, std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap);
 
     HcclResult InitTemplateParams(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
         const std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap,
@@ -130,6 +131,13 @@ protected:
         OMNIPIPE_AG_LEVEL2 = 5,
         OMNIPIPE_AR_LEVEL_NUM = 6
     };
+
+    enum class TopoType { UBX_2LEVEL, THREE_LEVEL };
+    TopoType topoType_ = TopoType::UBX_2LEVEL;
+
+    std::vector<std::vector<u32>> subCommRanks0_;
+    std::vector<std::vector<u32>> subCommRanks1_;
+    std::vector<std::vector<u32>> subCommRanks2_;
 };
 }  // namespace ops_hccl
 

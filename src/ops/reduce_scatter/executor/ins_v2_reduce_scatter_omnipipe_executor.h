@@ -59,6 +59,15 @@ protected:
     HcclResult CalcResLevel(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
         std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest &resourceRequest);
 
+    HcclResult BuildSubCommAndTempMap(
+        const OpParam& param,
+        const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+        const TopoInfoWithNetLayerDetails* topoInfo,
+        std::vector<std::vector<u32>>& subCommRanks0,
+        std::vector<std::vector<u32>>& subCommRanks1,
+        std::vector<std::vector<u32>>& subCommRanks2,
+        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap);
+
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
     uint64_t rankSizeLevel2_{0};
@@ -90,10 +99,16 @@ protected:
     std::vector<ThreadHandle> level1Threads_;
     std::vector<ThreadHandle> level2Threads_;
 
-    AlgHierarchyInfoForAllLevel algHierarchyInfo_;
+AlgHierarchyInfoForAllLevel algHierarchyInfo_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;                 // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
+
+    enum class TopoType { UBX_2LEVEL, THREE_LEVEL };
+    TopoType topoType_ = TopoType::UBX_2LEVEL;
+
+    std::vector<std::vector<u32>> subCommRanks0_;
+    std::vector<std::vector<u32>> subCommRanks1_;
+    std::vector<std::vector<u32>> subCommRanks2_;
 };
 }
-
 #endif
