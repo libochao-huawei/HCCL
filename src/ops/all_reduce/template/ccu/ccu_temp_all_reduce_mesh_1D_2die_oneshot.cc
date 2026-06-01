@@ -11,7 +11,7 @@
 #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
 #include "alg_data_trans_wrapper.h"
 #include "ccu_kernel_all_reduce_mesh_1D_2die_oneshot.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 #include "channel.h"
 
 namespace ops_hccl {

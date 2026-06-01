@@ -12,7 +12,7 @@
 #define CCU_LOOP_DL_HPP
 
 #if CANN_VERSION_NUM >= 90100000
-#include "ccu_launch.h"
+#include "ccu_loop.hpp"
 #else
 #include <vector>
 #include "ccu_types_dl.h"

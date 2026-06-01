@@ -12,7 +12,7 @@
 #define CCU_LOCAL_ADDR_DL_HPP
 
 #if CANN_VERSION_NUM >= 90100000
-#include "ccu_launch.h"
+#include "ccu_local_addr.hpp"
 #else
 #include <type_traits>
 #include "ccu_types_dl.h"

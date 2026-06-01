@@ -12,7 +12,7 @@
 #define CCU_FUNC_DL_HPP
 
 #if CANN_VERSION_NUM >= 90100000
-#include "ccu_event.hpp"
+#include "ccu_func.hpp"
 #else
 #include <cstdint>
 #include <cstddef>

@@ -12,7 +12,7 @@
 #include "alg_template_base.h"
 #include "ccu_kernel_all_gather_nhr1d_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 
 constexpr u32 JETTY_NUM = 1;
 
