@@ -11,7 +11,7 @@
 #include "channel.h"
 #include "alg_data_trans_wrapper.h"
 #include "ccu_launch.h"
-
+#include "ccu_res.h"
 #include "ccu_temp_all_to_all_mesh2die.h"
 #include "kernel/ccu_kernel_all_to_all_mesh2die.h"
 
@@ -135,7 +135,8 @@ HcclResult CcuTempAllToAllMesh2Die::KernelRun(const OpParam &param, const Templa
         std::vector<uint64_t> taskArgs;
         taskArgs.push_back(inputAddr);
         taskArgs.push_back(outputAddr);
-        taskArgs.push_back(tokenInfo);
+        taskArgs.push_back(token);
+        std::cout<<"c00913534 token"<< token<<std::endl;
         taskArgs.push_back(sliceSize);
         taskArgs.push_back(inputSliceStride);
         taskArgs.push_back(outputSliceStride);
