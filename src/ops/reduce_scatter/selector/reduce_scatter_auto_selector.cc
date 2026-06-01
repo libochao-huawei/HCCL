@@ -282,7 +282,9 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
         } else if (topoInfo->Level0Nhr) {
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            if (dataSize > RS_AICPU_1D_MIN_DATA_SIZE) {
+            if (topoInfo->topoLevelNums >= 3) {
+                selectAlgName = "InsReduceScatterSequenceMesh1DNHRNHR";
+            } else if (dataSize > RS_AICPU_1D_MIN_DATA_SIZE) {
                 selectAlgName = (dataSize * topoInfo->userRankSize > RS_AICPU_SEQUENCE_SIZE_THRESHOLD) ?
                     "InsReduceScatterSequenceMesh1DNhr" : "InsReduceScatterParallelMesh1DNHR";
             } else {
