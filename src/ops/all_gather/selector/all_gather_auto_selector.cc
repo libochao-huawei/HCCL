@@ -125,9 +125,6 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0AlgoMesh1D(
         HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
         return SelectorStatus::NOT_MATCH;
     } else {
-        CHK_PRT_RET(IsInputOutputOverlap(opParam) == true,
-        HCCL_WARNING("[Algo][AllGatherAutoSelector] ccu_sched does not support inplace allreduce."),
-        SelectorStatus::NOT_MATCH);
         selectAlgName = "CcuAllGatherMesh1DMem2Mem";
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
