@@ -16,6 +16,7 @@
 #include "common.h"
 #include "ccu_kernel.h"
 #include "ccu_launch.h"
+#include "ccu_res.h"
 #include "utils.h"
 using namespace ops_hccl_ag;
 
