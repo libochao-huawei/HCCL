@@ -122,14 +122,6 @@ struct CcuKernelCtxBase {
         ccu::Variable  loopLenExp[2];
     };
 
-    struct GroupReduceMem2MemVar {
-        ccu::LocalAddr loopDst[2];
-        ccu::LocalAddr loopSrc[2];
-        std::array<std::vector<ccu::LocalAddr>, 2> loopScratch;
-        ccu::Variable loopLen[2];
-        ccu::Variable loopLenExp[2];
-    };
-
 //     // 用于n和p部分数据loopgroup的参数
 //     GroupOpConfig       moConfig{0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
 //     GroupOpSizeResource moRes;

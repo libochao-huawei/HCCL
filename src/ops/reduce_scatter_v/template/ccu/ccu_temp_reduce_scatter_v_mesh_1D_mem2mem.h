@@ -13,9 +13,8 @@
 
 #include "ccu_alg_template_base.h"
 #include "ccu_kernel_alg_base.h"
-// #include "ccu_control_api.h"
 #include "log.h"
-#include "ccu_res.h"
+#include "ccu_res_dl.h"
 
 namespace ops_hccl {
 
