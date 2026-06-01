@@ -57,17 +57,38 @@ thread_local std::set<std::string> g_inconsistentCheckedList;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 constexpr u32 HOST_NOTIFY_TIMEOUT_OFFSET = 27;  // host等待Device通知的超时时间偏移量
 constexpr u32 KERNEL_TIMEOUT_OFFSET = 25;       // kernel启动超时时间偏移量
-constexpr u32 AIV_CACHE_CTX_MAGIC = 0x41495643; // AIVC
 constexpr u16 AIV_CACHE_CTX_VERSION = 1;
+constexpr u16 AIV_CACHE_INDEX_VERSION = 1;
+constexpr u16 AIV_CACHE_INDEX_MAX_ENTRY = 1024;
+constexpr u16 AIV_CACHE_INDEX_CLEAR_PERCENT = 20;
 constexpr u64 FNV_OFFSET_BASIS = 14695981039346656037ULL;
 constexpr u64 FNV_PRIME = 1099511628211ULL;
+constexpr char AIV_CACHE_INDEX_CTX_TAG[] = "AivCacheIndex";
 
 struct AivCacheCtxHeader {
-    u32 magic;
     u16 version;
     u16 reserved;
+    u32 reserved2;
     u64 keyHash;
     u64 insCount;
+};
+
+struct AivCacheIndexHeader {
+    u16 version;
+    u16 entryCount;
+    u32 reserved;
+    u64 accessSeq;
+};
+
+struct AivCacheIndexEntry {
+    u64 keyHash;
+    u64 lastUseSeq;
+    char ctxTag[64];
+};
+
+struct AivCacheIndexCtx {
+    AivCacheIndexHeader header;
+    AivCacheIndexEntry entries[AIV_CACHE_INDEX_MAX_ENTRY];
 };
 
 void HashAppend(u64 &hash, const void *data, size_t size)
@@ -123,6 +144,153 @@ bool IsAivCacheNotFound(HcclResult ret)
     return ret == HCCL_E_NOT_FOUND || ret == HCCL_E_PARA;
 }
 
+HcclResult InitAivCacheIndexCtx(AivCacheIndexCtx *indexCtx)
+{
+    CHK_PTR_NULL(indexCtx);
+    indexCtx->header.version = AIV_CACHE_INDEX_VERSION;
+    indexCtx->header.entryCount = 0;
+    indexCtx->header.reserved = 0;
+    indexCtx->header.accessSeq = 0;
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetOrCreateAivCacheIndexCtx(HcclComm comm, AivCacheIndexCtx **indexCtx)
+{
+    CHK_PTR_NULL(indexCtx);
+    void *ctx = nullptr;
+    uint64_t ctxSize = 0;
+    HcclResult ret = HcclEngineCtxGet(comm, AIV_CACHE_INDEX_CTX_TAG, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &ctxSize);
+    if (ret == HCCL_SUCCESS) {
+        CHK_PRT_RET(ctxSize != sizeof(AivCacheIndexCtx),
+            HCCL_ERROR("[%s] invalid aiv cache index ctx size[%llu], expected[%zu]", __func__, ctxSize,
+                sizeof(AivCacheIndexCtx)),
+            HCCL_E_INTERNAL);
+        *indexCtx = static_cast<AivCacheIndexCtx *>(ctx);
+        if ((*indexCtx)->header.version == 0) {
+            CHK_RET(InitAivCacheIndexCtx(*indexCtx));
+        }
+        CHK_PRT_RET((*indexCtx)->header.version != AIV_CACHE_INDEX_VERSION ||
+            (*indexCtx)->header.entryCount > AIV_CACHE_INDEX_MAX_ENTRY,
+            HCCL_ERROR("[%s] invalid aiv cache index header, version[%u], entryCount[%u]", __func__,
+                (*indexCtx)->header.version, (*indexCtx)->header.entryCount),
+            HCCL_E_INTERNAL);
+        return HCCL_SUCCESS;
+    }
+    if (!IsAivCacheNotFound(ret)) {
+        return ret;
+    }
+
+    ret = HcclEngineCtxCreate(comm, AIV_CACHE_INDEX_CTX_TAG, CommEngine::COMM_ENGINE_CPU_TS,
+        sizeof(AivCacheIndexCtx), &ctx);
+    if (IsAivCacheNotFound(ret)) {
+        ret = HcclEngineCtxGet(comm, AIV_CACHE_INDEX_CTX_TAG, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &ctxSize);
+        CHK_RET(ret);
+        CHK_PRT_RET(ctxSize != sizeof(AivCacheIndexCtx),
+            HCCL_ERROR("[%s] invalid concurrent aiv cache index ctx size[%llu], expected[%zu]", __func__, ctxSize,
+                sizeof(AivCacheIndexCtx)),
+            HCCL_E_INTERNAL);
+        *indexCtx = static_cast<AivCacheIndexCtx *>(ctx);
+        if ((*indexCtx)->header.version == 0) {
+            CHK_RET(InitAivCacheIndexCtx(*indexCtx));
+        }
+        return HCCL_SUCCESS;
+    }
+    CHK_RET(ret);
+
+    *indexCtx = static_cast<AivCacheIndexCtx *>(ctx);
+    CHK_RET(InitAivCacheIndexCtx(*indexCtx));
+    return HCCL_SUCCESS;
+}
+
+s32 FindAivCacheIndexEntry(const AivCacheIndexCtx *indexCtx, u64 keyHash)
+{
+    for (u16 i = 0; i < indexCtx->header.entryCount; ++i) {
+        if (indexCtx->entries[i].keyHash == keyHash) {
+            return static_cast<s32>(i);
+        }
+    }
+    return -1;
+}
+
+HcclResult TouchAivCacheIndexEntry(AivCacheIndexCtx *indexCtx, u64 keyHash)
+{
+    CHK_PTR_NULL(indexCtx);
+    s32 index = FindAivCacheIndexEntry(indexCtx, keyHash);
+    if (index < 0) {
+        return HCCL_SUCCESS;
+    }
+    indexCtx->header.accessSeq++;
+    indexCtx->entries[index].lastUseSeq = indexCtx->header.accessSeq;
+    return HCCL_SUCCESS;
+}
+
+void RemoveAivCacheIndexEntry(AivCacheIndexCtx *indexCtx, u16 index)
+{
+    if (index >= indexCtx->header.entryCount) {
+        return;
+    }
+    for (u16 i = index; i + 1 < indexCtx->header.entryCount; ++i) {
+        indexCtx->entries[i] = indexCtx->entries[i + 1];
+    }
+    indexCtx->header.entryCount--;
+    indexCtx->entries[indexCtx->header.entryCount] = {};
+}
+
+u16 FindOldestAivCacheIndexEntry(const AivCacheIndexCtx *indexCtx)
+{
+    u16 oldestIndex = 0;
+    for (u16 i = 1; i < indexCtx->header.entryCount; ++i) {
+        if (indexCtx->entries[i].lastUseSeq < indexCtx->entries[oldestIndex].lastUseSeq) {
+            oldestIndex = i;
+        }
+    }
+    return oldestIndex;
+}
+
+HcclResult EvictAivCacheIfNeeded(HcclComm comm, AivCacheIndexCtx *indexCtx)
+{
+    CHK_PTR_NULL(indexCtx);
+    if (indexCtx->header.entryCount < AIV_CACHE_INDEX_MAX_ENTRY) {
+        return HCCL_SUCCESS;
+    }
+
+    u16 clearCount = static_cast<u16>(AIV_CACHE_INDEX_MAX_ENTRY * AIV_CACHE_INDEX_CLEAR_PERCENT / 100);
+    clearCount = (clearCount == 0) ? 1 : clearCount;
+    for (u16 i = 0; i < clearCount && indexCtx->header.entryCount > 0; ++i) {
+        u16 evictIndex = FindOldestAivCacheIndexEntry(indexCtx);
+        const char *ctxTag = indexCtx->entries[evictIndex].ctxTag;
+        HcclResult ret = HcclEngineCtxDestroy(comm, ctxTag, CommEngine::COMM_ENGINE_CPU_TS);
+        if (ret != HCCL_SUCCESS && !IsAivCacheNotFound(ret)) {
+            HCCL_WARNING("[%s] failed to destroy aiv cache ctx, tag[%s], ret[%d]", __func__, ctxTag, ret);
+        }
+        RemoveAivCacheIndexEntry(indexCtx, evictIndex);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AddAivCacheIndexEntry(AivCacheIndexCtx *indexCtx, u64 keyHash, const std::string &ctxTag)
+{
+    CHK_PTR_NULL(indexCtx);
+    s32 index = FindAivCacheIndexEntry(indexCtx, keyHash);
+    indexCtx->header.accessSeq++;
+    if (index >= 0) {
+        indexCtx->entries[index].lastUseSeq = indexCtx->header.accessSeq;
+        return HCCL_SUCCESS;
+    }
+    CHK_PRT_RET(indexCtx->header.entryCount >= AIV_CACHE_INDEX_MAX_ENTRY,
+        HCCL_WARNING("[%s] aiv cache index is full, entryCount[%u]", __func__, indexCtx->header.entryCount),
+        HCCL_SUCCESS);
+
+    AivCacheIndexEntry &entry = indexCtx->entries[indexCtx->header.entryCount];
+    entry.keyHash = keyHash;
+    entry.lastUseSeq = indexCtx->header.accessSeq;
+    s32 ret = strncpy_s(entry.ctxTag, sizeof(entry.ctxTag), ctxTag.c_str(), sizeof(entry.ctxTag) - 1);
+    CHK_PRT_RET(ret != EOK, HCCL_ERROR("[%s] failed to copy aiv cache ctx tag, ret[%d]", __func__, ret),
+        HCCL_E_MEMORY);
+    indexCtx->header.entryCount++;
+    return HCCL_SUCCESS;
+}
+
 HcclResult ReplayAivCacheCtx(HcclComm comm, const std::string &ctxTag, u64 keyHash, OpParam &param, bool &cacheHit)
 {
     cacheHit = false;
@@ -138,10 +306,13 @@ HcclResult ReplayAivCacheCtx(HcclComm comm, const std::string &ctxTag, u64 keyHa
         HCCL_ERROR("[%s] invalid aiv cache ctx size[%llu], tag[%s]", __func__, ctxSize, ctxTag.c_str()),
         HCCL_E_INTERNAL);
     AivCacheCtxHeader *header = static_cast<AivCacheCtxHeader *>(ctx);
-    CHK_PRT_RET(header->magic != AIV_CACHE_CTX_MAGIC || header->version != AIV_CACHE_CTX_VERSION ||
-        header->keyHash != keyHash,
-        HCCL_ERROR("[%s] invalid aiv cache ctx header, tag[%s], magic[%u], version[%u], keyHash[%llu]",
-            __func__, ctxTag.c_str(), header->magic, header->version, header->keyHash),
+    if (header->version == 0) {
+        HCCL_WARNING("[%s] aiv cache ctx is not initialized, tag[%s]", __func__, ctxTag.c_str());
+        return HCCL_SUCCESS;
+    }
+    CHK_PRT_RET(header->version != AIV_CACHE_CTX_VERSION || header->keyHash != keyHash,
+        HCCL_ERROR("[%s] invalid aiv cache ctx header, tag[%s], version[%u], keyHash[%llu]",
+            __func__, ctxTag.c_str(), header->version, header->keyHash),
         HCCL_E_INTERNAL);
     uint64_t expectedSize = sizeof(AivCacheCtxHeader) + header->insCount * sizeof(AivInstruction);
     CHK_PRT_RET(ctxSize != expectedSize,
@@ -162,30 +333,40 @@ HcclResult ReplayAivCacheCtx(HcclComm comm, const std::string &ctxTag, u64 keyHa
     return HCCL_SUCCESS;
 }
 
-HcclResult StoreAivCacheCtx(HcclComm comm, const std::string &ctxTag, u64 keyHash, const InsQueue &queue)
+HcclResult WriteAivCacheCtx(void *ctx, uint64_t ctxSize, u64 keyHash, const InsQueue &queue)
 {
-    uint64_t ctxSize = sizeof(AivCacheCtxHeader) + queue.size() * sizeof(AivInstruction);
-    void *ctx = nullptr;
-    HcclResult ret = HcclEngineCtxCreate(comm, ctxTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, ctxSize, &ctx);
-    if (IsAivCacheNotFound(ret)) {
-        void *existingCtx = nullptr;
-        uint64_t existingSize = 0;
-        HcclResult getRet = HcclEngineCtxGet(comm, ctxTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, &existingCtx,
-            &existingSize);
-        CHK_PRT_RET(getRet != HCCL_SUCCESS,
-            HCCL_ERROR("[%s] failed to get concurrent aiv cache ctx, tag[%s], createRet[%d], getRet[%d]",
-                __func__, ctxTag.c_str(), ret, getRet), getRet);
-        return HCCL_SUCCESS;
-    }
-    CHK_RET(ret);
-
-    AivCacheCtxHeader header {AIV_CACHE_CTX_MAGIC, AIV_CACHE_CTX_VERSION, 0, keyHash,
+    AivCacheCtxHeader header {AIV_CACHE_CTX_VERSION, 0, 0, keyHash,
         static_cast<u64>(queue.size())};
     CHK_SAFETY_FUNC_RET(memcpy_s(ctx, ctxSize, &header, sizeof(header)));
     if (!queue.empty()) {
         CHK_SAFETY_FUNC_RET(memcpy_s(static_cast<u8 *>(ctx) + sizeof(AivCacheCtxHeader),
             ctxSize - sizeof(AivCacheCtxHeader), queue.data(), queue.size() * sizeof(AivInstruction)));
     }
+    return HCCL_SUCCESS;
+}
+
+HcclResult StoreAivCacheCtx(HcclComm comm, const std::string &ctxTag, u64 keyHash, const InsQueue &queue)
+{
+    uint64_t ctxSize = sizeof(AivCacheCtxHeader) + queue.size() * sizeof(AivInstruction);
+    void *ctx = nullptr;
+    HcclResult ret = HcclEngineCtxCreate(comm, ctxTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, ctxSize, &ctx);
+    if (IsAivCacheNotFound(ret)) {
+        uint64_t existingSize = 0;
+        HcclResult getRet = HcclEngineCtxGet(comm, ctxTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, &ctx, &existingSize);
+        CHK_PRT_RET(getRet != HCCL_SUCCESS,
+            HCCL_ERROR("[%s] failed to get concurrent aiv cache ctx, tag[%s], createRet[%d], getRet[%d]",
+                __func__, ctxTag.c_str(), ret, getRet), getRet);
+        if (existingSize == ctxSize) {
+            AivCacheCtxHeader *header = static_cast<AivCacheCtxHeader *>(ctx);
+            if (header->version == 0) {
+                CHK_RET(WriteAivCacheCtx(ctx, ctxSize, keyHash, queue));
+            }
+        }
+        return HCCL_SUCCESS;
+    }
+    CHK_RET(ret);
+
+    CHK_RET(WriteAivCacheCtx(ctx, ctxSize, keyHash, queue));
     return HCCL_SUCCESS;
 }
 
@@ -537,6 +718,9 @@ HcclResult ExecuteAivCacheLogic(HcclComm comm, OpParam &param, const std::string
         bool cacheHit = false;
         CHK_RET(ReplayAivCacheCtx(comm, ctxTag, keyHash, param, cacheHit));
         if (cacheHit) {
+            AivCacheIndexCtx *indexCtx = nullptr;
+            CHK_RET(GetOrCreateAivCacheIndexCtx(comm, &indexCtx));
+            CHK_RET(TouchAivCacheIndexEntry(indexCtx, keyHash));
             return HCCL_SUCCESS;
         }
     }
@@ -551,7 +735,11 @@ HcclResult ExecuteAivCacheLogic(HcclComm comm, OpParam &param, const std::string
     CHK_RET(executor->Orchestrate(param, resCtxHost));
 
     if (useCache && g_recordingQueue) {
+        AivCacheIndexCtx *indexCtx = nullptr;
+        CHK_RET(GetOrCreateAivCacheIndexCtx(comm, &indexCtx));
+        CHK_RET(EvictAivCacheIfNeeded(comm, indexCtx));
         CHK_RET(StoreAivCacheCtx(comm, ctxTag, keyHash, *g_recordingQueue));
+        CHK_RET(AddAivCacheIndexEntry(indexCtx, keyHash, ctxTag));
         g_recordingQueue = nullptr;
         g_baseInputAddr = 0;
         g_baseOutputAddr = 0;
