@@ -149,6 +149,6 @@ function(pack_built_in)
 
   # ============= CPack =============
   if (NOT ENABLE_COV AND NOT ENABLE_UT)
-    set_cann_cpack_config(hccl ENABLE_DEVICE ${ENABLE_DEVICE} SHARE_INFO_NAME hccl)
+    set_cann_cpack_config(hccl SHARE_INFO_NAME hccl)
   endif()
 endfunction()
