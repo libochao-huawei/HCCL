@@ -34,6 +34,33 @@ protected:
     {}
 };
 
+static HcclResult ReduceScatterVDispatch(u32 rankId, u64 totalCount, VDataDesTag vDataDes,
+    HcclComm comm, aclrtStream stream)
+{
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE_RSV[vDataDes.dataType];
+    void *sendBuf = nullptr;
+    void *recvBuf = nullptr;
+    u64 recvDataCount = vDataDes.counts[rankId];
+    u64 sendBufSize = totalCount * dataTypeSize;
+    u64 recvBufSize = recvDataCount * dataTypeSize;
+    aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
+    aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
+    return HcclReduceScatterV(sendBuf, vDataDes.counts.data(), vDataDes.displs.data(),
+        recvBuf, recvDataCount, vDataDes.dataType, HcclReduceOp::HCCL_REDUCE_SUM, comm, stream);
+}
+
+static HcclResult ReduceScatterVVerify(AllRankTaskQueues &taskQueues, u32 rankSize, VDataDesTag vDataDes)
+{
+    return CheckReduceScatterV(taskQueues, rankSize, HcclReduceOp::HCCL_REDUCE_SUM, vDataDes);
+}
+
+static void SetIndependentOpEnv() { setenv("HCCL_INDEPENDENT_OP", "1", 1); }
+
+static void RunReduceScatterVMultilevel(const TopoMeta &topoInfo, VDataDesTag vDataDes)
+{
+    RunVMultilevelTest(topoInfo, vDataDes, SetIndependentOpEnv, ReduceScatterVDispatch, ReduceScatterVVerify);
+}
+
 TEST_F(ST_REDUCESCATTERV_TEST, st_reduce_scatter_v_a5_aicpu_test)
 {
     TopoMeta topoMeta{{{0, 1}}};
@@ -41,25 +68,8 @@ TEST_F(ST_REDUCESCATTERV_TEST, st_reduce_scatter_v_a5_aicpu_test)
     vDataDes.counts = {155, 155};
     vDataDes.displs = {0, 155};
     vDataDes.dataType = HcclDataType::HCCL_DATA_TYPE_INT16;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    const u32 dataTypeSize = DATATYPE_SIZE_TABLE_RSV[vDataDes.dataType];
 
-    RunVMultilevelTest(topoMeta, vDataDes,
-        []() { setenv("HCCL_INDEPENDENT_OP", "1", 1); },
-        [=](u32 rankId, u64 totalCount, VDataDesTag vDataDes, HcclComm comm, aclrtStream stream) -> HcclResult {
-            void *sendBuf = nullptr;
-            void *recvBuf = nullptr;
-            u64 recvDataCount = vDataDes.counts[rankId];
-            u64 sendBufSize = totalCount * dataTypeSize;
-            u64 recvBufSize = recvDataCount * dataTypeSize;
-            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            return HcclReduceScatterV(sendBuf, vDataDes.counts.data(), vDataDes.displs.data(),
-                recvBuf, recvDataCount, vDataDes.dataType, reduceOp, comm, stream);
-        },
-        [=](AllRankTaskQueues &taskQueues, u32 rankSize, VDataDesTag vDataDes) -> HcclResult {
-            return CheckReduceScatterV(taskQueues, rankSize, reduceOp, vDataDes);
-        });
+    RunReduceScatterVMultilevel(topoMeta, vDataDes);
 }
 
 TEST_F(ST_REDUCESCATTERV_TEST, st_reduce_scatter_v_a5_multilevel_2pod_4rank_int32_equal_test)
@@ -69,25 +79,8 @@ TEST_F(ST_REDUCESCATTERV_TEST, st_reduce_scatter_v_a5_multilevel_2pod_4rank_int3
     vDataDes.counts = {100, 100, 100, 100};
     vDataDes.displs = {0, 100, 200, 300};
     vDataDes.dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    const u32 dataTypeSize = DATATYPE_SIZE_TABLE_RSV[vDataDes.dataType];
 
-    RunVMultilevelTest(topoMeta, vDataDes,
-        []() { setenv("HCCL_INDEPENDENT_OP", "1", 1); },
-        [=](u32 rankId, u64 totalCount, VDataDesTag vDataDes, HcclComm comm, aclrtStream stream) -> HcclResult {
-            void *sendBuf = nullptr;
-            void *recvBuf = nullptr;
-            u64 recvDataCount = vDataDes.counts[rankId];
-            u64 sendBufSize = totalCount * dataTypeSize;
-            u64 recvBufSize = recvDataCount * dataTypeSize;
-            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            return HcclReduceScatterV(sendBuf, vDataDes.counts.data(), vDataDes.displs.data(),
-                recvBuf, recvDataCount, vDataDes.dataType, reduceOp, comm, stream);
-        },
-        [=](AllRankTaskQueues &taskQueues, u32 rankSize, VDataDesTag vDataDes) -> HcclResult {
-            return CheckReduceScatterV(taskQueues, rankSize, reduceOp, vDataDes);
-        });
+    RunReduceScatterVMultilevel(topoMeta, vDataDes);
 }
 
 TEST_F(ST_REDUCESCATTERV_TEST, st_reduce_scatter_v_a5_multilevel_2pod_6rank_fp16_equal_test)
@@ -97,23 +90,6 @@ TEST_F(ST_REDUCESCATTERV_TEST, st_reduce_scatter_v_a5_multilevel_2pod_6rank_fp16
     vDataDes.counts = {200, 200, 200, 200, 200, 200};
     vDataDes.displs = {0, 200, 400, 600, 800, 1000};
     vDataDes.dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    const u32 dataTypeSize = DATATYPE_SIZE_TABLE_RSV[vDataDes.dataType];
 
-    RunVMultilevelTest(topoMeta, vDataDes,
-        []() { setenv("HCCL_INDEPENDENT_OP", "1", 1); },
-        [=](u32 rankId, u64 totalCount, VDataDesTag vDataDes, HcclComm comm, aclrtStream stream) -> HcclResult {
-            void *sendBuf = nullptr;
-            void *recvBuf = nullptr;
-            u64 recvDataCount = vDataDes.counts[rankId];
-            u64 sendBufSize = totalCount * dataTypeSize;
-            u64 recvBufSize = recvDataCount * dataTypeSize;
-            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            return HcclReduceScatterV(sendBuf, vDataDes.counts.data(), vDataDes.displs.data(),
-                recvBuf, recvDataCount, vDataDes.dataType, reduceOp, comm, stream);
-        },
-        [=](AllRankTaskQueues &taskQueues, u32 rankSize, VDataDesTag vDataDes) -> HcclResult {
-            return CheckReduceScatterV(taskQueues, rankSize, reduceOp, vDataDes);
-        });
+    RunReduceScatterVMultilevel(topoMeta, vDataDes);
 }

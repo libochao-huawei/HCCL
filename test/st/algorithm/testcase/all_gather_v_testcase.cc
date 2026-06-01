@@ -29,6 +29,24 @@ protected:
     {}
 };
 
+static HcclResult AllGatherVDispatch(u32 rankId, u64 totalCount, VDataDesTag vDataDes,
+    HcclComm comm, aclrtStream stream)
+{
+    void *sendBuf = nullptr;
+    void *recvBuf = nullptr;
+    u64 sendBufSize = vDataDes.counts[rankId] * sizeof(vDataDes.dataType);
+    u64 recvBufSize = totalCount * sizeof(vDataDes.dataType);
+    aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
+    aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
+    return HcclAllGatherV(sendBuf, vDataDes.counts[rankId], recvBuf, vDataDes.counts.data(),
+        vDataDes.displs.data(), vDataDes.dataType, comm, stream);
+}
+
+static void RunAllGatherVMultilevel(const TopoMeta &topoInfo, VDataDesTag vDataDes)
+{
+    RunVMultilevelTest(topoInfo, vDataDes, nullptr, AllGatherVDispatch, CheckAllGatherV);
+}
+
 TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_aicpu_test)
 {
     TopoMeta topoMeta{{{0, 1}}};
@@ -37,18 +55,7 @@ TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_aicpu_test)
     vDataDes.displs = {0, 89478485};
     vDataDes.dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
 
-    RunVMultilevelTest(topoMeta, vDataDes, nullptr,
-        [=](u32 rankId, u64 totalCount, VDataDesTag vDataDes, HcclComm comm, aclrtStream stream) -> HcclResult {
-            void *sendBuf = nullptr;
-            void *recvBuf = nullptr;
-            u64 sendBufSize = vDataDes.counts[rankId] * sizeof(vDataDes.dataType);
-            u64 recvBufSize = totalCount * sizeof(vDataDes.dataType);
-            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            return HcclAllGatherV(sendBuf, vDataDes.counts[rankId], recvBuf, vDataDes.counts.data(),
-                vDataDes.displs.data(), vDataDes.dataType, comm, stream);
-        },
-        CheckAllGatherV);
+    RunAllGatherVMultilevel(topoMeta, vDataDes);
 }
 
 TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_multilevel_2pod_4rank_int32_equal_test)
@@ -59,18 +66,7 @@ TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_multilevel_2pod_4rank_int32_equa
     vDataDes.displs = {0, 100, 200, 300};
     vDataDes.dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
 
-    RunVMultilevelTest(topoMeta, vDataDes, nullptr,
-        [=](u32 rankId, u64 totalCount, VDataDesTag vDataDes, HcclComm comm, aclrtStream stream) -> HcclResult {
-            void *sendBuf = nullptr;
-            void *recvBuf = nullptr;
-            u64 sendBufSize = vDataDes.counts[rankId] * sizeof(vDataDes.dataType);
-            u64 recvBufSize = totalCount * sizeof(vDataDes.dataType);
-            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            return HcclAllGatherV(sendBuf, vDataDes.counts[rankId], recvBuf, vDataDes.counts.data(),
-                vDataDes.displs.data(), vDataDes.dataType, comm, stream);
-        },
-        CheckAllGatherV);
+    RunAllGatherVMultilevel(topoMeta, vDataDes);
 }
 
 TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_multilevel_2pod_6rank_fp16_equal_test)
@@ -81,18 +77,7 @@ TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_multilevel_2pod_6rank_fp16_equal
     vDataDes.displs = {0, 200, 400, 600, 800, 1000};
     vDataDes.dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
 
-    RunVMultilevelTest(topoMeta, vDataDes, nullptr,
-        [=](u32 rankId, u64 totalCount, VDataDesTag vDataDes, HcclComm comm, aclrtStream stream) -> HcclResult {
-            void *sendBuf = nullptr;
-            void *recvBuf = nullptr;
-            u64 sendBufSize = vDataDes.counts[rankId] * sizeof(vDataDes.dataType);
-            u64 recvBufSize = totalCount * sizeof(vDataDes.dataType);
-            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            return HcclAllGatherV(sendBuf, vDataDes.counts[rankId], recvBuf, vDataDes.counts.data(),
-                vDataDes.displs.data(), vDataDes.dataType, comm, stream);
-        },
-        CheckAllGatherV);
+    RunAllGatherVMultilevel(topoMeta, vDataDes);
 }
 
 // 3-pod topologies unsupported: simulator has only 2 net layers (no inter-superpod links at layer 2).
