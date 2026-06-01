@@ -189,7 +189,16 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDet
         SelectorStatus::NOT_MATCH);
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+        if (topoInfo->topoLevelNums == 3) {
+            if (topoInfo->deviceNumPerModule == 8) {
+                selectAlgName = "ReduceParallelMesh1DNHRTest";
+            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4
+                       && topoInfo->serverNum > 1) {
+                selectAlgName = "ReduceParallelMesh1DNHRTest";
+            } else {
+                selectAlgName = "ReduceParallelMesh1DNHR";
+            }
+        } else if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "ReduceAicpuReduceNHR";
         } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "ReduceParallelMesh1DNHR";
@@ -297,7 +306,16 @@ SelectorStatus ReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetai
     HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
         opParam.opType, algos[0], algos[1], algos[2], algos[3]);
     if (topoInfo->topoLevelNums > 1) {
-        if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
+        if (topoInfo->topoLevelNums == 3) {
+            if (topoInfo->deviceNumPerModule == 8) {
+                selectAlgName = "ReduceParallelMesh1DNHRTest";
+            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4
+                       && topoInfo->serverNum > 1) {
+                selectAlgName = "ReduceParallelMesh1DNHRTest";
+            } else {
+                selectAlgName = "ReduceParallelMesh1DNHR";
+            }
+        } else if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsReduceSequenceMeshNhrDPU";
             HCCL_INFO("selectAlgName is InsReduceSequenceMeshNhrDPU");
             return SelectorStatus::MATCH;
