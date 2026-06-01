@@ -33,9 +33,6 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[AllGatherAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
-    } else if(IsInputOutputOverlap(opParam) == true){
-        HCCL_WARNING("[AllGatherAutoSelector] ccu_ms mode not support inplace.");
-        return SelectorStatus::NOT_MATCH;
     } else {
         return SelectMeshAlgo(topoInfo, opParam, selectAlgName);
     }
