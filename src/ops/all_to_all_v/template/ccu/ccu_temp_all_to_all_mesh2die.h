@@ -38,7 +38,6 @@ public:
 
 private:
     HcclResult PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs);
-    HcclResult GetTokenWithFallback(const BuffInfo& buffInfo, uint64_t &token);
 
     const uint32_t DIE_NUM = 2; // 2Die
 

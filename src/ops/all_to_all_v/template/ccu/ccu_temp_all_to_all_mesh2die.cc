@@ -26,24 +26,6 @@ CcuTempAllToAllMesh2Die::~CcuTempAllToAllMesh2Die()
 {
 }
 
-HcclResult CcuTempAllToAllMesh2Die::GetTokenWithFallback(const BuffInfo& buffInfo, uint64_t &token)
-{
-    if (buffInfo.outputPtr != nullptr && buffInfo.outputSize != 0) {
-        HcommCcuGetMemToken(PointerToAddr(buffInfo.outputPtr),
-                            static_cast<uint64_t>(buffInfo.outputSize),
-                            &token);
-        return HCCL_SUCCESS;
-    } else if (buffInfo.hcclBuff.addr != nullptr && buffInfo.hcclBuff.size != 0) {
-        HcommCcuGetMemToken(PointerToAddr(buffInfo.hcclBuff.addr),
-                            static_cast<uint64_t>(buffInfo.hcclBuff.size),
-                            &token);
-        return HCCL_SUCCESS;
-    }
-    HCCL_WARNING("[GetTokenWithFallback] outputMem and hcclBuff are all null");
-    token = 0;
-    return HCCL_SUCCESS;
-}
-
 HcclResult CcuTempAllToAllMesh2Die::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
     AlgResourceRequest &resourceRequest)
 {
@@ -127,8 +109,8 @@ HcclResult CcuTempAllToAllMesh2Die::KernelRun(const OpParam &param, const Templa
 
     uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t tokenInfo;
-    CHK_RET(GetTokenWithFallback(buffInfo_, tokenInfo));
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
     uint64_t sliceSize        = templateDataParams.sliceSize;
     uint64_t inputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
     uint64_t outputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
@@ -171,7 +153,7 @@ HcclResult CcuTempAllToAllMesh2Die::KernelRun(const OpParam &param, const Templa
         }
     }
 
-    std::vector<u32> notifyIdxSubToMain(1, 0);
+    std::vector<u32> notifyIdxSubToMain(1, 0);  // 可能会改
     CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
 
     HCCL_DEBUG("[CcuTempAllToAllMesh2Die][KernelRun] end. Rank[%d]", myRank_);
