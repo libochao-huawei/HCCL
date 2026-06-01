@@ -147,7 +147,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         tempAlgParams.buffInfo.inBuffBaseOff = currloopOffset;
         tempAlgParams.buffInfo.outBuffBaseOff = currloopOffset;
 
-        tempAlgParams.sliceSize = currSize;
+        tempAlgParams.sliceSize = currSize;  //a
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
         HCCL_DEBUG("[InsV2BroadcastSoleExecutor] Rank[%d], before generating instruction queues, currSize[%llu], currOffset[%llu].",
                    myRank_, currSize, currloopOffset);
