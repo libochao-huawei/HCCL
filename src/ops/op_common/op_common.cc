@@ -1011,7 +1011,11 @@ HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest
         CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
     } else if (param.engine == COMM_ENGINE_CCU) {
         // 添加资源回退。SetCommEngine
-        CHK_RET(GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size, resPack));
+        auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size, resPack);
+        if (ret == HCCL_E_UNAVAIL) {
+            return HCCL_E_UNAVAIL;
+        }
+        CHK_RET(ret);
     } else {
         HCCL_ERROR("fail to get engine, invalid engine type[%d].", param.engine);
         return HCCL_E_PARA;
