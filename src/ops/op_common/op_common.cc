@@ -939,7 +939,7 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     exchangeInfo.engine = param.engine;
     exchangeInfo.opExecuteConfig = param.opExecuteConfig;
     exchangeInfo.reduceType = param.reduceType;
-    CHK_RET(FillOpExchangeInfoFromDataDes(param, exchangeInfo));
+    CHK_RET(FillOpExchangeInfoWithDataDes(param, exchangeInfo));
     if (param.opMode == OpMode::OFFLOAD) {
         AivParamStorage *aivParam = nullptr;
         HcclResult ret = GetAivParamStorageByComm(comm, &aivParam);
@@ -963,7 +963,7 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     return HCCL_SUCCESS;
 }
 
-HcclResult FillOpExchangeInfoFromDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo)
+HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo)
 {
     switch (param.opType) {
         case HcclCMDType::HCCL_CMD_BATCH_SEND_RECV:
