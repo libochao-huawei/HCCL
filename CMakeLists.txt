@@ -37,7 +37,7 @@ message(STATUS "BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
 message(STATUS "ENABLE_BUILD_DEVICE=${ENABLE_BUILD_DEVICE}")
 message(STATUS "ENABLE_BUILD_AARCH=${ENABLE_BUILD_AARCH}")
 
-set(HCCL_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+set(HCCL_DIR          "${CMAKE_CURRENT_SOURCE_DIR}")
 set(HCC_TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
 set(HCC_CXX_COMPILER  "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
 set(HCC_C_COMPILER    "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
@@ -154,14 +154,6 @@ elseif(BUILD_OPEN_PROJECT)
                 -DVERSION_INFO=${VERSION_INFO}
             INSTALL_COMMAND ${CMAKE_CPACK_COMMAND}
             BUILD_ALWAYS TRUE
-        )
-
-        # 安装 device 侧编译产物
-        install(FILES
-            ${HCCL_DEVICE_BUILD_PATH}/signatures/aicpu_hccl.tar.gz
-            DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR}/kernel
-            OPTIONAL
-            COMPONENT hccl
         )
     endif()
 
