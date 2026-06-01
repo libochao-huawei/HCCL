@@ -23,7 +23,7 @@ if(NOT HCCL_CANN_COMPAT_850)
     )
 endif()
 
-if(NOT HCCL_CANN_COMPAT_850 AND NOT HCCL_CANN_COMPAT_900)
+if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list
             ${CMAKE_CURRENT_SOURCE_DIR}/ccu_log.cc
     )

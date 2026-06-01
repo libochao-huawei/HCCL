@@ -24,7 +24,7 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/aiv_alg_template_base.cc
 )
 # ccu_alg_template_base.cc 依赖 9.0.0-only 的 hcomm ccu 头，8.5.0 下剥离
-if(NOT HCCL_CANN_COMPAT_850 AND NOT HCCL_CANN_COMPAT_900)
+if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list ${CMAKE_CURRENT_SOURCE_DIR}/ccu_alg_template_base.cc)
 endif()
 
