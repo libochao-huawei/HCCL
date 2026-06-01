@@ -194,23 +194,30 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     HCCL_INFO("[HcclSelectAlgGraphMode] Start: group[%s] count[%llu] dataType[%u] reduceOp[%u] opType[%u] aivCoreLimit[%u]",
         group, count, dataType, op, opType, aivCoreLimit);
     
+    if (g_aivKernelInfoMap.find(opType) == g_aivKernelInfoMap.end()) {
+        HCCL_INFO("[HcclSelectAlgGraphMode] Unsupported op.");
+        return HCCL_SUCCESS;
+    }
     if (group == nullptr || ifAiv == nullptr || algName == nullptr) {
         HCCL_ERROR("[HcclSelectAlgGraphMode] Invalid parameters");
         return HCCL_E_PARA;
     }
-    
+
+    s32 deviceLogicId = 0;
+    CHK_PRT_RET(aclrtGetDevice(&deviceLogicId) != ACL_SUCCESS,
+        HCCL_WARNING("[HcclSelectAlgGraphMode] device is not set."), HCCL_SUCCESS);
     HcclComm hcclComm = nullptr;
-    CHK_RET(HcomGetCommHandleByGroup(group, &hcclComm));
+    CHT_RET(HcomGetCommHandleByGroup(group, &hcclComm));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(hcclComm, &rankSize));
 
     CHK_RET(InitEnvConfig());
     
     ops_hccl::OpParam param;
-    CHK_RET(HcclGetCommName(hcclComm, param.commName));
+    CHT_RET(HcclGetCommName(hcclComm, param.commName));
     
     DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
+    CHT_RET(hrtGetDeviceType(deviceType));
     
     param.opType = opType;
     param.DataDes.count = count;
@@ -221,7 +228,8 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     param.enableDetour = false;
     param.deviceType = deviceType;
 
-    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL || opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         param.varMemSize = ops_hccl::ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64);
         param.all2AllVDataDes.sendType = dataType;
         param.all2AllVDataDes.recvType = dataType;
@@ -257,13 +265,13 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     }
 
     int ret = sprintf_s(param.tag, sizeof(param.tag), "SelectAlg_%d_%s", static_cast<int>(opType), param.commName);
-    CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclSelectAlgGraphMode] failed to fill param.tag"), HCCL_E_INTERNAL);
+    CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclSelectAlgGraphMode] failed to fill param.tag"), HCCL_SUCCESS);
     
-    CHK_RET(ops_hccl::HcclGetOpExpansionMode(hcclComm, param));
+    CHT_RET(ops_hccl::HcclGetOpExpansionMode(hcclComm, param));
 
     std::unique_ptr<ops_hccl::TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<ops_hccl::TopoInfoWithNetLayerDetails>();
     std::string localAlgName;
-    CHK_RET(ops_hccl::Selector(hcclComm, param, topoInfo, localAlgName));
+    CHT_RET(ops_hccl::Selector(hcclComm, param, topoInfo, localAlgName));
     
     *ifAiv = (param.engine == CommEngine::COMM_ENGINE_AIV);
     
