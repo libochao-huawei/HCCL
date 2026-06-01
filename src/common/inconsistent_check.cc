@@ -19,23 +19,23 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, CommEngine engine, const AlgRes
     if (HcommIsSupportHcclCommGetExchangeInfo()) {
         if (engine != COMM_ENGINE_CCU) {
             for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                CHK_RET(InconsisrentCheckParams(comm, exchangeInfo, resRequest.channels[level]));
+                CHK_RET(InconsistentCheckParams(comm, exchangeInfo, resRequest.channels[level]));
             }
         } else {
             for (auto &kernelInfo: resRequest.ccuKernelInfos) {
-                CHK_RET(InconsisrentCheckParams(comm, exchangeInfo, kernelInfo.channels));
+                CHK_RET(InconsistentCheckParams(comm, exchangeInfo, kernelInfo.channels));
             }
         }
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult InconsisrentCheckParams(HcclComm comm, const OpExchangeInfo &exchangeInfo,
+HcclResult InconsistentCheckParams(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels)
 {
     CHK_PTR_NULL(comm);
     if (channels.empty()) {
-        HCCL_INFO("[InconsisrentCheckParams] channels is empty.");
+        HCCL_INFO("[InconsistentCheckParams] channels is empty.");
         return HCCL_SUCCESS;
     }
     for (auto &channel : channels) {
@@ -44,14 +44,14 @@ HcclResult InconsisrentCheckParams(HcclComm comm, const OpExchangeInfo &exchange
         CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, sizeof(OpExchangeInfo),
             reinterpret_cast<void*>(&rmtExchangeInfo), &rmtDataLen));
         if (rmtDataLen == 0) {
-            HCCL_INFO("[InconsisrentCheckParams] rmtDataLen is 0. Skip. remoteRank[%u]", channel.remoteRank);
+            HCCL_INFO("[InconsistentCheckParams] rmtDataLen is 0. Skip. remoteRank[%u]", channel.remoteRank);
             continue;
         } else if (rmtDataLen != sizeof(OpExchangeInfo)) {
-            HCCL_ERROR("[InconsisrentCheckParams] locDataLen is not equal to rmtDataLen. remoteRank[%u]", 
+            HCCL_ERROR("[InconsistentCheckParams] locDataLen is not equal to rmtDataLen. remoteRank[%u]", 
                 channel.remoteRank);
             return HCCL_E_PARA;
         }
-        HCCL_INFO("[InconsisrentCheckParams] check OpExchangeInfo from remoteRank[%u]", channel.remoteRank);
+        HCCL_INFO("[InconsistentCheckParams] check OpExchangeInfo from remoteRank[%u]", channel.remoteRank);
         if (exchangeInfo.cclBufferSize != rmtExchangeInfo.cclBufferSize) {
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclBufferSize",
                 std::to_string(exchangeInfo.cclBufferSize), std::to_string(rmtExchangeInfo.cclBufferSize)));
@@ -83,7 +83,7 @@ HcclResult InconsisrentCheckParams(HcclComm comm, const OpExchangeInfo &exchange
                 std::to_string(rmtExchangeInfo.count)));
         }
         if (exchangeInfo.aivCoreLimit != rmtExchangeInfo.aivCoreLimit) {
-            HCCL_RUN_WARNING("[InconsisrentCheckParams]op information aivCoreLimit check fail."
+            HCCL_RUN_WARNING("[InconsistentCheckParams]op information aivCoreLimit check fail."
                 " expectValue[%u] remotePara[%u]", exchangeInfo.aivCoreLimit, rmtExchangeInfo.aivCoreLimit);
         }
         if (strncmp(exchangeInfo.group, rmtExchangeInfo.group, MAX_LENGTH) != 0) {
@@ -94,9 +94,9 @@ HcclResult InconsisrentCheckParams(HcclComm comm, const OpExchangeInfo &exchange
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "OpTag", exchangeInfo.tag,
                 rmtExchangeInfo.tag));
         }
-        HCCL_INFO("[InconsisrentCheckParams] success. remoteRank[%u]", channel.remoteRank);
+        HCCL_INFO("[InconsistentCheckParams] success. remoteRank[%u]", channel.remoteRank);
     }
-    HCCL_INFO("[InconsisrentCheckParams] all exchangeInfos checked successfully. tag[%s]", exchangeInfo.tag);
+    HCCL_INFO("[InconsistentCheckParams] all exchangeInfos checked successfully. tag[%s]", exchangeInfo.tag);
     return HCCL_SUCCESS;
 }
 
