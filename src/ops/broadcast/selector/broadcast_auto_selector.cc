@@ -19,7 +19,10 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayer
 {
     (void)configAlgMap; 
     HCCL_DEBUG("[BroadcastAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
-
+    if(IsInputOutputOverlap(opParam) == true){
+        HCCL_WARNING("[BroadcastAutoSelector] ccu_ms mode not support inplace.");
+        return SelectorStatus::NOT_MATCH;
+    }
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[Algo][BroadcastAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
@@ -88,6 +91,9 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
                 HCCL_WARNING("[BroadcastAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
+                return SelectorStatus::NOT_MATCH;
+            } else if(IsInputOutputOverlap(opParam) == true) {
+                HCCL_WARNING("[BroadcastAutoSelector] ccu_sched mode not support inplace.");
                 return SelectorStatus::NOT_MATCH;
             } else {
                 selectAlgName = "CcuBroadcastMesh1DMem2Mem";
