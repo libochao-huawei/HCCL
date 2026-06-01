@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "ccu_kernel_reduce_scatter_v_mesh1d_mem2mem.h"
-#include "ccu_control_api.h"
+// #include "ccu_control_api.h"
 
 namespace ops_hccl {
 

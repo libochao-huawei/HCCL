@@ -514,6 +514,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclExecOp(comm, param, topoInfo, newAlgName, resPack));
         return HCCL_SUCCESS;
     }
+    // 将算法名字放在param参数中
+    int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
+    if (result <= 0) {
+        HCCL_ERROR("failed to fill param.algName");
+        return HCCL_E_INTERNAL;
+    }
     // 在原先的commName中添加执行模式，得到commModeTag
     param.hcclComm = comm;
     bool isOpBase = param.opMode == OpMode::OPBASE;
@@ -601,11 +607,6 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                 CHK_RET(GeReuseResource(comm, param, executor, resCtxHost, topoInfo.get(), resPack));
             }
         }
-        int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
-        if (result <= 0) {
-            HCCL_ERROR("faled to fill param.algName");
-            return HCCL_E_INTERNAL;
-        }
         if (resCtxHost->slaveThreadNum > 0) {
             CHK_RET(CaptureSlaveStreams(comm, param.stream, resCtxHost->threads));
         }
@@ -658,12 +659,6 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
     param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
-    // 将算法名字放在param参数中
-    int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
-    if (result <= 0) {
-        HCCL_ERROR("failed to fill param.algName");
-        return HCCL_E_INTERNAL;
-    }
 
     if (param.engine == COMM_ENGINE_CPU) {
         // 注册dpu回调函数
@@ -1528,13 +1523,12 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     u32 maxResGroup = 0;
     resCtxHost->ccuKernels.resize(totalKernelNum);
 
-    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
-    if (regStartRet != CCU_SUCCESS) {
-        HCCL_ERROR("ccu kernel register start failed: ccuRet -> %d", regStartRet);
-        return ConvertCcuToHccl(regStartRet);
-    }
-
     while (currentResGroup <= maxResGroup) {
+        CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
+        if (regStartRet != CCU_SUCCESS) {
+            HCCL_ERROR("ccu kernel register start failed: ccuRet -> %d", regStartRet);
+            return ConvertCcuToHccl(regStartRet);
+        }
         for (u32 i = 0; i < totalKernelNum; i++) {
             CcuKernelInfo& kernelInfo = resRequest.ccuKernelInfos[i];
             if (kernelInfo.resGroup > maxResGroup) {
@@ -1578,21 +1572,6 @@ HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest 
     resCtxHost->algHierarchyInfo = algHierarchyInfo;
 
     CHK_RET(HcclAllocAlgResourceAiv(comm, param, resRequest, resCtxHost));
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclAllocAlgResourceAivGraphMode(
-    HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost)
-{
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
-{
-    CHK_PTR_NULL(memHandle);
-    CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
-    CHK_RET(HcclCommMemReg(comm, memTag, &regMem, memHandle));
-    CHK_PTR_NULL(*memHandle);
     return HCCL_SUCCESS;
 }
 
@@ -1663,7 +1642,7 @@ HcclResult HcclAllocAlgResourceAiv(
             void* remoteBufferAddr;
             uint64_t remoteBufferSize;
             CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
-            HCCL_INFO("[%s]remoteRank[%u] cclBufferAddr[%p] cclBufferSize[%llu]", __func__, channelDesc.remoteRank,
+            HCCL_RUN_INFO("[%s]remoteRank[%u] cclBufferAddr[%p] cclBufferSize[%llu]", __func__, channelDesc.remoteRank,
                 remoteBufferAddr, remoteBufferSize);
             buffersIn[channelDesc.remoteRank] = remoteBufferAddr;
 
@@ -1673,7 +1652,7 @@ HcclResult HcclAllocAlgResourceAiv(
             CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
             CHK_PRT_RET(memNum == 0,
                 HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum is 0", __func__), HCCL_E_PARA);
-            HCCL_INFO("[%s]remoteRank[%u] memNum[%u] regMemAddr[%p] regMemSize[%llu] memTag[%s]", __func__,
+            HCCL_RUN_INFO("[%s]remoteRank[%u] memNum[%u] regMemAddr[%p] regMemSize[%llu] memTag[%s]", __func__,
                 channelDesc.remoteRank, memNum, remoteMems[memNum - 1].addr, remoteMems[memNum - 1].size,
                 memTags[memNum - 1]);
             buffersOut[channelDesc.remoteRank] = remoteMems[memNum - 1].addr;

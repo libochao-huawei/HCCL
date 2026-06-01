@@ -126,6 +126,14 @@ struct CcuKernelCtxBase {
         ccu::Variable  loopLenExp[2];
     };
 
+    struct GroupReduceMem2MemVar {
+        ccu::LocalAddr loopDst[2];
+        ccu::LocalAddr loopSrc[2];
+        std::array<std::vector<ccu::LocalAddr>, 2> loopScratch;
+        ccu::Variable loopLen[2];
+        ccu::Variable loopLenExp[2];
+    };
+
 //     // 用于n和p部分数据loopgroup的参数
 //     GroupOpConfig       moConfig{0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
 //     GroupOpSizeResource moRes;
@@ -169,6 +177,9 @@ struct CcuKernelCtxBase {
 
 //     HcclResult GroupCopy(CcuRep::LocalAddr dst, CcuRep::LocalAddr src, GroupOpSize goSize);
     CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupOpSizeVars goSize);   
+    CcuResult GroupLocalReduce(CcuKernelCtxBase &ctx, ccu::LocalAddr outDstOrg,
+        std::vector<ccu::LocalAddr> &scratchOrg, GroupOpSizeVars goSize, HcclDataType dataType,
+        HcclDataType outputDataType, HcclReduceOp opType);
 //     HcclResult GroupLocalReduce(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
 //         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 // private:

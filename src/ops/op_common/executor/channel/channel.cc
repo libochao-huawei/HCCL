@@ -62,7 +62,7 @@ HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& su
                         u32 enableDieNum, u32 enableDieId,
                         std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {
-#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(AICPU_COMPILE)
     constexpr u32 DIE_NUM_1 = 1;
     constexpr u32 DIE_NUM_2 = 2;
     constexpr u32 DIE_0 = 0;
@@ -91,13 +91,12 @@ HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& su
 
 HcclResult ProcessFlattenLink(HcclComm comm, u32 myRank, const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
-#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(AICPU_COMPILE)
     std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc;
     CHK_RET(CcuAlgTemplateBase::RestoreChannelMap(channels, rankIdToChannelDesc));
     uint32_t enableDieNum = 0;
     uint32_t enableDieId = 0;
     CHK_RET(CcuAlgTemplateBase::GetDieInfoFromChannelDescs(comm, rankIdToChannelDesc, myRank, enableDieNum, enableDieId));
-    HCCL_INFO("enableDieNum = %llu, enableDieId = %llu",enableDieNum, enableDieId);
     if (enableDieNum < 1 || enableDieNum > CCU_DIE_NUM_MAX_2) { // 目前只支持1个或2个die
         HCCL_ERROR("[ProcessFlattenLink] get channelDescs fail");
         return HcclResult::HCCL_E_INTERNAL;
@@ -382,11 +381,11 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
 }
 
 #if CANN_VERSION_NUM >= 90100000
-HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param, 
+HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo, const std::vector<std::vector<u32>>& subcommInfo,
     std::vector<HcclChannelDesc> &channels)
 {
-#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(AICPU_COMPILE)
     channels.clear();
     (void) param;
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
@@ -419,7 +418,6 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
 
     }
     if (curNetLayer != 0) { // 通过端口数划分channel，适配跨框die0连die1的场景，避免建链失败
-        HCCL_INFO("curNetLayer = %lld",curNetLayer);
         CHK_RET(ProcessFlattenLink(comm, myRank, subcommInfo, channels));
     }
     return HCCL_SUCCESS;

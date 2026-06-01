@@ -109,8 +109,7 @@
     - 算法编排展开位置设置为“AIV”时，若同时设置了[HCCL_DETERMINISTIC](HCCL_DETERMINISTIC.md)环境变量为“true”或“strict”开启了确定性计算，确定性计算的优先级更高，某些场景下“AIV”展开可能不生效。
     - 对于Atlas 200T A2 Box16异构子框，不支持跨框通信场景。
 
-<cann-filter npu-type="310p">
-
+<!-- npu="310p" id1 -->
 - **针对Atlas 300I Duo 推理卡**：支持的配置如下，若设置了不支持的环境变量，使用默认值。
   - **HOST（默认值）**：代表通信算子在Host侧CPU展开，Device侧根据硬件型号自动选择相应的调度器。
   - **AI_CPU**：代表通信算子在AI CPU展开，Device侧根据硬件型号自动选择相应的调度器。
@@ -118,7 +117,7 @@
     - 仅支持AllReduce算子，AllReduce算子支持的数据类型可参见HcclAllReduce接口。
     - 配置为“AI_CPU”后，通信算子不再支持profiling性能数据采集与分析功能。
     - 对于静态shape图，不支持此配置项，即不支持指定通信算子的展开模式为AI CPU。
-</cann-filter>
+<!-- end id1 -->
 
 ## 配置示例
 
