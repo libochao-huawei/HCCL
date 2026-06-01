@@ -191,7 +191,8 @@ HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
 HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType,
                            u32 aivCoreLimit, bool *ifAiv, char **algName)
 {
-    HCCL_INFO("[HcclSelectAlgGraphMode] Start.");
+    HCCL_INFO("[HcclSelectAlgGraphMode] Start: group[%s] count[%llu] dataType[%u] reduceOp[%u] opType[%u] aivCoreLimit[%u]",
+        group, count, dataType, op, opType, aivCoreLimit);
     
     if (group == nullptr || ifAiv == nullptr || algName == nullptr) {
         HCCL_ERROR("[HcclSelectAlgGraphMode] Invalid parameters");
@@ -200,7 +201,9 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     
     HcclComm hcclComm = nullptr;
     CHK_RET(HcomGetCommHandleByGroup(group, &hcclComm));
-    
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(hcclComm, &rankSize));
+
     CHK_RET(InitEnvConfig());
     
     ops_hccl::OpParam param;
@@ -217,6 +220,41 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     param.numBlocksLimit = aivCoreLimit;
     param.enableDetour = false;
     param.deviceType = deviceType;
+
+    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        param.varMemSize = ops_hccl::ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64);
+        param.all2AllVDataDes.sendType = dataType;
+        param.all2AllVDataDes.recvType = dataType;
+
+        u64 arrSize = rankSize * sizeof(u64);
+        void *sendCountsHost = nullptr;
+        void *recvCountsHost = nullptr;
+        void *sdisplsHost = nullptr;
+        void *rdisplsHost = nullptr;
+        ACLCHECK(aclrtMallocHost(&sendCountsHost, arrSize));
+        ACLCHECK(aclrtMallocHost(&recvCountsHost, arrSize));
+        ACLCHECK(aclrtMallocHost(&sdisplsHost, arrSize));
+        ACLCHECK(aclrtMallocHost(&rdisplsHost, arrSize));
+
+        u64 *sendCountsPtr = static_cast<u64 *>(sendCountsHost);
+        u64 *recvCountsPtr = static_cast<u64 *>(recvCountsHost);
+        u64 *sdisplsPtr = static_cast<u64 *>(sdisplsHost);
+        u64 *rdisplsPtr = static_cast<u64 *>(rdisplsHost);
+
+        u64 dataCountOffset = 0;
+        for (u32 i = 0; i < rankSize; i++) {
+            sendCountsPtr[i] = count;
+            recvCountsPtr[i] = count;
+            sdisplsPtr[i] = dataCountOffset;
+            rdisplsPtr[i] = dataCountOffset;
+            dataCountOffset += count;
+        }
+
+        param.all2AllVDataDes.sendCounts = sendCountsHost;
+        param.all2AllVDataDes.recvCounts = recvCountsHost;
+        param.all2AllVDataDes.sdispls = sdisplsHost;
+        param.all2AllVDataDes.rdispls = rdisplsHost;
+    }
 
     int ret = sprintf_s(param.tag, sizeof(param.tag), "SelectAlg_%d_%s", static_cast<int>(opType), param.commName);
     CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclSelectAlgGraphMode] failed to fill param.tag"), HCCL_E_INTERNAL);
