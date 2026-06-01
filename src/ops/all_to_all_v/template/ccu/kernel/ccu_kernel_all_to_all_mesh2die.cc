@@ -21,40 +21,21 @@ constexpr int CKE_IDX_1    = 1;
 constexpr int CKE_IDX_2    = 2;
 constexpr int POST_SYNC_ID = 3;
 
-// static CcuResult ParseKernelArg(AllToAllMesh2DieContext &ctx, CcuKernelArgAllToAllMesh2Die *kernelArg)
-// {
-//     ctx.rankSize = kernelArg->rankSize;
-//     ctx.rankId = kernelArg->rankId;
-//     ctx.withMyRank = kernelArg->withMyRank;
-//     ctx.rankGroup = kernelArg->rankGroup;
-//     // ctx.channels.assign(kernelArg->channels, kernelArg->channels + kernelArg->channelCount);
-//     return CCU_SUCCESS;
-// }
-
 static CcuResult InitResource(AllToAllMesh2DieContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CHK_PTR_NULL(arg);
-    // uint32_t channelIdx = 0;
     if (arg->channelCount == 0) {
         HCCL_ERROR("[CcuKernelAllToAllMesh2Die] RankId[%u] channels is empty", arg->rankId);
-        return CcuResult::CCU_E_INTERNAL;
+        return CCU_E_INTERNAL;
     }
-    // if (ctx.channels.size() == 0) {
-    //     HCCL_ERROR("[CcuKernelAllToAllMesh2Die] RankId[%u] channels is empty", ctx.rankId);
-    //     return CCU_E_INTERNAL;
-    // }
     ctx.virRankSize = arg->channelCount + 1;
 
-    ctx.output.resize(arg->channelCount);
-    ctx.token.resize(arg->channelCount);
+    ctx.output.resize(ctx.virRankSize);
+    ctx.token.resize(ctx.virRankSize);
     for (u64 id = 0; id < arg->channelCount; id++) {
         ctx.output[id] = ccu::GetResByChannel<ccu::Variable>(arg->channels[id], OUTPUT_XN_ID);
         ctx.token[id] = ccu::GetResByChannel<ccu::Variable>(arg->channels[id], TOKEN_XN_ID);
     }
-
-    // ctx.output.emplace_back(ccu::Variable());
-    // ctx.token.emplace_back(ccu::Variable());
 
     ctx.logicRankSize = arg->withMyRank ? arg->channelCount + 1 : arg->channelCount;
 
@@ -64,7 +45,6 @@ static CcuResult InitResource(AllToAllMesh2DieContext &ctx)
 static CcuResult LoadArgs(AllToAllMesh2DieContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CHK_PTR_NULL(arg);
     uint32_t cnt = 0;
     CCU_CHK_RET(ccu::LoadArg(ctx.input, cnt++));
     CCU_CHK_RET(ccu::LoadArg(ctx.output[ctx.virRankSize - 1], cnt++));
@@ -83,45 +63,44 @@ static CcuResult LoadArgs(AllToAllMesh2DieContext &ctx)
 static void PreSync(AllToAllMesh2DieContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CHK_PTR_NULL(arg);
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::WriteVariableWithNotify(arg->channel[i], ctx.output[ctx.virRankSize - 1], OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID);
-        ccu::WriteVariableWithNotify(arg->channel[i], ctx.token[ctx.virRankSize - 1], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID);
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.output[ctx.virRankSize - 1], OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID);
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[ctx.virRankSize - 1], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID);
     }
     uint32_t waitBits = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::NotifyWait(arg->channel[i], CKE_IDX_0, waitBits);
+        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, waitBits);
     }
 }
 
 static void PostSync(AllToAllMesh2DieContext &ctx)
 {
+    const auto *arg = ctx.arg;
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::NotifyRecord(arg->channel[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+        ccu::NotifyRecord(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::NotifyWait(arg->channel[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
     }
 }
 
 static uint32_t CalcDstRank(AllToAllMesh2DieContext &ctx, uint32_t peerId)
 {
-    if (peerId > ctx.rankGroup.size()) {
+    const auto *arg = ctx.arg;
+    if (peerId > arg->rankGroup.size()) {
         HCCL_ERROR("[CcuKernelAllToAllMesh2Die][CalcDstRank] Unexpected peerId[%u]", peerId);
     }
-    return ctx.rankGroup[peerId];
+    return arg->rankGroup[peerId];
 }
 
 static CcuResult DoRepeatAllToAll(AllToAllMesh2DieContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CHK_PTR_NULL(arg);
     std::vector<ccu::LocalAddr> src(ctx.logicRankSize);
     std::vector<ccu::RemoteAddr> dst(ctx.logicRankSize);
 
     for (uint64_t r = 0; r < ctx.logicRankSize; r++) {
         const u32 dstRank = CalcDstRank(ctx, r);
-
         src[r].token = ctx.token[r];
         dst[r].token = ctx.token[r];
 
@@ -133,7 +112,6 @@ static CcuResult DoRepeatAllToAll(AllToAllMesh2DieContext &ctx)
             src[r].addr += ctx.inputSliceStride;
         }
     }
-
     ccu::LocalAddr localSrc;
     ccu::LocalAddr localDst;
     if(arg->withMyRank){
@@ -156,7 +134,7 @@ static CcuResult DoRepeatAllToAll(AllToAllMesh2DieContext &ctx)
             GroupCopy(ctx, localDst, localSrc, ctx.groupOpSize);
             continue;
         }
-        ccu::Write(ctx.channels[channelsIdx], dst[r], src[r], ctx.sliceSize, ctx.event, 1 << r);
+        ccu::Write(arg->channels[channelsIdx], dst[r], src[r], ctx.sliceSize, ctx.event, 1 << r);
         channelsIdx++;
     }
     uint16_t waitMask = arg->withMyRank ? ((1 << ctx.logicRankSize) - 1) & (~(1 << arg->channelCount)) : (1 << ctx.logicRankSize) - 1;
@@ -179,7 +157,6 @@ CcuResult CcuAllToAllMesh2DieKernel(CcuKernelArg arg)
     ctx.enginePool = 0;
 
     HCCL_INFO("[ccuAllToAllMesh2Die_kernel] AllToAllMesh2Die run.");
-    // CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
     CCU_CHK_RET(InitResource(ctx));
     CCU_CHK_RET(LoadArgs(ctx));
     PreSync(ctx);

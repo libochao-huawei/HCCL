@@ -42,8 +42,8 @@ struct AllToAllMesh2DieContext : CcuKernelCtxBase {
     std::vector<ccu::Variable> output;
     std::vector<ccu::Variable> token;
     // std::vector<ChannelHandle> channels;
-    bool withMyRank = true;
-    std::vector<RankId> rankGroup;
+    // bool withMyRank = true;
+    // std::vector<RankId> rankGroup;
     ccu::Variable sliceSize;
     ccu::Variable inputSliceStride;
     ccu::Variable outputoffset;

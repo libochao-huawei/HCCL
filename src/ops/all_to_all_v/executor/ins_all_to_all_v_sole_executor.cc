@@ -13,7 +13,7 @@
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
-// #include "ccu_temp_all_to_all_v_mesh2die.h"
+#include "ccu_temp_all_to_all_v_mesh2die.h"
 // #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
@@ -290,8 +290,8 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, CcuAlltoAllVCMesh1D, InsAllto
 #endif /* !HCCL_CANN_COMPAT_850 */
 
 #if !defined(HCCL_CANN_COMPAT_850)
-// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
-//     CcuTempAlltoAllVMesh2Die);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
+    CcuTempAlltoAllVMesh2Die);
 #endif /* !HCCL_CANN_COMPAT_850 */
 
 #if !defined(HCCL_CANN_COMPAT_850)
