@@ -88,6 +88,9 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             if (topoInfo->is2DieFullMesh) {
                 HCCL_WARNING("[BroadcastAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
                 return SelectorStatus::NOT_MATCH;
+            } else if(IsInputOutputOverlap(opParam) == true) {
+                HCCL_WARNING("[BroadcastAutoSelector] ccu_sched mode not support inplace.");
+                return SelectorStatus::NOT_MATCH;
             } else {
                 selectAlgName = "CcuBroadcastMesh1DMem2Mem";
             }
