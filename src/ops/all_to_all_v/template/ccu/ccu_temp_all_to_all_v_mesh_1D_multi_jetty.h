@@ -39,6 +39,10 @@ public:
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
 
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+
+    u64 GetThreadNum() const override;
+
     void SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRecvInfo);
 
     HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, const bool multijetty) const;
