@@ -31,6 +31,8 @@
 #include "binary_stream.h"
 #if CANN_VERSION_NUM >= 90100000
 #include "ccu_types.h"
+#else
+#include "ccu_types_dl.h"
 #endif
 
 namespace ops_hccl {
