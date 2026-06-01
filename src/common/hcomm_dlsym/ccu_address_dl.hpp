@@ -18,9 +18,9 @@
 #include <type_traits>
 
 #include "ccu_types_dl.h"
-#include "ccu_utils_dl.h"
+#include "ccu_utils_dl.hpp"
 #include "ccu_primitives_impl_dl.h"
-#include "ccu_variable_dl.h"
+#include "ccu_variable_dl.hpp"
 
 namespace AscendC {
 namespace ccu {
