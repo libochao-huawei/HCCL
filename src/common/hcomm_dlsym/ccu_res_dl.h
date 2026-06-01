@@ -16,7 +16,6 @@
 #else
 #include "dlsym_common.h"
 #include "ccu_types_dl.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,5 +28,7 @@ void CcuResDlInit(void* libHcommHandle);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // CANN_VERSION_NUM >= 90100000
 
 #endif // CCU_RES_DL_H
