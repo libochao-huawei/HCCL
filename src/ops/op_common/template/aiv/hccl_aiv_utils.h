@@ -17,6 +17,7 @@
 #include "hccl_types.h"
 #include "acl/acl_rt.h"
 #include "alg_param.h"
+#include "aiv_kernel_def.h"
 
 namespace ops_hccl {
 constexpr u32 MAX_RANK_SIZE = 128; // 注意要和device侧的一致
