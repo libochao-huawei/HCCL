@@ -150,6 +150,15 @@ inline std::string GetDataTypeEnumStr(u32 dataType)
     return GetDataTypeEnumStr(hcclDataType);
 }
 
+inline std::string GetDataArrayStr(const u64* arr, u32 size)
+{
+    std::string result;
+    for (u32 i =0;i < size;++i){
+        result += (i == 0 ? "[" : ",") + std::to_string(arr[i]);
+    }
+    return result + "]";
+}
+
 // server内link类型
 enum class LinkTypeInServer {
     HCCS_TYPE = 0,
