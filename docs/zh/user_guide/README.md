@@ -13,7 +13,7 @@
   - [环境变量参考<a name="sub_menu"></a>](./hccl_env/README.md)
   - [推荐业务配置](recommended_config.md)
   - [集合通信算法介绍<a name="sub_menu"></a>](./coll_algo_intro/README.md)
-  - [通信算子支持度清单<a name="sub_menu"></a>](./comm_ops_support_list/comm_ops_support.md)
+  - [通信算子支持度清单<a name="sub_menu"></a>](./comm_ops_support_list/README.md)
 
 - [系统约束与限制](constraints.md)
 - [API参考](api_ref.md)
