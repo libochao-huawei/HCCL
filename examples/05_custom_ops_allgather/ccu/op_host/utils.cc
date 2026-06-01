@@ -110,7 +110,7 @@ HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxS
     }
 
     // 创建kernelinfo
-    strcpy(kernelInfo.kernelFuncName, "CcuAllGatherMesh1DMem2MemKernel"); // kernelFuncName 对应 kernel.cc中函数名
+    snprintf(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllGatherMesh1DMem2MemKernel"); // kernelFuncName 对应 kernel.cc中函数名
     kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllGatherMesh1DMem2MemKernel);
 
     auto kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();
