@@ -17,7 +17,6 @@
 #include <unordered_map>
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
-#include "aiv_kernel_def.h"
 #include "universal_concurrent_map.h"
 #include "alg_env_config.h"
 #ifdef HCCL_STATIC_MODE
