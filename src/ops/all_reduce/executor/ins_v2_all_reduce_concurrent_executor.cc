@@ -159,6 +159,11 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     rankSize_ = resCtx.topoInfo.userRankSize;
     dataCount_ = param.DataDes.count;
     dataTypeSize_ =  SIZE_TABLE[param.DataDes.dataType];
+    if (dataCount_ > UINT64_MAX / dataTypeSize_) {
+        HCCL_ERROR("[InsV2AllReduceConcurrentExecutor][Orchestrate] dataCount[%llu] * dataTypeSize_[%llu] is greater than UINT64_MAX",
+            dataCount_, dataTypeSize_);
+        return HCCL_E_INTERNAL;
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
     dataType_ = param.DataDes.dataType;
     reduceOp_ = param.reduceType;
