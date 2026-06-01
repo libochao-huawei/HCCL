@@ -126,7 +126,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(CheckDataType(recvType, false));
 
     /* 接口交互信息日志 */
-    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, tag, "HcclAlltoAllV"));
+    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, tag, rankSize, "HcclAlltoAllV"));
 
     // 底层走AlltoAllV
     bool useInnerOp = false;
@@ -292,7 +292,7 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     CHK_RET(GenResPack(tag, streams, streamCount, scratchMemAddr, scratchMemSize, resPack));
 
     /* 接口交互信息日志 */
-    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, opTag, "HcclAlltoAllVGraphMode"));
+    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, opTag, rankSize, "HcclAlltoAllVGraphMode"));
 
     // 执行AlltoAllV
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts, sdispls,
@@ -712,7 +712,7 @@ HcclResult AlltoAllEntryLog(const void *sendBuf, const void *recvBuf, uint64_t s
 
 HcclResult AlltoAllVEntryLog(const void *sendBuf, const void *recvBuf, const void *sendCounts, const void *recvCounts,
     const void *sdispls, const void *rdispls, HcclDataType sendType, HcclDataType recvType, aclrtStream stream,
-    const std::string &tag, const std::string &opName)
+    const std::string &tag, const u32 rankSize, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
