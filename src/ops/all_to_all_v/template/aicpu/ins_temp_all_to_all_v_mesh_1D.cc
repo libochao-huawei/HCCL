@@ -283,7 +283,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
     if (curValidChannelsSize > 1) {
         subThreadsCurRank.assign(threads.begin() + queIdx + 1, threads.begin() + queIdx + curValidChannelsSize);
         if (roundIdx != 0) {
-            PreSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank);
+            CHK_RET(PreSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank));
         }
     }
     for (u32 channelId = 0; channelId < curValidChannelsSize; channelId++) {
@@ -332,7 +332,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
         queIdx++;
     }
     if (curValidChannelsSize > 1 && roundIdx != commLoops - 1) {
-        PostSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank);
+        CHK_RET(PostSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank));
     }
     return HcclResult::HCCL_SUCCESS;
 }
