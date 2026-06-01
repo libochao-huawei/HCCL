@@ -85,6 +85,9 @@ HcclResult CcuTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
                                                     TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
+    CHK_PRT_RET(buffInfo_.inputPtr == nullptr, HCCL_ERROR("[CcuTempAllReduceMesh1DOneShot] buffInfo_.inputPtr is nullptr"), HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(buffInfo_.outputPtr == nullptr, HCCL_ERROR("[CcuTempAllReduceMesh1DOneShot] buffInfo_.outputPtr is nullptr"), HcclResult::HCCL_E_INTERNAL);
+
     HCCL_INFO("CcuTempAllReduceMesh1DOneShot KernelRun inputPtr(%p), inputSize(%d)", buffInfo_.inputPtr, buffInfo_.inputSize);
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
