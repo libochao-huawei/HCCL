@@ -62,7 +62,8 @@ private:
         std::vector<std::vector<u32>>& subCommRanks0,
         std::vector<std::vector<u32>>& subCommRanks1,
         std::vector<std::vector<u32>>& subCommRanks2,
-        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap);
+        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap,
+        const TopoInfoWithNetLayerDetails* topoInfo);
 
     std::vector<uint64_t> rankSizeLevel_;
     std::vector<uint64_t> rankIdxLevel_;

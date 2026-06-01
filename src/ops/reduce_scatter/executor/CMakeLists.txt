@@ -18,7 +18,7 @@ if(NOT HCCL_CANN_COMPAT_850)
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sequence_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_reduce_scatter_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_omnipipe_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_3level_executor.cc
+#        ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_3level_executor.cc
     )
 endif()
 
