@@ -9,6 +9,9 @@
  */
 
 #include "ccu_primitives_impl_dl.h"
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 //Alloc 相关接口
 DEFINE_WEAK_FUNC(CcuResult, CcuVariableAlloc, CcuVariableHandle *varHandle);
