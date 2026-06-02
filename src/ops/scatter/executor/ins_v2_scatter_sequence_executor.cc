@@ -89,7 +89,7 @@ HcclResult InsV2ScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 算法展开
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[InsV2ScatterSequenceExecutor][Orchestrate]errNo[0x%016llx] Broadcast excutor kernel run failed",
+        HCCL_ERROR("[InsV2ScatterSequenceExecutor][Orchestrate]errNo[0x%016llx] Scatter excutor kernel run failed",
             HCCL_ERROR_CODE(ret)),
         ret);
     return HCCL_SUCCESS;
@@ -179,48 +179,81 @@ HcclResult InsV2ScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
         // ----------- 框内Scatter数据搬运 -----------
         // 框内Scatter的数据偏移和搬运量计算
+        // Scatter语义：root将数据按rank切分，发给各个rank
+        // 框内Scatter（只有root所在框执行）：
+        //   root将数据分成m*n份，发给框内n个rank
+        //   框内rank i得到：所有框中同号rank i的数据（共m份）
+        // 数据排布：每次loop从头排布，repeat内连续排布（不覆盖）
         tempAlgParamsScatterIntra.count = currDataCount;
-        tempAlgParamsScatterIntra.buffInfo.inBuffBaseOff = 0;
+        tempAlgParamsScatterIntra.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParamsScatterIntra.buffInfo.outBuffBaseOff = 0;
         tempAlgParamsScatterIntra.buffInfo.hcclBuffBaseOff = 0;
 
         tempAlgParamsScatterIntra.sliceSize = currDataCount * dataTypeSize_;
         tempAlgParamsScatterIntra.tailSize = tempAlgParamsScatterIntra.sliceSize;
-        // 这里的stride当成传统意义上的sreide 间隔
+        // inputSliceStride：相邻rank的数据在input中的间隔（按global rank排列）
         tempAlgParamsScatterIntra.inputSliceStride = dataCount_;
+        // outputSliceStride = 0：发给同一个rank的m份数据在同一区域（由repeat控制）
         tempAlgParamsScatterIntra.outputSliceStride = 0;
 
-        // m * n组网需要做m次重复
+        // 框内n个rank，每个rank需要得到m份数据（所有框同号rank的数据）
+        // repeatNum = m：每个框内rank接收m次（对应m个框的同号rank）
         tempAlgParamsScatterIntra.repeatNum = rankSizeLevel1_;
+        // inputRepeatStride：跨框的数据间隔 = 框内rank数 × 单rank数据量
         tempAlgParamsScatterIntra.inputRepeatStride = rankSizeLevel0_ * dataSize_;
-        // outputRepeatStride等于0是因为每次循环都会把数据无气泡发送给对端（属于m个rank的数据没有空隙）
-        tempAlgParamsScatterIntra.outputRepeatStride = 0;
-        // 因为只考虑执行0级算法，所以传进template里面的channels就是channels_的第一个vector
+        // outputRepeatStride = sliceSize：同一rank的m份数据连续排布（框0、框1...不覆盖）
+        tempAlgParamsScatterIntra.outputRepeatStride = tempAlgParamsScatterIntra.sliceSize;
+        
         CHK_RET(algTemplateScatterIntra->KernelRun(param, tempAlgParamsScatterIntra, templateResourceIntra));
 
         // ----------- 框间Scatter数据搬运 -----------
-        // 框间的数据偏移和搬运计算
+        // 框间Scatter：框间同号卡之间scatter
+        // 框内rank i拿着m份数据（属于各框的rank i），发给m个框的同号rank i
+        // 结果：每个框的rank i得到自己的那份数据
         tempAlgParamsScatterInter.count = currDataCount;
-        // 只有第二段才需要dpu通信
-        tempAlgParamsScatterInter.buffInfo.inBuffBaseOff = currDataCount;
+        tempAlgParamsScatterInter.buffInfo.inBuffBaseOff = 0;
         tempAlgParamsScatterInter.buffInfo.outBuffBaseOff = 0;
-        tempAlgParamsScatterInter.buffInfo.hcclBuffBaseOff = 0; // 上一步将数据都搬到了cclbuffer起始地址
+        tempAlgParamsScatterInter.buffInfo.hcclBuffBaseOff = 0;
+        // 框间root：root所在框的同号卡（发起框间scatter）
         tempAlgParamsScatterInter.root = (param.root / rankSizeLevel0_) * rankSizeLevel0_ + (myRank_ % rankSizeLevel0_);
 
-        tempAlgParamsScatterInter.sliceSize = 0;
-        tempAlgParamsScatterInter.tailSize = 0;
+        // 设置框间scatter的切片信息（NHR DPU需要）
+        // m个框，每个框一份currDataCount数据
+        tempAlgParamsScatterInter.allRankSliceSize.clear();
+        tempAlgParamsScatterInter.allRankDispls.clear();
+        tempAlgParamsScatterInter.allRankProcessedDataCount.clear();
+        for (u32 i = 0; i < rankSizeLevel1_; i++) {
+            tempAlgParamsScatterInter.allRankSliceSize.emplace_back(currDataCount * dataTypeSize_);
+            tempAlgParamsScatterInter.allRankDispls.emplace_back(i * currDataCount * dataTypeSize_);
+            tempAlgParamsScatterInter.allRankProcessedDataCount.emplace_back(currDataCount);
+        }
+        
+        tempAlgParamsScatterInter.sliceSize = currDataCount * dataTypeSize_;
+        tempAlgParamsScatterInter.tailSize = tempAlgParamsScatterInter.sliceSize;
 
-        // 这里的stride当成传统意义上的sreide 间隔
         tempAlgParamsScatterInter.inputSliceStride = 0;
         tempAlgParamsScatterInter.outputSliceStride = 0;
 
-        // 
-        tempAlgParamsScatterInter.repeatNum = rankSizeLevel1_;
-        tempAlgParamsScatterInter.inputRepeatStride = currDataCount;
-        tempAlgParamsScatterInter.outputRepeatStride = 0; //搬到对端cclbuffer的起始地址
-        // 因为只考虑执行0级算法，所以传进template里面的channels就是channels_的第一个vector
-        if (tempAlgParamsScatterInter.count != 0) {  // 如果卡里没有数据，不需要参与框间
+        tempAlgParamsScatterInter.repeatNum = 1;
+        tempAlgParamsScatterInter.inputRepeatStride = 0;
+        tempAlgParamsScatterInter.outputRepeatStride = 0;
+        
+        if (tempAlgParamsScatterInter.count != 0) {
             CHK_RET(algTemplateScatterInter->KernelRun(param, tempAlgParamsScatterInter, templateResourceInter));
+        }
+
+        // ----------- PostCopy：从ccl buffer拷贝到outputPtr -----------
+        // 框间Scatter完成后，每个rank的数据都在ccl buffer起始位置（offset=0）
+        // 需要拷贝到outputPtr的processedDataCount位置
+        if (param.outputPtr != resCtx.cclMem.addr) {
+            u64 srcOffset = 0;
+            u64 dstOffset = processedDataCount * dataTypeSize_;
+            u64 copySize = currDataCount * dataTypeSize_;
+            u64 copyCount = currDataCount;
+            
+            DataSlice srcSlice(resCtx.cclMem.addr, srcOffset, copySize, copyCount);
+            DataSlice dstSlice(param.outputPtr, dstOffset, copySize, copyCount);
+            CHK_RET(static_cast<HcclResult>(LocalCopy(resCtx.threads[0], srcSlice, dstSlice)));
         }
 
         processedDataCount += currDataCount;

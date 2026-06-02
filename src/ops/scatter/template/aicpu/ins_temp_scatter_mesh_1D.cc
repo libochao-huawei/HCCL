@@ -265,7 +265,7 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
             }
         } else {
             if(channels.size() == 0 || channels.count(root_) == 0){
-                continue;
+                continue; // 这里跳过了不在root通信域内的rank（其他框的rank）
             }
             CHK_PRT_RET(channels.find(root_) == channels.end() || channels.at(root_).empty(), 
                         HCCL_ERROR("[InsTempScatterMesh1D][RunMesh] root[%d] not found in channels", root_), 
