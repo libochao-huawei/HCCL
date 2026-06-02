@@ -10,7 +10,6 @@
 
 #include "channel.h"
 #include "hccl_ccu_res_dl.h"
-#include "ccu_assist_pub.h"
 #include "ccu_kernel_all_gather_2dies_mesh_1D.h"
 #include "ccu_temp_all_gather_2dies_mesh_1D.h"
 #include "alg_data_trans_wrapper.h"
