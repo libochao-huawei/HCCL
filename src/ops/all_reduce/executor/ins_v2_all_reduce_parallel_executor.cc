@@ -752,7 +752,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (multipleIntra > 0 || multipleInter > 0) {
         multipleIntra = defaultMultiple;
         multipleInter = defaultMultiple;
-
     }
 
     // 按照intraData0+interData1，以及intraData1+interData0两种方式分别计算，取multiple最大需求
