@@ -61,13 +61,14 @@ HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetL
 {
     // 仅在跨框非对称场景下检查
     if (topoInfo->topoLevelNums > 1 && topoInfo->multiModuleDiffDeviceNumMode) {
-        // 三个已适配非对称的算子：AllGather, AllReduce, ReduceScatter
+        // 已适配非对称的算子：AllGather, AllReduce, ReduceScatter, AllToAll(V/VC), Barrier
         bool isSupportedOp = (opType == HcclCMDType::HCCL_CMD_ALLGATHER ||
                              opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
                              opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
                              opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
                              opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
-                             opType == HcclCMDType::HCCL_CMD_ALLTOALLVC);
+                             opType == HcclCMDType::HCCL_CMD_ALLTOALLVC ||
+                             opType == HcclCMDType::HCCL_CMD_BARRIER);
         if (!isSupportedOp) {
             HCCL_ERROR("[CheckAsymmetricTopoSupport] OpType[%d] does not support asymmetric topology "
                 "(multi-module diff device num mode), only ALLGATHER/ALLREDUCE/REDUCE_SCATTER/ALLTOALL are supported.",
@@ -2158,6 +2159,45 @@ bool IsHostDpu(HcclComm comm)
     uint32_t *netLayers = nullptr;
     uint32_t netLayerNum = 0;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    if (ret != HCCL_SUCCESS) {
+        return false;
+    }
+
+    TopoInfoWithNetLayerDetails topoInfo;
+    topoInfo.serverNum = level0RankListNum;
+    topoInfo.topoLevelNums = netLayerNum;
+    topoInfo.userRankSize = rankSize;
+    ret = CheckHostDPUOnly(comm, &topoInfo, hostDpuOnly);
+    if (ret == HCCL_SUCCESS && hostDpuOnly) {
+        return true;
+    }
+    return false;
+}
+
+// 判定当前通信域是否为「框间 host-DPU」场景。逻辑与 IsHostDpu 一致，
+// 但不限定 910B —— 950 Barrier 新流程（框内 AICPU + 框间 DPU）仅在该场景启用。
+bool IsBarrierHostDpu(HcclComm comm)
+{
+    HcclResult ret;
+    bool hostDpuOnly = false;
+
+    uint32_t *level0SizeList = nullptr;
+    uint32_t level0RankListNum = 0;
+    ret = HcclRankGraphGetInstSizeListByLayer(comm, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L0),
+        &level0SizeList, &level0RankListNum);
+    if (ret != HCCL_SUCCESS) {
+        return false;
+    }
+
+    u32 rankSize = 0;
+    ret = HcclGetRankSize(comm, &rankSize);
+    if (ret != HCCL_SUCCESS) {
+        return false;
+    }
+
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    ret = HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum);
     if (ret != HCCL_SUCCESS) {
         return false;
     }
