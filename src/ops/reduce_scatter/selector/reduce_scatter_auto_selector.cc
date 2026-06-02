@@ -53,12 +53,6 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetL
         return SelectorStatus::NOT_MATCH;
     }
 
-    if (IsInputOutputOverlap(opParam) == true) {
-        // 不支持 inplace 场景
-        HCCL_WARNING("[ReduceScatterAutoSelector] ccu_ms mode not support inplace.");
-        return SelectorStatus::NOT_MATCH;
-    }
-
     SelectorStatus ret = SelectMeshAlgoCcums(topoInfo, opParam, selectAlgName);
      if (ret == SelectorStatus::MATCH) {
         HCCL_INFO("[ReduceScatterAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
@@ -139,7 +133,6 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
         HCCL_WARNING("[ReduceScatterAutoSelector] ccu_schedule mode not support INT64, UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
-    
 
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
