@@ -116,6 +116,13 @@ HcclResult BarrierOutPlace(HcclComm comm, aclrtStream stream, const std::string 
         return HCCL_SUCCESS;
     }
 
+    // 新流程（框内 AICPU + 框间 DPU）仅在「框间 host-DPU」场景启用，
+    // 其余场景（普通 AICPU、单框、框间 device 链路等）回退到老的 HcclBarrierInner。
+    if (!IsBarrierHostDpu(comm)) {
+        HCCL_INFO("[BarrierOutPlace] not host-dpu scene, fallback to HcclBarrierInner");
+        return HcclBarrierInner(comm, stream);
+    }
+
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
