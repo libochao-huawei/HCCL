@@ -10,7 +10,7 @@
 
 #include "channel.h"
 #include "alg_data_trans_wrapper.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 #include "ccu_temp_reduce_scatter_mesh2die.h"
 #include "ccu_kernel_reduce_scatter_mesh2die.h"
 
