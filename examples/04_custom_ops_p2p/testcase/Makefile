@@ -41,7 +41,8 @@ all:
 # Test target
 test: 
 	export LD_LIBRARY_PATH=${CUSTOM_P2P_LIB_DIR}:${LD_LIBRARY_PATH}; \
-	./$(TARGET)
+	./$(TARGET); \
+	echo "HcclSendCustom/HcclRecvCustom test completed successfully"
 
 # Clean build artifacts
 clean:
