@@ -75,7 +75,8 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, co
                                                                                     subCommRanks_);
     kernelInfo.channels = channelResort;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
-
+    channelsPerRank_ = CalcChannelsPerRank(channelResort);
+    HCCL_INFO("zjytest channelsPerRank_ is %zu", channelsPerRank_);
     HCCL_DEBUG("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes] myChannelDescs.size()=%llu, dimsize=%llu, "
                "ccuKernelInfos.size()=%llu",
                myChannelDescs.size(), subCommRanks_[0].size(), resourceRequest.ccuKernelInfos.size());
