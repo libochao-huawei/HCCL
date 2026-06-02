@@ -74,6 +74,9 @@ private:
     HcclResult RunMatrixAlltoAllCommRound(const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &commThreads,
         const u32 round, const u32 myAlgRank, const u32 bank, const bool needPreCopy) const;
+    HcclResult RecordMatrixThreadsToMain(const ThreadHandle &mainThread, const std::vector<ThreadHandle> &subThreads,
+        const std::vector<u32> &notifyIdxSubToMain) const;
+    HcclResult WaitMatrixThreadsOnMain(const ThreadHandle &mainThread, const std::vector<u32> &notifyIdxSubToMain) const;
     HcclResult RunMatrixAlltoAllSlot(const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const MatrixAlltoAllSlot &slotPlan,
         const ThreadHandle &thread, const u32 round, const bool needPreCopy) const;
