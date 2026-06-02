@@ -150,6 +150,17 @@ inline std::string GetDataTypeEnumStr(u32 dataType)
     return GetDataTypeEnumStr(hcclDataType);
 }
 
+template<typename T>
+inline std::string GetDataCArray(const T* values, const u32 valueNum) const
+{
+    std::ostringstream oss;
+    for (u32 i = 0; i < valueNum; i++) {
+        oss << values[i] << " ";
+    }
+    return oss.str();
+}
+
+
 // server内link类型
 enum class LinkTypeInServer {
     HCCS_TYPE = 0,
