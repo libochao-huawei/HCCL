@@ -250,7 +250,7 @@ HcclResult InsTempScatterNHRDPU::PostLocalCopy(const TemplateDataParams& tempAlg
             u64 sliceOffset = tempAlgParams.allRankDispls.at(algRank);
 
             u64 scratchOffset = scratchBase + sliceOffset;
-            u64 outOffset = outBaseOff + sliceOffset;
+            u64 outOffset = outBaseOff;
             DataSlice srcSlice(tempAlgParams.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams.buffInfo.outputPtr, outOffset, sliceSize, sliceCount);
             HCCL_INFO("[InsTempScatterNHRDPU][LocalCopy] LocalDataCopy RankID [%d] dataRank [%d] dataAlgRank[%d] "
@@ -307,18 +307,20 @@ HcclResult InsTempScatterNHRDPU::BatchSend(AicpuNHRStepInfo &stepInfo, const std
         u64 sliceSize = tempAlgParam.allRankSliceSize.at(txId);
         u64 sliceCount = tempAlgParam.allRankProcessedDataCount.at(txId);
         u64 sliceOffset = tempAlgParam.allRankDispls.at(txId);
-        u64 srcDstOffset = repeat * templateRankSize_ * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff + sliceOffset;
+        u64 srcOffset = repeat * templateRankSize_ * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff + sliceOffset;
+        u64 dstOffset = repeat * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff;
         
         HCCL_INFO("[InsTempScatterNHRDPU][BatchSend]in step [%u]: myRank[%d], toRank[%d], slicesize is [%u] "
-                  ",srcDstOffset is [%u] ",
+                  ",srcOffset is [%u], dstOffset is [%u] ",
             i,
             myRank_,
             stepInfo.toRank,
             sliceSize,
-            srcDstOffset);
+            srcOffset,
+            dstOffset);
         
-        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, sliceSize, sliceCount);
-        DataSlice dstSlice = DataSlice(remoteCclBuffAddr, srcDstOffset, sliceSize, sliceCount);
+        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcOffset, sliceSize, sliceCount);
+        DataSlice dstSlice = DataSlice(remoteCclBuffAddr, dstOffset, sliceSize, sliceCount);
         if (sliceSize != 0) {
             srcSlices.push_back(srcSlice);
             dstSlices.push_back(dstSlice);
@@ -345,11 +347,10 @@ HcclResult InsTempScatterNHRDPU::BatchRecv(AicpuNHRStepInfo &stepInfo, const std
         u32 rxId = stepInfo.rxSliceIdxs.at(i);
         u64 sliceSize = tempAlgParam.allRankSliceSize.at(rxId);
         u64 sliceCount = tempAlgParam.allRankProcessedDataCount.at(rxId);
-        u64 sliceOffset = tempAlgParam.allRankDispls.at(rxId);
-        u64 srcDstOffset = repeat * templateRankSize_ * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff + sliceOffset;
+        u64 srcDstOffset = repeat * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff;
 
         HCCL_INFO("[InsTempScatterNHRDPU][BatchRecv]in step [%u]: myRank[%d], fromRank[%d],slicesize is [%u] "
-                  ",srcDstOffset is ",
+                  ",srcDstOffset is [%u] ",
             i,
             myRank_,
             stepInfo.fromRank,
@@ -387,18 +388,20 @@ HcclResult InsTempScatterNHRDPU::BatchSR(AicpuNHRStepInfo &stepInfo, const std::
         u64 sliceSize = tempAlgParam.allRankSliceSize.at(txId);
         u64 sliceCount = tempAlgParam.allRankProcessedDataCount.at(txId);
         u64 sliceOffset = tempAlgParam.allRankDispls.at(txId);
-        u64 srcDstOffset = repeat * templateRankSize_ * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff + sliceOffset;
+        u64 srcOffset = repeat * templateRankSize_ * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff + sliceOffset;
+        u64 dstOffset = repeat * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff;
 
         HCCL_INFO("[InsTempScatterNHRDPU][BatchSR]in step [%u]: myRank[%d], toRank[%d], slicesize is [%u] "
-                  ",srcDstOffset is [%u] ",
+                  ",srcOffset is [%u], dstOffset is [%u] ",
             i,
             myRank_,
             stepInfo.toRank,
             sliceSize,
-            srcDstOffset);
+            srcOffset,
+            dstOffset);
 
-        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, sliceSize, sliceCount);
-        DataSlice dstSlice = DataSlice(remoteCclBuffAddr, srcDstOffset, sliceSize, sliceCount);
+        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcOffset, sliceSize, sliceCount);
+        DataSlice dstSlice = DataSlice(remoteCclBuffAddr, dstOffset, sliceSize, sliceCount);
         if (sliceSize != 0) {
             txSrcSlices.push_back(srcSlice);
             txDstSlices.push_back(dstSlice);
@@ -409,11 +412,10 @@ HcclResult InsTempScatterNHRDPU::BatchSR(AicpuNHRStepInfo &stepInfo, const std::
         u32 rxId = stepInfo.rxSliceIdxs.at(i);
         u64 sliceSize = tempAlgParam.allRankSliceSize.at(rxId);
         u64 sliceCount = tempAlgParam.allRankProcessedDataCount.at(rxId);
-        u64 sliceOffset = tempAlgParam.allRankDispls.at(rxId);
-        u64 srcDstOffset = repeat * templateRankSize_ * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff + sliceOffset;
+        u64 srcDstOffset = repeat * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff;
 
         HCCL_INFO("[InsTempScatterNHRDPU][BatchSR]in step [%u]: myRank[%d], fromRank[%d],slicesize is [%u] "
-                  ",srcDstOffset is ",
+                  ",srcDstOffset is [%u] ",
             i,
             myRank_,
             stepInfo.fromRank,

@@ -146,7 +146,7 @@ SelectorStatus ScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDeta
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+SelectorStatus ScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetails *topoInfo,
                                                         const OpParam &opParam,
                                                         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                         std::string &selectAlgName) const
