@@ -51,15 +51,15 @@ struct AllToAllVMesh2DieContext : CcuKernelCtxBase {
 
     const uint64_t MAX_TRANSPORT_SIZE = UB_MAX_TRANS_SIZE;
 
-    uint32_t rankId{0};
-    bool withMyRank{false};
+    // uint32_t rankId{0};
+    // bool withMyRank{false};
     uint32_t localSize{0};
     uint32_t localId{0};
     uint32_t peerSize{0};
     uint32_t logicId{0};
-    std::vector<RankId> rankGroup;
+    // std::vector<RankId> rankGroup;
 
-    std::vector<ChannelHandle> channels;
+    // std::vector<ChannelHandle> channels;
 
     ccu::Variable input;
     std::vector<ccu::Variable> output;

@@ -140,21 +140,15 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
     std::vector<u32> notifyIdxMainToSub(1, 0);
     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
-
+    LoopGroupConfig config{};
+    config.msInterleave = CCU_MS_INTERLEAVE;
+    config.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+    config.memSlice = LOCAL_COPY_MS_PER_LOOP * CCU_MS_SIZE;
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
         std::vector<uint64_t> taskArgs;
         taskArgs.push_back(inputAddr);
         taskArgs.push_back(outputAddr);
         taskArgs.push_back(token);
-
-        LoopGroupConfig config{};
-        config.msInterleave = CCU_MS_INTERLEAVE;
-        config.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
-        config.memSlice = LOCAL_COPY_MS_PER_LOOP * CCU_MS_SIZE;
-        auto xnMaxTransportGoSize = CalGoSize(UB_MAX_TRANS_SIZE, config);
-        for (auto val : xnMaxTransportGoSize) {
-            taskArgs.push_back(val);
-        }
 
         for (auto peerId : rankGroup_[dieId]) {
             const uint64_t sendSize = localSendRecvInfo_.sendLength[peerId];
