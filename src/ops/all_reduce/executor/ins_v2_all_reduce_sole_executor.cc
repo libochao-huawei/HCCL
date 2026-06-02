@@ -75,6 +75,11 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.DataDes.dataType];
+    if (dataCount_ > UINT64_MAX / dataTypeSize_) {
+        HCCL_ERROR("[InsV2AllReduceSoleExecutor][Orchestrate] dataCount[%llu] * dataTypeSize_[%llu] is greater than UINT64_MAX",
+            dataCount_, dataTypeSize_);
+        return HCCL_E_INTERNAL;
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
