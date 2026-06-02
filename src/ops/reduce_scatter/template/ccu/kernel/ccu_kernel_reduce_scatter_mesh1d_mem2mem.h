@@ -93,6 +93,8 @@ private:
     void PostSync();
     void DoRepeatReduceScatter();
     void DoReduceScatter();
+    void DoReduceScatterRead(uint32_t unrollIdx);
+    void DoReduceScatterWait(uint32_t unrollIdx);
     
     std::string GetLoopBlockTag(std::string loopType, int32_t index);
     void CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
@@ -127,6 +129,9 @@ private:
     std::vector<CcuRep::LocalAddr>      scratchMem_;
     std::vector<CcuRep::CompletedEvent> event_;
     CcuRep::Variable flag_; // 用以判断是否是第一次重复
+    CcuRep::Variable constVar1_; // 常量1，用于计数器递增
+    CcuRep::Variable readRepeatNum_; // Phase 1 ReadNb计数器
+    CcuRep::Variable waitRepeatNum_; // Phase 3 WaitEvent计数器
 };
 
 }// namespace ops_hccl
