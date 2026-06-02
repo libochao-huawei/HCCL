@@ -18,6 +18,7 @@
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
+#include "topo_match_squeeze_2d.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
@@ -573,6 +574,10 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceSc
     InsReduceScatterParallelExecutor, TopoMatchUBX, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterParallelMesh1DNHRPcie,
     InsReduceScatterParallelExecutor, TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterParallelMesh1DNHRDpu,
+    InsReduceScatterParallelExecutor, TopoMatchSqueeze2D, InsTempReduceScatterMesh1DDpu, InsTempReduceScatterNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterParallelMesh1DNHRUboe,
+    InsReduceScatterParallelExecutor, TopoMatchSqueeze2D, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
