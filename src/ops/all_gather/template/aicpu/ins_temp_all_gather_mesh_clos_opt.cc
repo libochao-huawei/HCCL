@@ -74,6 +74,41 @@ HcclResult InsTempAllGatherMeshClosOpt::CalcRes(HcclComm comm, const OpParam &pa
     return HCCL_SUCCESS;
 }
 
+HcclResult InsTempAllGatherMeshClosOpt::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
+                                                  TemplateResource &templateResource)
+{
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
+    HCCL_INFO("[InsTempAllGatherMeshClosOpt] Run start");
+    if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
+        HCCL_INFO("[InsTempAllGatherMeshClosOpt] Rank [%d], get slicesize zero.", myRank_);
+        return HCCL_SUCCESS;
+    }
+
+    threadNum_ = templateResource.threads.size();
+    tempAlgParams_ = tempAlgParams;
+    dataType_ = param.DataDes.dataType;
+    HCCL_DEBUG("[InsTempAllGatherMeshClosOpt] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
+    if (templateRankSize_ == 1) {
+        return HCCL_SUCCESS;
+    }
+
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    }
+
+    CHK_RET(RunAllGatherMesh(templateResource.threads, templateResource.channels));
+
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    }
+    HCCL_INFO("[InsTempAllGatherMeshClosOpt] Run End");
+    return HCCL_SUCCESS;
+}
+
 HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
     const std::vector<ThreadHandle> &threads,
     const std::map<u32, std::vector<ChannelInfo>> &channels)
