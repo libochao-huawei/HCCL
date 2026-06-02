@@ -387,6 +387,9 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
                                   std::ceil(dataSplitSize[0] * interScatchteMultipleStage1 * rankSizeLevel0_)));
     u32 totalScratchMultiple = scratchMultipleIntra + scratchMultipleInter;
     u64 scratchMemBlockSize = maxTmpMemSize_;
+    if (param.engine != COMM_ENGINE_AIV) {
+        scratchMemBlockSize = scratchMemBlockSize - 1 * 1024 * 1024;
+    }
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
     if (totalScratchMultiple > 0) {
         scratchMemBlockSize = (maxTmpMemSize_ / HCCL_MIN_SLICE_ALIGN / totalScratchMultiple) * HCCL_MIN_SLICE_ALIGN;
@@ -396,7 +399,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     u64 interScratchOffset = scratchMultipleIntra * scratchMemBlockSize;
 
     u64 maxCountPerLoop =
-        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_ / 10) * 10;
+        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_);
 
     // ============ 循环前的数据对齐操作 ============
     u64 alignSize = AICPU_ALIGN_SIZE; // 用于4k对齐

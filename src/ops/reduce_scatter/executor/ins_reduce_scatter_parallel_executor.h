@@ -81,6 +81,9 @@ private:
     std::vector<ThreadHandle> threads_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     double multipleDimensionSplitRatio_{0.8};
+    bool useScratchReuse_{false};
+    u64 scratchOffsetA_{0};
+    u64 scratchOffsetB_{0};
 };
 
 } // namespace Hccl

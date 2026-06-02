@@ -75,6 +75,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         HCCL_INFO("[InsTempReduceScatterNHR] sliceSize and tailSize are both 0, skip");
         return HCCL_SUCCESS;
     }
+    doPreCopy_ = false;
     tempAlgParams_       = tempAlgParams;
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
