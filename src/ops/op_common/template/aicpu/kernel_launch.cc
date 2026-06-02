@@ -30,6 +30,8 @@
 #include "hccl_device_comm_dl.h"
 #include "exec_timeout_manager.h"
 #include "alg_data_trans_wrapper.h"
+#include "ins_send_executor.h"
+#include "ins_recv_executor.h"
 
 using namespace ops_hccl;
 namespace {
@@ -537,6 +539,93 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         return 1;
     }
     HCCL_INFO("%s success, tag[%s], algTag[%s], commName[%s]", __func__, param->tag, param->algTag, param->commName);
+    return 0;
+}
+
+extern "C" unsigned int HcclLaunchP2pAicpuKernel(void *args, ThreadHandle sendRecvStream)
+{
+    if (args == nullptr) {
+        HCCL_ERROR("%s args is nullptr", __func__);
+        return 1;
+    }
+    OpParam *param = reinterpret_cast<OpParam *>(args);
+    
+    if (param->opType != HcclCMDType::HCCL_CMD_SEND && 
+        param->opType != HcclCMDType::HCCL_CMD_RECEIVE) {
+        HCCL_ERROR("%s only support SEND/RECV, opType[%d]", 
+                   __func__, static_cast<int>(param->opType));
+        return 1;
+    }
+    
+    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s], opType[%d]", 
+              __func__, param->commName, param->tag, param->algTag, 
+              static_cast<int>(param->opType));
+    // 保留通信域管理 - 保证生命周期安全
+    if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
+        HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
+        return 1;
+    }
+    std::string algName = std::string(param->algName);
+    if (!ops_hccl::IsOpsV2(param->algName, param->deviceType)) {
+        HCCL_ERROR("%s P2P only support OpsV2, algName[%s]", __func__, param->algName);
+        return 1;
+    }
+    std::shared_ptr<const AlgResourceCtxSerializable> cachedResCtxHolder;
+    std::unique_ptr<AlgResourceCtxSerializable> resCtx;
+    const AlgResourceCtxSerializable* resCtxPtr{nullptr};
+    cachedResCtxHolder = g_cacheManager.Get(param->algTag, param->commName);
+    if (cachedResCtxHolder != nullptr) {
+        HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
+        resCtxPtr = cachedResCtxHolder.get();
+    } else {
+        resCtx.reset(new AlgResourceCtxSerializable());
+        char *ctx = static_cast<char *>(param->resCtx);
+        std::vector<char> seq(ctx, ctx + param->ctxSize);
+        resCtx->DeSerialize(seq);
+        g_cacheManager.Put(param->algTag, *resCtx, param->commName);
+        resCtxPtr = resCtx.get();
+        HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
+    }
+    std::shared_ptr<InsCollAlgBase> executor = 
+        CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
+    if (executor.get() == nullptr) {
+        HCCL_ERROR("Fail to find executor for algName[%s], opType[%d]", 
+                   algName.c_str(), static_cast<int>(param->opType));
+        HcommReleaseComm(param->commName);  // 失败时也要释放
+        return 1;
+    }
+
+    ExecTimeoutManager::Instance().SetExecTimeout(param->opConfig.execTimeout);
+    HcclResult ret = HCCL_SUCCESS;
+    if (sendRecvStream) {
+        if (param->opType == HcclCMDType::HCCL_CMD_SEND) {
+            InsSendExecutor* sendExecutor = dynamic_cast<InsSendExecutor*>(executor.get());
+            ret = sendExecutor->OrchestrateP2p(*param, *resCtxPtr, sendRecvStream);
+        }
+        else {
+            InsRecvExecutor* recvExecutor = dynamic_cast<InsRecvExecutor*>(executor.get());
+            ret = recvExecutor->OrchestrateP2p(*param, *resCtxPtr, sendRecvStream);
+        }
+        
+    }
+    else {
+        ret = executor->Orchestrate(*param, *resCtxPtr);
+    }
+    
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("orchestrate failed for alg:%s, opType[%d]", 
+                   param->algName, static_cast<int>(param->opType));
+        HcommReleaseComm(param->commName);  // 失败时也要释放
+        return 1;
+    }
+    // 释放通信域引用
+    if (HcommReleaseComm(param->commName) != HCCL_SUCCESS) {
+        HCCL_ERROR("%s HcommReleaseComm fail, commName[%s]", __func__, param->commName);
+        return 1;
+    }
+    HCCL_INFO("%s success, tag[%s], algTag[%s], commName[%s], opType[%d]", 
+              __func__, param->tag, param->algTag, param->commName, 
+              static_cast<int>(param->opType));
     return 0;
 }
 
