@@ -213,7 +213,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread) const
 {
     HCCL_INFO("[InsAlltoAllVSoleExecutor] save fast launch ctx.");
     u32 threadNum = 1;

@@ -392,8 +392,8 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
 
     // 启用Only录制模式
     ops_hccl::g_recordingQueue = std::make_shared<ops_hccl::InsQueue>();
-    ops_hccl::g_baseInputAddr = (u64)inputPtr;
-    ops_hccl::g_baseOutputAddr = (u64)outputPtr;
+    ops_hccl::g_baseInputAddr = reinterpret_cast<u64>(inputPtr);
+ 	ops_hccl::g_baseOutputAddr = reinterpret_cast<u64>(outputPtr);
     ops_hccl::g_recordOnlyMode = true;
 
     // 计算AlgHierarchyInfo

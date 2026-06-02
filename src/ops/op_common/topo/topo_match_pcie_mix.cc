@@ -119,7 +119,7 @@ HcclResult TopoMatchPcieMix::TopoForLayer0(const HcclComm comm, const uint32_t m
 }
 
 HcclResult TopoMatchPcieMix::LoadTopoInstRanks(const HcclComm comm, uint32_t netLayer, uint32_t topoInstId,
-    std::vector<uint32_t> &rankList)
+    std::vector<uint32_t> &rankList) const
 {
 #ifndef AICPU_COMPILE
     uint32_t* ranks;
@@ -133,7 +133,7 @@ HcclResult TopoMatchPcieMix::LoadTopoInstRanks(const HcclComm comm, uint32_t net
 }
 
 HcclResult TopoMatchPcieMix::DeduplicateLevelRanks(const uint32_t myRank, std::vector<uint32_t> &level0Ranks,
-    std::vector<uint32_t> &level1Ranks)
+    std::vector<uint32_t> &level1Ranks) const
 {
     u32 level0RankSize = level0Ranks.size();
     auto level1End = std::remove_if(level1Ranks.begin(), level1Ranks.end(),
@@ -143,4 +143,4 @@ HcclResult TopoMatchPcieMix::DeduplicateLevelRanks(const uint32_t myRank, std::v
     return HCCL_SUCCESS;
 }
 
-}  // namespace ops_hccl
+}  // namespace ops_hccl

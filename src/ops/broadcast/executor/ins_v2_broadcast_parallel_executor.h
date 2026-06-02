@@ -35,9 +35,9 @@ public:
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 #ifndef AICPU_COMPILE
-    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
-    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
-                                 const TemplateResource &templateAlgResInter, const TemplateResource &intraTempAlgRes1,
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *ctx) override;
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &intraTempAlgRes,
+                                 const TemplateResource &interTempAlgRes, const TemplateResource &intraTempAlgRes1,
                                  const TemplateResource &interTempAlgRes1, u32 notifyNumOnMainThread);
 #endif
 
@@ -59,7 +59,7 @@ private:
     void GenDataParamsAllRank(const u64 sliceCount, const u32 LocalRankSize, TemplateDataParams &dataParams) const;
     HcclResult RunTemplateIntra0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                   const u64 currCountPart, const u64 scratchOffsetCount, TemplateDataParams &dataParams,
-                                  TemplateResource& templateResource, InsAlgTemplate0 &tempAlgInter);
+                                  TemplateResource& templateResource, InsAlgTemplate0 &tempAlgIntra) const;
     HcclResult RunTemplateInter1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                   const u64 currCountPart, const u64 scratchOffsetCount, TemplateDataParams &dataParams,
                                   TemplateResource& templateResource, InsAlgTemplate1 &tempAlgInter);
@@ -80,25 +80,25 @@ private:
                                         TemplateResource& templateResource, InsAlgTemplate2 &tempAlgIntra1);
     HcclResult RunTemplateInter11(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                         const u64 currCountPart, const u64 scratchOffsetCount, TemplateDataParams &dataParams,
-                                        TemplateResource& templateResource, InsAlgTemplate3 &tempAlgInter1);
+                                        TemplateResource& templateResource, InsAlgTemplate3 &tempAlgInter1) const;
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra0,
                           InsAlgTemplate1 &tempAlgInter0, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
     HcclResult FastLaunchTemplateIntra0(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra);
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra) const;
     HcclResult FastLaunchTemplateInter1(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate1 &tempAlgIntra);
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate1 &tempAlgInter) const;
     HcclResult FastLaunchTemplateInter0(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate1 &tempAlgIntra);
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate1 &tempAlgInter) const;
     HcclResult FastLaunchTemplateIntra1(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra);
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra) const;
     HcclResult FastLaunchTemplateInter01(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate3 &tempAlgIntra);
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate3 &tempAlgInter1) const;
     HcclResult FastLaunchTemplateIntra11(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra);
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra1) const;
     HcclResult FastLaunchTemplateIntra01(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra);
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra1) const;
     HcclResult FastLaunchTemplateInter11(const OpParam &param, const u32 kernelNum,
-                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate3 &tempAlgIntra);
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxInter, InsAlgTemplate3 &tempAlgInter1) const;
     // rounddown func for uint
     inline u64 RoundDown(u64 dividend, u64 divisor) const
     {
