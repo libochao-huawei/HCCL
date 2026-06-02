@@ -186,6 +186,8 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
 
 HcclResult SetExecTimeout(OpParam &param);
 bool IsHostDpu(HcclComm comm);
+// 与 IsHostDpu 判定一致（框间 host-DPU），但不限定 910B，供 950 Barrier 新流程的场景判定使用。
+bool IsBarrierHostDpu(HcclComm comm);
 }  // namespace ops_hccl
 
 #endif
