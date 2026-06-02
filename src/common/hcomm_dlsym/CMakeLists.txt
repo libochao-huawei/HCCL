@@ -82,6 +82,7 @@ if(STATIC_MODE)
         ${CMAKE_CURRENT_SOURCE_DIR}/ccu_res_dl.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/hccl_ccu_res_dl.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ccu_launch_dl.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ccu_primitives_impl_dl.cc
     )
 else()
     add_library(hccl_compat SHARED)
@@ -145,7 +146,7 @@ endif()
     )
 
     install(TARGETS hccl_compat
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
         ${INSTALL_OPTIONAL}
         COMPONENT hccl
     )
@@ -162,6 +163,7 @@ endif()
         ccu_res_dl.cc
         hccl_ccu_res_dl.cc
         ccu_launch_dl.cc
+        ccu_primitives_impl_dl.cc
     )
 endif()
 
@@ -200,7 +202,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
  	)
 
     install(TARGETS hccl_kernel_compat
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
         ${INSTALL_OPTIONAL}
         COMPONENT hccl
     )
