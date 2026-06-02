@@ -24,6 +24,7 @@
 
 #include "log.h"
 #include "runtime/tensor.h"
+#include "graph/ge_error_codes.h"
 
 namespace ops {
 
@@ -52,6 +53,21 @@ inline const char* get_op_info(const char* str) {
 #define CUBE_INNER_ERR_REPORT(opname, err_msg, ...) \
   HCCL_ERROR("OpName:[%s] " err_msg, get_op_info(opname), ##__VA_ARGS__)
 
+#define OP_INFER_SHAPE_START \
+  OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED); \
+  const auto opName = context->GetNodeName(); \
+  OP_LOGI(opName, "[%s] the op inferShape start.", __func__)
+
+#define OP_INFER_SHAPE_END \
+  OP_LOGI(opName, "[%s] the op inferShape end.", __func__)
+
+#define OP_INFER_DATATYPE_START \
+  OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED); \
+  const auto opName = context->GetNodeName(); \
+  OP_LOGI(opName, "[%s] the op inferDataType start.", __func__)
+
+#define OP_INFER_DATATYPE_END \
+  OP_LOGI(opName, "[%s] the op inferDataType end.", __func__)
 
 inline bool IsConstTensor(const gert::Tensor* input_tensor) {
   if (input_tensor != nullptr) {
@@ -63,5 +79,42 @@ inline bool IsConstTensor(const gert::Tensor* input_tensor) {
   }
   return false;
 }
+
+ge::graphStatus CheckOPAttr(const gert::RuntimeAttrs* attrs, size_t fusionIndex, size_t fusionIdIndex)
+{
+    OP_CHECK(attrs == nullptr, CUBE_INNER_ERR_REPORT(opName, "attrs is null"), return GRAPH_FAILED);
+
+    constexpr int64_t fusionAttrNoFuse = 0;
+    constexpr int64_t fusionAttrFuseById = 2;
+    constexpr int64_t fusionIdDefaultVal = -1;
+    constexpr int64_t fusionIdMinVal = 0;
+    constexpr int64_t fusionIdMaxVal = 0x7fffffff;
+
+    int64_t fusionAttr = fusionAttrNoFuse;
+    int64_t fusionIdAttr = fusionIdDefaultVal;
+    
+    if((attrs->GetAttrPointer<int64_t>(fusionIndex)) != nullptr) {
+        fusionAttr = *((attrs->GetAttrPointer<int64_t>(fusionIndex)));
+    }
+    if(attrs->GetAttrPointer<int64_t>(fusionIdIndex) != nullptr) {
+        fusionIdAttr = *(attrs->GetAttrPointer<int64_t>(fusionIdIndex));
+    }
+
+    if ((fusionAttr != fusionAttrNoFuse) && (fusionAttr != fusionAttrFuseById)) {
+        OP_LOGE(opName, "Attr fusion [%ld] is not supported. expected: [%ld or %ld]",
+                fusionAttr, fusionAttrNoFuse, fusionAttrFuseById);
+        return GRAPH_FAILED;
+    }
+    if (fusionAttr == fusionAttrFuseById) {
+        if ((fusionIdAttr < fusionIdMinVal) || (fusionIdAttr > fusionIdMaxVal)) {
+            OP_LOGE(opName, "In fusion [%ld], attr fusion_id [%ld] is not supported, "
+                    "expected: [%ld ~ %ld]", fusionAttr, fusionIdAttr, fusionIdMinVal, fusionIdMaxVal);
+            return GRAPH_FAILED;
+        }
+    }
+
+    return GRAPH_SUCCESS;
+}
+
 }  // namespace ops
 #endif  // CANN_OPS_BUILT_IN_OP_UTIL_H_
