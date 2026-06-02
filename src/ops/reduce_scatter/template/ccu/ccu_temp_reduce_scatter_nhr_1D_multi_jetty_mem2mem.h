@@ -48,7 +48,7 @@ protected:
     HcclResult GetStepInfo(u32 step, NHRStepInfo &stepInfo);
     HcclResult GetNhrStepInfo(std::vector<HcclChannelDesc>& channelResort,
                               std::vector<NHRStepInfo>& stepInfoVector,
-                              std::map<u32, u32>& rank2ChannelIdx);
+                              std::map<u32, std::vector<u32>>& rank2ChannelIdx);
     std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
 private:
     uint32_t mySubCommRank_ = 0;
