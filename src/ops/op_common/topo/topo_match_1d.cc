@@ -55,6 +55,12 @@ HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* to
     algHierarchyInfoExector.infos.resize(1);
     algHierarchyInfoExector.infos[0].resize(1);
     algHierarchyInfoExector.infos[0][0] = rankIds_;
+
+    HCCL_INFO("alg topo:");
+    uint32_t i = 0;
+    for (auto id: rankIds_) {
+        HCCL_INFO("alg topo[%d]:%d", i++, id);
+    }
 #endif
     return HcclResult::HCCL_SUCCESS;
 }
