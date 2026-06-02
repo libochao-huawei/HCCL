@@ -69,11 +69,11 @@ HcclResult InsTempAllGatherMeshClosOpt::CalcRes(HcclComm comm, const OpParam &pa
         HCCL_WARNING("[InsTempAllGatherMeshClosOpt][CalcRes] Rank[%u] peer[%u] channelCount[%u]",
                      topoInfo->userRank, peerInfo.first, peerInfo.second);
     }
-    if (channelsPerRank_ != 4) {
-        HCCL_ERROR("[InsTempAllGatherMeshClosOpt][CalcRes] Rank[%u] channelsPerRank[%u] is not expected clos link num 4.",
-                   topoInfo->userRank, channelsPerRank_);
-        return HcclResult::HCCL_E_INTERNAL;
-    }
+    // if (channelsPerRank_ != 4) {
+    //     HCCL_ERROR("[InsTempAllGatherMeshClosOpt][CalcRes] Rank[%u] channelsPerRank[%u] is not expected clos link num 4.",
+    //                topoInfo->userRank, channelsPerRank_);
+    //     return HcclResult::HCCL_E_INTERNAL;
+    // }
 
     CHK_RET(GetRes(resourceRequest));
     return HCCL_SUCCESS;

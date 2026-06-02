@@ -257,7 +257,7 @@ HcclResult InsTempAlltoAllMesh2DV3::RunAlltoAllMesh(
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + connectedRank * actualChunkSize;
             DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, actualChunkSize, chunkCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
-            // CHK_RET(LocalCopy(threads[neighborIdx], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(threads[neighborIdx], srcSlice, dstSlice));
 
             dmaResult = SendRecvRead(sendRecvInfo, threads[neighborIdx]);
         } else {
@@ -268,7 +268,7 @@ HcclResult InsTempAlltoAllMesh2DV3::RunAlltoAllMesh(
             u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + connectedRank * actualChunkSize;
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, actualChunkSize, chunkCount);
-            // CHK_RET(LocalCopy(threads[neighborIdx], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(threads[neighborIdx], srcSlice, dstSlice));
         }
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
@@ -294,7 +294,7 @@ HcclResult InsTempAlltoAllMesh2DV3::RunAlltoAllMesh(
     DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, actualChunkSize, chunkCount);
     DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffsetBase, actualChunkSize, chunkCount);
 
-    // CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+    CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
 
     for (u32 i = 0; i < failedRanks_.size(); i++) {
         if (failedRanks_[i]) {
@@ -332,7 +332,7 @@ HcclResult InsTempAlltoAllMesh2DV3::LocalDataCopy(const std::vector<ThreadHandle
     DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, cellSize * meshSize_, cellCount * meshSize_);
     DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * meshSize_, cellCount * meshSize_);
 
-    // CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+    CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
 
     return HcclResult::HCCL_SUCCESS;
 }
@@ -361,7 +361,7 @@ HcclResult InsTempAlltoAllMesh2DV3::PostLocalCopy(const std::vector<ThreadHandle
     DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * meshSize_, cellCount * meshSize_);
     DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize * meshSize_, cellCount * meshSize_);
 
-    // CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+    CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
 
     return HcclResult::HCCL_SUCCESS;
 }

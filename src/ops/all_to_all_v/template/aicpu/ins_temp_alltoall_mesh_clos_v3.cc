@@ -280,7 +280,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + connectedRank * actualChunkSize;
             DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, actualChunkSize, chunkCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, actualChunkSize, chunkCount);
-            // CHK_RET(LocalCopy(commThreads[linkIdx], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(commThreads[linkIdx], srcSlice, dstSlice));
 
             dmaResult = SendRecvRead(sendRecvInfo, commThreads[linkIdx]);
         } else {
@@ -293,7 +293,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, actualChunkSize, chunkCount);
             u32 notifyIdx = COPY_NOTIFY_BASE_IDX + step * commThreads.size() + linkIdx;
             CHK_RET(PreSyncInterThreads(commThreads[linkIdx], copyThreads, {notifyIdx}));
-            // CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
         }
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
@@ -341,7 +341,7 @@ HcclResult InsTempAlltoAllMeshClosV3::LocalDataCopy(const std::vector<ThreadHand
         DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, cellSize * meshDataOffset, cellCount * meshDataOffset);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * meshDataOffset, cellCount * meshDataOffset);
 
-        // CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
 
     if (meshDataOffset < rankSize_ / meshSize_ - 1) {
@@ -352,7 +352,7 @@ HcclResult InsTempAlltoAllMeshClosV3::LocalDataCopy(const std::vector<ThreadHand
         DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, cellSize * reamindCount, cellCount * reamindCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * reamindCount, cellCount * reamindCount);
 
-        // CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -382,7 +382,7 @@ HcclResult InsTempAlltoAllMeshClosV3::PostLocalCopy(const std::vector<ThreadHand
     DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * meshSize_, cellCount * meshSize_);
     DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize * meshSize_, cellCount * meshSize_);
 
-    // CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+    CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
 
     if (meshDataOffset > 0) {
         u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff;
@@ -391,7 +391,7 @@ HcclResult InsTempAlltoAllMeshClosV3::PostLocalCopy(const std::vector<ThreadHand
         DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * meshDataOffset, cellCount * meshDataOffset);
         DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize * meshDataOffset, cellCount * meshDataOffset);
         
-        // CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
 
     if (meshDataOffset < rankSize_ / meshSize_ - 1) {
@@ -402,7 +402,7 @@ HcclResult InsTempAlltoAllMeshClosV3::PostLocalCopy(const std::vector<ThreadHand
         DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, cellSize * reamindCount, cellCount * reamindCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, cellSize * reamindCount, cellCount * reamindCount);
 
-        // CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
 
     return HcclResult::HCCL_SUCCESS;
