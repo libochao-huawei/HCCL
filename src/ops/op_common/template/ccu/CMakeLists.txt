@@ -12,6 +12,8 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel_alg_base.cc
 )
 
-target_sources(hccl PRIVATE
-    ${src_list}
-)
+if(TARGET hccl)
+    target_sources(hccl PRIVATE
+        ${src_list}
+    )
+endif()
