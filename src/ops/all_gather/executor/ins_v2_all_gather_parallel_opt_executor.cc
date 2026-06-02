@@ -284,7 +284,7 @@ void InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
     std::vector<float> &splitDataSize) const
 {
     // double splitData = multipleDimensionSplitRatio_;
-    double splitData = 0.44;
+    double splitData = 0.435;
     splitDataSize.push_back(splitData);
     splitDataSize.push_back(splitData);
     splitDataSize.push_back(1 - splitData - splitData);

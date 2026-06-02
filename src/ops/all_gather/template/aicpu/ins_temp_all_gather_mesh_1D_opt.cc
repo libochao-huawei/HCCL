@@ -12,6 +12,10 @@
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
 namespace ops_hccl {
+namespace {
+constexpr u32 COPY_THREAD_NUM = 1;
+}
+
 InsTempAllGatherMesh1DOpt::InsTempAllGatherMesh1DOpt(const OpParam &param, const u32 rankId,
                                                const std::vector<std::vector<u32>> &subCommRanks)
     : InsAlgTemplateBase(param, rankId, subCommRanks)
@@ -33,6 +37,7 @@ HcclResult InsTempAllGatherMesh1DOpt::GetRes(AlgResourceRequest &resourceRequest
 {
     u32 level0RankSize = templateRankSize_;
     u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;
+    threadNum += COPY_THREAD_NUM;
     resourceRequest.slaveThreadNum = threadNum - 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
@@ -41,7 +46,8 @@ HcclResult InsTempAllGatherMesh1DOpt::GetRes(AlgResourceRequest &resourceRequest
 
 u64 InsTempAllGatherMesh1DOpt::GetThreadNum() const
 {
-    return templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    u32 commThreadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    return commThreadNum + COPY_THREAD_NUM;
 }
 
 u64 InsTempAllGatherMesh1DOpt::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
@@ -77,6 +83,15 @@ HcclResult InsTempAllGatherMesh1DOpt::KernelRun(const OpParam &param, const Temp
         GetNotifyIdxMainToSub(notifyIdxMainToSub_);
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
     }
+    CHK_PRT_RET(templateResource.threads.size() < GetThreadNum(),
+                HCCL_ERROR("[InsTempAllGatherMesh1DOpt] Rank[%u] threads[%zu] < required[%llu].",
+                           myRank_, templateResource.threads.size(), GetThreadNum()),
+                HcclResult::HCCL_E_INTERNAL);
+    u32 commThreadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    std::vector<ThreadHandle> commThreads(templateResource.threads.begin(),
+                                          templateResource.threads.begin() + commThreadNum);
+    std::vector<ThreadHandle> copyThreads(templateResource.threads.begin() + commThreadNum,
+                                          templateResource.threads.begin() + commThreadNum + COPY_THREAD_NUM);
 
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
@@ -90,7 +105,7 @@ HcclResult InsTempAllGatherMesh1DOpt::KernelRun(const OpParam &param, const Temp
             HCCL_WARNING("[InsTempAllGatherMesh1DOpt][LOCAL_WRITE] Rank[%u] inputOff[%llu] scratchOff[%llu] "
                          "size[%llu] stride[%llu]",
                          myRank_, inputOffset, scratchOffset, sliceSize, tempAlgParams_.outputSliceStride);
-            CHK_RET(LocalCopy(templateResource.threads[0], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
             break;
         } else {
             u64 sliceSize = tempAlgParams_.buffInfo.inputSize;
@@ -106,10 +121,10 @@ HcclResult InsTempAllGatherMesh1DOpt::KernelRun(const OpParam &param, const Temp
                          "scratchOff[%llu] outputOff[%llu] size[%llu] stride[%llu]",
                          myRank_, rpt, localMeshRank, scratchOffset, outputOffset, sliceSize,
                          tempAlgParams_.outputSliceStride);
-            CHK_RET(LocalCopy(templateResource.threads[0], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
         }
     }
-    CHK_RET(RunAllGatherMesh(templateResource.threads, templateResource.channels));
+    CHK_RET(RunAllGatherMesh(commThreads, templateResource.channels));
 
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());

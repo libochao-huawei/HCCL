@@ -14,6 +14,10 @@
 #include "channel.h"
 
 namespace ops_hccl {
+namespace {
+constexpr u32 COPY_THREAD_NUM = 1;
+constexpr u32 COPY_TO_COMM_NOTIFY_IDX = 1;
+}
 
 InsTempAllGatherMeshClosOpt::InsTempAllGatherMeshClosOpt(const OpParam &param, const u32 rankId,
                                                        const std::vector<std::vector<u32>> &subCommRanks)
@@ -25,7 +29,7 @@ InsTempAllGatherMeshClosOpt::~InsTempAllGatherMeshClosOpt() {}
 
 u64 InsTempAllGatherMeshClosOpt::GetThreadNum() const
 {
-    return channelsPerRank_;
+    return channelsPerRank_ + COPY_THREAD_NUM;
 }
 
 HcclResult InsTempAllGatherMeshClosOpt::GetRes(AlgResourceRequest &resourceRequest) const
@@ -33,7 +37,8 @@ HcclResult InsTempAllGatherMeshClosOpt::GetRes(AlgResourceRequest &resourceReque
     u32 threadNum = GetThreadNum();
     resourceRequest.slaveThreadNum = threadNum > 1 ? threadNum - 1 : 0;
     if (resourceRequest.slaveThreadNum > 0) {
-        resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+        resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, COPY_TO_COMM_NOTIFY_IDX + 1);
+        resourceRequest.notifyNumPerThread.back() = 1;
     }
     resourceRequest.notifyNumOnMainThread = threadNum > 1 ? threadNum - 1 : 0;
     return HCCL_SUCCESS;
@@ -91,6 +96,10 @@ HcclResult InsTempAllGatherMeshClosOpt::KernelRun(const OpParam &param, const Te
     if (templateRankSize_ == 1) {
         return HCCL_SUCCESS;
     }
+    CHK_PRT_RET(templateResource.threads.size() < GetThreadNum(),
+                HCCL_ERROR("[InsTempAllGatherMeshClosOpt] Rank[%u] threads[%zu] < required[%llu].",
+                           myRank_, templateResource.threads.size(), GetThreadNum()),
+                HcclResult::HCCL_E_INTERNAL);
 
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -113,19 +122,27 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
     const std::vector<ThreadHandle> &threads,
     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
+    CHK_PRT_RET(threads.size() < channelsPerRank_ + COPY_THREAD_NUM,
+                HCCL_ERROR("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] threads[%zu] < required[%u].",
+                           myRank_, threads.size(), channelsPerRank_ + COPY_THREAD_NUM),
+                HcclResult::HCCL_E_INTERNAL);
+    std::vector<ThreadHandle> commThreads(threads.begin(), threads.begin() + channelsPerRank_);
+    std::vector<ThreadHandle> copyThreads(threads.begin() + channelsPerRank_,
+                                          threads.begin() + channelsPerRank_ + COPY_THREAD_NUM);
     HCCL_INFO("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] templateRankSize[%u] totalLinks[%u].",
               myRank_, templateRankSize_, channelsPerRank_);
     // ========== 新增日志 ==========
     HCCL_WARNING("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] remoteWrite[%d] threads.size[%zu] "
                  "channels.size[%zu] repeatNum0[%u] repeatNum1[%u] allGatherToAllRanksCounts[%llu] "
                  "inputSize0[%llu] inputSize1[%llu] outStride0[%llu] outStride1[%llu]",
-                 myRank_, remoteWrite, threads.size(), channels.size(), tempAlgParams_.repeatNum,
+                 myRank_, remoteWrite, commThreads.size(), channels.size(), tempAlgParams_.repeatNum,
                  tempAlgParams1_.repeatNum, allGatherToAllRanksCounts,
                  tempAlgParams_.buffInfo.inputSize, tempAlgParams1_.buffInfo.inputSize,
                  tempAlgParams_.outputSliceStride, tempAlgParams1_.outputSliceStride);
-    if (threads.size() != channelsPerRank_) {
-        HCCL_WARNING("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] threads.size[%zu] != channelsPerRank[%u].",
-                     myRank_, threads.size(), channelsPerRank_);
+    if (commThreads.size() != channelsPerRank_) {
+        HCCL_WARNING("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] commThreads.size[%zu] != "
+                     "channelsPerRank[%u].",
+                     myRank_, commThreads.size(), channelsPerRank_);
     }
     for (const auto &peerInfo : channels) {
         HCCL_WARNING("[InsTempAllGatherMeshClosOpt][RunAllGatherMesh] Rank[%d] channelMap peer[%u] channels[%zu]",
@@ -140,7 +157,25 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
         allGatherToAllRanksCounts = 0;
     }
 
-     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
+    bool cLocalCopyDone = false;
+    if (allGatherToAllRanksCounts == 0 && tempAlgParams1_.repeatNum > 0) {
+        const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+        u64 sliceSize = tempAlgParams1_.buffInfo.inputSize;
+        u64 sliceCount = sliceSize / dataTypeSize;
+        u64 inputOffset = tempAlgParams1_.buffInfo.inBuffBaseOff;
+        u64 scratchOffset = tempAlgParams1_.buffInfo.hcclBuffBaseOff + myRank_ * tempAlgParams1_.outputSliceStride;
+        DataSlice srcSlice(tempAlgParams1_.buffInfo.inputPtr, inputOffset, sliceSize, sliceCount);
+        DataSlice dstSlice(tempAlgParams1_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
+        CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
+        CHK_RET(PreSyncInterThreads(copyThreads[0], {commThreads.back()}, {COPY_TO_COMM_NOTIFY_IDX}));
+
+        u64 outputOffset = tempAlgParams1_.buffInfo.outBuffBaseOff + myRank_ * tempAlgParams1_.outputSliceStride;
+        DataSlice dstSlice1(tempAlgParams1_.buffInfo.outputPtr, outputOffset, sliceSize, sliceCount);
+        CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice1));
+        cLocalCopyDone = true;
+    }
+
+    for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
         if (remoteWrite) {
             u64 sliceSize = tempAlgParams_.buffInfo.inputSize;
@@ -149,7 +184,7 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + myRank_ * tempAlgParams_.outputSliceStride;
             DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, sliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
-            CHK_RET(LocalCopy(threads[threads.size() - 1], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
             break;
         } else {
             u64 sliceSize = tempAlgParams_.buffInfo.inputSize;
@@ -161,15 +196,15 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
 
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, sliceSize, sliceCount);
-            CHK_RET(LocalCopy(threads[threads.size() - 1], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
         }
     }
     
-    for (u32 linkIdx = 0; linkIdx < threads.size() - 1; linkIdx++) {
-        CHK_RET(RunAllGatherOnLink(threads, channels, linkIdx));
+    for (u32 linkIdx = 0; linkIdx < commThreads.size() - 1; linkIdx++) {
+        CHK_RET(RunAllGatherOnLink(commThreads, channels, linkIdx));
     }
     for (u32 step = allGatherToAllRanksCounts; step < allGatherToAllRanksCounts + tempAlgParams1_.repeatNum; step++) {
-        if (step == 0) {
+        if (step == 0 && !cLocalCopyDone) {
             // 本地数据需要拷贝到 HCCL BUFFER内
             const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
             u64 sliceSize = tempAlgParams1_.buffInfo.inputSize;
@@ -178,13 +213,14 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
             u64 scratchOffset = tempAlgParams1_.buffInfo.hcclBuffBaseOff + myRank_ * tempAlgParams1_.outputSliceStride;
             DataSlice srcSlice(tempAlgParams1_.buffInfo.inputPtr, inputOffset, sliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams1_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
-            CHK_RET(LocalCopy(threads[threads.size() - 1], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice));
+            CHK_RET(PreSyncInterThreads(copyThreads[0], {commThreads.back()}, {COPY_TO_COMM_NOTIFY_IDX}));
 
             u64 outputOffset = tempAlgParams1_.buffInfo.outBuffBaseOff + myRank_ * tempAlgParams1_.outputSliceStride;
             DataSlice dstSlice1(tempAlgParams1_.buffInfo.outputPtr, outputOffset, sliceSize, sliceCount);
-            CHK_RET(LocalCopy(threads[threads.size() - 1], srcSlice, dstSlice1));
+            CHK_RET(LocalCopy(copyThreads[0], srcSlice, dstSlice1));
         }
-        CHK_RET(RunAllGatherToAllRanks(threads, channels, step));
+        CHK_RET(RunAllGatherToAllRanks(commThreads, channels, step));
     }
      allGatherToAllRanksCounts += tempAlgParams1_.repeatNum;
 
