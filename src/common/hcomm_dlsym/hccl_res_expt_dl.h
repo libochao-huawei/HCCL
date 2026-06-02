@@ -12,7 +12,10 @@
 #define HCCL_RES_EXPT_DL_H
 
 #include "dlsym_common.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_res_expt.h"
+#endif
+#include "hccl_res.h"
 
 #ifdef __cplusplus
 extern "C" {
