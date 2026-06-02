@@ -190,14 +190,6 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun(const OpParam& 
         outputRepeatStride));
     templateResource.submitInfos.push_back(submitInfo);
     
-    //所有task下发完再保存参数信息
-    CcuKernelSubmitInfo submitInfo;
-    submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, sliceSize, 
-        inputSliceStride, outputSliceStride, sliceOneJettySize, sliceLastJettySize, repeatNum, inputRepeatStride, 
-        outputRepeatStride));
-    templateResource.submitInfos.push_back(submitInfo);
-    
     HCCL_DEBUG("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun] end");
 
     return HcclResult::HCCL_SUCCESS;

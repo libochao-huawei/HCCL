@@ -57,7 +57,6 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::CalcRes(HcclComm comm, const OpPara
     auto kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
     kernelArg->rankSize = subCommRanks_[0].size();
     kernelArg->rankId = myRank_;
-    kernelArg->channelCount = channelDescs.size();
     kernelArg->opParam = param;
     kernelArg->subCommRanks = subCommRanks_;
     kernelArg->jettyNums = jettyNums;
