@@ -75,6 +75,11 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.DataDes.dataType];
+    if (dataCount_ > UINT64_MAX / dataTypeSize_) {
+        HCCL_ERROR("[InsV2AllReduceSoleExecutor][Orchestrate] dataCount[%llu] * dataTypeSize_[%llu] is greater than UINT64_MAX",
+            dataCount_, dataTypeSize_);
+        return HCCL_E_INTERNAL;
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
@@ -182,7 +187,7 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread) const
 {
     HCCL_INFO("[InsV2AllReduceSoleExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = 1;

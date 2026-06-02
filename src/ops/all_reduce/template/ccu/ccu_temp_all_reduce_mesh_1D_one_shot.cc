@@ -86,6 +86,10 @@ HcclResult CcuTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
 {
     buffInfo_ = templateDataParams.buffInfo;
     HCCL_INFO("CcuTempAllReduceMesh1DOneShot KernelRun inputPtr(%p), inputSize(%d)", buffInfo_.inputPtr, buffInfo_.inputSize);
+    if (buffInfo_.inputPtr == nullptr || buffInfo_.outputPtr == nullptr) {
+        HCCL_ERROR("[CcuTempAllReduceMesh1DOneShot::KernelRun] inputPtr or outputPtr is nullptr");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;

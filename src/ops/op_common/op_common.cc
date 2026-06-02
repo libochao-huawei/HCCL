@@ -202,7 +202,6 @@ HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr,
         remain -= len;
         return true;
     };
-
     if (!append_str(param.tag) || !append_str("_") || !append_str(dataTypeStr)) {
         goto fail;
     }
@@ -435,7 +434,7 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, 
     std::string &algName, const ResPackGraphMode &resPack)
 {   
-    void * fallbackCtx = nullptr;
+    void* fallbackCtx = nullptr;
     uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
     CHK_RET(HcclEngineCtxCreate(comm, param.fallbackTag, CommEngine::COMM_ENGINE_CCU, fallbackCtxSize, &fallbackCtx));
     char* newAlgName = static_cast<char*>(fallbackCtx);
@@ -452,6 +451,7 @@ HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
 HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
+    (void) comm;
     HCCL_INFO("Start to execute ReSelector.");
     // 回退AICPU
     param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
@@ -497,7 +497,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp. HcommGetProfilingSysCycleTime[%llu]", beginTime);
     // 当前通信域的某个算法回退过，则下次直接回退
-    void * fallbackCtx = nullptr;
+    void* fallbackCtx = nullptr;
     uint64_t fallbackCtxSize = 0;
     CHK_RET(SetOpParamFallbackTag(param, algName));
     if (HcclEngineCtxGet(comm, param.fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
@@ -737,6 +737,7 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
 HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost)
 {
+    (void) topoInfo;
     HCCL_INFO("[%s] algTag[%s] commModeTag[%s] resCtx(Host)[%p] aivCommInfoPtr(Device)[%p]", __func__,
         param.algTag, param.commModeTag, param.resCtx, resCtxHost.aivCommInfoPtr);
     u32 numBlocksLimit = MAX_NUM_BLOCKS;
