@@ -9,7 +9,7 @@
  */
 
 #include "channel.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 #include "alg_template_base.h"
 #include "kernel/ccu_kernel_all_to_all_mesh1d_multi_jetty.h"
 #include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"

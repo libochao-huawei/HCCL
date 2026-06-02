@@ -12,7 +12,7 @@
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "alg_data_trans_wrapper.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 
 namespace ops_hccl {
 constexpr uint32_t CONST_1 = 1;

@@ -11,7 +11,7 @@
 #include <algorithm>
 #include "channel.h"
 #include "alg_template_base.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 #include "ccu_kernel_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
 
 namespace ops_hccl {
