@@ -13,6 +13,7 @@
 
 #include "ccu_alg_template_base.h"
 #include "ccu_kernel_scatter_nhr1d_mem2mem.h"
+#include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
 class CcuTempScatterNHR1DMem2Mem : public CcuAlgTemplateBase {

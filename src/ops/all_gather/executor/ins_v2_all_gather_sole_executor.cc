@@ -12,6 +12,7 @@
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_hd.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_all_gather_mesh_1D.h"
 #if !defined(HCCL_CANN_COMPAT_850)
@@ -19,7 +20,7 @@
 #include "ccu_temp_all_gather_mesh_1D.h"
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 #include "ccu_temp_all_gather_2dies_mesh_1d_mem2mem.h"
-#include "ccu_temp_all_gather_2dies_mesh_1D.h"
+// #include "ccu_temp_all_gather_2dies_mesh_1D.h"
 #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
@@ -218,7 +219,9 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchS
     // 3 ccu kernel handle, taskArg入参
     ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelNum;
     CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
-    kernelSubmitInfos[0] = templateAlgRes.submitInfos[0];
+    for (int i = 0; i < ccuKernelNum; i++) {
+        kernelSubmitInfos[i] = templateAlgRes.submitInfos[i];
+    }
     return HCCL_SUCCESS;
 }
 
@@ -258,6 +261,9 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherMesh1D1DZAxisDetou
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherNHR, InsV2AllGatherSoleExecutor, TopoMatch1D,
                  InsTempAllGatherNHR);
 
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherHD, InsV2AllGatherSoleExecutor, TopoMatch1D,
+                 InsTempAllGatherHD);
+
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1DMem2Mem, InsV2AllGatherSoleExecutor, TopoMatch1D,
@@ -277,11 +283,14 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherNHR1DMem2Mem, InsV
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, AivAllGatherMesh1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
     AivTempAllGatherMesh1D);
 
+// #if !defined(HCCL_CANN_COMPAT_850)
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh2Die, InsV2AllGatherSoleExecutor, TopoMatch1D,
+//     CcuTempAllGather2DiesMesh1D);
+// #endif /* !HCCL_CANN_COMPAT_850 */
 #if !defined(HCCL_CANN_COMPAT_850)
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh2Die, InsV2AllGatherSoleExecutor, TopoMatch1D,
-    CcuTempAllGather2DiesMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh2DieMem2Mem, InsV2AllGatherSoleExecutor, TopoMatch1D,
+    CcuTempAllGather2DiesMeshMem2Mem1D);
 #endif /* !HCCL_CANN_COMPAT_850 */
-
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherNHR1DMem2MemMultiJetty, InsV2AllGatherSoleExecutor, TopoMatch1D,
     CcuTempAllGatherNHR1DMultiJettyMem2Mem);

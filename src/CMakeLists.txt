@@ -24,6 +24,7 @@ set(INCLUDE_LIST
     ${OPS_BASE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/ccu
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common
@@ -152,8 +153,10 @@ if(BUILD_OPEN_PROJECT)
         ${ASCEND_CANN_PACKAGE_PATH}/include/acl
 
         # hcomm头文件
+        ${ASCEND_CANN_PACKAGE_PATH}/include/ccu
         ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
         ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
+        ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm/ccu
 
         # runtime头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/
@@ -284,6 +287,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_omnipipe_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_hd.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_meshchunk.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_aicpu_reduce_nhr.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.cc
@@ -307,6 +311,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_hd.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_omnipipe_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_omnipipe_nhr_dpu.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_omnipipe_nhr.cc
