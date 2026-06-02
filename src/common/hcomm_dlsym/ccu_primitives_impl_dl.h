@@ -11,10 +11,6 @@
 #ifndef CCU_PRIMITIVES_IMPL_DL_H
 #define CCU_PRIMITIVES_IMPL_DL_H
 
-#if CANN_VERSION_NUM >= 90100000
-#include "ccu_primitives_impl.h"
-#else
-
 #ifdef __cplusplus
 #include <cstdbool>
 #else
@@ -22,9 +18,15 @@
 #endif // __cplusplus
 
 #include "dlsym_common.h"
+#if CANN_VERSION_NUM >= 90100000
+#include "hccl_types.h"
+#include "ccu_types.h"
+#include "hcomm_primitives.h"
+#else
 #include "hccl_types.h"
 #include "ccu_types_dl.h"
 #include "hcomm_primitives_dl.h"
+#endif // CANN_VERSION_NUM >= 90100000
 
 #ifdef __cplusplus
 extern "C" {
@@ -137,7 +139,5 @@ void CcuPrimitivesImplDlInit(void* libHcommHandle);
 #ifdef __cplusplus
 }
 #endif // __cplusplus
-
-#endif // CANN_VERSION_NUM >= 90100000
 
 #endif // CCU_PRIMITIVES_IMPL_DL_H
