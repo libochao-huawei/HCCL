@@ -22,7 +22,7 @@
 // CCU template 头文件
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "ccu_temp_all_gather_mesh_1D.h"
-// #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
+#include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 
 #endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
