@@ -51,7 +51,7 @@ HcclResult InsTempAlltoAllMeshClosV2::CalcRes(HcclComm comm, const OpParam &para
 {
     HCCL_INFO("[InsTempAlltoAllMeshClosV2][CalcRes] start");
     std::vector<HcclChannelDesc> levelChannels;
-    CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, levelChannels));
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, levelChannels));
     resourceRequest.channels.push_back(levelChannels);
 
     channelsPerRank_ = levelChannels.empty() ? 1 : CalcChannelsPerRank(levelChannels);
