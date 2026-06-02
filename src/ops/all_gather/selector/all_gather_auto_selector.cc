@@ -194,15 +194,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
-<<<<<<< HEAD
-<<<<<<< HEAD
-            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize) {
-=======
-            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64 && (!IsInputOutputOverlap(opParam))) {
->>>>>>> 3b889fc (060102)
-=======
-            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64 && (!IsInputOutputOverlap(opParam))) {
->>>>>>> 123f604482bb774c6e55c76da7e4759d4f964388
+            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize && (!IsInputOutputOverlap(opParam))) {
                 selectAlgName = "CcuAllGatherMesh1DMem2Mem";
                 return SelectorStatus::MATCH;
             } else {
