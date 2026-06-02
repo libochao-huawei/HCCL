@@ -752,4 +752,5 @@ HcclResult AlltoAllVCEntryLog(const void *sendBuf, const void *recvBuf, const vo
     }
     return HCCL_SUCCESS;
 }
+
 }

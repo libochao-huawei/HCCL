@@ -132,6 +132,7 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcast(const std::vector<ChannelHan
         CcuRep::Variable            len = CreateVariable();
         CcuRep::LoopBlock           lb(this, loopType + "_loop_" + std::to_string(index));
         lb(src, dst, len);
+
         CcuRep::CcuBuf &buf = moRes.ccuBuf[index * moConfig.msInterleave];
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
@@ -180,7 +181,6 @@ HcclResult CcuKernelAlgBase::GroupBroadcast(const std::vector<ChannelHandle> &ch
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
-
 #ifdef CcuProfiling
         std::string groupOpSize = "GroupBroadcast";
         GroupInfoTemp groupInfo {

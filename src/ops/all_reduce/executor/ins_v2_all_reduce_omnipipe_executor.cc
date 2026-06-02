@@ -34,7 +34,6 @@ HcclResult InsV2AllReduceOmniPipeExecutor<
     InsAgAlgTemplateZ>::InitCommInfo(HcclComm comm, const OpParam& param, TopoInfoWithNetLayerDetails* topoInfo,
                                      AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
-    (void) comm;
     myRank_ = topoInfo->userRank;
     rankSize_ = topoInfo->userRankSize;
     devType_ = topoInfo->deviceType;
@@ -70,9 +69,9 @@ HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRs
                                           InsAgAlgTemplateX, InsAgAlgTemplateY,
                                           InsAgAlgTemplateZ>::CalcResLevel(HcclComm comm, const OpParam& param,
                                                                            const TopoInfoWithNetLayerDetails* topoInfo,
-                                                                           const std::shared_ptr<InsAlgTemplateBase> tempAlg,
+                                                                           std::shared_ptr<InsAlgTemplateBase> tempAlg,
                                                                            AlgResourceRequest& resourceRequest,
-                                                                           bool addChannel) const
+                                                                           bool addChannel)
 {
     AlgResourceRequest resReqlevel;
     CHK_RET(tempAlg->CalcRes(comm, param, topoInfo, resReqlevel));
@@ -229,7 +228,7 @@ template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTe
           typename InsAgAlgTemplateX, typename InsAgAlgTemplateY, typename InsAgAlgTemplateZ>
 HcclResult InsV2AllReduceOmniPipeExecutor<
     AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ, InsAgAlgTemplateX, InsAgAlgTemplateY,
-    InsAgAlgTemplateZ>::GenTemplateAlgParamsByDimData(TemplateDataParams& tempAlgParams, StepSliceInfo& stepSliceInfo) const
+    InsAgAlgTemplateZ>::GenTemplateAlgParamsByDimData(TemplateDataParams& tempAlgParams, StepSliceInfo& stepSliceInfo)
 {
     // rs特殊处理，过程中的所有step都在ccl中进行数据搬运，在template中只使用ccl的起始地址就可以了，in和out不用赋值
     tempAlgParams.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
@@ -323,7 +322,7 @@ template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTe
 HcclResult InsV2AllReduceOmniPipeExecutor<
     AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ, InsAgAlgTemplateX, InsAgAlgTemplateY,
     InsAgAlgTemplateZ>::RestoreChannelMap(const AlgResourceCtxSerializable& resCtx,
-                                          std::vector<std::map<u32, std::vector<ChannelInfo>>>& rankIdToChannelInfo) const
+                                          std::vector<std::map<u32, std::vector<ChannelInfo>>>& rankIdToChannelInfo)
 {
     rankIdToChannelInfo.resize(OMNIPIPE_LEVEL_NUM);
     u32 level = 0;
@@ -356,7 +355,7 @@ HcclResult InsV2AllReduceOmniPipeExecutor<
     AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ, InsAgAlgTemplateX, InsAgAlgTemplateY,
     InsAgAlgTemplateZ>::InitOmniPipeScratchParam(OmniPipeScratchParam& scratchParam, const OpParam& param,
                                                  const std::vector<double>& endpointAttrBwNew,
-                                                 std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap) const
+                                                 std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap)
 {
     std::vector<u64> levelRankSizeVec = {rankSizeLevel0_, rankSizeLevel1_, rankSizeLevel2_};
     std::vector<u64> levelRankIdVec = {rankIdxLevel0_, rankIdxLevel1_, rankIdxLevel2_};
@@ -391,7 +390,7 @@ HcclResult InsV2AllReduceOmniPipeExecutor<
     InsAgAlgTemplateZ>::InitOmniPipeSliceParam(OmniPipeSliceParam& sliceParam, const OpParam& param,
                                                const std::vector<double>& endpointAttrBwNew,
                                                std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap,
-                                               u64 maxCountPerLoop) const
+                                               u64 maxCountPerLoop)
 {
     std::vector<u64> levelRankSizeVec = {rankSizeLevel0_, rankSizeLevel1_, rankSizeLevel2_};
     std::vector<u64> levelRankIdVec = {rankIdxLevel0_, rankIdxLevel1_, rankIdxLevel2_};
@@ -777,7 +776,7 @@ HcclResult InsV2AllReduceOmniPipeExecutor<
     AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ, InsAgAlgTemplateX, InsAgAlgTemplateY,
     InsAgAlgTemplateZ>::DoLocalCopy(const TemplateDataParams& tempAlgParams, const ThreadHandle& thread,
                                     const std::vector<u64>& allRankSplitData,
-                                    const std::vector<u64>& curLoopAllRankSplitData) const
+                                    const std::vector<u64>& curLoopAllRankSplitData)
 {
     std::vector<DataSlice> srcDataSlice;
     std::vector<DataSlice> dstDataSlice;
