@@ -41,12 +41,12 @@ HcclResult InsTempAllGatherOmniPipeNHRDPU::KernelRun(const OpParam& param, const
 
     // 转换成eager-mode，保障AICPU指令下发执行完成
     if (HcommBatchModeEnd(param.algTag) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
+        HCCL_ERROR("[InsTempAllGatherOmniPipeNHRDPU] failed set eager mode, tag is %s.", param.algTag);
         return HCCL_E_INTERNAL;
     }
 
     if (HcommThreadSynchronize(templateResource.threads[0]) != 0) {
-        HCCL_ERROR("HcommThreadSynchronize failed");
+        HCCL_ERROR("[InsTempAllGatherOmniPipeNHRDPU] HcommThreadSynchronize failed");
         return HCCL_E_INTERNAL;
     }
 
@@ -61,7 +61,7 @@ HcclResult InsTempAllGatherOmniPipeNHRDPU::KernelRun(const OpParam& param, const
     u32 sendMsgId = 0;
     if (HcommSendRequest(reinterpret_cast<uint64_t>(templateResource.npu2DpuShmemPtr), param.algTag,
                          static_cast<void*>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
-        HCCL_ERROR("HcommSendRequest failed");
+        HCCL_ERROR("[InsTempAllGatherOmniPipeNHRDPU] HcommSendRequest failed");
         return HCCL_E_INTERNAL;
     }
     HCCL_INFO("[InsTempAllGatherOmniPipeNHRDPU] HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
@@ -70,19 +70,19 @@ HcclResult InsTempAllGatherOmniPipeNHRDPU::KernelRun(const OpParam& param, const
     void* recvData = nullptr;
     u32 recvMsgId = 0;
     if (HcommWaitResponse(reinterpret_cast<uint64_t>(templateResource.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
-        HCCL_ERROR("HcommWaitResponse failed");
+        HCCL_ERROR("[InsTempAllGatherOmniPipeNHRDPU] HcommWaitResponse failed");
         return HCCL_E_INTERNAL;
     }
     HCCL_INFO("[InsTempAllGatherOmniPipeNHRDPU] HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
 
     if (recvMsgId != sendMsgId) {
-        HCCL_ERROR("recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
+        HCCL_ERROR("[InsTempAllGatherOmniPipeNHRDPU] recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
         return HCCL_E_INTERNAL;
     }
 
     // 将执行模式转换回到batch
     if (HcommBatchModeStart(param.algTag) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
+        HCCL_ERROR("[InsTempAllGatherOmniPipeNHRDPU] failed set eager mode, tag is %s.", param.algTag);
         return HCCL_E_INTERNAL;
     }
 

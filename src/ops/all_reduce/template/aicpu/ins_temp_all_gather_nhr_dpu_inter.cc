@@ -78,7 +78,7 @@ HcclResult InsTempAllGatherNhrDpuInter::KernelRun(const OpParam& param, const Te
 
     if (HcommSendRequest(reinterpret_cast<uint64_t>(templateResource.npu2DpuShmemPtr), param.algTag,
         static_cast<void*>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
-        HCCL_ERROR("HcommSendRequest failed");
+        HCCL_ERROR("[InsTempAllGatherNhrDpuInter] HcommSendRequest failed");
         return HCCL_E_INTERNAL;
     }
     HCCL_INFO("[InsTempAllGatherNhrDpuInter] HcommSendRequest run over, sendMsgId[%u]", sendMsgId);

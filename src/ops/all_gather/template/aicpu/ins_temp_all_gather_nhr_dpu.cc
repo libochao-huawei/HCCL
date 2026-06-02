@@ -94,7 +94,7 @@ HcclResult InsTempAllGatherNHRDPU::KernelRun(const OpParam& param,
     HCCL_INFO("[InsTempAllGatherNHRDPU] HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
 
     if (recvMsgId != sendMsgId) {
-        HCCL_ERROR("recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
+        HCCL_ERROR("[InsTempAllGatherNHRDPU] recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
         return HCCL_E_INTERNAL;
     }
 

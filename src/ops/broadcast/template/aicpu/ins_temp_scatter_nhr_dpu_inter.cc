@@ -136,12 +136,12 @@ HcclResult InsTempScatterNHRDPUInter::KernelRun(const OpParam& param, const Temp
     
     // 转换成eager-mode，保障AICPU指令下发执行完成
     if (HcommBatchModeEnd(param.algTag) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
+        HCCL_ERROR("[InsTempScatterNHRDPUInter] failed set eager mode, tag is %s.", param.algTag);
         return HCCL_E_INTERNAL;
     }
  
     if (HcommThreadSynchronize(templateResource.threads[0]) != 0) {
-        HCCL_ERROR("HcommThreadSynchronize failed");
+        HCCL_ERROR("[InsTempScatterNHRDPUInter] HcommThreadSynchronize failed");
         return HCCL_E_INTERNAL;
     }
 
@@ -171,7 +171,7 @@ HcclResult InsTempScatterNHRDPUInter::KernelRun(const OpParam& param, const Temp
     HCCL_INFO("[InsTempScatterNHRDPUInter] HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
 
     if (recvMsgId != sendMsgId) {
-        HCCL_ERROR("recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
+        HCCL_ERROR("[InsTempScatterNHRDPUInter] recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
         return HCCL_E_INTERNAL;
     }
 
