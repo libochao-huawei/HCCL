@@ -50,6 +50,7 @@ protected:
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;                 // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
     A2ASendRecvInfo localSendRecvInfo_;
+    std::shared_ptr<InsAlgTemplate> algTemplate_ = nullptr;
 };
 }
 
