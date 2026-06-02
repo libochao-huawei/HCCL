@@ -31,7 +31,6 @@ struct CcuKernelArgReduceScatterNHR1D: CcuKernelArgBase {
     OpParam                                 opParam;
     std::vector<std::vector<uint32_t>>      subCommRanks;
 };
-#endif
 
 struct ReduceScatterNHR1DMem2MemContext: CcuKernelCtxBase {
     const CcuKernelArgReduceScatterNHR1D *arg;

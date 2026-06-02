@@ -174,15 +174,15 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::FastLaunch(const OpParam& par
     uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
 
     // 计算NHR Multi Jetty特有的参数
-    CcuTaskArgAllGatherNHR1DMultiJettyMem2Mem taskArg(
-        inputAddr, outputAddr, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], isInputOutputEqual);
+    std::vector<uint64_t> taskArg = 
+        {inputAddr, outputAddr, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], isInputOutputEqual};
 
     HCCL_DEBUG("[CcuTaskArgAllGatherNHR1DMultiJettyMem2Mem::FastLaunch] TaskArgs: inputptr[%llu], outputptr[%llu], " 
         "sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu], inputSliceStride[%llu], "
         "outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], isInputOutputEqual[%llu]",
         inputAddr, outputAddr, args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], isInputOutputEqual);
 
-    void* taskArgPtr = static_cast<void*>(&taskArg);
+    void* taskArgPtr = static_cast<void*>(taskArg.data());
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));

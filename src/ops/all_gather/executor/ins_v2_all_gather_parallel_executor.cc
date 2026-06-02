@@ -12,6 +12,7 @@
 #include <cmath>
 #include "alg_data_trans_wrapper.h"
 #include "ins_temp_all_gather_mesh_1D.h"
+#include "ins_temp_all_gather_nhr.h"
 #ifndef AICPU_COMPILE
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
