@@ -114,9 +114,8 @@ public:
     __aicore__ inline void Process(uint32_t sliceId, uint64_t len, uint64_t inputStride)
     {
         // 核数大于等于2倍ranksize
-        uint64_t rankMultiple = 2;
         curStageCoreNum = numBlocks_ / rankSize_ * rankSize_; // 总的核数
-        if (curStageCoreNum < rankMultiple * rankSize_) {
+        if (curStageCoreNum < 2 * rankSize_) {
             return;
         }
         coreNumStage1 = rankSize_;
@@ -144,6 +143,7 @@ __aicore__ inline void AivReduceScatterV2Mesh1DBigData(KERNEL_ARGS_DEF)
 {
     AivReduceScatterMesh1DBigData<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
+    // op.InitCoreInfo(len, inputSliceStride);
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }

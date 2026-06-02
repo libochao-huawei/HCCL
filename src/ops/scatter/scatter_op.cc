@@ -278,7 +278,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
     AlgResourceCtx* resCtx;
 
     if (g_notifiesMap.find(comm) == g_notifiesMap.end()) {
-        g_notifiesMap[comm].fill(nullptr);
+        g_notifiesMap[comm].fill(0);
     }
     ThreadHandle cpuTsThread = 0;
     ThreadHandle exportedAicpuTsThread = 0;
@@ -341,7 +341,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         if (HcommIsProfilingSupported()) {
             beginTime = HcommGetProfilingSysCycleTime();
         } 
-        std::string kernelName = "HcclLaunchAicpuKernelA3";
+        std::string kernelName = "HcclLaunchAicpuKernel";
         aclrtFuncHandle funcHandle;
         aclrtArgsHandle argsHandle;
 
@@ -767,12 +767,12 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
     if (!HcommIsExportThreadSupported()) {
         #define ACL_NOTIFY_DEFAULT          0x00000000U
         // 先使用acl接口来分配notify
-        if (g_notifiesMap[comm][0] == nullptr && aclrtCreateNotify(&(g_notifiesMap[comm][0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+        if (g_notifiesMap[comm][0] == 0 && aclrtCreateNotify(&(g_notifiesMap[comm][0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to alloc notify");
             return HCCL_E_INTERNAL;
         }
 
-        if (g_notifiesMap[comm][1] == nullptr && aclrtCreateNotify(&(g_notifiesMap[comm][1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+        if (g_notifiesMap[comm][1] == 0 && aclrtCreateNotify(&(g_notifiesMap[comm][1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to alloc notify");
             return HCCL_E_INTERNAL;
         }
