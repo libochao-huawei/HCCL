@@ -47,6 +47,64 @@ InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, I
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2>
+HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::BuildSubCommAndTempMap(
+    const OpParam& param,
+    const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+    std::vector<std::vector<u32>>& subCommRanks0,
+    std::vector<std::vector<u32>>& subCommRanks1,
+    std::vector<std::vector<u32>>& subCommRanks2,
+    std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap,
+    const TopoInfoWithNetLayerDetails* topoInfo)
+{
+
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        subCommRanks0 = {algHierarchyInfo_.infos[0][0]};
+        std::vector<u32> closRanks;
+        u32 meshSize = algHierarchyInfo_.infos[0][0].size();
+        for(auto rank : algHierarchyInfo_.infos[0][1]) {
+            if(rank % meshSize == topoInfo->userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        subCommRanks1 = {closRanks};
+        subCommRanks2 = algHierarchyInfo_.infos[1];
+    } else if(topoType_ == TopoType::THREE_LEVEL) {
+        if (!algHierarchyInfo.infos[0].empty() && !algHierarchyInfo.infos[0][0].empty()) {
+                subCommRanks0.push_back(algHierarchyInfo.infos[0][0]);
+            } else {
+                subCommRanks0.emplace_back(std::vector<u32>{myRank_});
+            }
+            if (!algHierarchyInfo.infos[1].empty() && !algHierarchyInfo.infos[1][0].empty()) {
+                subCommRanks1.push_back(algHierarchyInfo.infos[1][0]);
+            } else {
+                subCommRanks1.emplace_back(std::vector<u32>{myRank_});
+            }
+            if (!algHierarchyInfo.infos[2].empty() && !algHierarchyInfo.infos[2][0].empty()) {
+                subCommRanks2.push_back(algHierarchyInfo.infos[2][0]);
+            } else {
+                subCommRanks2.emplace_back(std::vector<u32>{myRank_});
+            }
+    }
+    else {
+        subCommRanks0 = algHierarchyInfo_.infos[0];
+        subCommRanks1 = algHierarchyInfo_.infos[1];
+        subCommRanks2.emplace_back(std::vector<u32>{myRank_});
+    }
+
+    tempMap.clear();
+    if (rankSizeLevel_[OMNIPIPE_LEVEL0] > 1) {
+        tempMap[OMNIPIPE_LEVEL0] = std::make_shared<InsAlgTemplate0>(param, myRank_, subCommRanks0);
+    }
+    if (rankSizeLevel_[OMNIPIPE_LEVEL1] > 1) {
+        tempMap[OMNIPIPE_LEVEL1] = std::make_shared<InsAlgTemplate1>(param, myRank_, subCommRanks1);
+    }
+    if (rankSizeLevel_[OMNIPIPE_LEVEL2] > 1) {
+        tempMap[OMNIPIPE_LEVEL2] = std::make_shared<InsAlgTemplate2>(param, myRank_, subCommRanks2);
+    }
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2>
 HcclResult
 InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::CalcAlgHierarchyInfo(
     HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo)
@@ -64,30 +122,20 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 {
     // 初始化一些基本成员变量
     InitCommInfo(param, topoInfo, algHierarchyInfo);
-
+     if (algHierarchyInfo_.infos.size() == 3 &&
+ 	         !algHierarchyInfo_.infos[2].empty() && !algHierarchyInfo_.infos[2][0].empty()) {
+ 	         topoType_ = TopoType::THREE_LEVEL;
+ 	     } else {
+ 	         topoType_ = TopoType::UBX_2LEVEL;
+ 	}
     // 计算subCommRanks
-    int index = 0;
     std::vector<std::vector<u32>> subCommRanks0;
     std::vector<std::vector<u32>> subCommRanks1;
     std::vector<std::vector<u32>> subCommRanks2;    
+    std::map<u32, std::shared_ptr<InsAlgTemplateBase>> tempMap;
 
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        subCommRanks0 = {algHierarchyInfo_.infos[0][0]};
-        std::vector<u32> closRanks;
-        u32 meshSize = algHierarchyInfo_.infos[0][0].size();
-        for(auto rank : algHierarchyInfo_.infos[0][1]) {
-            if(rank % meshSize == topoInfo->userRank % meshSize) {
-                closRanks.push_back(rank);
-            }
-        }
-        subCommRanks1 = {closRanks};
-        subCommRanks2 = algHierarchyInfo_.infos[1];
-    } else {
-        subCommRanks0 = algHierarchyInfo_.infos[0];
-        subCommRanks1 = algHierarchyInfo_.infos[1];
-        subCommRanks2.emplace_back(std::vector<u32>{myRank_});
-    }
-    
+    CHK_RET(BuildSubCommAndTempMap(param, algHierarchyInfo,
+            subCommRanks0, subCommRanks1, subCommRanks2, tempMap, topoInfo));
 
     rankSizeLevel_.resize(OMNIPIPE_LEVEL_NUM);
     rankIdxLevel_.resize(OMNIPIPE_LEVEL_NUM);
@@ -100,8 +148,6 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     rankIdxLevel_[OMNIPIPE_LEVEL1] = myRank_ % (rankSizeLevel_[OMNIPIPE_LEVEL0] * rankSizeLevel_[OMNIPIPE_LEVEL1]) /
                                       rankSizeLevel_[OMNIPIPE_LEVEL0];
     rankIdxLevel_[OMNIPIPE_LEVEL2] = myRank_ / (rankSizeLevel_[OMNIPIPE_LEVEL0] * rankSizeLevel_[OMNIPIPE_LEVEL1]);
-
-    std::map<u32, std::shared_ptr<InsAlgTemplateBase>> tempMap;
 
     if (rankSizeLevel_[OMNIPIPE_LEVEL0] > 1) {
         tempMap[OMNIPIPE_LEVEL0] = std::make_shared<InsAlgTemplate0>(param, myRank_, subCommRanks0);
@@ -129,7 +175,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult
 InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::CalcResLevel(
     HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-    std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest& resourceRequest) const
+    std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest& resourceRequest)
 {
     AlgResourceRequest resReqlevel;
     CHK_RET(tempAlg->CalcRes(comm, param, topoInfo, resReqlevel));
@@ -197,24 +243,10 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     std::vector<std::vector<u32>> subCommRanks0;
     std::vector<std::vector<u32>> subCommRanks1;
     std::vector<std::vector<u32>> subCommRanks2;    
+    std::map<u32, std::shared_ptr<InsAlgTemplateBase>> tempMap;
 
-    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        subCommRanks0 = {algHierarchyInfo_.infos[0][0]};
-        std::vector<u32> closRanks;
-        u32 meshSize = algHierarchyInfo_.infos[0][0].size();
-        for(auto rank : algHierarchyInfo_.infos[0][1]) {
-            if(rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
-                closRanks.push_back(rank);
-            }
-        }
-        subCommRanks1 = {closRanks};
-        subCommRanks2 = algHierarchyInfo_.infos[1];
-    } else {
-        subCommRanks0 = algHierarchyInfo_.infos[0];
-        subCommRanks1 = algHierarchyInfo_.infos[1];
-        subCommRanks2.emplace_back(std::vector<u32>{myRank_});
-    }
-    
+    CHK_RET(BuildSubCommAndTempMap(param, algHierarchyInfo_,
+            subCommRanks0, subCommRanks1, subCommRanks2, tempMap, &resCtx.topoInfo));
 
     rankSizeLevel_.resize(OMNIPIPE_LEVEL_NUM);
     rankIdxLevel_.resize(OMNIPIPE_LEVEL_NUM);
@@ -227,8 +259,6 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     rankIdxLevel_[OMNIPIPE_LEVEL1] = myRank_ % (rankSizeLevel_[OMNIPIPE_LEVEL0] * rankSizeLevel_[OMNIPIPE_LEVEL1]) /
                                       rankSizeLevel_[OMNIPIPE_LEVEL0];
     rankIdxLevel_[OMNIPIPE_LEVEL2] = myRank_ / (rankSizeLevel_[OMNIPIPE_LEVEL0] * rankSizeLevel_[OMNIPIPE_LEVEL1]);
-
-    std::map<u32, std::shared_ptr<InsAlgTemplateBase>> tempMap;
 
     if (rankSizeLevel_[OMNIPIPE_LEVEL0] > 1) {
         tempMap[OMNIPIPE_LEVEL0] = std::make_shared<InsAlgTemplate0>(param, myRank_, subCommRanks0);
@@ -265,7 +295,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult
 InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1,
                                InsAlgTemplate2>::GenTemplateAlgParamsByDimData(TemplateDataParams& tempAlgParams,
-                                                                               StepSliceInfo& stepSliceInfo) const
+                                                                               StepSliceInfo& stepSliceInfo)
 {
     // tempAlgParams.buffInfo.hcclBuff 已在外部赋值
     tempAlgParams.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
