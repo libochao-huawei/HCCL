@@ -13,7 +13,7 @@
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
-// #include "ccu_temp_all_to_all_v_mesh2die.h"
+#include "ccu_temp_all_to_all_v_mesh2die.h"
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 #endif
@@ -74,10 +74,9 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
     }
 
     // 构建template
-    std::shared_ptr<InsAlgTemplate> algTemplate = 
-        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
+    algTemplate_ = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
     // 调用计算资源的函数
-    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
+    CHK_RET(algTemplate_->CalcRes(comm, param, topoInfo, resourceRequest));
 
     return HCCL_SUCCESS;
 }
@@ -173,9 +172,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
         tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
     }
     // 构建template
-    std::shared_ptr<InsAlgTemplate> algTemplate =
-        std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, tempAlgHierachyInfo);
-    algTemplate->SetA2ASendRecvInfo(localSendRecvInfo_);
+    algTemplate_->SetA2ASendRecvInfo(localSendRecvInfo_);
 
     // 准备资源
     TemplateResource templateAlgRes;
@@ -204,7 +201,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.inputRepeatStride = 0;
     tempAlgParams.outputRepeatStride = 0;
 
-    CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
+    CHK_RET(algTemplate_->KernelRun(param, tempAlgParams, templateAlgRes));
 
 #ifndef AICPU_COMPILE
     if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opType != HcclCMDType::HCCL_CMD_ALLTOALLVC && param.opMode != OpMode::OFFLOAD) {
@@ -293,10 +290,10 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, CcuAlltoAllVCMesh1D, InsAllto
     CcuTempAlltoAllVMesh1D);
 #endif /* !HCCL_CANN_COMPAT_850 */
 
-// #if !defined(HCCL_CANN_COMPAT_850)
-// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
-//     CcuTempAlltoAllVMesh2Die);
-// #endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
+    CcuTempAlltoAllVMesh2Die);
+#endif /* !HCCL_CANN_COMPAT_850 */
 
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
