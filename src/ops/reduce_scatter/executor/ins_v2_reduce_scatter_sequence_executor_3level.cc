@@ -64,6 +64,13 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
             SEQUENCE_EXECUTOR_LEVEL_NUM);
         return HCCL_E_INTERNAL;
     }
+    if (algHierarchyInfo.infos[0].size() != 1 || algHierarchyInfo.infos[1].size() != 1 ||
+        algHierarchyInfo.infos[2].size() != 1) {
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] each level should have exactly 1 sub-group, "
+            "level0[%u] level1[%u] level2[%u]",
+            algHierarchyInfo.infos[0].size(), algHierarchyInfo.infos[1].size(), algHierarchyInfo.infos[2].size());
+        return HCCL_E_INTERNAL;
+    }
     std::shared_ptr<InsAlgTemplate0> tempAlgLevel0 = std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo.infos[0]);
     std::shared_ptr<InsAlgTemplate1> tempAlgLevel1 = std::make_shared<InsAlgTemplate1>(param, myRank_, algHierarchyInfo.infos[1]);
     std::shared_ptr<InsAlgTemplate2> tempAlgLevel2 = std::make_shared<InsAlgTemplate2>(param, myRank_, algHierarchyInfo.infos[2]);
@@ -77,7 +84,7 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
 
     resourceRequest.slaveThreadNum = std::max({resReq0.slaveThreadNum, resReq1.slaveThreadNum, resReq2.slaveThreadNum});
     resourceRequest.notifyNumPerThread.clear();
-    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+    resourceRequest.notifyNumPerThread.resize(resourceRequest.slaveThreadNum);
     for (u32 i = 0; i < resourceRequest.slaveThreadNum; ++i) {
         if (i < resReq0.notifyNumPerThread.size()) {
             resourceRequest.notifyNumPerThread[i] = std::max(resourceRequest.notifyNumPerThread[i], resReq0.notifyNumPerThread[i]);
@@ -92,6 +99,11 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     resourceRequest.notifyNumOnMainThread = std::max({resReq0.notifyNumOnMainThread, resReq1.notifyNumOnMainThread, resReq2.notifyNumOnMainThread});
     HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] notifyNumOnMainThread is %u", resourceRequest.notifyNumOnMainThread);
     resourceRequest.channels.resize(SEQUENCE_EXECUTOR_LEVEL_NUM);
+    if (resReq0.channels.empty() || resReq1.channels.empty() || resReq2.channels.empty()) {
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] channels empty, level0[%u] level1[%u] level2[%u]",
+            resReq0.channels.size(), resReq1.channels.size(), resReq2.channels.size());
+        return HCCL_E_INTERNAL;
+    }
     resourceRequest.channels[0] = resReq0.channels[0];
     resourceRequest.channels[1] = resReq1.channels[0];
     resourceRequest.channels[2] = resReq2.channels[0];
@@ -176,7 +188,7 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
     tempAlgParamsInter.outputSliceStride = 0;
     tempAlgParamsInter.repeatNum = rankSizeLevel2_;
     tempAlgParamsInter.inputRepeatStride = rankSizeLevel0_ * rankSizeLevel1_ * currDataCount * dataTypeSize_;
-    tempAlgParamsInter.outputRepeatStride = 0;
+    tempAlgParamsInter.outputRepeatStride = rankSizeLevel0_ * rankSizeLevel1_ * currDataCount * dataTypeSize_;
 
     HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] loop[%llu] Inter1 inputSliceStride[%llu] "
         "outputSliceStride[%llu] sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] "
@@ -218,7 +230,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 template <typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2>::GenTempResource
     (const AlgResourceCtxSerializable &resCtx, const u32 channelLevelIdx,
-    const std::shared_ptr<InsAlgTemplate> &algTemplate, TemplateResource &tempReousrce) const
+    const std::shared_ptr<InsAlgTemplate> &algTemplate, TemplateResource &tempResource) const
 {
     AlgResourceRequest req;
     algTemplate->GetRes(req);
@@ -227,8 +239,8 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
             "than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
         return HCCL_E_INTERNAL;
     }
-    tempReousrce.channels = remoteRankToChannelInfo_[channelLevelIdx];
-    tempReousrce.threads.assign(resCtx.threads.begin(), resCtx.threads.begin() + 1 + req.slaveThreadNum);
+    tempResource.channels = remoteRankToChannelInfo_[channelLevelIdx];
+    tempResource.threads.assign(resCtx.threads.begin(), resCtx.threads.begin() + 1 + req.slaveThreadNum);
     return HCCL_SUCCESS;
 }
 
@@ -283,6 +295,12 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
 
     u64 maxCountPerLoop = tempAlgParamsLevel2.buffInfo.hcclBuff.size / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN
         * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
+    if (maxCountPerLoop == 0) {
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] maxCountPerLoop is 0, "
+            "scratchMultiplier[%u] too large for cclBuffSize[%llu]",
+            templateScratchMultiplier, tempAlgParamsLevel2.buffInfo.hcclBuff.size);
+        return HCCL_E_INTERNAL;
+    }
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
@@ -301,7 +319,7 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     return HCCL_SUCCESS;
 }
 
-REGISTER_EXECUTOR_BY_THREE_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
+REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
     InsReduceScatterSequenceMesh1DNHRNHR,
     InsV2ReduceScatterSequenceExecutor3Level,
     TopoMatchMultilevel,
