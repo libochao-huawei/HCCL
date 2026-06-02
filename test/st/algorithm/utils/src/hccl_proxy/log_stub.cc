@@ -15,7 +15,7 @@
 #include <string>
 #include <sys/time.h>
 #include <time.h>
-#include <stdio.h>
+#include <cstdio>
 #include <unistd.h>
 #include <securec.h>
 
@@ -33,6 +33,11 @@ std::map<int, std::string> LOG_LEVEL_STR_MAP = {
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+int32_t dlog_getlevel(int32_t moduleId, int32_t *enableEvent)
+{
+    return logLevel;
+}
 
 int32_t CheckLogLevel(int32_t moduleId, int32_t logLevel)
 {

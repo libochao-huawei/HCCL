@@ -25,7 +25,19 @@ HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, con
                                         AlgResourceRequest &resourceRequest)
 {
     std::vector<HcclChannelDesc> level1Channels;
-    CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
+    std::vector<HcclChannelDesc> myChannelDescs;
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_CLOS)); 
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                level1Channels.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[InsTempAllGatherNHR::CalcRes] Get Channel Success!");
+    } else {
+        CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, myChannelDescs));
+        level1Channels = myChannelDescs;
+    }
     resourceRequest.channels.push_back(level1Channels);
     channelsPerRank_ = CalcChannelsPerRank(level1Channels);
     CHK_RET(GetRes(resourceRequest));
@@ -157,15 +169,15 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
         // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
         TxRxChannels sendRecvChannels(channelSend, channelRecv);
-        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
 
         if (isDmaRead_) {
             CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[channelIdx]),
-                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
+                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv batch failed (step=%u)", step),
                 HcclResult::HCCL_E_INTERNAL);
         } else {
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
-                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
+            CHK_PRT_RET(SendRecvBatchWrite(sendRecvInfo, threads[channelIdx]),
+                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv batch failed (step=%u)", step),
                 HcclResult::HCCL_E_INTERNAL);
         }
     }
@@ -179,24 +191,24 @@ HcclResult InsTempAllGatherNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepIn
 {
     u32 myAlgRank = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
-    stepInfo.txSliceIdxs.clear();
-    stepInfo.rxSliceIdxs.clear();
     stepInfo.step = step;
     stepInfo.myRank = myAlgRank;
+    stepInfo.txSliceIdxs.clear();
+    stepInfo.rxSliceIdxs.clear();
 
     u32 deltaRank = 1 << (nSteps - 1 - step);
     u32 recvFrom = (myAlgRank + templateRankSize_ - deltaRank) % templateRankSize_;
     u32 sendTo = (myAlgRank + deltaRank) % templateRankSize_;
 
-    // 数据份数和数据编号增量， NHR是一个传输数据变化的
+    // AllGatherNHR 数据份数和数据编号增量， NHR是一个传输数据变化的
     u32 nSlices = (templateRankSize_ - 1 + (1 << (nSteps - 1 - step))) / (1 << (nSteps - step));
     u32 deltaSliceIndex = 1 << (nSteps - step);
     u32 txSliceIdx = myAlgRank;
     u32 rxSliceIdx = (myAlgRank - (1 << (nSteps - 1 - step)) + templateRankSize_) % templateRankSize_;
 
-    stepInfo.nSlices = nSlices;
     stepInfo.toRank = sendTo;
     stepInfo.fromRank = recvFrom;
+    stepInfo.nSlices = nSlices;
 
     for (u32 i = 0; i < nSlices; i++) {
         stepInfo.txSliceIdxs.push_back(txSliceIdx);

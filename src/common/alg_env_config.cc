@@ -12,7 +12,9 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <cstdint>
 #include <string>
+#include <array>
 #include "log.h"
 #include "adapter_error_manager_pub.h"
 #include "config_log.h"
@@ -37,30 +39,30 @@ std::string GetEnv(std::string IdName)
     }
 }
 
-static bool IsValidTimeoutFormat(const std::string &str)
+static bool IsValidNumberFormat(const std::string &str, const size_t maxDecimal = SIZE_MAX)
 {
     if (str.empty()) return false;
-    
+
     size_t dotPos = str.find('.');
     size_t pos = 0;
-    
+
     // 检查小数点前的数字
     while (pos < str.length() && pos != dotPos) {
         if (!std::isdigit(str[pos])) return false;
         pos++;
     }
-    
+
     // 如果有小数点，检查小数部分
     if (dotPos != std::string::npos) {
         if (dotPos == 0 || dotPos == str.length() - 1) return false;
         size_t decimalLen = str.length() - dotPos - 1;
-        if (decimalLen > 2) return false; // 最多2位小数
-        
+        if (decimalLen > maxDecimal) return false;
+
         for (size_t i = dotPos + 1; i < str.length(); i++) {
             if (!std::isdigit(str[i])) return false;
         }
     }
-    
+
     return true;
 }
 
@@ -73,7 +75,8 @@ HcclResult ParseExecTimeout()
         return HCCL_SUCCESS;
     }
 
-    if (!IsValidTimeoutFormat(execTimeOutEnv)) {
+    u32 timeoutSize = 2;
+ 	if (!IsValidNumberFormat(execTimeOutEnv, timeoutSize)) {
         HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
             execTimeOutEnv.c_str());
         g_algEnvConfig.execTimeOutSet = false;
@@ -116,8 +119,8 @@ HcclResult ParseMultipleDimensionSplitRatio()
     }
 
     std::string multipleDimensionSplitRatioStr(multipleDimensionSplitRatioEnv);
-    if (!IsValidTimeoutFormat(multipleDimensionSplitRatioStr)) {
-        HCCL_WARNING("[ParseExecTimeout] HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO[%s] format is invalid, use default.",
+    if (!IsValidNumberFormat(multipleDimensionSplitRatioStr)) {
+        HCCL_WARNING("[ParseMultipleDimensionSplitRatio] HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO[%s] format is invalid, use default.",
             multipleDimensionSplitRatioStr.c_str());
         g_algEnvConfig.multipleDimensionSplitRatioSet = false;
         g_algEnvConfig.multipleDimensionSplitRatio = 0;
@@ -245,7 +248,7 @@ HcclResult InitEnvConfig()
     std::string multipleDimensionSplitRatioStr = (multipleDimensionSplitRatioEnv != nullptr) ? std::string(multipleDimensionSplitRatioEnv) : "EmptyString";
     RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),
         std::vector<std::string>({multipleDimensionSplitRatioStr, "HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO",
-        "a non-negative number with up to 2 decimals"}));
+        "a non-negative number"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO failed. "
             "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
@@ -274,6 +277,22 @@ HcclResult InitEnvConfig()
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InitEnvParam]errNo[0x%016llx] In init environment param, parse "
                    "HCCL_DEBUG_CONFIG failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    // 解析DfsConfig
+    ret = ParseDfsConfig();
+    char* dfsEnv = std::getenv("HCCL_DFS_CONFIG");
+    std::string dfsEnvValue = (dfsEnv != nullptr) ? std::string(dfsEnv) : "null";
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({dfsEnvValue, "HCCL_DFS_CONFIG",
+            "inconsistent_check:on or inconsistent_check:first or inconsistent_check:off"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[InitEnvParam]errNo[0x%016llx] In init environment param, parse "
+                   "HCCL_DFS_CONFIG failed. errorno[%d]",
             HCCL_ERROR_CODE(ret),
             ret),
         ret);
@@ -760,7 +779,7 @@ HcclResult ParseOpExpansion()
         return HCCL_SUCCESS;
     }
 
-    if (opExpansionModeEnv == "AI_CPU") {
+    if (opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "AICPU_TS") {
         if (deviceType == DevType::DEV_TYPE_910) {
             HCCL_WARNING("910 do not support AICPU unfold.");
         } else {
@@ -951,9 +970,75 @@ HcclResult ParseDeterministic()
     return HCCL_SUCCESS;
 }
 
+HcclResult ParseDfsConfig()
+{
+    std::string dfsConfigEnv = GetEnv("HCCL_DFS_CONFIG");
+    if (dfsConfigEnv == "EmptyString") {
+        HCCL_INFO("[ParseDfsConfig] HCCL_DFS_CONFIG is not set.");
+        return HCCL_SUCCESS;
+    }
+    dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
+    std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
+    auto items = SplitDfsConfig(dfsConfigEnv, ',');
+    for (const auto &item : items) {
+        auto itemPair = SplitDfsConfig(item, ':');
+        constexpr std::size_t ITEM_SIZE = 2;
+        if (itemPair.size() != ITEM_SIZE) {
+            HCCL_ERROR("[ParseDfsConfig] failed. invalid item[%s]", item.c_str());
+            return HCCL_E_PARA;
+        }
+        if (itemPair[0] == "inconsistent_check") {
+            CHK_RET(ParseInconsistentCheckSwitch(itemPair[1]));
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+std::vector<std::string> SplitDfsConfig(const std::string &str, char delimiter)
+{
+    std::vector<std::string> tokens;
+    std::istringstream       stream(str);
+    std::string              token;
+
+    while (std::getline(stream, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    if (stream.peek() != EOF) {
+        std::string remaining;
+        std::getline(stream, remaining);
+        tokens.push_back(remaining);
+    }
+    if (!str.empty() && str.back() == delimiter) {
+        tokens.push_back("");
+    }
+    return tokens;
+}
+
+HcclResult ParseInconsistentCheckSwitch(const std::string &inconsistentCheckSwitch)
+{
+    if (inconsistentCheckSwitch == "on") {
+        g_algEnvConfig.inconsistentCheckSwitch = 1;
+    } else if (inconsistentCheckSwitch == "first") {
+        g_algEnvConfig.inconsistentCheckSwitch = 0;
+    } else if (inconsistentCheckSwitch == "off") {
+        g_algEnvConfig.inconsistentCheckSwitch = -1;
+    } else {
+        HCCL_ERROR("[ParseInconsistentCheckSwitch] invalid value[%s].", inconsistentCheckSwitch.c_str());
+        return HCCL_E_PARA;
+    }
+    HCCL_INFO("[ParseInconsistentCheckSwitch] set by environment to [%s], inconsistentCheckSwitch[%d]",
+        inconsistentCheckSwitch.c_str(), g_algEnvConfig.inconsistentCheckSwitch);
+    return HCCL_SUCCESS;
+}
+
 const u32 &GetExternalInputIntraRoceSwitch()
 {
     return g_algEnvConfig.intraRoceSwitch;
+}
+
+const int32_t &GetInconsistentCheckSwitch()
+{
+    return g_algEnvConfig.inconsistentCheckSwitch;
 }
 
 const bool &GetExternalInputHcclAicpuUnfold()
@@ -1019,7 +1104,8 @@ bool RunIndependentOpExpansion(DevType deviceType)
     #else
     if (deviceType == DevType::DEV_TYPE_910_95) {
     #endif
-        return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" ||
+        return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "AICPU_TS" ||
+               opExpansionModeEnv == "HOST_TS" ||
                opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV" ||
                opExpansionModeEnv == "CCU_SCHED" ||
                opExpansionModeEnv == "CCU_MS";

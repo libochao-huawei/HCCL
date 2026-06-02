@@ -175,6 +175,7 @@ private:
 };
 
 thread_local std::shared_ptr<InsQueue> g_recordingQueue = nullptr;
+thread_local bool g_recordOnlyMode = false;
 thread_local u64 g_baseInputAddr = 0;
 thread_local u64 g_baseOutputAddr = 0;
 static HcclResult GetMinAndMaxNpuSchedTimeOut(u64 &minNpuSchedTimeout, u64 &maxNpuSchedTimeout)
@@ -619,6 +620,10 @@ HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
              ins.outputOffset = 0;
         }
         g_recordingQueue->push_back(ins);
+
+        if (g_recordOnlyMode) {
+            return HCCL_SUCCESS;
+        }
     }
 
     if (opArgs.cmdType == HcclCMDType::HCCL_CMD_ALLTOALLV) {

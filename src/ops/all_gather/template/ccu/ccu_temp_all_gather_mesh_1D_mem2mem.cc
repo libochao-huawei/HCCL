@@ -86,10 +86,15 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
+    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + args[0];
+    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + args[1];
+    uint64_t inputSliceStride   = args[3];
+    uint64_t outputSliceStride  = args[4];
+    uint64_t mySubCommRank      = args[11];
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank == outputAddr + outputSliceStride * mySubCommRank);
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
     CcuTaskArgAllGatherMesh1DMem2Mem taskArg(
-        PointerToAddr(buffInfo_.inputPtr) + args[0],
-        PointerToAddr(buffInfo_.outputPtr) + args[1],
-        args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
+        inputAddr, outputAddr, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], isInputOutputEqual);
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
@@ -145,7 +150,7 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride,
         outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
-        isInputOutputEqual));
+        isInputOutputEqual, mySubCommRank_));
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::KernelRun] end");

@@ -43,7 +43,33 @@ public:
             ProcessMultiRank();
         }
     }
- 
+
+    __aicore__ inline void ProcessSpk()
+    {
+        uint32_t dstRankSpk = coreIdx_;
+        if (dstRankSpk >= rankSize_) {
+            return;
+        }
+
+        // PutRemote阶段
+        srcOffset_ = input_ + dstRankSpk * inputSliceStride_;
+        dstOffset_ = reinterpret_cast<uint64_t>(GM_IN[dstRankSpk]) + rank_ * dataSize_;
+        CpGM2GM((__gm__ T *)dstOffset_, (__gm__ T *)srcOffset_, len_);
+        pipe_barrier(PIPE_ALL);
+
+        uint64_t setFlagIdxSpk = rank_;
+        Record(dstRankSpk, setFlagIdxSpk, curTag_);  // 按照数据源rank编排flag的偏移量
+
+        // PostCopy阶段
+        uint64_t waitFlagIdxSpk = dstRankSpk;
+        WaitFlag(rank_, waitFlagIdxSpk, curTag_);
+        
+        srcOffset_ = reinterpret_cast<uint64_t>(GM_IN[rank_]) + dstRankSpk * dataSize_;
+        dstOffset_ = output_ + dstRankSpk * outputSliceStride_;
+        CpGM2GM((__gm__ T *)dstOffset_, (__gm__ T *)srcOffset_, len_);
+        pipe_barrier(PIPE_ALL);
+    }
+
 private:
     __aicore__ inline void ProcessMultiCore()
     {
@@ -158,4 +184,59 @@ __aicore__ inline void AivAlltoAllV2Mesh1D(KERNEL_ARGS_DEF)
     }
     op.Process();
     op.BarrierAll();
+}
+
+template<typename T>
+__aicore__ inline void AivAlltoAllV2Mesh1DSuperKernel(SUPERKERNEL_ARGS_DEF)
+{
+    AivAlltoAllMesh1D<T> op;
+    op.Init(SUPERKERNEL_CLASS_INIT);
+
+    uint64_t maxCountPerLoop = op.cclBufferSize_ / UB_ALIGN_SIZE * UB_ALIGN_SIZE / op.rankSize_ / sizeof(T);
+    uint64_t countLeft = op.len_;
+
+    int32_t loopTag = op.tag_;
+
+    while (countLeft > 0) {
+        uint64_t curCount = (countLeft > maxCountPerLoop) ? maxCountPerLoop : countLeft;
+        uint64_t curSize = curCount * sizeof(T);
+
+        op.len_ = curCount;
+        op.InitCommon(loopTag);
+        op.ProcessSpk();
+        op.BarrierAll();
+
+        countLeft -= curCount;
+        op.input_ += curSize;
+        op.output_ += curSize;
+        loopTag += curSize / UB_DB_DATA_BATCH_SIZE + 1;
+    }
+}
+
+__aicore__ inline void sk_a2a_mesh_1d(SUPERKERNEL_ARGS_DEF)
+{
+    #ifdef HCCL_DTYPE_INT8
+        AivAlltoAllV2Mesh1DSuperKernel<int8_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_UINT8
+        AivAlltoAllV2Mesh1DSuperKernel<uint8_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT16
+        AivAlltoAllV2Mesh1DSuperKernel<int16_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_UINT16
+        AivAlltoAllV2Mesh1DSuperKernel<uint16_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT32
+        AivAlltoAllV2Mesh1DSuperKernel<int32_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_UINT32
+        AivAlltoAllV2Mesh1DSuperKernel<uint32_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_FP16
+        AivAlltoAllV2Mesh1DSuperKernel<half> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_FP32
+        AivAlltoAllV2Mesh1DSuperKernel<float> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_BFP16
+        AivAlltoAllV2Mesh1DSuperKernel<bfloat16_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT64
+        AivAlltoAllV2Mesh1DSuperKernel<int64_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_UINT64
+        AivAlltoAllV2Mesh1DSuperKernel<uint64_t> (SUPERKERNEL_ARGS_CALL);
+    #else
+    #endif
 }

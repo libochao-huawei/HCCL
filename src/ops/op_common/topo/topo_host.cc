@@ -313,11 +313,9 @@ HcclResult GetPairLinkCounter(HcclComm comm, TopoInfo* topoInfo, std::unordered_
                 // 双向兼容处理：先处理版本号1的字段
                 if (currentLink.header.version >= 1) {
                     // --- 在这里处理 currentLink ---
-                    HCCL_DEBUG("  Link[%u] found between srcRank[%u] and dstRank[%u]:", i, srcRank, dstRank);
-                    HCCL_DEBUG("    LinkType: %u", currentLink.linkAttr.linkProtocol); // 假设有 linkType 成员
-                    HCCL_DEBUG("    srcEndpointDesc: %u", currentLink.srcEndpointDesc); // 假设有此成员
-                    HCCL_DEBUG("    dstEndpointDesc: %u", currentLink.dstEndpointDesc); // 假设有此成员
-
+                    HCCL_DEBUG("Link[%u] found between srcRank[%u] and dstRank[%u]:"
+                               "LinkType: %u, srcEndpointDesc: %u, dstEndpointDesc: %u",
+                    i, srcRank, dstRank, currentLink.linkAttr.linkProtocol, currentLink.srcEndpointDesc, currentLink.dstEndpointDesc);
                     // 可以将链路类型统计起来
                     // 原始代码中的 pairLinkCounter 应该在这里使用
                     pairLinkCounter[static_cast<u32>(currentLink.linkAttr.linkProtocol)]++;
@@ -420,7 +418,7 @@ HcclResult GetModuleMap(HcclComm comm, TopoInfo* topoInfo, std::map<u32, std::ve
             ranksStr += std::to_string(pair.second[i]);
         }
         ranksStr += "}";
-        HCCL_DEBUG("[GetModuleMap]  ModuleIdx[%u]: %s", pair.first, ranksStr.c_str());
+        HCCL_DEBUG("[GetModuleMap] ModuleIdx[%u]: %s", pair.first, ranksStr.c_str());
     }
 
     return HCCL_SUCCESS;
@@ -898,6 +896,7 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
 HcclResult CalAllLevelEndpointAttrBwCoeff(
     HcclComm comm, uint32_t rankId, uint32_t levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw)
 {
+    (void) levelSize;
     uint32_t *netLayers = nullptr; // 网络层次list
     uint32_t netLayerNum = 0;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum)); // 获取layer总数和layerlist
@@ -912,7 +911,7 @@ HcclResult CalAllLevelEndpointAttrBwCoeff(
             uint32_t endPointNums = 0;
             CHK_RET(HcclRankGraphGetEndpointNum(
                 comm, netLayerId, topoInstId, &endPointNums)); // 获取endPointNums，计算同层有多少节点
-            EndpointDesc *endPointDescs;
+            EndpointDesc *endPointDescs = nullptr;
             CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayerId, topoInstId, &endPointNums,
                 endPointDescs)); // 根据Layer和topoInstId，拿到所有的Endpoint信息；返回vector(获取EndpointDesc)
             uint32_t infoLen = sizeof(EndpointAttrBwCoeff);

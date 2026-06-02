@@ -28,7 +28,7 @@
 #include "hccl_rank_graph_dl.h"
 #include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "hccl_ccu_res.h"
 #else
 typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
@@ -37,6 +37,8 @@ typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占�
 namespace ops_hccl {
 
 constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传输的最大size
+
+constexpr u32 MAX_NUM_BLOCKS = 56; // 56-72
 
 constexpr uint32_t DATATYPE_SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
@@ -105,8 +107,8 @@ enum class OpExecuteConfig {
 };
 
 enum class OpMode {
-    OPBASE = 0,
-    OFFLOAD = 1
+    OFFLOAD = 0,
+    OPBASE = 1
 };
 
 enum class Level0Shape {
@@ -266,7 +268,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
@@ -392,6 +394,7 @@ struct AlgResourceCtxSerializable {
     std::vector<ThreadHandle> threads;
     ThreadHandle unfoldThread = 0; // 展开流thread
     std::vector<std::vector<ChannelInfo>> channels;
+    bool isHcommBatchTransferOnThreadSupported = false;
     void* commInfoPtr = nullptr;
     // hostdpu
     void *npu2DpuShmemPtr = nullptr;
@@ -416,6 +419,7 @@ struct AlgResourceCtxSerializable {
         binaryStream << threads;
         binaryStream << unfoldThread;
         binaryStream << channels;
+        binaryStream << isHcommBatchTransferOnThreadSupported;
 
         binaryStream << npu2DpuShmemPtr;
         binaryStream << dpu2NpuShmemPtr;
@@ -446,6 +450,7 @@ struct AlgResourceCtxSerializable {
         binaryStream >> threads;
         binaryStream >> unfoldThread;
         binaryStream >> channels;
+        binaryStream >> isHcommBatchTransferOnThreadSupported;
 
         binaryStream >> npu2DpuShmemPtr;
         binaryStream >> dpu2NpuShmemPtr;
@@ -459,6 +464,12 @@ struct AlgResourceCtxSerializable {
         topoTemp.DeSerialize(tailData);
         topoInfo = std::move(topoTemp);
     }
+};
+
+struct DevAicpuOpConfig {
+    u32 execTimeout = 0;
+    double multipleDimensionSplitRatio = 0.8;
+    // 如要新增配置类字段，在此处添加
 };
 
 struct OpParam { // 不申请ctx，每个算子单独下发
@@ -484,9 +495,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     bool   isMc2{false};
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
-    u32 execTimeout = 0;
     AlgType algType;
-    double multipleDimensionSplitRatio = 0.8;
     char algTypeStr[ALG_MAX_LENGTH] = "";
     union {
         struct {
@@ -536,6 +545,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     ThreadHandle opThread = 0;
     u32 aicpuRecordCpuIdx = 0; // aicpu record host的notifyIdx
     u32 dataCount = 0; // 算子上报dfx的数据量
+    DevAicpuOpConfig opConfig; // 收编算子配置类变量
     u64 varMemSize{0};
     u8 varData[0];
 };
@@ -621,6 +631,21 @@ struct MemRegInfo {
 struct AivParamStorage {
     u32 aivCoreLimit = 0;
     bool aivClearEnable = false;
+};
+
+// 算子参数一致性校验信息
+struct OpExchangeInfo {
+    uint64_t cclBufferSize{0};
+    u32 root = INVALID_VALUE_RANKID;
+    HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
+    CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
+    OpExecuteConfig opExecuteConfig = OpExecuteConfig::DEFAULT;
+    HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_RESERVED;
+    u64 count{0};
+    u32 aivCoreLimit = MAX_NUM_BLOCKS;
+    char group[MAX_LENGTH] = {0};
+    char tag[TAG_LENGTH] = {0};
 };
 
 } 

@@ -115,8 +115,9 @@ public:
  
     __aicore__ inline void Process(uint64_t count, uint64_t sliceId, uint64_t stride)
     {
+        uint32_t rankMultiple = 2;
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
-        if (count * sizeof(T) >= DATA_LIMIT && numBlocks_ >= 2 * rankSize_) {
+        if (count * sizeof(T) >= DATA_LIMIT && numBlocks_ >= rankMultiple * rankSize_) {
             // 核数大于等于2倍ranksize
             curStageCoreNum = numBlocks_ / rankSize_ * rankSize_; // 总的核数
             coreNumStage1 = rankSize_;
@@ -196,4 +197,56 @@ __aicore__ inline void AivAllGatherV2Mesh1D(KERNEL_ARGS_DEF)
     op.Process(len, sliceId, outputSliceStride);
     // 执行barrier全同步
     op.BarrierAll();
+}
+
+template<typename T>
+__aicore__ inline void AivAllGatherV2Mesh1DSuperKernel(SUPERKERNEL_ARGS_DEF)
+{
+    AivAllGatherMesh1D<T> op;
+    op.Init(SUPERKERNEL_CLASS_INIT);
+    uint64_t maxCountPerLoop = op.cclBufferSize_ / UB_ALIGN_SIZE * UB_ALIGN_SIZE / op.rankSize_ / sizeof(T);
+    uint64_t countLeft = op.len_;
+
+    int32_t loopTag = op.tag_;
+
+    while (countLeft > 0) {
+        uint64_t curCount = (countLeft > maxCountPerLoop) ? maxCountPerLoop : countLeft;
+        uint64_t curSize = curCount * sizeof(T);
+
+        op.Process(curCount, loopTag, op.outputSliceStride_);
+        op.BarrierAll();
+
+        countLeft -= curCount;
+        op.input_ += curSize;
+        op.output_ += curSize;
+        loopTag += curSize / UB_DB_DATA_BATCH_SIZE + 1;
+    }
+}
+
+__aicore__ inline void sk_ag_mesh_1d(SUPERKERNEL_ARGS_DEF)
+{
+    #ifdef HCCL_DTYPE_INT8
+        AivAllGatherV2Mesh1DSuperKernel<int8_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_UINT8
+        AivAllGatherV2Mesh1DSuperKernel<uint8_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT16
+        AivAllGatherV2Mesh1DSuperKernel<int16_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_UINT16
+        AivAllGatherV2Mesh1DSuperKernel<uint16_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT32
+        AivAllGatherV2Mesh1DSuperKernel<int32_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_UINT32
+        AivAllGatherV2Mesh1DSuperKernel<uint32_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_FP16
+        AivAllGatherV2Mesh1DSuperKernel<half> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_FP32
+        AivAllGatherV2Mesh1DSuperKernel<float> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_BFP16
+        AivAllGatherV2Mesh1DSuperKernel<bfloat16_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT64
+        AivAllGatherV2Mesh1DSuperKernel<int64_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_UINT64
+        AivAllGatherV2Mesh1DSuperKernel<uint64_t> (SUPERKERNEL_ARGS_CALL);
+    #else
+    #endif
 }

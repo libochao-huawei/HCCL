@@ -94,8 +94,13 @@ struct A2ASendRecvInfo {
 struct DataInfo {
     ChannelInfo channel_;
     SlicesList slices_;
+    HcclDataType dataType_;
     DataInfo(const ChannelInfo &channel, const SlicesList &slices)
     : channel_(channel), slices_(slices)
+    {
+    }
+    DataInfo(const ChannelInfo &channel, const SlicesList &slices, HcclDataType dataType)
+    : channel_(channel), slices_(slices), dataType_(dataType)
     {
     }
 };
@@ -134,9 +139,15 @@ struct TxRxSlicesList {
 struct SendRecvInfo {
     TxRxChannels      sendRecvChannels_;
     TxRxSlicesList    sendRecvSlices_;
+    HcclDataType      dataType_;
 
     SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices)
         : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices)
+    {
+    }
+
+    SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices, HcclDataType dataType)
+    : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices), dataType_(dataType)
     {
     }
 };
@@ -375,10 +386,10 @@ inline u32 CalcChannelsPerRank(const std::vector<HcclChannelDesc> &channels)
             currentCount++;
         } else {
             // 如果remoteRank变化了，则更新channelsPerRank并重新开始给下一个remoteRank计数
-            if (currentCount != channelsPerRank && channel.remoteRank != channels[0].remoteRank) {
+            if (currentCount != channelsPerRank && currentRank != channels[0].remoteRank && currentRank != INVALID_VALUE_RANKID) {
                 HCCL_WARNING("[CalcChannelsPerRank] channel num[%u] of remote rank[%u] is not equal to "\
                     "channel num[%u] of previous ranks.",
-                    currentCount, channel.remoteRank, channelsPerRank);
+                    currentCount, currentRank, channelsPerRank);
             }
             if (currentCount > channelsPerRank) {
                 channelsPerRank = currentCount;
