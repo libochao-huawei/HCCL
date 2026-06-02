@@ -222,12 +222,13 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<uint32_t> jettyNums;
     CHK_RET(SetJettyNums(jettyNums, true));
 #if !defined(HCCL_CANN_COMPAT_850)
-    auto resReq0.ccuKernelInfos[0] = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
-    resReq0.ccuKernelInfos[0]->rankSize = subCommRanks0[0].size();
-    resReq0.ccuKernelInfos[0]->rankId = topoInfo->userRank;
-    resReq0.ccuKernelInfos[0]->opParam = param;
-    resReq0.ccuKernelInfos[0]->subCommRanks = subCommRanks0;
-    resReq0.ccuKernelInfos[0]->jettyNums = jettyNums;
+    auto kernelArg0 = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
+    kernelArg0->rankSize = subCommRanks0[0].size();
+    kernelArg0->rankId = topoInfo->userRank;
+    kernelArg0->opParam = param;
+    kernelArg0->subCommRanks = subCommRanks0;
+    kernelArg0->jettyNums = jettyNums;
+    resReq0.ccuKernelInfos[0].setKernelArg(kernelArg0);
 #endif
 
     std::vector<HcclChannelDesc> channelDescs1;
@@ -236,12 +237,13 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     CHK_RET(SetJettyNums(jettyNums, false));
 #if !defined(HCCL_CANN_COMPAT_850)
-    auto resReq1.ccuKernelInfos[0] = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
-    resReq1.ccuKernelInfos[0]->rankSize = subCommRanks1[0].size();
-    resReq1.ccuKernelInfos[0]->rankId = topoInfo->userRank;
-    resReq1.ccuKernelInfos[0]->opParam = param;
-    resReq1.ccuKernelInfos[0]->subCommRanks = subCommRanks1;
-    resReq1.ccuKernelInfos[0]->jettyNums = jettyNums;
+    auto kernelArg1 = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
+    kernelArg1->rankSize = subCommRanks1[0].size();
+    kernelArg1->rankId = topoInfo->userRank;
+    kernelArg1->opParam = param;
+    kernelArg1->subCommRanks = subCommRanks1;
+    kernelArg1->jettyNums = jettyNums;
+    resReq1.ccuKernelInfos[0].setKernelArg(kernelArg1);
 #endif
 
     resourceRequest.ccuKernelNum.emplace_back(resReq0.ccuKernelNum[0]);
