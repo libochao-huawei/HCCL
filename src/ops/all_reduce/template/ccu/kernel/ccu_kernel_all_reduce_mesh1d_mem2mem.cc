@@ -20,6 +20,14 @@ constexpr int CKE_IDX_0     = 0;
 constexpr uint16_t BIT_NUM_PER_CKE = 16;
 constexpr uint16_t GROUP_REDUCE_MAX_PIECE_CNT = 8;
 
+struct GroupReduceMem2MemVar {
+    ccu::LocalAddr loopDst[2];
+    ccu::LocalAddr loopSrc[2];
+    std::array<std::vector<ccu::LocalAddr>, 2> loopScratch;
+    ccu::Variable  loopLen[2];
+    ccu::Variable  loopLenExp[2];
+};
+
 static CcuResult ParseKernelArg(AllReduceMeshMem2Mem1DContext &ctx, CcuKernelArgAllReduceMeshMem2Mem1D *kernelArg)
 {
     ctx.dataType        = kernelArg->opParam.DataDes.dataType;
