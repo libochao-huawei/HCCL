@@ -129,14 +129,6 @@ HcclResult ReduceScatterOutPlaceCustom(OpParam &param, void *sendBuf, void *recv
     return HCCL_SUCCESS;
 }
 
-bool MatchBIRS() {
-    const char* val = std::getenv("HCCL_BIRS_ENABLE");
-    if (val == nullptr) return false;
-    std::string str = val;
-    if (str == "TRUE") {
-       return true;
-    } 
-    return false;
-}
+
 
 }

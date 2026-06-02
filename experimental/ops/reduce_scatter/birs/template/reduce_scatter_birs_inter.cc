@@ -10,6 +10,7 @@
 
 #include "alg_template_register.h"
 #include "reduce_scatter_birs_inter.h"
+#include "reduce_scatter_op_experimental.h"
 
 namespace ops_hccl_experimental {
 using ops_hccl::NOTIFY_IDX_ACK;
@@ -263,5 +264,7 @@ HcclResult ReduceScatterBIRSInter::RunAsync(const u32 rank, const u32 rankSize, 
     return HCCL_SUCCESS;
 }
 
-REGISTER_TEMPLATE(TemplateType::TEMPLATE_REDUCE_SCATTER_BIRS_INTER, ReduceScatterBIRSInter);
+static HcclResult g_func_ReduceScatterBIRSInter_birs =
+    MatchBIRS() ? AlgTemplateRegistry::Instance().Register(
+        TemplateType::TEMPLATE_REDUCE_SCATTER_BIRS_INTER, DefaultTemplateCreator<ReduceScatterBIRSInter>) : HCCL_SUCCESS;
 }

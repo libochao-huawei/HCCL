@@ -13,6 +13,7 @@
 
 #include <string>
 #include <memory>
+#include <cstdlib>
 #include "hccl.h"
 
 #include "alg_param.h"
@@ -37,7 +38,10 @@ HcclResult ReduceScatterOutPlaceCustom(OpParam &param, void *sendBuf, void *recv
     HcclReduceOp op, HcclComm comm, aclrtStream stream, u32 userRankSize);
 
 
-bool MatchBIRS();
+inline bool MatchBIRS() {
+    const char* val = std::getenv("HCCL_BIRS_ENABLE");
+    return val != nullptr && std::string(val) == "TRUE";
+}
 
 }
 

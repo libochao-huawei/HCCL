@@ -11,6 +11,7 @@
 #include <numeric>
 #include "reduce_scatter_birs_executor.h"
 #include "topo_experimental.h"
+#include "reduce_scatter_op_experimental.h"
 
 namespace ops_hccl_experimental {
 
@@ -114,5 +115,7 @@ HcclResult ReduceScatterBIRSExecutor::KernelRunLevel0(const OpParam &param, Exec
     return HCCL_SUCCESS;
 }
 
-REGISTER_EXEC("ReduceScatterBIRSExecutor", ReduceScatterBIRS, ReduceScatterBIRSExecutor);
+static HcclResult g_func_ReduceScatterBIRS_birs =
+    MatchBIRS() ? CollAlgExecRegistry::Instance().Register(
+        "ReduceScatterBIRSExecutor", DefaultExecCreator<ReduceScatterBIRSExecutor>) : HCCL_SUCCESS;
 }
