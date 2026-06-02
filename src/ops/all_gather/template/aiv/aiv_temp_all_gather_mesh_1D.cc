@@ -35,7 +35,18 @@ HcclResult AivTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     OpParam param_ = param;
 
     std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UB_MEM) {
+                level0Channels.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[AivTempAllGatherMesh1D::CalcRes] Get Channel Success!");
+    } else {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    }
     resourceRequest.channels.push_back(level0Channels);
     HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
@@ -75,15 +86,18 @@ HcclResult AivTempAllGatherMesh1D::KernelRun(const OpParam& param,
     aivAllGatherArgs.yRankSize = 0;
     aivAllGatherArgs.zRankSize = 0;
     for (u32 i = 0; i < subCommRanks_[0].size(); i++){
+        HCCL_INFO("[AivTempAllGatherMesh1D] subCommRanks_ 1, [%u]", subCommRanks_[0].size());
         aivAllGatherArgs.topo_[i] = subCommRanks_[0][i];
     }
     if (subCommRanks_.size() > 1){
+        HCCL_INFO("[AivTempAllGatherMesh1D] subCommRanks_ 2");
         aivAllGatherArgs.yRankSize = subCommRanks_[1].size();
         for (u32 i = 0; i < subCommRanks_[1].size(); i++){
             aivAllGatherArgs.topo_[TOPO_LEN_Y_OFFSET + i] = subCommRanks_[1][i];
         }
     }
     if (subCommRanks_.size() == MAX_DIM_NUM){
+        HCCL_INFO("[AivTempAllGatherMesh1D] subCommRanks_ 3");
         aivAllGatherArgs.zRankSize = subCommRanks_[MAX_DIM_NUM - 1].size();
         for (u32 i = 0; i < subCommRanks_[MAX_DIM_NUM - 1].size(); i++){
             aivAllGatherArgs.topo_[TOPO_LEN_Z_OFFSET + i] = subCommRanks_[MAX_DIM_NUM - 1][i];

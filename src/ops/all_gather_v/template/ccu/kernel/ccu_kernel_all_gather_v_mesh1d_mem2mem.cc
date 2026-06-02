@@ -117,7 +117,6 @@ void CcuKernelAllGatherVMesh1DMem2Mem::PostSync()
 
 void CcuKernelAllGatherVMesh1DMem2Mem::DoAllGatherV()
 {
-    
     uint32_t channelId = 0;
     CCU_IF(mySliceSize_ != 0) {
         for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {

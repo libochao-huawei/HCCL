@@ -13,13 +13,13 @@
 #define _GNU_SOURCE
 #endif
 
-#include <errno.h>
+#include <cerrno>
 #include <fcntl.h>
-#include <limits.h>
+#include <climits>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <securec.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -455,7 +455,6 @@ static int compare_crc(const uint8_t* buffer, const void* expected_data,
                        size_t expected_size, uint32_t expected_crc) {
     uint32_t existing_crc = calc_crc32(buffer, expected_size);
     uint32_t computed_crc = (expected_crc != 0) ? expected_crc : calc_crc32(expected_data, expected_size);
-
     if (existing_crc != computed_crc) {
         HCCL_WARNING("Existing file CRC (0x%08X) differs from embedded (0x%08X), will overwrite",
                 existing_crc, computed_crc);

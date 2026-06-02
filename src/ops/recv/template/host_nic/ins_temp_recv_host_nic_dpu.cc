@@ -86,7 +86,7 @@ HcclResult InsTempRecvHostNicDpu::KernelRun(const OpParam &param, const Template
     dpuRunInfo.subCommRanks = subCommRanks_;
     u32 sendMsgId = 0;
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
-    if (HcommSendRequest(static_cast<uint64_t>((uintptr_t)res.npu2DpuShmemPtr),
+    if (HcommSendRequest(reinterpret_cast<uint64_t>(res.npu2DpuShmemPtr),
         param.algTag, static_cast<void *>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
         HCCL_ERROR("InsTempRecvHostNicDpu HcommRecvRequest failed");
         return HCCL_E_INTERNAL;
@@ -97,7 +97,7 @@ HcclResult InsTempRecvHostNicDpu::KernelRun(const OpParam &param, const Template
     // 等待DPU数据传输，然后回写结果回来
     void *recvData = nullptr;
     u32 recvMsgId = 0;
-    if (HcommWaitResponse(static_cast<uint64_t>((uintptr_t)res.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
+    if (HcommWaitResponse(reinterpret_cast<uint64_t>(res.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
         HCCL_ERROR("InsTempRecvHostNicDpu HcommWaitResponse failed");
         return HCCL_E_INTERNAL;
     }
@@ -130,7 +130,7 @@ HcclResult InsTempRecvHostNicDpu::DPUKernelRun(const TemplateDataParams &tempAlg
         if (rankIdx == myRank) {
             continue;
         }
-
+        uint64_t notifyNum = 2;
         uint64_t sizePerRound = 0;
         uint64_t offset = 0;
 
@@ -152,7 +152,7 @@ HcclResult InsTempRecvHostNicDpu::DPUKernelRun(const TemplateDataParams &tempAlg
                 CUSTOM_TIMEOUT)));
 
             // 后同步，通知发送端数据接收完成
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, channels.at(rankIdx)[0].handle, 2)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, channels.at(rankIdx)[0].handle, notifyNum)));
 
             CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, channels.at(rankIdx)[0].handle)));
         }
