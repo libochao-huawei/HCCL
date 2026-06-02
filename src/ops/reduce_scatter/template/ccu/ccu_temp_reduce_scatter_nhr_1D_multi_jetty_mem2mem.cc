@@ -10,7 +10,7 @@
 
 #include "channel.h"
 #include <algorithm>
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_kernel_reduce_scatter_nhr1d_multi_jetty_mem2mem.h"
 
