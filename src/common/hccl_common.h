@@ -150,7 +150,7 @@ inline std::string GetDataTypeEnumStr(u32 dataType)
     return GetDataTypeEnumStr(hcclDataType);
 }
 
-inline std::string GetDataArrayStr(const u64* arr, u32 size)
+inline std::string GetDataArrayStr(const void* arr, u32 size)
 {
     std::string result;
     for (u32 i =0;i < size;++i){
