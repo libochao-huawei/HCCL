@@ -31,9 +31,7 @@ namespace ops {
 
 static ge::graphStatus HcomReceiveInferShapeV2(gert::InferShapeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferShape start.", __func__);
+    OP_INFER_SHAPE_START;
 
     auto attrs = context->GetAttrs();
     OP_CHECK(attrs == nullptr, CUBE_INNER_ERR_REPORT(opName, "attrs is null"), return GRAPH_FAILED);
@@ -55,20 +53,18 @@ static ge::graphStatus HcomReceiveInferShapeV2(gert::InferShapeContext *context)
         outputShape->SetDim(i, sizesArray[i]);
     }
 
-    OP_LOGI(opName, "[%s] the op inferShape end.", __func__);
+    OP_INFER_SHAPE_END;
     return GRAPH_SUCCESS;
 }
 
 static ge::graphStatus HcomReceiveInferDataTypeV2(gert::InferDataTypeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferDataType start.", __func__);
+    OP_INFER_DATATYPE_START;
 
     ge::DataType inputType = context->GetInputDataType(0);
     context->SetOutputDataType(0, inputType);
 
-    OP_LOGI(opName, "[%s] the op inferDataType end.", __func__);
+    OP_INFER_DATATYPE_END;
     return GRAPH_SUCCESS;
 }
 
