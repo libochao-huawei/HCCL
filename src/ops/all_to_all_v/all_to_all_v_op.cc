@@ -11,7 +11,6 @@
 #include "all_to_all_v_op.h"
 #include "op_common_ops.h"
 #include "topo_host.h"
-#include "topo_match_multilevel.h"
 #include <algorithm>
 #include <future>
 #include <map>
@@ -724,8 +723,8 @@ HcclResult AlltoAllVEntryLog(const void *sendBuf, const void *recvBuf, const voi
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
             "tag[%s], sendBuf[%p], recvBuf[%p], sendCounts[%s], recvCounts[%s], sdispls[%s], rdispls[%s], sendType[%s], recvType[%s], streamId[%d], deviceLogicId[%d]",
             tag.c_str(), sendBuf, recvBuf,
-            PrintCArray<uint32_t>(sendCounts, rankSize).c_str(),PrintCArray<uint32_t>(recvCounts, rankSize).c_str(),
-            PrintCArray<uint32_t>(sdispls, rankSize).c_str(),PrintCArray<uint32_t>(rdispls, rankSize).c_str(), GetDataTypeEnumStr(sendType).c_str(),
+            GetDataCArray<u32>(sendCounts, rankSize).c_str(),GetDataCArray<u32>(recvCounts, rankSize).c_str(),
+            GetDataCArray<u32>(sdispls, rankSize).c_str(),GetDataCArray<u32>(rdispls, rankSize).c_str(), GetDataTypeEnumStr(sendType).c_str(),
             GetDataTypeEnumStr(recvType).c_str(), streamId, deviceLogicId);
 
         CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
