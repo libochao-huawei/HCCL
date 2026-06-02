@@ -191,12 +191,12 @@ HcclResult CcuTempScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam &par
 }
 
 HcclResult CcuTempScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam &param,
-                                                         u64 sliceSize,
+                                                         const TemplateDataParams &templateDataParams,
                                                          uint64_t &die0Size, uint64_t &die1Size) const
 {
     constexpr uint64_t MULTIPLIER = 4;
     uint64_t typeSize = DataTypeSizeGet(param.DataDes.dataType);
-    uint64_t dataCount = (sliceSize / typeSize);
+    uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
 
     if (dataCount <= templateRankSize_ * MULTIPLIER) {  // 数据量极小，不划分die
         die0Size = dataCount * typeSize;
@@ -207,17 +207,17 @@ HcclResult CcuTempScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam &param,
     u8 die1PortGroupSize = 1;
 
     die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * typeSize;
-    die1Size = sliceSize - die0Size;
+    die1Size = templateDataParams.sliceSize - die0Size;
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult CcuTempScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    HCCL_DEBUG("[CcuTempScatterNHR1DMem2Mem::FastLaunch] start");
     if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
         HCCL_INFO("[CcuTempScatterNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
         return HCCL_SUCCESS;
     }
-    HCCL_DEBUG("[CcuTempScatterNHR1DMem2Mem::FastLaunch] start");
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
@@ -270,15 +270,11 @@ HcclResult CcuTempScatterNHR1DMem2Mem::KernelRun(const OpParam &param, const Tem
     }
     uint64_t die0Size = 0;
     uint64_t die1Size = 0;
-    uint64_t die0TailSize = 0;
-    uint64_t die1TailSize = 0;
     constexpr uint32_t MAX_DIE_NUM_2 = 2;
     if (kernelNum == MAX_DIE_NUM_2) {
-        SplitDataFor2Dies(param, templateDataParams.sliceSize, die0Size, die1Size);
-        SplitDataFor2Dies(param, templateDataParams.tailSize, die0TailSize, die1TailSize);
+        SplitDataFor2Dies(param, templateDataParams, die0Size, die1Size);
     } else {
         die0Size = templateDataParams.sliceSize;
-        die0TailSize = templateDataParams.tailSize;
     }
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
