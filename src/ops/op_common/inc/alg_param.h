@@ -29,11 +29,6 @@
 #include "hccl_rank_graph_dl.h"
 #include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
-#if CANN_VERSION_NUM >= 90000000
-#include "hccl_ccu_res.h"
-#else
-typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
-#endif
 #include "ccu_types_dl.h"
 
 namespace ops_hccl {
@@ -77,7 +72,6 @@ constexpr uint64_t GE_PARALLEL = 36;
 constexpr uint64_t AICPU_ALIGN_SIZE = 4096;
 // Z axis detour 需要
 constexpr u32 MESH_CHANNELS_NUM = 1;
-constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
@@ -170,6 +164,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     Level0Shape level0Topo;
     bool Level0Nhr{false};
     bool Level1Nhr{false};
+    bool Level1Hd{false};
     bool is2DieFullMesh{false};
     bool level0PcieMix{false};
     bool level0BigClosRange{false};
@@ -202,6 +197,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream << level0Topo;
         binaryStream << Level0Nhr;
         binaryStream << Level1Nhr;
+        binaryStream << Level1Hd;
         binaryStream << is2DieFullMesh;
         binaryStream << level0PcieMix;
         binaryStream << level0BigClosRange;
@@ -248,6 +244,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream >> level0Topo;
         binaryStream >> Level0Nhr;
         binaryStream >> Level1Nhr;
+        binaryStream >> Level1Hd;
         binaryStream >> is2DieFullMesh;
         binaryStream >> level0PcieMix;
         binaryStream >> level0BigClosRange;
@@ -286,7 +283,6 @@ struct CcuKernelInfo {
     // KernelArg实例指针
     void *kernelArg;
     // kernel所需channel
-#endif
     std::vector<HcclChannelDesc> channels;
 
 private:

@@ -77,7 +77,6 @@ void HcommDlInit(void) {
     HcommProfilingDlInit(gLibHandle);
     HcclCommDlInit(gLibHandle);
     HcclResExptDlInit(gLibHandle);
-    HcclCcuDlInit(gLibHandle);
     CcuResDlInit(gLibHandle);
     HcclCcuResDlInit(gLibHandle);
     CcuLaunchDlInit(gLibHandle);
