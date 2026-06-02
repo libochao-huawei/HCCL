@@ -24,7 +24,6 @@ DEFINE_WEAK_FUNC(HcclResult, HcclProfilingReportOp, HcclComm comm, uint64_t begi
 DEFINE_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginTime, char *kernelName);
 DEFINE_WEAK_FUNC(HcclResult, HcclReportAivKernel, HcclComm comm, uint64_t beginTime);
 DEFINE_WEAK_FUNC(HcclResult, HcclTaskExceptionRegCallBack, HcclTaskExceptionCallback callback);
-DEFINE_WEAK_FUNC(HcclResult, HcomGetCommHandleByGroup, const char *group, HcclComm *commHandle);
 
 // 初始化
 void HcommProfilingDlInit(void* libHcommHandle) {
@@ -38,5 +37,4 @@ void HcommProfilingDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcclReportAicpuKernel);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclReportAivKernel);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclTaskExceptionRegCallBack);
-    INIT_SUPPORT_FLAG(libHcommHandle, HcomGetCommHandleByGroup);
 }

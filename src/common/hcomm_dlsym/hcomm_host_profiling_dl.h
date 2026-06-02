@@ -51,7 +51,6 @@ DECL_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginT
 DECL_WEAK_FUNC(HcclResult, HcclReportAivKernel, HcclComm comm, uint64_t beginTime);
 typedef void (*HcclTaskExceptionCallback)(aclrtExceptionInfo *exceptionInfo);
 DECL_WEAK_FUNC(HcclResult, HcclTaskExceptionRegCallBack, HcclTaskExceptionCallback callback);
-DECL_WEAK_FUNC(HcclResult, HcomGetCommHandleByGroup, const char *group, HcclComm *commHandle);
 DECL_SUPPORT_FLAG(HcommProfilingRegThread);
 DECL_SUPPORT_FLAG(HcommProfilingUnRegThread);
 DECL_SUPPORT_FLAG(HcommProfilingReportKernel);
@@ -62,7 +61,6 @@ DECL_SUPPORT_FLAG(HcclProfilingReportOp);
 DECL_SUPPORT_FLAG(HcclReportAicpuKernel);
 DECL_SUPPORT_FLAG(HcclReportAivKernel);
 DECL_SUPPORT_FLAG(HcclTaskExceptionRegCallBack);
-DECL_SUPPORT_FLAG(HcomGetCommHandleByGroup);
 
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);
