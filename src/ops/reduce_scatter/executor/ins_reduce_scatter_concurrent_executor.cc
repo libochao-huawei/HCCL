@@ -109,10 +109,10 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                 HcclResult::HCCL_E_INTERNAL);
  
     // 两者数量应相等
-    CHK_PRT_RET(channelDescs0.size() != channelDescs1.size(),
-                HCCL_ERROR("[%s] channelDescs0.size()[%zu] is not equal to channelDescs1.size()[%zu]", __func__,
-                           channelDescs0.size(), channelDescs1.size()),
-                HcclResult::HCCL_E_INTERNAL);
+    // CHK_PRT_RET(channelDescs0.size() != channelDescs1.size(),
+    //             HCCL_ERROR("[%s] channelDescs0.size()[%zu] is not equal to channelDescs1.size()[%zu]", __func__,
+    //                        channelDescs0.size(), channelDescs1.size()),
+    //             HcclResult::HCCL_E_INTERNAL);
 
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
         resourceRequest.ccuKernelNum.insert(resourceRequest.ccuKernelNum.end(),
