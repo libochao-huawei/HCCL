@@ -31,17 +31,17 @@ namespace ops {
 
 static ge::graphStatus HcomSendInferShapeV2(gert::InferShapeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferShape end.", __func__);
+    OP_INFER_SHAPE_START;
+
+    OP_INFER_SHAPE_END;
     return GRAPH_SUCCESS;
 }
 
 static ge::graphStatus HcomSendInferDataTypeV2(gert::InferDataTypeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferDataType end.", __func__);
+    OP_INFER_DATATYPE_START;
+    
+    OP_INFER_DATATYPE_END;
     return GRAPH_SUCCESS;
 }
 

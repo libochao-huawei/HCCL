@@ -29,51 +29,24 @@ using namespace ge;
 
 namespace ops {
 
-static constexpr size_t reduceScatterFusionIndex = 1;
-static constexpr size_t reduceScatterFusionIdIndex = 2;
-static constexpr size_t rankSizeIndex = 4;
-
 static ge::graphStatus HcomReduceScatterInferShapeV2(gert::InferShapeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferShape start.", __func__);
+    OP_INFER_SHAPE_START;
  
-    constexpr int64_t fusionAttrNoFuse = 0;
-    constexpr int64_t fusionAttrFuseById = 2;
-
-    constexpr int64_t fusionIdDefaultVal = -1;
-    constexpr int64_t fusionIdMinVal = 0;
-    constexpr int64_t fusionIdMaxVal = 0x7fffffff;
-
     // Get RuntimeAttrs
     auto attrs = context->GetAttrs();
-    OP_CHECK(attrs == nullptr, CUBE_INNER_ERR_REPORT(opName, "attrs is null"), return GRAPH_FAILED);
-
-    int64_t fusionAttr = fusionAttrNoFuse;
-    int64_t fusionIdAttr = fusionIdDefaultVal;
-    
-    fusionAttr = *(attrs->GetAttrPointer<int64_t>(reduceScatterFusionIndex));
-    fusionIdAttr = *(attrs->GetAttrPointer<int64_t>(reduceScatterFusionIdIndex));
-
-    if ((fusionAttr != fusionAttrNoFuse) && (fusionAttr != fusionAttrFuseById)) {
-        OP_LOGE(opName, "Attr fusion [%ld] is not supported. expected: [%ld or %ld]",
-                fusionAttr, fusionAttrNoFuse, fusionAttrFuseById);
+    constexpr size_t reduceScatterFusionIndex = 1;
+    constexpr size_t reduceScatterFusionIdIndex = 2;
+    if (CheckOPAttr(opName, attrs, reduceScatterFusionIndex, reduceScatterFusionIdIndex) == GRAPH_FAILED) {
         return GRAPH_FAILED;
     }
-    if (fusionAttr == fusionAttrFuseById) {
-        if ((fusionIdAttr < fusionIdMinVal) || (fusionIdAttr > fusionIdMaxVal)) {
-            OP_LOGE(opName, "In fusion [%ld], attr fusion_id [%ld] is not supported, "
-                    "expected: [%ld ~ %ld]", fusionAttr, fusionIdAttr, fusionIdMinVal, fusionIdMaxVal);
-            return GRAPH_FAILED;
-        }
-    }
-
+    
     const auto inputShape = context->GetInputShape(0);
     OP_CHECK(inputShape == nullptr, CUBE_INNER_ERR_REPORT(opName, "input shape is null"), return GRAPH_FAILED);
     auto outputShape = context->GetOutputShape(0);
     OP_CHECK(outputShape == nullptr, CUBE_INNER_ERR_REPORT(opName, "output shape is null"), return GRAPH_FAILED);
  
+     constexpr size_t rankSizeIndex = 4;
     int64_t rankSize = *(attrs->GetAttrPointer<int64_t>(rankSizeIndex));
     if (rankSize <= 0){
         OP_LOGE(opName, "attr rank_size is illegal, expected: > 0, actual: %ld.", rankSize);
@@ -95,20 +68,18 @@ static ge::graphStatus HcomReduceScatterInferShapeV2(gert::InferShapeContext *co
     *outputShape = *inputShape;
     outputShape->SetDim(0, inputShape->GetDim(0) / rankSize);
 
-    OP_LOGI(opName, "[%s] the op inferShape end.", __func__);
+    OP_INFER_SHAPE_END;
     return GRAPH_SUCCESS;
 }
 
 static ge::graphStatus HcomReduceScatterInferDataTypeV2(gert::InferDataTypeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferDataType start.", __func__);
+    OP_INFER_DATATYPE_START;
  
     ge::DataType inputType = context->GetInputDataType(0);
     context->SetOutputDataType(0, inputType);
  
-    OP_LOGI(opName, "[%s] the op inferDataType end.", __func__);
+    OP_INFER_DATATYPE_END;
     return GRAPH_SUCCESS;
 }
 
