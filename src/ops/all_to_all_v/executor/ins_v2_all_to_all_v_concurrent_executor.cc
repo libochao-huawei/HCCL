@@ -222,11 +222,12 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<uint32_t> jettyNums;
     CHK_RET(SetJettyNums(jettyNums, true));
 #if !defined(HCCL_CANN_COMPAT_850)
-    resReq0.ccuKernelInfos[0].kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(subCommRanks0[0].size(),
-                                                                                    topoInfo->userRank,
-                                                                                    param,
-                                                                                    subCommRanks0,
-                                                                                    jettyNums);
+    auto resReq0.ccuKernelInfos[0] = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
+    resReq0.ccuKernelInfos[0]->rankSize = subCommRanks0[0].size();
+    resReq0.ccuKernelInfos[0]->rankId = topoInfo->userRank;
+    resReq0.ccuKernelInfos[0]->opParam = param;
+    resReq0.ccuKernelInfos[0]->subCommRanks = subCommRanks0;
+    resReq0.ccuKernelInfos[0]->jettyNums = jettyNums;
 #endif
 
     std::vector<HcclChannelDesc> channelDescs1;
@@ -235,11 +236,12 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     CHK_RET(SetJettyNums(jettyNums, false));
 #if !defined(HCCL_CANN_COMPAT_850)
-    resReq1.ccuKernelInfos[0].kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(subCommRanks1[0].size(),
-                                                                                    topoInfo->userRank,
-                                                                                    param,
-                                                                                    subCommRanks1,
-                                                                                    jettyNums);
+    auto resReq1.ccuKernelInfos[0] = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
+    resReq1.ccuKernelInfos[0]->rankSize = subCommRanks1[0].size();
+    resReq1.ccuKernelInfos[0]->rankId = topoInfo->userRank;
+    resReq1.ccuKernelInfos[0]->opParam = param;
+    resReq1.ccuKernelInfos[0]->subCommRanks = subCommRanks1;
+    resReq1.ccuKernelInfos[0]->jettyNums = jettyNums;
 #endif
 
     resourceRequest.ccuKernelNum.emplace_back(resReq0.ccuKernelNum[0]);
