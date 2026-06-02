@@ -17,8 +17,6 @@
 
 namespace ops_hccl {
 
-#ifndef NHR_STEP_INFO_DEFINED
-#define NHR_STEP_INFO_DEFINED
 struct NHRStepInfo {
     u32 step = 0;
     u32 myRank = 0;
@@ -30,7 +28,6 @@ struct NHRStepInfo {
 
     NHRStepInfo() : nSlices(0) {}
 };
-#endif
 
 struct NHRSliceInfo {
     u64 offset{0};
