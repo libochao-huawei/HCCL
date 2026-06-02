@@ -72,7 +72,7 @@ HcclResult CcuTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAlltoAllVMesh1DKernel);
 
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    CHK_RET(CalcChannelRes(comm, param, topoInfo, channelDescs));
     
     auto kernelArg = std::make_shared<CcuKernelArgAlltoAllVMesh1D>();
     kernelArg->rankSize = subCommRanks_[0].size();
