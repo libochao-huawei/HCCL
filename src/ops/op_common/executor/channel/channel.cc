@@ -501,6 +501,80 @@ HcclResult CalcChannelRequestMesh1DLevel1(HcclComm comm, const OpParam& param,
         1, "CalcChannelRequestMesh1DLevel1", false);
 }
 
+HcclResult CalcChannelRequestMesh1DByTopo(HcclComm comm, const OpParam &param,
+    const TopoInfoWithNetLayerDetails *topoInfo,
+    const std::vector<std::vector<u32>> &subcommInfo, std::vector<HcclChannelDesc> &channels, CommTopo topoType)
+{
+#ifndef AICPU_COMPILE
+    channels.clear();
+
+    auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
+    CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
+                HCCL_ERROR("[CalcChannelRequestMesh1DByTopo] Rank [%u] is not in commInfo.", topoInfo->userRank),
+                HcclResult::HCCL_E_PARA);
+
+    u32 myRank = topoInfo->userRank;
+    std::vector<CommProtocol> expectedProtocols;
+    CHK_RET(GetProtocolByEngine(param, expectedProtocols));
+
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+
+    for (u32 rank : subcommInfo[COMM_LEVEL0]) {
+        if (rank == myRank) {
+            continue;
+        }
+
+        size_t channelCountBefore = channels.size();
+        for (auto netLayer : netLayersVector) {
+            CommLink *linkList = nullptr;
+            u32 listSize = 0;
+            CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
+            if (listSize == 0) {
+                continue;
+            }
+
+            for (auto expectedProtocol : expectedProtocols) {
+                bool protocolFound = false;
+                for (u32 idx = 0; idx < listSize; idx++) {
+                    if (linkList[idx].linkAttr.linkProtocol != expectedProtocol) {
+                        continue;
+                    }
+
+                    CommTopo linkTopoType = CommTopo::COMM_TOPO_RESERVED;
+                    CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[idx], linkTopoType));
+                    if (linkTopoType != topoType) {
+                        continue;
+                    }
+
+                    CHK_RET(CreateChannelFromLink(comm, myRank, rank, netLayer, idx, linkList[idx],
+                        "[CalcChannelRequestMesh1DByTopo]", channels));
+                    protocolFound = true;
+                }
+                if (protocolFound) {
+                    break;
+                }
+            }
+        }
+
+        CHK_PRT_RET(channels.size() == channelCountBefore,
+                    HCCL_ERROR("[CalcChannelRequestMesh1DByTopo] No channel with topoType[%u] between myRank[%u] and rank[%u].",
+                               topoType, myRank, rank),
+                    HcclResult::HCCL_E_INTERNAL);
+    }
+#else
+    (void)comm;
+    (void)param;
+    (void)topoInfo;
+    (void)subcommInfo;
+    (void)channels;
+    (void)topoType;
+#endif
+    return HCCL_SUCCESS;
+}
+
 HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {

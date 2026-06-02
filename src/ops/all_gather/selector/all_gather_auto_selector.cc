@@ -11,6 +11,24 @@
 #include "all_gather_auto_selector.h"
 #include "selector_registry.h"
 #include "hccl_aiv_utils.h"
+#include <cstdlib>
+#include <cstring>
+
+namespace {
+
+bool IsAllGatherMeshClosV2Enabled()
+{
+    const char *env = std::getenv("ENABLE_HCCL_ALLGATHER_MESH_CLOS");
+    return (env != nullptr && std::strcmp(env, "1") == 0);
+}
+
+bool IsAllGatherAsymmetricOptEnabled()
+{
+    const char *env = std::getenv("HCCL_ENABLE_AG_A2A_ASYMMETRIC_OPT");
+    return (env != nullptr && std::strcmp(env, "1") == 0);
+}
+
+}  // namespace
 
 namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
@@ -212,6 +230,15 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start, topoInfo topoLevelNums[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
+
+    if (IsAllGatherMeshClosV2Enabled()) {
+        SelectorStatus ret = SelectAicpuAlgoMeshClosV2(topoInfo, opParam, selectAlgName);
+        if (ret == SelectorStatus::MATCH) {
+            return SelectorStatus::MATCH;
+        }
+        HCCL_INFO("[AllGatherAutoSelector] MeshClosV2 not matched, fallback to legacy.");
+    }
+
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
@@ -287,6 +314,90 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         }
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
+SelectorStatus AllGatherAutoSelector::SelectAicpuAlgoMeshClosV2(
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    std::string &selectAlgName) const
+{
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
+    HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgoMeshClosV2] topoLevelNums=[%d], level0Topo=[%d]",
+              topoInfo->topoLevelNums, topoInfo->level0Topo);
+
+    if (topoInfo->topoLevelNums > 1) {
+        if (topoInfo->Level1Nhr) {
+            selectAlgName = "InsAllGatherMeshClosV2";
+            HCCL_INFO("[AllGatherAutoSelector] Level1Nhr=true, select MeshClosV2 [%s]", selectAlgName.c_str());
+        } else if (topoInfo->Level0Nhr) {
+            selectAlgName = "InsAllGatherNHR";
+        } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
+            selectAlgName = "InsAllGatherMeshClosV2";
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
+                selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
+                    "InsAllGatherSequenceMeshClosV2Mesh1D" : "InsAllGatherParallelMesh1DMeshClosV2";
+            } else {
+                selectAlgName = "InsAllGatherNHR";
+            }
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            selectAlgName = "InsAllGatherMeshClosV2";
+        } else {
+            HCCL_ERROR("[AllGatherAutoSelector] topo not match for MeshClosV2");
+            return SelectorStatus::NOT_MATCH;
+        }
+    } else {
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            if (IsTwoLevelNetLayer(topoInfo) &&
+                dataSize * topoInfo->userRankSize > AG_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD) {
+                selectAlgName = "InsAllGatherMesh1D1DZAxisDetour";
+            } else {
+                selectAlgName = "InsAllGatherMesh1D";
+            }
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            if (topoInfo->level0PcieMix) {
+                if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                    selectAlgName = "InsAllGatherMesh1D";
+                } else {
+                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2Pcie";
+                }
+                HCCL_DEBUG("[AllGatherAutoSelector] MeshClosV2 Algo match[%s]", selectAlgName.c_str());
+                return SelectorStatus::MATCH;
+            }
+            bool isMeshNumEqualToClosNum = false;
+            bool isClosNumMultipleOfMeshNum = false;
+            CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+                        HCCL_ERROR("[AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."),
+                        SelectorStatus::NOT_MATCH);
+            CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+                        HCCL_ERROR("[AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."),
+                        SelectorStatus::NOT_MATCH);
+            if (isMeshNumEqualToClosNum &&
+                topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+                if (dataSize > SMALL_COUNT_512KB) {
+                    selectAlgName = "InsAllGatherConcurrentMesh1DMeshClosV2";
+                } else {
+                    selectAlgName = "InsAllGatherMesh1D";
+                }
+            } else if (isClosNumMultipleOfMeshNum && dataSize > SMALL_COUNT_512KB) {
+                if (IsAllGatherAsymmetricOptEnabled()) {
+                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptMultiJetty";
+                    HCCL_INFO("[AllGatherAutoSelector] asymmetric opt enabled, select V3Opt [%s]", selectAlgName.c_str());
+                } else {
+                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2MultiJetty";
+                }
+            } else {
+                selectAlgName = "InsAllGatherMeshClosV2";
+            }
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            selectAlgName = "InsAllGatherMeshClosV2";
+        } else {
+            HCCL_ERROR("[AllGatherAutoSelector] topo not match for MeshClosV2");
+            return SelectorStatus::NOT_MATCH;
+        }
+    }
+    HCCL_DEBUG("[AllGatherAutoSelector] MeshClosV2 Algo match[%s]", selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
