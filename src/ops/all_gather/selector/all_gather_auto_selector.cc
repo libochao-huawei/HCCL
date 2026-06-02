@@ -47,6 +47,9 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        CHK_PRT_RET(IsInputOutputOverlap(opParam) == true,
+            HCCL_WARNING("[Algo][AllGatherAutoSelector] ccu_ms does not support inplace allreduce."),
+            SelectorStatus::NOT_MATCH);
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
             return SelectorStatus::NOT_MATCH;
         } else {
@@ -187,14 +190,14 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
-            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize) {
+            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize && (!IsInputOutputOverlap(opParam))) {
                 selectAlgName = "CcuAllGatherMesh1DMem2Mem";
                 return SelectorStatus::MATCH;
             } else {
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
                 return SelectorStatus::MATCH;
             }
-        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS && (!IsInputOutputOverlap(opParam))) {
             selectAlgName = "CcuAllGatherNHR1DMem2Mem";
         } else {
             HCCL_DEBUG("[AllGatherAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
@@ -202,6 +205,9 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             return SelectorStatus::NOT_MATCH;
         }
     } else {
+        CHK_PRT_RET(IsInputOutputOverlap(opParam) == true,
+            HCCL_WARNING("[Algo][AllGatherAutoSelector] ccu_sched does not support inplace allreduce."),
+            SelectorStatus::NOT_MATCH);
         return SelectCcuScheduleLevel0Algo(topoInfo, selectAlgName, dataSize);
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
