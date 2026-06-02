@@ -51,6 +51,9 @@ SelectorStatus ScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetL
         }
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        CHK_PRT_RET(IsInputOutputOverlap(opParam) == true,
+            HCCL_WARNING("[Algo][ScatterAutoSelector] ccu schedule does not support inplace allreduce."),
+            SelectorStatus::NOT_MATCH);
             if (topoInfo->is2DieFullMesh) {
                 HCCL_WARNING("[ScatterAutoSelector] 2DieFullMesh is not supported yet for schedule mode.");
                 return SelectorStatus::NOT_MATCH;
