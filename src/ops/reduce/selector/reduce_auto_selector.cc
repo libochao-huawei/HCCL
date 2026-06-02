@@ -217,7 +217,16 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     HCCL_DEBUG("SelectMeshAlgoAicpu %u", topoInfo->level0Topo);
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+    if (topoInfo->topoLevelNums == 3) {
+        if (topoInfo->deviceNumPerModule == 8) {
+            selectAlgName = "ReduceParallelMesh1DNHRTest";
+        } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4
+                && topoInfo->serverNum > 1) {
+            selectAlgName = "ReduceParallelMesh1DNHRTest";
+        } else {
+            selectAlgName = "ReduceAicpuReduceNHR";
+        }
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (dataSize >= REDUCE_AICPU_1D_MAX_DATA_SIZE) {
             selectAlgName = "ReduceMesh1DTwoShot";
         } else {
