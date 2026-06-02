@@ -241,8 +241,9 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
 
-    u64 dataCountAxis0 = static_cast<u64>(dataSplitSize[0] * dataCount_);
-    u64 dataCountAxis1 = static_cast<u64>(dataSplitSize[1] * dataCount_);
+    const u64 sliceAlignCount = HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
+    u64 dataCountAxis0 = static_cast<u64>(dataSplitSize[0] * dataCount_) / sliceAlignCount * sliceAlignCount;
+    u64 dataCountAxis1 = static_cast<u64>(dataSplitSize[1] * dataCount_) / sliceAlignCount * sliceAlignCount;
     u64 dataCountAxis2 = static_cast<u64>(dataCount_ - dataCountAxis0 - dataCountAxis1);
 
     u64 dataSizeAxis0 = dataCountAxis0 * dataTypeSize_;

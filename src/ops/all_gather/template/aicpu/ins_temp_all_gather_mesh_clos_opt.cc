@@ -101,6 +101,10 @@ HcclResult InsTempAllGatherMeshClosOpt::RunAllGatherMesh(
         return HCCL_SUCCESS;
     }
 
+    if (remoteWrite) {
+        allGatherToAllRanksCounts = 0;
+    }
+
      for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
         if (remoteWrite) {
