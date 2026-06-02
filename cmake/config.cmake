@@ -74,7 +74,7 @@ function(generate_stub STUB)
     endif() 
 endfunction(generate_stub) 
 
-if(AARCH_MODE)
+if(ENABLE_BUILD_AARCH)
     set(STUBS
         hcomm 
         ccl_kernel
@@ -86,7 +86,7 @@ if(AARCH_MODE)
             generate_stub(${STUB}) 
         endif() 
     endforeach()
-elseif(KERNEL_MODE AND BUILD_OPEN_PROJECT)
+elseif(PRODUCT_SIDE STREQUAL "device" AND BUILD_OPEN_PROJECT)
     # Device aicpu 构建：8.5.0 CANN 下 devlib/device/libccl_kernel.so 不存在，需要生成桩库
     if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
         set(_hccl_devlib_dir ${CUSTOM_ASCEND_CANN_PACKAGE_PATH}/devlib/device)

@@ -408,7 +408,7 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
     --build_aarch)
-        ENABLE_BUILD_DEVICE="ON"
+        ENABLE_BUILD_AARCH="ON"
         shift
         ;;
     --asan)
