@@ -324,21 +324,26 @@ template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1, t
 HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgTemplate2,
     AlgTemplate3>::PrepareResForStage2(u32 stage)
 {
+    u32 stageNum = 2;
     if (param_.engine == COMM_ENGINE_CCU) {
-        tempAlgResArr_.at(stage * 2).ccuKernels.clear();
-        tempAlgResArr_.at(stage * 2 + 1).ccuKernels.clear();
+        tempAlgResArr_.at(stage * stageNum).ccuKernels.clear();
+        tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.clear();
         if (stage == 0) {
-            tempAlgResArr_.at(stage * 2).ccuKernels.insert(tempAlgResArr_.at(stage * 2).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0]);
-            tempAlgResArr_.at(stage * 2 + 1).ccuKernels.insert(tempAlgResArr_.at(stage * 2 + 1).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1]);
         } else {
-            tempAlgResArr_.at(stage * 2).ccuKernels.insert(tempAlgResArr_.at(stage * 2).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2]);
-            tempAlgResArr_.at(stage * 2 + 1).ccuKernels.insert(tempAlgResArr_.at(stage * 2 + 1).ccuKernels.end(),
+            tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.insert(
+                                               tempAlgResArr_.at(stage * stageNum + 1).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2] + resCtx_.ccuKernelNum[3]);
         }
@@ -488,12 +493,13 @@ HcclResult
         dataOffsetPerLoop_.at(0) = loopIndex * maxCountPerLoop * dataTypeSize_;
         dataOffsetPerLoop_.at(1) = dataOffsetPerLoop_.at(0) + dataCountPerLoop_.at(0) * dataTypeSize_;
 
-        for (u32 stageIdx = 0; stageIdx < 2; stageIdx++) {
+        u32 stageNum = 2;
+        for (u32 stageIdx = 0; stageIdx < stageNum; stageIdx++) {
             // 计算算法模板所需资源
             CHK_RET(PrepareResForStage(stageIdx));
             CHK_RET(PrepareResForStage2(stageIdx));
             // 每个阶段分2步执行任务编排
-            for (u32 stepIdx = 0; stepIdx < 2; stepIdx++) {
+            for (u32 stepIdx = 0; stepIdx < stageNum; stepIdx++) {
                 CHK_RET(OrchestrateStep(stageIdx, stepIdx));
 #ifndef AICPU_COMPILE
                 if (loopTimes == 1 && param_.engine == CommEngine::COMM_ENGINE_CCU) {

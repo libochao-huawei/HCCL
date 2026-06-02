@@ -30,7 +30,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2AllReduceSequenceExecutorAicpu : public InsCollAlgBase {
 public:
     explicit InsV2AllReduceSequenceExecutorAicpu();
-    ~InsV2AllReduceSequenceExecutorAicpu() = default;
+    ~InsV2AllReduceSequenceExecutorAicpu() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable& resCtx) override;
 

@@ -181,6 +181,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     } else {
         die0Size = templateDataParams.sliceSize;
     }
+
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
@@ -352,7 +353,8 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRSt
 
 u64 CcuTempAllGatherNHR1DMem2Mem::GetThreadNum() const
 {
-    return 2;
+    u32 threadNum = 2;
+    return threadNum;
 }
 
 HcclResult CcuTempAllGatherNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const

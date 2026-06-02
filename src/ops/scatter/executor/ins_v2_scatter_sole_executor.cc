@@ -168,7 +168,7 @@ HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
 #ifndef AICPU_COMPILE
     template <typename AlgTopoMatch, typename InsAlgTemplate>
     HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-            const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
+            const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread) const
     {
         HCCL_INFO("[InsV2ScatterSoleExecutor] loopTimes==1, save fast launch ctx.");
         u32 threadNum = templateAlgRes.submitInfos.size();;
