@@ -9,6 +9,7 @@
  */
 
 #include "ins_v2_all_gather_parallel_opt_executor.h"
+#include <algorithm>
 #include <cmath>
 #include "alg_data_trans_wrapper.h"
 #include "ins_temp_all_gather_mesh_1D_opt.h"
@@ -17,6 +18,77 @@
 #include "topo_match_ubx_v3.h"
 
 namespace ops_hccl {
+namespace {
+bool ContainsRank(const std::vector<u32> &ranks, u32 rank)
+{
+    return std::find(ranks.begin(), ranks.end(), rank) != ranks.end();
+}
+
+HcclResult SelectUbxMeshClosHierarchy(u32 myRank, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
+                                      std::vector<std::vector<u32>> &intraHierarchyInfo,
+                                      std::vector<std::vector<u32>> &interHierarchyInfo)
+{
+    CHK_PRT_RET(algHierarchyInfo.infos.empty() || algHierarchyInfo.infos[0].empty(),
+                HCCL_ERROR("[InsV2AllGatherParallelOptExecutor] Rank[%u] invalid UBX hierarchy.", myRank),
+                HcclResult::HCCL_E_INTERNAL);
+
+    const std::vector<u32> *meshRanks = nullptr;
+    const std::vector<u32> *closRanks = nullptr;
+    u32 meshSize = 0;
+    for (u32 idx = 0; idx < algHierarchyInfo.infos[0].size(); ++idx) {
+        const auto &ranks = algHierarchyInfo.infos[0][idx];
+        bool containsMyRank = ContainsRank(ranks, myRank);
+        HCCL_WARNING("[InsV2AllGatherParallelOptExecutor][UBXHierarchy] Rank[%u] group[%u] size[%zu] contains[%d]",
+                     myRank, idx, ranks.size(), containsMyRank);
+        if (meshSize == 0 || ranks.size() < meshSize) {
+            meshSize = ranks.size();
+        }
+        if (!containsMyRank) {
+            continue;
+        }
+        if (meshRanks == nullptr || ranks.size() < meshRanks->size()) {
+            meshRanks = &ranks;
+        }
+        if (closRanks == nullptr || ranks.size() > closRanks->size()) {
+            closRanks = &ranks;
+        }
+    }
+
+    CHK_PRT_RET(closRanks == nullptr || closRanks->empty() || meshSize == 0 || meshSize > closRanks->size(),
+                HCCL_ERROR("[InsV2AllGatherParallelOptExecutor] Rank[%u] cannot find local mesh and global clos "
+                           "hierarchy. meshSize[%zu] closSize[%zu]",
+                           myRank, static_cast<size_t>(meshSize),
+                           closRanks == nullptr ? 0 : closRanks->size()),
+                HcclResult::HCCL_E_INTERNAL);
+
+    std::vector<u32> selectedMeshRanks;
+    if (meshRanks != nullptr && meshRanks->size() < closRanks->size()) {
+        selectedMeshRanks = *meshRanks;
+    } else {
+        u32 meshBaseRank = myRank / meshSize * meshSize;
+        for (auto rank : *closRanks) {
+            if (rank >= meshBaseRank && rank < meshBaseRank + meshSize) {
+                selectedMeshRanks.push_back(rank);
+            }
+        }
+        HCCL_WARNING("[InsV2AllGatherParallelOptExecutor][UBXHierarchy] Rank[%u] rebuild mesh by contiguous ranks. "
+                     "meshBase[%u] meshSize[%u] selectedSize[%zu]",
+                     myRank, meshBaseRank, meshSize, selectedMeshRanks.size());
+    }
+
+    CHK_PRT_RET(selectedMeshRanks.size() != meshSize || !ContainsRank(selectedMeshRanks, myRank),
+                HCCL_ERROR("[InsV2AllGatherParallelOptExecutor] Rank[%u] invalid selected mesh. "
+                           "selectedSize[%zu] meshSize[%u]",
+                           myRank, selectedMeshRanks.size(), meshSize),
+                HcclResult::HCCL_E_INTERNAL);
+
+    intraHierarchyInfo = {selectedMeshRanks};
+    interHierarchyInfo = {*closRanks};
+    HCCL_WARNING("[InsV2AllGatherParallelOptExecutor][UBXHierarchy] Rank[%u] selected meshSize[%zu] closSize[%zu]",
+                 myRank, selectedMeshRanks.size(), closRanks->size());
+    return HCCL_SUCCESS;
+}
+}
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AllGatherParallelOptExecutor()
@@ -42,13 +114,8 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     std::vector<std::vector<u32>> intraHierarchyInfo;
     std::vector<std::vector<u32>> interHierarchyInfo;
     if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        intraHierarchyInfo = {algHierarchyInfo.infos[0][0]};
-        std::vector<u32> closRanks;
-        u32 meshSize = algHierarchyInfo.infos[0][0].size();
-        for(auto rank : algHierarchyInfo.infos[0][1]) {
-            closRanks.push_back(rank);
-        }
-        interHierarchyInfo = {closRanks};
+        CHK_RET(SelectUbxMeshClosHierarchy(topoInfo->userRank, algHierarchyInfo, intraHierarchyInfo,
+                                           interHierarchyInfo));
     } else {
         constexpr u32 TOPO_NUM = 2;
         CHK_PRT_RET(algHierarchyInfo.infos.size() < TOPO_NUM || algHierarchyInfo.infos[0].empty() || algHierarchyInfo.infos[1].empty(),
@@ -149,13 +216,8 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     dataSize_ = dataCount_ * dataTypeSize_;
 
     if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
-        std::vector<u32> closRanks;
-        u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
-        for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) { 
-            closRanks.push_back(rank);   
-        }
-        interHierarchyInfo_ = {closRanks};
+        CHK_RET(SelectUbxMeshClosHierarchy(myRank_, resCtx.algHierarchyInfo, intraHierarchyInfo_,
+                                           interHierarchyInfo_));
     } else {
         intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
         interHierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
@@ -249,6 +311,16 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     u64 dataSizeAxis0 = dataCountAxis0 * dataTypeSize_;
     u64 dataSizeAxis1 = dataCountAxis1 * dataTypeSize_;
     u64 dataSizeAxis2 = dataCountAxis2 * dataTypeSize_;
+    HCCL_WARNING("[InsV2AllGatherParallelOptExecutor][Split] dataCount[%llu] dataTypeSize[%u] "
+                 "sliceAlignCount[%llu] countAxis[%llu,%llu,%llu] sizeAxis[%llu,%llu,%llu]",
+                 dataCount_, dataTypeSize_, sliceAlignCount, dataCountAxis0, dataCountAxis1, dataCountAxis2,
+                 dataSizeAxis0, dataSizeAxis1, dataSizeAxis2);
+    CHK_PRT_RET(dataSizeAxis0 % HCCL_MIN_SLICE_ALIGN != 0 || dataSizeAxis1 % HCCL_MIN_SLICE_ALIGN != 0 ||
+                    dataSizeAxis2 % HCCL_MIN_SLICE_ALIGN != 0,
+                HCCL_ERROR("[InsV2AllGatherParallelOptExecutor][Split] split size is not aligned. "
+                           "sizeAxis[%llu,%llu,%llu] align[%llu]",
+                           dataSizeAxis0, dataSizeAxis1, dataSizeAxis2, HCCL_MIN_SLICE_ALIGN),
+                HcclResult::HCCL_E_INTERNAL);
 
     u64 rankSize = rankSizeLevel1_;
 

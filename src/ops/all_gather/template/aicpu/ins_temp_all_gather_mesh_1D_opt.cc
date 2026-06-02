@@ -87,6 +87,9 @@ HcclResult InsTempAllGatherMesh1DOpt::KernelRun(const OpParam &param, const Temp
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff + myRank_ * tempAlgParams_.outputSliceStride;
             DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, sliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
+            HCCL_WARNING("[InsTempAllGatherMesh1DOpt][LOCAL_WRITE] Rank[%u] inputOff[%llu] scratchOff[%llu] "
+                         "size[%llu] stride[%llu]",
+                         myRank_, inputOffset, scratchOffset, sliceSize, tempAlgParams_.outputSliceStride);
             CHK_RET(LocalCopy(templateResource.threads[0], srcSlice, dstSlice));
             break;
         } else {
@@ -99,6 +102,10 @@ HcclResult InsTempAllGatherMesh1DOpt::KernelRun(const OpParam &param, const Temp
 
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, sliceSize, sliceCount);
+            HCCL_WARNING("[InsTempAllGatherMesh1DOpt][LOCAL_READ] Rank[%u] rpt[%u] localMeshRank[%u] "
+                         "scratchOff[%llu] outputOff[%llu] size[%llu] stride[%llu]",
+                         myRank_, rpt, localMeshRank, scratchOffset, outputOffset, sliceSize,
+                         tempAlgParams_.outputSliceStride);
             CHK_RET(LocalCopy(templateResource.threads[0], srcSlice, dstSlice));
         }
     }
