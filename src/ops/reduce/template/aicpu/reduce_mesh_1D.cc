@@ -167,7 +167,7 @@ HcclResult ReduceMesh1D::GatherData(const TemplateDataParams &dataParams,
     const BuffInfo &buffInfo = dataParams.buffInfo;
 
     // 主流将数据从inBuff拷贝到outBuff
-    if (buffInfo.inBuffType != buffInfo.outBuffType) {
+    if (buffInfo.inBuffType != buffInfo.outBuffType && buffInfo.outputPtr != buffInfo.inputPtr) {
         const DataSlice dstSlice(buffInfo.outputPtr, buffInfo.outBuffBaseOff, processSize_);
         const DataSlice srcSlice(buffInfo.inputPtr, buffInfo.inBuffBaseOff, processSize_);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads.at(0), srcSlice, dstSlice)));
