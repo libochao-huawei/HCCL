@@ -23,11 +23,13 @@ TopoMatch1D::~TopoMatch1D()
 HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfoExector)
 {
 #ifndef AICPU_COMPILE
+
+    HCCL_ERROR("[CalcTopoLevelNums] topoLevelNum[%u] is invalid.", topoInfo->topoLevelNums);
     // 不支持2层以上的拓扑
-    CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > 2,
-        HCCL_ERROR("[CalcTopoLevelNums] topoLevelNum[%u] is invalid.",
-            topoInfo->topoLevelNums),
-        HCCL_E_INTERNAL);
+    // CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > 3,
+    //     HCCL_ERROR("[CalcTopoLevelNums] topoLevelNum[%u] is invalid.",
+    //         topoInfo->topoLevelNums),
+    //     HCCL_E_INTERNAL);
 
     #ifdef MACRO_DEV_TYPE_NEW
     if (topoInfo->deviceType != DevType::DEV_TYPE_950) {
