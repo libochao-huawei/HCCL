@@ -794,8 +794,12 @@ HcclResult CalcChannelRequestNHRWithPriorityTopo(HcclComm comm, const OpParam& p
     for (u32 rank : connectRanks) {
         if (rank != localRank) {
             CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo));
+            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo));
+            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo));
+            HCCL_INFO("zjytest Add channel 3");
         }
     }
+    HCCL_INFO("zjytest all channelsize is %zu", channels.size());
     HCCL_INFO("[%s] success.", __func__);
 #endif
     return HCCL_SUCCESS;
