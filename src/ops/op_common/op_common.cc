@@ -895,10 +895,17 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
             g_inconsistentCheckedList.insert(tagStr);
             isChecked = false;
         }
+    } else {
+        isChecked = true; // 符号不存在，不校验
     }
 
-    CHK_RET(GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size,
-        increCreateChannelFlag, resPack));
+    auto ret = GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
+        size, increCreateChannelFlag, resPack);
+    if (ret == HCCL_E_UNAVAIL) {
+        return HCCL_E_UNAVAIL;
+    }
+    CHK_RET(ret);
+
     if (resCtxHost != nullptr) {
         // 拼接各level的channel数量信息
         std::string channelNumInfo;
@@ -911,19 +918,9 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
             resCtxHost->threads.size(), channelNumInfo.c_str(), resCtxHost->ccuKernels.size());
     }
 
-    if (HcommIsSupportHcclCommGetExchangeInfo()) {
-        // 参数一致性校验
-        if (!isChecked) {
-            if (param.engine != COMM_ENGINE_CCU) {
-                for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                    CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
-                }
-            } else {
-                for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                    CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
-                }
-            }
-        }
+    // 参数一致性校验
+    if (!isChecked) {
+        CHK_RET(CompareOpExchangeInfos(comm, param.engine, resRequest, exchangeInfo));
     }
 
     return HCCL_SUCCESS;
