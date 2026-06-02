@@ -67,6 +67,7 @@ HcclResult CcuTempAlltoAllVMesh2Die::CalcRes(HcclComm comm, const OpParam &param
         resourceRequest.ccuKernelInfos.emplace_back(kernelInfo);
         HCCL_DEBUG("[CcuTempAlltoAllVMesh2Die][CalcRes] dieId=%u, channels=%llu, withMyRank=%u, ccuKernelInfos=%llu",
             dieId, channels_[dieId].size(), withMyRank, resourceRequest.ccuKernelInfos.size());
+        std::cout<<"c00913534 CalcRes rankGroup_.size"<< rankGroup_[dieId].size() << "this=" << this <<std::endl;
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -134,7 +135,7 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
         param.all2AllVDataDes.sendType, param.all2AllVDataDes.recvType);
 
     uint64_t token;
-    CHK_RET(GetToken(buffInfo, token));
+    CHK_RET(GetToken(buffInfo_, token));
 
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -155,7 +156,7 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
         for (auto val : xnMaxTransportGoSize) {
             taskArgs.push_back(val);
         }
-
+        std::cout<<"c00913534: rankGroup_[dieId].size"<<rankGroup_[dieId].size()<< "this=" << this<<std::endl;
         for (auto peerId : rankGroup_[dieId]) {
             const uint64_t sendSize = localSendRecvInfo_.sendLength[peerId];
             const uint64_t floorLoopNum = sendSize / UB_MAX_TRANS_SIZE;
@@ -174,6 +175,7 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
         }
 
         uint64_t argSize = taskArgs.size();
+        std::cout<<"c00913534: argSize"<<argSize<<std::endl;
         CcuResult launchRet = HcommCcuKernelLaunch(
             templateResource.threads[dieId], templateResource.ccuKernels[dieId],
             taskArgs.data(), argSize);
