@@ -12,6 +12,7 @@
 #define HCCL_CCU_RES_DL_H
 
 #include "dlsym_common.h"
+#include "hccl_types.h"
 #if CANN_VERSION_NUM >= 90100000
 #include "ccu_types.h"
 #else
