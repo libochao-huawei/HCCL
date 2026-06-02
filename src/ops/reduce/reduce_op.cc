@@ -27,7 +27,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
     HCCL_INFO("Start to run execute HcclReduce");
-    if (GetHcommVersion() < 90000000) { // compat handle
+    if (GetHcommVersion() < CANN_VERSION(9, 0, 0)) { // compat handle
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
 

@@ -254,10 +254,12 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     return HCCL_SUCCESS;
 }
 
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                InsAllGatherSequenceNHRMesh1D,
                                InsV2AllGatherSequenceExecutorAicpu,
                                TopoMatchMultilevel,
                                InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 }

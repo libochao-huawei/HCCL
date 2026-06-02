@@ -25,7 +25,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclReduceScatterV");
-    if (GetHcommVersion() < 90000000) { // compat handle
+    if (GetHcommVersion() < CANN_VERSION(9, 0, 0)) { // compat handle
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
 
