@@ -111,7 +111,7 @@ bash build.sh --vendor=cust --ops=allgather_aicpu --custom_ops_path=./examples/0
 > 其中：
 > 
 > - `<arch>` 是当前编译环境的系统架构
-> - `<ascend_cann_path>` 是可选参数，表示 CANN 软件包安装目录。默认为 `ASCEND_CUSTOM_OPP_PATH` 或 `ASCEND_OPP_PATH` 环境变量所在的CANN-Toolkit包路径
+> - `<ascend_cann_path>` 是可选参数，表示 CANN 软件包安装目录。默认为 `ASCEND_CUSTOM_OPP_PATH` 或 `ASCEND_OPP_PATH` 环境变量所在的CANN软件包路径
 
 自定义算子包安装信息如下：
 
@@ -135,8 +135,11 @@ bash build.sh --vendor=cust --ops=allgather_aicpu --custom_ops_path=./examples/0
 
     ```shell
     npu-smi set -t custom-op-secverify-enable -i 0 -d 1    # 开启验签配置
-    npu-smi set -t custom-op-secverify-mode -i 0 -d 0      # 关闭客户自定义验签
+    npu-smi set -t custom-op-secverify-mode -i 0 -d 0      # 关闭用户自定义验签
     ```
+
+    > 说明：
+    > 关闭驱动安全验签机制存在一定的安全风险，需要用户自行确保自定义通信算子的安全可靠，防止恶意攻击行为。
 
 ### 2. 修改 AICPU 白名单
 
@@ -160,7 +163,7 @@ load_as_per_soc:false
 各字段含义如下：
 
 - `name`: tar 包文件名
-- `install_path`: 安装到 Device 侧的路径
+- `install_path`: 安装到 Device 侧的路径枚举值
 - `optional`: 默认为 true
 - `package_path`: tar 包在Host侧CANN Toolkit包下的相对路径
 - `load_as_per_soc`: 是否每种芯片类型都加载
