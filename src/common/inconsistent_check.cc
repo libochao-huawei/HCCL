@@ -66,8 +66,8 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
                 std::to_string(rmtExchangeInfo.count)));
         }
         if (exchangeInfo.aivCoreLimit != rmtExchangeInfo.aivCoreLimit) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "AivCoreLimit", exchangeInfo.aivCoreLimit,
-                rmtExchangeInfo.aivCoreLimit));
+            HCCL_RUN_WARNING("[CompareOpExchangeInfos]op information aivCoreLimit check fail."
+                " expectValue[%u] remotePara[%u]", exchangeInfo.aivCoreLimit, rmtExchangeInfo.aivCoreLimit);
         }
         if (strncmp(exchangeInfo.group, rmtExchangeInfo.group, MAX_LENGTH) != 0) {
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "GroupName", exchangeInfo.group,
@@ -92,11 +92,11 @@ HcclResult InconsistentCheckOpType(const OpExchangeInfo &exchangeInfo, const Hcc
             static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE) - static_cast<uint32_t>(locOpType);
         if ((rmtOpType != HcclCMDType::HCCL_CMD_SEND && rmtOpType != HcclCMDType::HCCL_CMD_RECEIVE) ||
             locOpType == rmtOpType) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType", expectValue,
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "OpType", expectValue,
                 static_cast<uint32_t>(rmtOpType)));
         }
     } else if (locOpType != rmtOpType) {
-        CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
+        CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "OpType",
             static_cast<uint32_t>(locOpType), static_cast<uint32_t>(rmtOpType)));
     }
     return HCCL_SUCCESS;

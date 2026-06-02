@@ -59,7 +59,6 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
             token_.push_back(tokenVar);
             channelIdx++;
         }
-
     }
     currentRankSliceInputOffset_  = CreateVariable();
     currentRankSliceOutputOffset_ = CreateVariable();

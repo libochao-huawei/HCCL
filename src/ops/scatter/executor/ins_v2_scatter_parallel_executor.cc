@@ -188,7 +188,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         temp1HierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
     }
 
-    HCCL_INFO("[CalcLocalRankSize] rankSizeLevel0_: resCtx.algHierarchyInfo.infos[0][0].size()[%d] "
+    HCCL_INFO("[InsV2ScatterParallelExecutor] rankSizeLevel0_: resCtx.algHierarchyInfo.infos[0][0].size()[%d] "
               "resCtx.algHierarchyInfo.infos[0][1].size()[%u]",
         resCtx.algHierarchyInfo.infos[0][0].size(),
         resCtx.algHierarchyInfo.infos[0][1].size());
@@ -197,7 +197,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
     rankIdxLevel1_ = myRank_ / rankSizeLevel0_;
 
-    HCCL_INFO("[CalcLocalRankSize] localRankSize: myRank[%d] rankSizeLevel0_[%u] rankSizeLevel1_[%u]",
+    HCCL_INFO("[InsV2ScatterParallelExecutor] localRankSize: myRank[%d] rankSizeLevel0_[%u] rankSizeLevel1_[%u]",
         myRank_,
         rankSizeLevel0_,
         rankSizeLevel1_);
@@ -420,7 +420,6 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     std::vector<u32> ccuKernelNumList = {ccuKernelLaunchNumIntra0_, ccuKernelLaunchNumInter1_, ccuKernelLaunchNumInter0_, ccuKernelLaunchNumIntra1_};
     std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos, templateAlgResInter.submitInfos};
     return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
-    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>

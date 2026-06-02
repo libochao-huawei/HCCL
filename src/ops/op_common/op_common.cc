@@ -202,7 +202,6 @@ HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr,
         remain -= len;
         return true;
     };
-
     if (!append_str(param.tag) || !append_str("_") || !append_str(dataTypeStr)) {
         goto fail;
     }
@@ -435,7 +434,7 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, 
     std::string &algName, const ResPackGraphMode &resPack)
 {   
-    void * fallbackCtx = nullptr;
+    void* fallbackCtx = nullptr;
     uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
     CHK_RET(HcclEngineCtxCreate(comm, param.fallbackTag, CommEngine::COMM_ENGINE_CCU, fallbackCtxSize, &fallbackCtx));
     char* newAlgName = static_cast<char*>(fallbackCtx);
@@ -452,6 +451,7 @@ HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
 HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
+    (void) comm;
     HCCL_INFO("Start to execute ReSelector.");
     // 回退AICPU
     param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
@@ -497,7 +497,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp. HcommGetProfilingSysCycleTime[%llu]", beginTime);
     // 当前通信域的某个算法回退过，则下次直接回退
-    void * fallbackCtx = nullptr;
+    void* fallbackCtx = nullptr;
     uint64_t fallbackCtxSize = 0;
     CHK_RET(SetOpParamFallbackTag(param, algName));
     if (HcclEngineCtxGet(comm, param.fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
@@ -737,6 +737,7 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
 HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost)
 {
+    (void) topoInfo;
     HCCL_INFO("[%s] algTag[%s] commModeTag[%s] resCtx(Host)[%p] aivCommInfoPtr(Device)[%p]", __func__,
         param.algTag, param.commModeTag, param.resCtx, resCtxHost.aivCommInfoPtr);
     u32 numBlocksLimit = MAX_NUM_BLOCKS;
@@ -889,13 +890,15 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     std::string tagStr = param.algTag;
     bool isChecked = GetInconsistentCheckSwitch() == 0 &&
         (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
-    if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
-        isChecked = true; // isChecked 为 false 时做参数比较
-    } else {
-        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
-        CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
-        g_inconsistentCheckedList.insert(tagStr);
-        isChecked = false;
+    if (HcommIsSupportHcclCommAddExchangeInfo()) {
+        if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
+            isChecked = true; // isChecked 为 false 时做参数比较
+        } else {
+            CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
+            CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
+            g_inconsistentCheckedList.insert(tagStr);
+            isChecked = false;
+        }
     }
 
     CHK_RET(GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size,
@@ -912,15 +915,17 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
             resCtxHost->threads.size(), channelNumInfo.c_str(), resCtxHost->ccuKernels.size());
     }
 
-    // 参数一致性校验
-    if (!isChecked) {
-        if (param.engine != COMM_ENGINE_CCU) {
-            for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
-            }
-        } else {
-            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
+    if (HcommIsSupportHcclCommGetExchangeInfo()) {
+        // 参数一致性校验
+        if (!isChecked) {
+            if (param.engine != COMM_ENGINE_CCU) {
+                for (u32 level = 0; level < resRequest.channels.size(); level++) {
+                    CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
+                }
+            } else {
+                for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
+                    CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
+                }
             }
         }
     }
@@ -1055,8 +1060,10 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
             if (ret == HCCL_SUCCESS) {
                 *resCtxSequence = ctx;
                 ctxSize = size;
-                // 算子参数信息已注册，但BatchSendRecv在此处判断资源可复用，不会进行数据交换即不会被读清，需要手动reset
-                CHK_RET(HcclCommResetExchangeInfo(comm));
+                if (HcommIsSupportHcclCommResetExchangeInfo()) {
+                    // 算子参数信息已注册，但BatchSendRecv在此处判断资源可复用，不会进行数据交换即不会被读清，需要手动reset
+                    CHK_RET(HcclCommResetExchangeInfo(comm));
+                }
             } else {
                 HCCL_ERROR("failed to get device ctx.");
             }
@@ -1696,7 +1703,7 @@ std::string GetSupportDataType(bool needReduce)
     std::vector<HcclDataType> supportList = {HCCL_DATA_TYPE_INT8, HCCL_DATA_TYPE_INT16, HCCL_DATA_TYPE_INT32,
                                              HCCL_DATA_TYPE_INT64, HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP32};
     if (needReduce) {
-        supportList.insert(supportList.end(), {HCCL_DATA_TYPE_BFP16, HCCL_DATA_TYPE_INT64, HCCL_DATA_TYPE_UINT64,
+        supportList.insert(supportList.end(), {HCCL_DATA_TYPE_BFP16, HCCL_DATA_TYPE_UINT64,
                                                HCCL_DATA_TYPE_FP64});
     } else {
         supportList.insert(supportList.end(), {HCCL_DATA_TYPE_UINT8, HCCL_DATA_TYPE_UINT16,

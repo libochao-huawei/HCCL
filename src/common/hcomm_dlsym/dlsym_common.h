@@ -15,8 +15,6 @@
 #include <unistd.h>
 #include "dlog_pub.h"
 
-#include "hccl/hccl_types.h"
-
 /* 8.5.0 桩: HcclCommStatus (来自 hccl_types.h，9.0.0 新增) */
 #if CANN_VERSION_NUM < 90000000
 typedef enum {
