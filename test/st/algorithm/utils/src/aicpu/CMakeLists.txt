@@ -182,6 +182,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_1d.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_base.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_multilevel.cc
+    ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_alltoall_pod_direct.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx_v2.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx_v3.cc

@@ -375,6 +375,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         target_sources(scatter_aicpu_kernel PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/wrapper/dpu_alg_data_trans_wrapper.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_multilevel.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_alltoall_pod_direct.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx_v3.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx_v2.cc

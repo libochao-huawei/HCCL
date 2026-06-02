@@ -19,10 +19,19 @@ namespace {
 bool IsAlltoAllClosMesh2DEnabled()
 {
     const char *env = std::getenv("ENABLE_HCCL_ALLTOALL_CLOS_MESH_2D");
-    bool enabled = (env != nullptr && std::strcmp(env, "1") == 0);
-    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector] ENABLE_HCCL_ALLTOALL_CLOS_MESH_2D env=%s enabled=%d",
-              env == nullptr ? "(unset)" : env, enabled);
+    const char *topoMode = std::getenv("HCCL_A2A_OPT_TOPO");
+    bool enabled = (env != nullptr && std::strcmp(env, "1") == 0) || topoMode != nullptr;
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector] ENABLE_HCCL_ALLTOALL_CLOS_MESH_2D env=%s "
+                 "HCCL_A2A_OPT_TOPO=%s enabled=%d",
+                 env == nullptr ? "(unset)" : env,
+                 topoMode == nullptr ? "(unset)" : topoMode,
+                 enabled);
     return enabled;
+}
+
+const char *GetAlltoAllOptTopoMode()
+{
+    return std::getenv("HCCL_A2A_OPT_TOPO");
 }
 
 }  // namespace
@@ -185,7 +194,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
     const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
     std::string &selectAlgName) const
 {
-    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] Entry. level0Topo=%d level0PcieMix=%d "
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] Entry. level0Topo=%d level0PcieMix=%d "
               "topoLevelNums=%u userRankSize=%u sendCount=%llu",
               static_cast<int>(topoInfo->level0Topo),
               static_cast<int>(topoInfo->level0PcieMix),
@@ -194,16 +203,25 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
     if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS ||
         topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         const char *env = std::getenv("HCCL_ENABLE_A2A_ASYMMETRIC_OPT");
-        if (env != nullptr && std::strcmp(env, "1") == 0) {
-            selectAlgName = "InsAlltoAllParallelMesh2DClosV3";
-            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] A2A asymmetric opt enabled, selecting V3: %s",
+        const char *topoMode = GetAlltoAllOptTopoMode();
+        if ((env != nullptr && std::strcmp(env, "1") == 0) || topoMode != nullptr) {
+            if (topoMode != nullptr && std::strcmp(topoMode, "pod_ubx_v2") == 0) {
+                selectAlgName = "InsAlltoAllParallelMesh2DClosV3PodUbxV2";
+            } else if (topoMode != nullptr && std::strcmp(topoMode, "pod_direct") == 0) {
+                selectAlgName = "InsAlltoAllParallelMesh2DClosV3PodDirect";
+            } else {
+                selectAlgName = "InsAlltoAllParallelMesh2DClosV3";
+            }
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] A2A asymmetric opt enabled, selecting V3: %s",
                       selectAlgName.c_str());
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] HCCL_A2A_OPT_TOPO=%s",
+                         topoMode == nullptr ? "(unset)" : topoMode);
             return SelectorStatus::MATCH;
         }
         selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
-        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] Selecting V2: %s", selectAlgName.c_str());
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] Selecting V2: %s", selectAlgName.c_str());
     } else {
-        HCCL_ERROR("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] topo not match. "
+        HCCL_ERROR("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] topo not match. "
                    "level0Topo=%d (expected MESH_1D=%d, CLOS=%d, or MESH_1D_CLOS=%d)",
                    static_cast<int>(topoInfo->level0Topo),
                    static_cast<int>(Level0Shape::MESH_1D),
@@ -211,7 +229,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
                    static_cast<int>(Level0Shape::MESH_1D_CLOS));
         return SelectorStatus::NOT_MATCH;
     }
-    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][ClosMesh2D] Algo match=%s topoLevelNums=%u",
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] Algo match=%s topoLevelNums=%u",
               selectAlgName.c_str(), topoInfo->topoLevelNums);
     return SelectorStatus::MATCH;
 }

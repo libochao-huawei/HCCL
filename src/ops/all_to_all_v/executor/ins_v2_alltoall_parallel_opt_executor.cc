@@ -9,6 +9,7 @@
  */
 
 #include "ins_v2_alltoall_parallel_opt_executor.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -18,6 +19,7 @@
 #include "ins_temp_alltoall_mesh_clos_v3.h"
 
 #include "topo_match_ubx_v2.h"
+#include "topo_match_alltoall_pod_direct.h"
 
 namespace ops_hccl {
 
@@ -97,7 +99,15 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
                                algHierarchyInfo.infos.size() > 0 ? algHierarchyInfo.infos[0].empty() : 1,
                                algHierarchyInfo.infos.size() > 1 ? algHierarchyInfo.infos[1].empty() : 1),
                     HcclResult::HCCL_E_INTERNAL);
-        intraHierarchyInfo = algHierarchyInfo.infos[0];
+        for (const auto &level0Ranks : algHierarchyInfo.infos[0]) {
+            if (std::find(level0Ranks.begin(), level0Ranks.end(), topoInfo->userRank) != level0Ranks.end()) {
+                intraHierarchyInfo = {level0Ranks};
+                break;
+            }
+        }
+        if (intraHierarchyInfo.empty()) {
+            intraHierarchyInfo = algHierarchyInfo.infos[0];
+        }
         interHierarchyInfo = algHierarchyInfo.infos[1];
         HCCL_WARNING("[ALLTOALL_V3_DEBUG][CalcRes] Direct: infos[0].size=%zu infos[1].size=%zu",
                   algHierarchyInfo.infos[0].size(), algHierarchyInfo.infos[1].size());
@@ -348,7 +358,15 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] Direct: level0Topo=%d level0PcieMix=%d",
                   static_cast<int>(resCtx.topoInfo.level0Topo),
                   static_cast<int>(resCtx.topoInfo.level0PcieMix));
-        intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
+        for (const auto &level0Ranks : resCtx.algHierarchyInfo.infos[0]) {
+            if (std::find(level0Ranks.begin(), level0Ranks.end(), resCtx.topoInfo.userRank) != level0Ranks.end()) {
+                intraHierarchyInfo_ = {level0Ranks};
+                break;
+            }
+        }
+        if (intraHierarchyInfo_.empty()) {
+            intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
+        }
         if (resCtx.algHierarchyInfo.infos.size() < 2) {
             HCCL_ERROR("[Orchestrate] FATAL: Direct path but infos.size=%zu < 2",
                 resCtx.algHierarchyInfo.infos.size());
@@ -358,6 +376,10 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     }
     rankSizeLevel0_ = GetRankSize(intraHierarchyInfo_);
     rankSizeLevel1_ = GetRankSize(interHierarchyInfo_);
+    HCCL_WARNING("[ALLTOALL_V3_DEBUG][Orchestrate] normalized rankSizeLevel0=%llu rankSizeLevel1=%llu "
+                 "expectedGlobalByFormula=%llu userRankSize=%u",
+                 rankSizeLevel0_, rankSizeLevel1_, rankSizeLevel0_ + rankSizeLevel1_ - 1,
+                 resCtx.topoInfo.userRankSize);
 
     if (rankSizeLevel0_ == 0) {
         HCCL_ERROR("[InsV2AlltoAllParallelOptExecutor][Orchestrate] FATAL: rankSizeLevel0_ is 0. "
@@ -522,6 +544,22 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(
     InsAlltoAllParallelMesh2DClosV3,
     InsV2AlltoAllParallelOptExecutor,
     TopoMatchUBX_V2,
+    InsTempAlltoAllMesh2DV3,
+    InsTempAlltoAllMeshClosV3);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(
+    HcclCMDType::HCCL_CMD_ALLTOALL,
+    InsAlltoAllParallelMesh2DClosV3PodUbxV2,
+    InsV2AlltoAllParallelOptExecutor,
+    TopoMatchUBX_V2,
+    InsTempAlltoAllMesh2DV3,
+    InsTempAlltoAllMeshClosV3);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(
+    HcclCMDType::HCCL_CMD_ALLTOALL,
+    InsAlltoAllParallelMesh2DClosV3PodDirect,
+    InsV2AlltoAllParallelOptExecutor,
+    TopoMatchAlltoAllPodDirect,
     InsTempAlltoAllMesh2DV3,
     InsTempAlltoAllMeshClosV3);
 
