@@ -151,7 +151,7 @@ inline std::string GetDataTypeEnumStr(u32 dataType)
 }
 
 template<typename T>
-inline std::string GetDataCArray(const T* values, const u32 valueNum) const
+inline std::string GetDataCArray(const T* values, const u32 valueNum)
 {
     std::ostringstream oss;
     for (u32 i = 0; i < valueNum; i++) {
