@@ -14,9 +14,9 @@ namespace ops_hccl {
 
 constexpr uint16_t OUTPUT_XN_ID      = 0;
 constexpr uint16_t TOKEN_XN_ID       = 1;
-constexpr uint16_t POST_SYNC_ID      = 2;
-constexpr uint16_t STEP_PRE_SYNC_ID  = 3;
-constexpr uint16_t STEP_POST_SYNC_ID = 4;
+constexpr uint16_t POST_SYNC_ID      = 3;
+constexpr uint16_t STEP_PRE_SYNC_ID  = 4;
+constexpr uint16_t STEP_POST_SYNC_ID = 5;
 
 constexpr uint16_t CKE_IDX_0         = 0;
 constexpr uint16_t RANK_NUM_PER_CKE  = 16; // 本rank给远端置位时应当写的CKE，16个对端一个CKE
