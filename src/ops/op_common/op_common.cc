@@ -927,18 +927,8 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     }
 
     // 参数一致性校验
-    if (HcommIsSupportHcclCommGetExchangeInfo()) {
-        if (!isChecked) {
-            if (param.engine != COMM_ENGINE_CCU) {
-                for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                    CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
-                }
-            } else {
-                for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                    CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
-                }
-            }
-        }
+    if (!isChecked) {
+        CHK_RET(CompareOpExchangeInfos(comm, param.engine, resRequest, exchangeInfo));
     }
 
     return HCCL_SUCCESS;
