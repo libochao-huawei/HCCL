@@ -50,7 +50,11 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     devType_ = topoInfo->deviceType;
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ =  SIZE_TABLE[dataType_];
-    dataCount_ = param.DataDes.count;
+    u64* sendCounts = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts);
+    dataCount_ = 0;
+    for (u64 i = 0; i < rankSize_; i++) {
+        dataCount_ += sendCounts[i];
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
 
     HCCL_INFO("[InsV2AllToAllVConcurrentExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], dataType_ [%u], "
