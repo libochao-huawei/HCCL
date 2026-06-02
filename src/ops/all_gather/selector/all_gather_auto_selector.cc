@@ -33,9 +33,6 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[AllGatherAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
-    } else if(IsInputOutputOverlap(opParam) == true){
-        HCCL_WARNING("[AllGatherAutoSelector] ccu_ms mode not support inplace.");
-        return SelectorStatus::NOT_MATCH;
     } else {
         return SelectMeshAlgo(topoInfo, opParam, selectAlgName);
     }
@@ -128,6 +125,9 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0AlgoMesh1D(
         HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
         return SelectorStatus::NOT_MATCH;
     } else {
+        CHK_PRT_RET(IsInputOutputOverlap(opParam) == true,
+        HCCL_WARNING("[Algo][AllGatherAutoSelector] ccu_sched does not support inplace allreduce."),
+        SelectorStatus::NOT_MATCH);
         selectAlgName = "CcuAllGatherMesh1DMem2Mem";
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
@@ -180,14 +180,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     u32 ccuSize = 64;
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
-<<<<<<< HEAD
 
-=======
-    if(IsInputOutputOverlap(opParam) == true){
-        HCCL_WARNING("[AllGatherAutoSelector] ccu_sched mode not support inplace.");
-        return SelectorStatus::NOT_MATCH;
-    }
->>>>>>> 74278ef (060101)
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
