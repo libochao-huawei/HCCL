@@ -115,8 +115,9 @@ public:
  
     __aicore__ inline void Process(uint64_t count, uint64_t sliceId, uint64_t stride)
     {
+        uint32_t rankMultiple = 2;
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
-        if (count * sizeof(T) >= DATA_LIMIT && numBlocks_ >= 2 * rankSize_) {
+        if (count * sizeof(T) >= DATA_LIMIT && numBlocks_ >= rankMultiple * rankSize_) {
             // 核数大于等于2倍ranksize
             curStageCoreNum = numBlocks_ / rankSize_ * rankSize_; // 总的核数
             coreNumStage1 = rankSize_;

@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_REDUCE_SCATTER_OMNIPIPE_MESH_1D_DPU_H
 #define INS_TEMP_REDUCE_SCATTER_OMNIPIPE_MESH_1D_DPU_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "alg_v2_template_register.h"
 #include "alg_param.h"
@@ -50,7 +49,7 @@ public:
     HcclResult PostReduce(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
 
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
-    HcclResult DPUKernelRun(const TemplateDataParams &tempAlgParams,
+    HcclResult DPUKernelRun(const TemplateDataParams &tempAlgParam,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
         const std::vector<std::vector<uint32_t>> &subCommRanks) override;
     u64 GetThreadNum() const override;

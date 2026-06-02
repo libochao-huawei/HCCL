@@ -239,7 +239,8 @@ HcclResult InsV2AllReduceTwoShotSoleExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     TemplateResource templateResourceAllGather;
     CHK_RET(GenTempResource(resCtx, algTemplateAllGather, templateResourceAllGather));
 
-    outCclBuffSize_ = tempAlgParamsReduceScatter.buffInfo.hcclBuff.size / 2;
+    u32 buffSize = 2;
+    outCclBuffSize_ = tempAlgParamsReduceScatter.buffInfo.hcclBuff.size / buffSize;
     inCclBuffSize_ = tempAlgParamsReduceScatter.buffInfo.hcclBuff.size - outCclBuffSize_;
     outCclBuffOffset_ = 0;
     inCclBuffOffset_ = outCclBuffSize_;

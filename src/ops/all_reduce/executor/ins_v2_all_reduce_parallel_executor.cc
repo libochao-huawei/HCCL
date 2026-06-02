@@ -10,10 +10,8 @@
 
 #include "ins_v2_all_reduce_parallel_executor.h"
 #include "ins_temp_all_gather_nhr.h"
-#include "ins_temp_all_gather_hd.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
-#include "ins_temp_reduce_scatter_hd.h"
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_pcie_mix.h"
@@ -120,7 +118,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         interTempRequestFinal.notifyNumPerThread = interTempRequest1.notifyNumPerThread;
     }
 
-    resourceRequest.notifyNumOnMainThread = 2;  // 用于两个template间同步
+    resourceRequest.notifyNumOnMainThread = 2;  // allreduce用于两个template间同步
     resourceRequest.slaveThreadNum = slaveThreadNumIntra + slaveThreadNumInter + 4;
     resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest1.notifyNumOnMainThread + 1);
@@ -482,18 +480,17 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::PrepareResForTemplate23(
     InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1)
 {
-
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest1;
     AlgResourceRequest intraTempRequest1;
     tempAlgIntra.GetRes(intraTempRequest);
     tempAlgInter1.GetRes(interTempRequest1);
     tempAlgIntra1.GetRes(intraTempRequest1);
+    auto intraNotifyOnMainThread = intraTempRequest1.notifyNumOnMainThread;
+    auto interNotifyOnMainThread = interTempRequest1.notifyNumOnMainThread;
     auto intraThreadsNum = intraTempRequest.slaveThreadNum + 1;
     auto intraThreadsNum1 = intraTempRequest1.slaveThreadNum + 1;
     auto intraThreadsNumFinal = std::max(intraThreadsNum, intraThreadsNum1);
-    auto intraNotifyOnMainThread = intraTempRequest1.notifyNumOnMainThread;
-    auto interNotifyOnMainThread = interTempRequest1.notifyNumOnMainThread;
 
     intraThreads_.assign(threads_.begin() + 2, threads_.begin() + intraThreadsNum1 + 2);
     interThreads_.assign(threads_.begin() + intraThreadsNumFinal + 3, threads_.end());
@@ -503,8 +500,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     templateMainThreads_.clear();
     templateMainThreads_.emplace_back(intraThreads_.at(0));
     templateMainThreads_.emplace_back(interThreads_.at(0));
-    syncNotifyOnTemplates_ = {intraNotifyOnMainThread, interNotifyOnMainThread};
     syncNotifyOnMain_ = {0, 1};
+    syncNotifyOnTemplates_ = {intraNotifyOnMainThread, interNotifyOnMainThread};
 
     return HcclResult::HCCL_SUCCESS;
 }
@@ -753,9 +750,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     u32 multipleIntra = tempAlgIntra.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
     u32 multipleInter = tempAlgInter.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
+    u32 defaultMultiple = 3;
     if (multipleIntra > 0 || multipleInter > 0) {
-        multipleIntra = 3;
-        multipleInter = 3;
+        multipleIntra = defaultMultiple;
+        multipleInter = defaultMultiple;
     }
 
     // 按照intraData0+interData1，以及intraData1+interData0两种方式分别计算，取multiple最大需求
@@ -976,8 +974,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     return HcclResult::HCCL_SUCCESS;
 }
 
-
-
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::RunTemplateInter01(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 currCountPart, const u64 scratchOffsetCount,
@@ -1058,9 +1054,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelRSAG, InsAllReduceParallelExecutor,
     TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
-REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceFourTemplateMesh1DHD,
-    InsAllReduceParallelExecutor, TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterHD,
-    InsTempAllGatherMesh1D, InsTempAllGatherHD);
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelMesh1DNHRPcie,
     InsAllReduceParallelExecutor, TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR,
     InsTempAllGatherMesh1D, InsTempAllGatherNHR);

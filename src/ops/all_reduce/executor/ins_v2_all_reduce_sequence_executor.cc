@@ -118,9 +118,9 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     myRank_ = resCtx.topoInfo.userRank;
     rankSize_ = resCtx.topoInfo.userRankSize;
 
-    dataCount_ = param.DataDes.count;
     dataTypeSize_ =  SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
+    dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     reduceOp_ = param.reduceType;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
@@ -396,30 +396,30 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 {
     u32 sliceNum = rankSize;
     tempAlgParams.allRankSliceSize.clear();
-    tempAlgParams.allRankDispls.clear();
     tempAlgParams.allRankProcessedDataCount.clear();
+    tempAlgParams.allRankDispls.clear();
     tempAlgParams.allRankSliceSize.reserve(sliceNum);
     tempAlgParams.allRankDispls.reserve(sliceNum);
     tempAlgParams.allRankProcessedDataCount.reserve(sliceNum);
 
+    u64 offsetCount = 0;
+    u64 offsetSize = 0;
     u64 sliceCount = RoundUp(dataCount, sliceNum);
     u64 sliceSize = sliceCount * dataTypeSize_;
 
-    u64 offsetCount = 0;
-    u64 offsetSize = 0;
     for (u32 sliceIdx = 0; sliceIdx < sliceNum; ++sliceIdx) {
         if (dataCount - offsetCount >= sliceCount) {
             tempAlgParams.allRankSliceSize.emplace_back(sliceSize);
-            tempAlgParams.allRankDispls.emplace_back(offsetSize);
             tempAlgParams.allRankProcessedDataCount.emplace_back(sliceCount);
+            tempAlgParams.allRankDispls.emplace_back(offsetSize);
             offsetCount += sliceCount;
             offsetSize = offsetCount * dataTypeSize_;
         } else {
             u64 curSliceCount = dataCount - offsetCount;
             u64 curSliceSize = curSliceCount * dataTypeSize_;
             tempAlgParams.allRankSliceSize.emplace_back(curSliceSize);
-            tempAlgParams.allRankDispls.emplace_back(offsetSize);
             tempAlgParams.allRankProcessedDataCount.emplace_back(curSliceCount);
+            tempAlgParams.allRankDispls.emplace_back(offsetSize);
             offsetCount = dataCount;
             offsetSize = offsetCount * dataTypeSize_;
         }

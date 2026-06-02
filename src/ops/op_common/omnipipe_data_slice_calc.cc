@@ -517,13 +517,13 @@ std::vector<u64> CalcOmniPipeScratchInfo(OmniPipeScratchParam &omniPipeScratchPa
         if (outerStepNum > finStepMark) {
             zConnerStep = outerStepNum - finStepMark;
         }
-        scratchSize = CalScratchSize((u64 *)xRSDataSize, (u64 *)yRSDataSize, zRSDataSize, levelRankSize, zConnerStep,
+        scratchSize = CalScratchSize(reinterpret_cast<u64 *>(xRSDataSize), reinterpret_cast<u64 *>(yRSDataSize), zRSDataSize, levelRankSize, zConnerStep,
                                      outerStepNum, innerStepNum, maxStepNum, levelAlgType, engine, xB, yB);
     } else {
         if (outerStepNum > finStepMark) {
             zConnerStep = 1;
         }
-        scratchSize = CalScratchSize((u64 *)xRSDataSize, (u64 *)yRSDataSize, zRSDataSize, levelRankSize, zConnerStep,
+        scratchSize = CalScratchSize(reinterpret_cast<u64 *>(xRSDataSize), reinterpret_cast<u64 *>(yRSDataSize), zRSDataSize, levelRankSize, zConnerStep,
                                      outerStepNum, innerStepNum, maxStepNum, levelAlgType, engine, xB, yB);
     }
 
@@ -554,7 +554,7 @@ std::vector<u64> CalcOmniPipeScratchInfo(OmniPipeScratchParam &omniPipeScratchPa
     if (bufferRatio < 1) {
         maxDataSizePerLoop = dataSize;
     } else {
-        maxDataSizePerLoop = dataSize / bufferRatio;
+        maxDataSizePerLoop = static_cast<u64>(dataSize / bufferRatio);
         maxDataSizePerLoop = maxDataSizePerLoop / justifyLen * justifyLen;
     }
 
@@ -584,11 +584,11 @@ std::vector<u64> CalcOmniPipeScratchInfo(OmniPipeScratchParam &omniPipeScratchPa
             }
         }
         if (zB > xyB) {
-            scratchSize = CalScratchSize((u64 *)xRSDataSize, (u64 *)yRSDataSize, zRSDataSize, levelRankSize,
+            scratchSize = CalScratchSize(reinterpret_cast<u64 *>(xRSDataSize), reinterpret_cast<u64 *>(yRSDataSize), zRSDataSize, levelRankSize,
                                          zConnerStep, outerStepNum, innerStepNum, maxStepNum, levelAlgType, engine, xB, yB);
             HCCL_INFO("[CalcOmniPipeScratchInfo] zB>xyB,scratchSize=[%llu]", scratchSize);
         } else {
-            scratchSize = CalScratchSize((u64 *)xRSDataSize, (u64 *)yRSDataSize, zRSDataSize, levelRankSize,
+            scratchSize = CalScratchSize(reinterpret_cast<u64 *>(xRSDataSize), reinterpret_cast<u64 *>(yRSDataSize), zRSDataSize, levelRankSize,
                                          zConnerStep, outerStepNum, innerStepNum, maxStepNum, levelAlgType, engine, xB, yB);
             HCCL_INFO("[CalcOmniPipeScratchInfo] zB<=xyB,scratchSize=[%llu]", scratchSize);
         }
@@ -601,7 +601,7 @@ std::vector<u64> CalcOmniPipeScratchInfo(OmniPipeScratchParam &omniPipeScratchPa
                            scratchSize[OmniPipeLevel::OMNIPIPE_LEVEL1] + scratchSize[OmniPipeLevel::OMNIPIPE_LEVEL2];
         HCCL_INFO("[CalcOmniPipeScratchInfo] allCclBufferSize=[%llu],", allCclBufferSize);
         if (allCclBufferSize > maxTmpMemSize) {
-            maxDataSizePerLoop = maxDataSizePerLoop * LOOP_SCALING_FACTOR;  // 大了就小一点
+            maxDataSizePerLoop = static_cast<u64>(maxDataSizePerLoop * LOOP_SCALING_FACTOR);  // 大了就小一点
             maxDataSizePerLoop = maxDataSizePerLoop / justifyLen * justifyLen;
         }
     }
@@ -1287,8 +1287,8 @@ OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
                         outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
                     }
                 }
-                stepSliceInfotmp.stepInputSliceStride.push_back(0);
                 stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+                stepSliceInfotmp.stepInputSliceStride.push_back(0);
                 stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
                 stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
                 stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
@@ -1305,10 +1305,10 @@ OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
             BuffInfoAssign(bitmp, 0, 0, 0);
             stepSliceInfotmp.buffInfo = bitmp;
             for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
-                std::vector<u64> sliceSizeMultRankPiece;
-                std::vector<u64> sliceCountMultRankPiece;
                 std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
                 std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
+                std::vector<u64> sliceSizeMultRankPiece;
                 for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
                     u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + oneDid * xRankSize +
                                              xAxis;  // 算算是zRankSize-1中的哪一片
@@ -1327,8 +1327,8 @@ OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
                 stepSliceInfotmp.stepOutputSliceStride.push_back(0);
                 stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
                 stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
                 stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
+                stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
             }
             dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
         }
@@ -1507,11 +1507,11 @@ OmniPipeSliceInfo CalcRSOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
             xyConnerStep = outerStepNum - finStepMark;
         }
 
-        scratchSizexyz = CalScratchSize((u64 *)xRSDataSize[maxDataPieceId], (u64 *)yRSDataSize[maxDataPieceId],
+        scratchSizexyz = CalScratchSize(reinterpret_cast<u64 *>(xRSDataSize[maxDataPieceId]), reinterpret_cast<u64 *>(yRSDataSize[maxDataPieceId]),
                                         zRSDataSize[maxDataPieceId], levelRankSize, zConnerStep, outerStepNum,
                                         innerStepNum, maxStepNum, omniPipeSliceParam.levelAlgType,
                                         omniPipeSliceParam.engine, xB, yB);
-        xyzDataSizeStep = CalRSDataSizeStep((u64 *)xRSDataSize[maxDataPieceId], (u64 *)yRSDataSize[maxDataPieceId],
+        xyzDataSizeStep = CalRSDataSizeStep(reinterpret_cast<u64 *>(xRSDataSize[maxDataPieceId]), reinterpret_cast<u64 *>(yRSDataSize[maxDataPieceId]),
                                             zRSDataSize[maxDataPieceId], levelRankSize, zConnerStep, outerStepNum,
                                             innerStepNum, maxStepNum, xB, yB);
     } else {
@@ -1548,11 +1548,11 @@ OmniPipeSliceInfo CalcRSOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
             xyConnerStep = 1;
         }
 
-        scratchSizexyz = CalScratchSize((u64 *)xRSDataSize[maxDataPieceId], (u64 *)yRSDataSize[maxDataPieceId],
+        scratchSizexyz = CalScratchSize(reinterpret_cast<u64 *>(xRSDataSize[maxDataPieceId]), reinterpret_cast<u64 *>(yRSDataSize[maxDataPieceId]),
                                         zRSDataSize[maxDataPieceId], levelRankSize, zConnerStep, outerStepNum,
                                         innerStepNum, maxStepNum, omniPipeSliceParam.levelAlgType,
                                         omniPipeSliceParam.engine, xB, yB);
-        xyzDataSizeStep = CalRSDataSizeStep((u64 *)xRSDataSize[maxDataPieceId], (u64 *)yRSDataSize[maxDataPieceId],
+        xyzDataSizeStep = CalRSDataSizeStep(reinterpret_cast<u64 *>(xRSDataSize[maxDataPieceId]), reinterpret_cast<u64 *>(yRSDataSize[maxDataPieceId]),
                                             zRSDataSize[maxDataPieceId], levelRankSize, zConnerStep, outerStepNum,
                                             innerStepNum, maxStepNum, xB, yB);
     }
@@ -1665,10 +1665,10 @@ OmniPipeSliceInfo CalcRSOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
             BuffInfoAssign(bitmp, inOutOffset, inOutOffset, xCclBufferBaseOff);
             stepSliceInfotmp.buffInfo = bitmp;
             for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
-                std::vector<u64> sliceSizeMultRankPiece;
-                std::vector<u64> sliceCountMultRankPiece;
                 std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
                 std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
                 u64 outputslicestride = 0;
                 for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
                     u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + yAxis * xRankSize +
