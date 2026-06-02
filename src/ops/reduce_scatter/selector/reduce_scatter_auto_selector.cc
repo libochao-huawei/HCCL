@@ -96,12 +96,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWith
             HCCL_WARNING("[%s] MESH_1D_CLOS not match.", __func__);
             return SelectorStatus::NOT_MATCH;
         } else {
-<<<<<<< HEAD
-            selectAlgName = "CcuReduceScatterMesh1D";
-=======
             HCCL_DEBUG("[ReduceScatterAutoSelector] level0Topo[%u] is not supported mesh yet.", topoInfo->level0Topo);
             return SelectorStatus::NOT_MATCH;       
->>>>>>> eaf7573 (06020002)
         }
     } else {
         HCCL_WARNING("[ReduceScatterAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
