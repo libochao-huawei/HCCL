@@ -31,38 +31,34 @@ namespace ops {
 
 static ge::graphStatus HcomReduceInferShapeV2(gert::InferShapeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferShape start.", __func__);
+    OP_INFER_SHAPE_START;
 
     uint32_t inputSize = context->GetComputeNodeInputNum();
     OP_LOGD(opName, "[%s] the op  inputSize %u ", __func__, inputSize);
 
-    for (uint32_t index = 0; index < inputSize; index++){
+    for (uint32_t index = 0; index < inputSize; index++) {
         const auto inputShape = context->GetInputShape(index);
         auto outputShape = context->GetOutputShape(index);
         *outputShape = *inputShape;
     }
 
-    OP_LOGI(opName, "[%s] the op inferShape end.", __func__);
+    OP_INFER_SHAPE_END;
     return GRAPH_SUCCESS;
 }
 
 static ge::graphStatus HcomReduceInferDataTypeV2(gert::InferDataTypeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferDataType start.", __func__);
+    OP_INFER_DATATYPE_START;
 
     uint32_t inputSize = context->GetComputeNodeInputNum();
 
     OP_LOGD(opName, "[%s] the op  inputSize %u ", __func__, inputSize);
-    for (uint32_t index = 0; index < inputSize; index++){
+    for (uint32_t index = 0; index < inputSize; index++) {
         ge::DataType inputType = context->GetInputDataType(index);
         context->SetOutputDataType(index, inputType);
     }
 
-    OP_LOGI(opName, "[%s] the op inferDataType end.", __func__);
+    OP_INFER_DATATYPE_END;
     return GRAPH_SUCCESS;
 }
 
