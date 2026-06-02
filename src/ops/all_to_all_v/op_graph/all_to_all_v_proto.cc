@@ -30,10 +30,6 @@ using namespace ge;
 
 namespace ops {
 
-static constexpr size_t fusionIndex = 2;
-static constexpr size_t fusionIdIndex = 3;
-static constexpr size_t rankIndex = 0;
-
 static bool HcomIsConstData(gert::InferShapeContext *context, const gert::Tensor* shape_tensor){
     if(shape_tensor == nullptr){
         OP_LOGE(context->GetNodeName(), "[%s] the op shape tensor is null.", __func__);
@@ -78,9 +74,7 @@ void HcomGetConstValue(gert::InferShapeContext *context, const gert::Tensor* con
 
 static ge::graphStatus HcomAllToAllVInferShapeV2(gert::InferShapeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferShape start.", __func__);
+    OP_INFER_SHAPE_START;
 
     auto outputShape = context->GetOutputShape(0);
     OP_CHECK(outputShape == nullptr, CUBE_INNER_ERR_REPORT(opName, "output shape is null"), return GRAPH_FAILED);
@@ -120,55 +114,31 @@ static ge::graphStatus HcomAllToAllVInferShapeV2(gert::InferShapeContext *contex
     outputShape->SetDimNum(1);
     outputShape->SetDim(0, recvShape);
 
-    OP_LOGI(opName, "[%s] the op inferShape end.", __func__);
+    OP_INFER_SHAPE_END;
     return GRAPH_SUCCESS;
 }
 
 static ge::graphStatus HcomAllToAllVInferDataTypeV2(gert::InferDataTypeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferDataType start.", __func__);
+    OP_INFER_DATATYPE_START;
 
     ge::DataType inputType = context->GetInputDataType(0);
     context->SetOutputDataType(0, inputType);
 
-    OP_LOGI(opName, "[%s] the op inferDataType end.", __func__);
+    OP_INFER_DATATYPE_END;
     return GRAPH_SUCCESS;
 }
 
 static ge::graphStatus HcomAllToAllVCInferShapeV2(gert::InferShapeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferShape start.", __func__);
-
-    constexpr int64_t fusionAttrNoFuse = 0;
-    constexpr int64_t fusionAttrFuseById = 2;
-    constexpr int64_t fusionIdDefaultVal = -1;
-    constexpr int64_t fusionIdMinVal = 0;
-    constexpr int64_t fusionIdMaxVal = 0x7fffffff;
+    OP_INFER_SHAPE_START;
 
     // Get RuntimeAttrs
     auto attrs = context->GetAttrs();
-    OP_CHECK(attrs == nullptr, CUBE_INNER_ERR_REPORT(opName, "attrs is null"), return GRAPH_FAILED);
-
-    int64_t fusionAttr = fusionAttrNoFuse;
-    int64_t fusionIdAttr = fusionIdDefaultVal;
-    fusionAttr = *(attrs->GetAttrPointer<int64_t>(fusionIndex));
-    fusionIdAttr = *(attrs->GetAttrPointer<int64_t>(fusionIdIndex));
-
-    if ((fusionAttr != fusionAttrNoFuse) && (fusionAttr != fusionAttrFuseById)) {
-        OP_LOGE(opName, "Attr fusion [%ld] is not supported. expected: [%ld or %ld]",
-                fusionAttr, fusionAttrNoFuse, fusionAttrFuseById);
+    constexpr size_t a2aFusionIndex = 2;
+    constexpr size_t a2aFusionIdIndex = 3;
+    if (CheckOPAttr(opName, attrs, a2aFusionIndex, a2aFusionIdIndex) == GRAPH_FAILED) {
         return GRAPH_FAILED;
-    }
-    if (fusionAttr == fusionAttrFuseById) {
-        if ((fusionIdAttr < fusionIdMinVal) || (fusionIdAttr > fusionIdMaxVal)) {
-            OP_LOGE(opName, "In fusion [%ld], attr fusion_id [%ld] is not supported, "
-                    "expected: [%ld ~ %ld]", fusionAttr, fusionIdAttr, fusionIdMinVal, fusionIdMaxVal);
-            return GRAPH_FAILED;
-        }
     }
 
     auto outputShape = context->GetOutputShape(0);
@@ -191,6 +161,7 @@ static ge::graphStatus HcomAllToAllVCInferShapeV2(gert::InferShapeContext *conte
         OP_LOGD(opName, "[%s] sendCountMatrix : %zu : %ld ", __func__, i, sendCountMatrix[i]);
     }
 
+    constexpr size_t rankIndex = 0;
     int64_t rank = *(attrs->GetAttrPointer<int64_t>(rankIndex));
     int64_t rankSize = static_cast<int64_t>(sqrt(sendCountMatrix.size()));
     if (rankSize <= 0) {
@@ -213,20 +184,18 @@ static ge::graphStatus HcomAllToAllVCInferShapeV2(gert::InferShapeContext *conte
     outputShape->SetDimNum(1);
     outputShape->SetDim(0, recvCount);
 
-    OP_LOGI(opName, "[%s] the op inferShape end.", __func__);
+    OP_INFER_SHAPE_END;
     return GRAPH_SUCCESS;
 }
 
 static ge::graphStatus HcomAllToAllVCInferDataTypeV2(gert::InferDataTypeContext *context)
 {
-    OP_CHECK(context == nullptr, CUBE_INNER_ERR_REPORT("", "Get %s failed", "context"), return GRAPH_FAILED);
-    const auto opName = context->GetNodeName();
-    OP_LOGI(opName, "[%s] the op inferDataType start.", __func__);
+    OP_INFER_DATATYPE_START;
 
     ge::DataType inputType = context->GetInputDataType(0);
     context->SetOutputDataType(0, inputType);
 
-    OP_LOGI(opName, "[%s] the op inferDataType end.", __func__);
+    OP_INFER_DATATYPE_END;
     return GRAPH_SUCCESS;
 }
 
