@@ -34,7 +34,7 @@
 #else
 typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
 #endif
-#include "ccu_types.h"
+#include "ccu_types_dl.h"
 
 namespace ops_hccl {
 
@@ -77,6 +77,8 @@ constexpr uint64_t GE_PARALLEL = 36;
 constexpr uint64_t AICPU_ALIGN_SIZE = 4096;
 // Z axis detour 需要
 constexpr u32 MESH_CHANNELS_NUM = 1;
+constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
+
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
 enum class TopoType {

@@ -108,7 +108,6 @@ static CcuResult LoadArgs(ReduceScatterMesh1DMem2MemContext &ctx)
 }
 
 static void PreSync(ReduceScatterMesh1DMem2MemContext &ctx)
-static void PreSync(ReduceScatterMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
     for (uint32_t i = 0; i < arg->channelCount; i++) {
@@ -123,7 +122,6 @@ static void PreSync(ReduceScatterMesh1DMem2MemContext &ctx)
     }
 }
 
-static void PostSync(ReduceScatterMesh1DMem2MemContext &ctx)
 static void PostSync(ReduceScatterMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
@@ -260,7 +258,6 @@ static CcuResult DoRepeatReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
                     ctx.myInput.addr += ctx.inputRepeatStride;
                 } else {
                     ctx.remoteInput[rankIdx].addr += ctx.inputRepeatStride;
-                    ctx.remoteInput[rankIdx].addr += ctx.inputRepeatStride;
                 }
             }
             ctx.output += ctx.outputRepeatStride;
@@ -357,7 +354,6 @@ static CcuResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx, ccu::Lo
         ccu::Variable tmp;
         tmp = GetExpansionParam(expansionNum);
         dst.token = dst.token + tmp;
-        dst.token = dst.token + tmp;
     }
 
     // 第一个loopgroup，处理m部分数据
@@ -404,7 +400,6 @@ static CcuResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx, ccu::Lo
         for (uint32_t i = 0; i < expansionNum; i++) {
             dst.addr += ctx.goSize.addrOffset;
         }
-
 
         sliceSizeExpansion = 0;
         for (uint32_t i = 0; i < expansionNum; i++) {
@@ -487,7 +482,6 @@ CcuResult CcuReduceScatterMesh1DMem2MemKernel(CcuKernelArg arg)
     CCU_CHK_RET(InitResource(ctx));
     CCU_CHK_RET(LoadArgs(ctx));
 
-    PreSync(ctx);
     PreSync(ctx);
 
     CCU_CHK_RET(DoRepeatReduceScatter(ctx));

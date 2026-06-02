@@ -12,6 +12,7 @@ if(BUILD_OPEN_PROJECT)
     set(INCLUDE_LIST
         ${CMAKE_CURRENT_SOURCE_DIR}/..
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/ccu
 
         ${ASCEND_CANN_PACKAGE_PATH}/include
         ${ASCEND_CANN_PACKAGE_PATH}/include/acl

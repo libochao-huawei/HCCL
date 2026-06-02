@@ -436,9 +436,9 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
     return HCCL_SUCCESS;
 }
 
-HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, 
+HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName, const ResPackGraphMode &resPack)
-{   
+{
     void * fallbackCtx = nullptr;
     uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
     CHK_RET(HcclEngineCtxCreate(comm, param.fallbackTag, CommEngine::COMM_ENGINE_CCU, fallbackCtxSize, &fallbackCtx));
@@ -2206,7 +2206,7 @@ HcclResult SetMultipleDimensionSplitRatio(OpParam &param) {
     } else {
         // 验证转换后的值是否合理
         if (ratioValue < 0 || ratioValue > 1) {
-            HCCL_WARNING("[OpCommon] Ratio value %.2f out of range, use default value: %f", 
+            HCCL_WARNING("[OpCommon] Ratio value %.2f out of range, use default value: %f",
                         ratioValue, DEFAULT_MULT_RATIO);
             param.opConfig.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
         } else {
@@ -2307,7 +2307,7 @@ HcclResult SetExecTimeout(OpParam &param) {
     } else {
         // 验证转换后的值是否合理
         if (execTimeoutValue < 0 || execTimeoutValue > UINT32_MAX) {
-            HCCL_WARNING("[OpCommon] Exec timeout value %.2f out of range, use default: %u seconds", 
+            HCCL_WARNING("[OpCommon] Exec timeout value %.2f out of range, use default: %u seconds",
                          execTimeoutValue, CUSTOM_TIMEOUT);
             param.opConfig.execTimeout = CUSTOM_TIMEOUT;
         } else {
