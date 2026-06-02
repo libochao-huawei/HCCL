@@ -187,5 +187,44 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
 HcclResult SetExecTimeout(OpParam &param);
 bool IsHostDpu(HcclComm comm);
 }  // namespace ops_hccl
+struct HcclOpP2pDesc {
+    void* buffer;
+    u8 reserved[8];
+    HcclCMDType cmdType;
+    HcclDataType dataType;
+    u64 count;
+    u32 remoteRank;
+};
+ 	 
+struct HcclOpDesc {
+    u32 opDescType; // 0:coll, 1:p2p, 2:alltoall, 3:alltoallv
+    char opName[256];
+    u8 reserved[64];
+    union {
+        HcclOpP2pDesc p2p;
+    };
+};
 
+ struct HcclP2pPair {
+    u32 sendRank;
+    u32 recvRank;
+};
+ 	 
+struct HcclKernelFuncInfo {
+    char kernelSo[256];
+    char funcName[256];
+};
+
+struct HcclP2pTask {
+    HcclOpP2pDesc desc;
+    aclrtStream stream;
+    HcclKernelFuncInfo funcInfo;
+    void* args;
+    u32 argSize;
+};
+
+struct HcclP2pSendRecvQueue {
+    std::deque<HcclP2pTask> sendQue;
+    std::deque<HcclP2pTask> recvQue;
+};
 #endif
