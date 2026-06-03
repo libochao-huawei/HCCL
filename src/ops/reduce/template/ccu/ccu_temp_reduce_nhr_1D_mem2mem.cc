@@ -353,8 +353,8 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param, const Temp
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CalculateDieSizes(const OpParam& param, const TemplateDataParams& templateDataParams,
-                       u32 kernelNum, uint64_t& die0Size, uint64_t& die1Size)
+void CcuTempReduceNHR1DMem2Mem::CalculateDieSizes(const OpParam& param, const TemplateDataParams& templateDataParams,
+                                                  u32 kernelNum, uint64_t& die0Size, uint64_t& die1Size)
 {
     constexpr uint32_t MAX_DIE_NUM_2 = 2;
     if (kernelNum == MAX_DIE_NUM_2) {
