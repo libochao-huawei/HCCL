@@ -32,19 +32,13 @@ add_cann_subdirectories_relative(${HCCL_DIR}
 )
 
 # 打包并签名：aicpu_hccl.tar.gz
-set(CCL_KERNEL_TAR_DIR ${HCCL_DIR}/build_device/ccl_kernel_tar_pkg/)
-set(CCL_KERNEL_TAR_LIBS
-    ${CCL_KERNEL_TAR_DIR}/aicpu_kernels_device/libscatter_aicpu_kernel.so
-    ${CCL_KERNEL_TAR_DIR}/aicpu_kernels_device/libhccl_kernel_compat.so
-)
 pack_targets_and_files(
     OUTPUT_TARGET "generate_device_aicpu_package"
     OUTPUT "aicpu_hccl.tar.gz"
-    FILES ${CCL_KERNEL_TAR_LIBS}
+    TARGETS scatter_aicpu_kernel hccl_kernel_compat
     MANIFEST "bin_hash.cfg"
     TAR_ROOT_DIR "aicpu_kernels_device"
 )
-add_dependencies(generate_device_aicpu_package scatter_aicpu_kernel)
 sign_file(
     INPUT "aicpu_hccl.tar.gz"
     CONFIG "${HCCL_DIR}/scripts/sign/hccl_check_cfg.xml"
