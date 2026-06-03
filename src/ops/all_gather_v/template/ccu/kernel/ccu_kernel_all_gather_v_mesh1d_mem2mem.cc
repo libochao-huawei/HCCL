@@ -127,7 +127,6 @@ void CcuKernelAllGatherVMesh1DMem2Mem::DoAllGatherV()
                 localDst.addr += mySliceSizeOutputOffset_;
                 localDst.token = token_[rankId_];
                 event_.SetMask(1 << rankIdx);
-                GroupCopy(localDst, src, localGoSize_);
                 RecordEvent(event_);
             } else {
                 dst[rankIdx].addr = output_[rankIdx];
@@ -141,6 +140,7 @@ void CcuKernelAllGatherVMesh1DMem2Mem::DoAllGatherV()
                 channelId++;
             }
         }
+        GroupCopy(localDst, src, localGoSize_);
         event_.SetMask((1 << rankSize_) - 1);
         WaitEvent(event_);
     }
