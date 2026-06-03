@@ -130,11 +130,6 @@ else()
         -Wl,--no-as-needed
     )
 endif()
-
-    target_link_directories(hccl_compat PRIVATE
-        ${ASCEND_CANN_PACKAGE_PATH}/lib64
-    )
-
     install(TARGETS hccl_compat
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
         ${INSTALL_OPTIONAL}
@@ -180,11 +175,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         -Wl,-z,noexecstack
         $<$<CONFIG:Release>:-s>
     )
-
-    target_link_directories(hccl_kernel_compat PRIVATE
- 	    ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
- 	)
-
+    
     install(TARGETS hccl_kernel_compat
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
         ${INSTALL_OPTIONAL}

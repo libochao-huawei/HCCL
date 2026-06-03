@@ -459,9 +459,9 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
 
     hccl_apply_cann_compat(scatter_aicpu_kernel)
 
-    target_link_directories(scatter_aicpu_kernel PRIVATE
-      ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
-  )
+    target_link_directories(scatter_aicpu_kernel PRIVATE 
+       ${ASCEND_CANN_PACKAGE_PATH}/devlib/device 
+   )
 
     target_link_libraries(scatter_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
@@ -537,10 +537,10 @@ target_compile_options(hccl PRIVATE
     -fstack-protector-all
 )
 
-# libhccl
-target_link_directories(${TARGET_NAME} PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-)
+ # libhccl 
+ target_link_directories(${TARGET_NAME} PRIVATE 
+     ${ASCEND_CANN_PACKAGE_PATH}/lib64 
+ )
 
 if(NOT STATIC_MODE)
     add_dependencies(${TARGET_NAME} hccl_compat)
@@ -581,10 +581,6 @@ if(NOT STATIC_MODE)
         $<$<CONFIG:Release>:-s>
     )
 endif()
-
-target_link_directories(${TARGET_NAME} PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-)
 
 if(STATIC_MODE)
     target_link_libraries(hccl PRIVATE

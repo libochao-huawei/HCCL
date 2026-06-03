@@ -78,8 +78,6 @@ if(AARCH_MODE)
     set(STUBS
         hcomm 
         ccl_kernel
-        c_sec
-        unified_dlog
     ) 
     foreach(STUB ${STUBS}) 
         if(NOT TARGET ${STUB}) 
