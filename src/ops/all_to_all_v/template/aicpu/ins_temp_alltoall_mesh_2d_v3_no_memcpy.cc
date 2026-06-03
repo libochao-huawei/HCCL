@@ -225,6 +225,14 @@ HcclResult InsTempAlltoAllMesh2DV3NoMemcpy::RunAlltoAllMesh(
 
         void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
         u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + myRank_ * actualChunkSize;
+        CHK_PRT_RET(txSrcOffset + actualChunkSize > tempAlgParams_.buffInfo.inputSize ||
+                        txDstOffset + actualChunkSize > linkRemote.remoteOutputGraphMode.size,
+                    HCCL_ERROR("[ALLTOALL_NO_MEMCPY][Mesh2D] slice out of registered range. "
+                               "myRank=%u peer=%u txSrcOff=%llu txDstOff=%llu chunk=%llu "
+                               "inputSize=%llu remoteOutputSize=%llu",
+                               myRank_, connectedRank, txSrcOffset, txDstOffset, actualChunkSize,
+                               tempAlgParams_.buffInfo.inputSize, linkRemote.remoteOutputGraphMode.size),
+                    HcclResult::HCCL_E_INTERNAL);
         txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, actualChunkSize, chunkCount);
 
         // no-memcpy mode只使用远端写；rx slice仅用于SendRecvInfo占位。

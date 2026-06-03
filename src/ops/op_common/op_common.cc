@@ -72,6 +72,23 @@ bool NeedRemoteUserMemAccess(const OpParam &param)
     return param.opMode == OpMode::OFFLOAD || IsRemoteUserMemExperimentalAlg(param);
 }
 
+bool IsAlltoAllNoMemcpyAlg(const OpParam &param)
+{
+    return std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpy") == 0 ||
+           std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodUbxV2") == 0 ||
+           std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodDirect") == 0;
+}
+
+u64 GetGraphModeInputRegisterSize(const OpParam &param)
+{
+    return param.inputSize;
+}
+
+u64 GetGraphModeOutputRegisterSize(const OpParam &param)
+{
+    return param.outputSize;
+}
+
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
 HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetLayerDetails* topoInfo)
@@ -1387,16 +1404,20 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param,char* inputBu
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buuffer");
-    if (param.inputPtr != nullptr && param.inputSize != 0) {
+    u64 inputRegisterSize = GetGraphModeInputRegisterSize(param);
+    u64 outputRegisterSize = GetGraphModeOutputRegisterSize(param);
+    HCCL_WARNING("[RegGraphModeBuffers] graph mode registry remote buffer. algName[%s] "
+                 "inputSize[%llu] inputRegSize[%llu] outputSize[%llu] outputRegSize[%llu]",
+                 param.algName, param.inputSize, inputRegisterSize, param.outputSize, outputRegisterSize);
+    if (param.inputPtr != nullptr && inputRegisterSize != 0) {
         HcclMemHandle inputHandle = nullptr;
-        CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
+        CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, inputRegisterSize, &inputHandle));
         CHK_PTR_NULL(inputHandle);
         memHandles.emplace_back(inputHandle);
     }
-    if (param.outputPtr != nullptr && param.outputSize != 0) {
+    if (param.outputPtr != nullptr && outputRegisterSize != 0) {
         HcclMemHandle outputHandle = nullptr;
-        CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
+        CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, outputRegisterSize, &outputHandle));
         CHK_PTR_NULL(outputHandle);
         memHandles.emplace_back(outputHandle);
     }

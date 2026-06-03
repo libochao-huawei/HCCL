@@ -269,6 +269,28 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     }
     dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     dataSize_ = dataCount_ * dataTypeSize_;
+    if (IsAlltoAllNoMemcpyAlg(param)) {
+        CHK_PRT_RET(param.opType != HcclCMDType::HCCL_CMD_ALLTOALL,
+                    HCCL_ERROR("[ALLTOALL_NO_MEMCPY][Orchestrate] only HCCL_CMD_ALLTOALL is supported. opType=%d",
+                               param.opType),
+                    HcclResult::HCCL_E_NOT_SUPPORT);
+        CHK_PRT_RET(param.inputSize == 0 || param.outputSize == 0,
+                    HCCL_ERROR("[ALLTOALL_NO_MEMCPY][Orchestrate] invalid buffer size. inputSize=%llu outputSize=%llu",
+                               param.inputSize, param.outputSize),
+                    HcclResult::HCCL_E_INTERNAL);
+        if (dataSize_ != param.inputSize) {
+            HCCL_WARNING("[ALLTOALL_NO_MEMCPY][Orchestrate] dataSize from sendCounts[%llu] is different from "
+                         "inputSize[%llu]. Use param.inputSize as byte dataSize.",
+                         dataSize_, param.inputSize);
+            dataSize_ = param.inputSize;
+            dataCount_ = dataSize_ / dataTypeSize_;
+        }
+        CHK_PRT_RET(dataSize_ != param.outputSize,
+                    HCCL_ERROR("[ALLTOALL_NO_MEMCPY][Orchestrate] input/output byte size mismatch. "
+                               "inputSize=%llu outputSize=%llu",
+                               dataSize_, param.outputSize),
+                    HcclResult::HCCL_E_INTERNAL);
+    }
     HCCL_WARNING("[AllToAll_V3_DEBUG][L1] dataCount=%llu dataType=%d dataTypeSize=%u dataSize=%llu",
         dataCount_, static_cast<int>(dataType_), dataTypeSize_, dataSize_);
 
@@ -506,14 +528,25 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 总 rank 数
     u64 totalRankCount = rankSizeLevel0_ + rankSizeLevel1_ - 1;
     u64 perPeerInputChunkSize = dataSize_ / totalRankCount;
+    const bool enableRemoteUserMemAccess = param.opMode == OpMode::OFFLOAD || IsAlltoAllNoMemcpyAlg(param);
+    u64 inputSizeBytes = param.inputSize;
+    u64 outputSizeBytes = param.outputSize;
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL && !IsAlltoAllNoMemcpyAlg(param)) {
+        inputSizeBytes = param.inputSize * dataTypeSize_;
+        outputSizeBytes = param.outputSize * dataTypeSize_;
+    }
+    HCCL_WARNING("[ALLTOALL_V3_DEBUG][OrchestrateLoop] totalRankCount=%llu perPeerChunk=%llu "
+                 "inputSizeBytes=%llu outputSizeBytes=%llu enableRemoteUserMemAccess=%d",
+                 totalRankCount, perPeerInputChunkSize, inputSizeBytes, outputSizeBytes,
+                 enableRemoteUserMemAccess);
 
 
     {
-        tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD || IsAlltoAllNoMemcpyAlg(param);
+        tempAlgParams.enableRemoteMemAccess = enableRemoteUserMemAccess;
 
         tempAlgParams.buffInfo.inputPtr = param.inputPtr;
         tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
-        tempAlgParams.buffInfo.inputSize = param.inputSize;
+        tempAlgParams.buffInfo.inputSize = inputSizeBytes;
         tempAlgParams.buffInfo.inBuffBaseOff = 0;
         tempAlgParams.inputSliceStride = perPeerInputChunkSize;
 
@@ -525,7 +558,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         // 不需要 copy out
         tempAlgParams.buffInfo.outputPtr = param.outputPtr;
         tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
-        tempAlgParams.buffInfo.outputSize = param.outputSize * dataTypeSize_;
+        tempAlgParams.buffInfo.outputSize = outputSizeBytes;
         tempAlgParams.buffInfo.outBuffBaseOff = 0;
         tempAlgParams.outputSliceStride = perPeerInputChunkSize;
 
