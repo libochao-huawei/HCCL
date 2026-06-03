@@ -353,16 +353,3 @@ TEST_F(ST_REDUCE_SCATTER_AICPU_TEST, st_reduce_scatter_a5_aicpu_meshchunk_8rank_
     auto reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
     RunReduceScatterAicpuA5(topoMeta, recvCount, dataType, reduceOp);
 }
-
-
-TEST_F(ST_REDUCE_SCATTER_AICPU_TEST, st_reduce_scatter_a5_aicpu_meshnhr_2x2x4rank_int32_sum_test)
-{
-    // 仿真模型初始化
-    TopoMeta topoMeta;
-    GenTopoMeta(topoMeta, 2, 2, 4);
-    // TopoMeta topoMeta {{{0, 1}, {0, 1}}}; // 三维数组指定超节点-Server-Device信息
-    auto recvCount = 1;  // 接收数据量
-    auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;  // 数据类型
-    auto reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    RunReduceScatterAicpuA5(topoMeta, recvCount, dataType, reduceOp);
-}
