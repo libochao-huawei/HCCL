@@ -20,6 +20,7 @@
 #include <algorithm>
 #include "rt_external.h"
 #include "adapter_acl.h"
+#include "adapter_rts_common.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "universal_concurrent_map.h"
