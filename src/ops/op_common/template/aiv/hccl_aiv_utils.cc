@@ -178,11 +178,7 @@ thread_local std::string g_aivCurrentCommName;
 
 static void RegisterAivExceptionCallback()
 {
-    if (!HcommIsSupportHcclTaskExceptionRegCallBack()) {
-        HCCL_RUN_INFO("[AIV][RegisterAivExceptionCallback] skip, not supported.");
-        return;
-    }
-    HcclResult ret = HcclTaskExceptionRegCallBack(ProcessAivExceptionCallBack);
+    HcclResult ret = hrtRegTaskFailCallbackByModule(ProcessAivExceptionCallBack);
     if (ret != HCCL_SUCCESS) {
         HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", ret);
     } else {
