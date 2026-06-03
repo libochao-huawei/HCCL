@@ -200,9 +200,9 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
     TemplateDataParams &tempAlgParamsInter, const u64 processedDataCount, const u64 currDataCount, const u64 loop) const
 {
     tempAlgParamsInter.count = currDataCount;
-    tempAlgParamsInter.buffInfo.inBuffBaseOff = (rankIdxLevel0_ + (rankSizeLevel1_ *  rankSizeLevel0_)) * currDataCount * dataTypeSize_;
+    tempAlgParamsInter.buffInfo.inBuffBaseOff = (rankIdxLevel0_ + (rankIdxLevel1_ *  rankSizeLevel0_)) * currDataCount * dataTypeSize_;
     tempAlgParamsInter.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
-    tempAlgParamsInter.buffInfo.hcclBuffBaseOff = (rankIdxLevel0_ + (rankSizeLevel1_ *  rankSizeLevel0_)) * currDataCount * dataTypeSize_;
+    tempAlgParamsInter.buffInfo.hcclBuffBaseOff = (rankIdxLevel0_ + (rankIdxLevel1_ *  rankSizeLevel0_)) * currDataCount * dataTypeSize_;
 
     tempAlgParamsInter.sliceSize = currDataCount * dataTypeSize_;
     tempAlgParamsInter.tailSize = tempAlgParamsInter.sliceSize;
@@ -302,15 +302,15 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxCountPerLoop;
 
-        // GenIntraTemplateParams(tempAlgParamsLevel0, processedDataCount, currDataCount, loop);
-        // CHK_RET(algTemplateLevel0->KernelRun(param, tempAlgParamsLevel0, templateResource0));
+        GenIntraTemplateParams(tempAlgParamsLevel0, processedDataCount, currDataCount, loop);
+        CHK_RET(algTemplateLevel0->KernelRun(param, tempAlgParamsLevel0, templateResource0));
 
         GenInterTemplateParams1(tempAlgParamsLevel1, processedDataCount, currDataCount, loop);
         CHK_RET(algTemplateLevel1->KernelRun(param, tempAlgParamsLevel1, templateResource1));
 
-        // GenInterTemplateParams2(tempAlgParamsLevel2, processedDataCount, currDataCount, loop);
-        // CHK_RET(algTemplateLevel2->KernelRun(param, tempAlgParamsLevel2, templateResource2));
-        // processedDataCount += currDataCount;
+        GenInterTemplateParams2(tempAlgParamsLevel2, processedDataCount, currDataCount, loop);
+        CHK_RET(algTemplateLevel2->KernelRun(param, tempAlgParamsLevel2, templateResource2));
+        processedDataCount += currDataCount;
     }
     return HCCL_SUCCESS;
 }
