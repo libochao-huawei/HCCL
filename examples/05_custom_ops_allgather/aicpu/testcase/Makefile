@@ -41,20 +41,21 @@ all:
 # Test target
 test: 
 	export LD_LIBRARY_PATH=${CUSTOM_ALLGATHER_AICPU_LIB_DIR}:${LD_LIBRARY_PATH}; \
-	./$(TARGET)
+	./$(TARGET); \
+	echo "AllGatherCustom test completed successfully"
 
-# Clean build artifacts
+# Clean build artifacts  
 clean:
 	rm ${TARGET}
 
 # Help
 help:
 	@echo ""
-	@echo "HCCL Example: HcclSend/HcclRecv"
-	@echo "==============================="
+	@echo "HCCL Example: HcclAllGatherCustom"
+	@echo "=================================="
 	@echo ""
-	@echo "This example shows how to use HcclSend/HcclRecv for "
-	@echo "point-to-point communication in a single process without MPI."
+	@echo "This example shows how to use HcclAllGatherCustom for "
+	@echo "collective communication in a single process without MPI."
 	@echo ""
 	@echo "Targets:"
 	@echo "  all       - Build the example (default)"

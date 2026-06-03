@@ -46,20 +46,23 @@
 
 - <term>Ascend 950PR</term> / <term>Ascend 950DT</term>
 
+本样例编译用到的软件依赖如下，注意满足版本号要求：
+
+- gcc & g++ : 7.3.0 至 13.3.x
+- cmake >= 3.16.0
+
 ### 2. 安装 CANN Toolkit 开发套件包
 
 参考 [昇腾文档中心-CANN软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstWizard)，安装最新版本 CANN Toolkit 开发套件包。
 
 ### 3. 配置环境变量
 
-设置CANN环境变量：
+按需选择合适的命令使环境变量生效。
 
 ```bash
-# 默认路径安装，以root用户为例
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
 source /usr/local/Ascend/cann/set_env.sh
-# 默认路径安装，以非root用户为例
-source $HOME/Ascend/cann/set_env.sh
-# 指定路径安装
+# 指定路径安装，${install_path}表示CANN-Toolkit包实际安装路径
 source ${install_path}/cann/set_env.sh
 ```
 
@@ -87,6 +90,7 @@ hccl代码仓提供了自定义算子编译打包工程，该工程依赖代码�
 git clone https://gitcode.com/cann/hccl.git
 
 # 编译自定义算子包
+cd hccl
 bash build.sh --vendor=cust --ops=allgather_aicpu --custom_ops_path=./examples/05_custom_ops_allgather/aicpu
 ```
 
@@ -107,7 +111,7 @@ bash build.sh --vendor=cust --ops=allgather_aicpu --custom_ops_path=./examples/0
 > 其中：
 > 
 > - `<arch>` 是当前编译环境的系统架构
-> - `<ascend_cann_path>` 是可选参数，表示 CANN 软件包安装目录。默认为 `ASCEND_CUSTOM_OPP_PATH` 或 `ASCEND_OPP_PATH` 环境变量设置的路径
+> - `<ascend_cann_path>` 是可选参数，表示 CANN 软件包安装目录。默认为 `ASCEND_CUSTOM_OPP_PATH` 或 `ASCEND_OPP_PATH` 环境变量所在的CANN-Toolkit包路径
 
 自定义算子包安装信息如下：
 
@@ -117,33 +121,22 @@ bash build.sh --vendor=cust --ops=allgather_aicpu --custom_ops_path=./examples/0
 - AICPU 算子包：`${ASCEND_HOME_PATH}/opp/vendors/cust/aicpu/kernel/aicpu_hccl_custom_allgather.tar.gz`
 - 安装脚本：`${ASCEND_HOME_PATH}/opp/vendors/cust/scripts/install.sh`
 
+> 其中：`${ASCEND_HOME_PATH}`为CANN-Toolkit安装路径
+
 ## 四、执行自定义算子
 
 ### 1. 关闭 AICPU 算子验签功能
 
-```bash
-# 查询AI CPU算子用户自定义验签能力使能状态
-# False：关闭用户自定义验签能力
-# True：开启用户自定义验签能力
-for i in {0..7}; do npu-smi info -t custom-op-secverify-enable -i $i; done
+源码编译生成的AICPU算子包`aicpu_hccl_custom_allgather.tar.gz`会在业务启动时加载至Device，加载过程中默认会由驱动进行安全验签，确保包可信。由于开发者通过源码自行编译生成的算子包不含签名信息，所以需要关闭驱动安全验签的机制。
 
-# 设置AI CPU算子用户自定义验签能力使能状态，使能开关
-for i in {0..7}; do npu-smi set -t custom-op-secverify-enable -i $i -d 1; done
+**关闭验签方式：**
 
-# 查询AI CPU算子验签模式
-# 0：关闭验证，不验签
-# 1：华为证书，使用华为证书验签（默认）
-# 2：客户自定义证书
-# 3：华为证书、客户自定义证书
-# 4：开源社区证书
-# 5：华为证书、开源社区证书
-# 6：客户自定义证书、开源社区证书
-# 7：华为证书、客户自定义证书、开源社区证书
-for i in {0..7}; do npu-smi info -t custom-op-secverify-mode -i $i; done
+    配套使用Ascend HDK 25.5.T2.B001及以上版本，并通过该Ascend HDK自带的npu-smi工具关闭验签。以下为参考命令，需要以root用户在物理机上执行（以device 0为例）。
 
-# 设置AI CPU算子验签模式，关闭验签
-for i in {0..7}; do npu-smi set -t custom-op-secverify-mode -i $i -d 0; done
-```
+    ```shell
+    npu-smi set -t custom-op-secverify-enable -i 0 -d 1    # 开启验签配置
+    npu-smi set -t custom-op-secverify-mode -i 0 -d 0      # 关闭客户自定义验签
+    ```
 
 ### 2. 修改 AICPU 白名单
 
@@ -202,5 +195,5 @@ rankId：1, input: [1 1]
 rankId: 0, input: [0 0]
 rankId: 0, output: [ 0 0 1 1 ]
 rankId: 1, output: [ 0 0 1 1 ]
-AllGatherCustom testcase run success.
+AllGatherCustom test completed successfully
 ```
