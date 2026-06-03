@@ -27,8 +27,6 @@
 #ifdef HCCL_STATIC_MODE
 #include "acl_rt.h"
 #endif
-#include "hcomm_host_profiling_dl.h"
-#include "hccl_res_dl.h"
 
 using namespace std;
 using namespace ops_hccl;
