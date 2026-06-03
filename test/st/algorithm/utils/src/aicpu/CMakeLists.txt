@@ -226,6 +226,8 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_clos_v2.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_opt.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_clos_opt.cc
+    ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_opt_no_memcpy.cc
+    ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_clos_opt_no_memcpy.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_sequence_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr_dpu.cc
@@ -244,6 +246,8 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_clos_v2.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_2d_v3.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_clos_v3.cc
+    ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_2d_v3_no_memcpy.cc
+    ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_alltoall_mesh_clos_v3_no_memcpy.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/executor/ins_v2_alltoall_parallel_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/executor/ins_v2_alltoall_parallel_opt_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_dpu_alltoall_mesh.cc

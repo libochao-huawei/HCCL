@@ -279,7 +279,7 @@ HcclResult InsTempAllGatherMeshClosOptNoMemcpy::RunAllGatherToAllRanks(
 
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
         TxRxChannels sendRecvChannels(linkRemote, linkRemote);
-        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
         u32 threadIdx = threads.size() - 1;
         HCCL_WARNING("[InsTempAllGatherMeshClosOptNoMemcpy][C_PRE] Rank[%d] step[%u] peer[%u] linkIdx[%u] threadIdx[%u] "
                      "peerChannels[%zu] txDstOff[%llu] rxSrcOff[%llu] rxDstOff[%llu] size[%llu]",
@@ -373,7 +373,7 @@ HcclResult InsTempAllGatherMeshClosOptNoMemcpy::RunAllGatherOnLink(
 
             TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
             TxRxChannels sendRecvChannels(linkRemote, linkRemote);
-            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
             HCCL_WARNING("[InsTempAllGatherMeshClosOptNoMemcpy][B_WRITE_PRE] Rank[%d] peer[%u] linkIdx[%u] "
                          "peerChannels[%zu] txSrcOff[%llu] txDstOff[%llu] size[%llu]",
                          myRank_, connectedRank, linkIdx, it->second.size(), txSrcOffset, txDstOffset, sliceSize);
@@ -419,7 +419,7 @@ HcclResult InsTempAllGatherMeshClosOptNoMemcpy::RunAllGatherOnLink(
 
                 TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
                 TxRxChannels sendRecvChannels(linkRemote, linkRemote);
-                SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+                SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
                 HCCL_WARNING("[InsTempAllGatherMeshClosOptNoMemcpy][B_READ_PRE] Rank[%d] peer[%u] rpt[%u] remoteRank[%u] "
                              "linkIdx[%u] peerChannels[%zu] rxSrcOff[%llu] rxDstOff[%llu] size[%llu]",
                              myRank_, connectedRank, rpt, remoteRank, linkIdx, it->second.size(), rxSrcOffset,

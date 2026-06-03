@@ -268,7 +268,7 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllOnLink(
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll},
                                           {rxSrcSlicesAll, rxDstSlicesAll});
         TxRxChannels sendRecvChannels(linkRemote, linkRemote);
-        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
 
         CHK_PRT_RET(isPcie,
                     HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos] pcie/read protocol is not supported."),

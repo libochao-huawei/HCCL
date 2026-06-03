@@ -248,7 +248,7 @@ HcclResult InsTempAlltoAllMesh2DV3NoMemcpy::RunAlltoAllMesh(
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll},
                                           {rxSrcSlicesAll, rxDstSlicesAll});
         TxRxChannels sendRecvChannels(linkRemote, linkRemote);
-        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
 
         HCCL_WARNING("[ALLTOALL_V3_DEBUG][Mesh2D][RunAlltoAllMesh] round[%u/%zu] connectedRank=%u connectedAlgRank=%u "
                   "actualChunkSize=%llu chunkCount=%llu isPcie=%d repeatNum=%u",
