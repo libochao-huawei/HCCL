@@ -51,6 +51,10 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
             HCCL_WARNING("[Algo][AllGatherAutoSelector] ccu_ms does not support inplace allreduce."),
             SelectorStatus::NOT_MATCH);
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+            selectAlgName = "CcuAllGatherMesh2Die";
+            return SelectorStatus::MATCH;
+         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+            HCCL_INFO("[%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
         } else {
             selectAlgName = "CcuAllGatherMesh1D";
@@ -120,7 +124,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0AlgoMesh1D(
 {
     (void) dataSize;
     if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-        selectAlgName = "CcuAllGatherMesh2Die";
+        selectAlgName = "CcuAllGatherMesh2DieMem2Mem";
     } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
         HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
         return SelectorStatus::NOT_MATCH;
