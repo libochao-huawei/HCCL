@@ -196,39 +196,7 @@ HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoIn
 HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols)
 {
     protocols.clear();
-#if CANN_VERSION_NUM < CANN_VERSION(9, 0, 0)
-    (void)param;
-#elif CANN_VERSION_NUM < CANN_VERSION(9, 1, 0)
-    switch (param.engine) {
-        case CommEngine::COMM_ENGINE_AICPU:
-        case CommEngine::COMM_ENGINE_AICPU_TS:
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_PCIE);
-            break;
-        case CommEngine::COMM_ENGINE_CCU:
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
-            break;
-        case CommEngine::COMM_ENGINE_AIV:
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_UB_MEM);
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_PCIE);
-            break;
-        case CommEngine::COMM_ENGINE_CPU:
-            // level 1到level n-1使用UB协议，server内建联，最外层使用网卡建联
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
-            break;
-        case CommEngine::COMM_ENGINE_CPU_TS:
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
-            break;
-        default:
-            HCCL_WARNING("[GetProtocolByEngine] Unknown engine[%d], set protocol to RESERVED",
-                         static_cast<int>(param.engine));
-            break;
-    }
-#else
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 1, 0)
     switch (param.engine) {
         case CommEngine::COMM_ENGINE_AICPU:
         case CommEngine::COMM_ENGINE_AICPU_TS:
@@ -259,6 +227,11 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
                          static_cast<int>(param.engine));
         break;
     }
+#else
+    // 8.5.0 CANN 无 UBC_CTP/UB_MEM 等枚举值；此函数所在的 CalcChannelRequestXxx/CreateChannelRequestByRankId 通路
+    // 仅 9.0.0 新路径使用，运行时已由算子入口 GetHcommVersion() < CANN_VERSION(9, 0, 0) 分流到 HcclXxxInner，
+    // 8.5.0 下不会真正走到。这里保留空桩让 libhccl.so 外部链接（hccl_test 等）能解析符号。
+    (void)param;
 #endif
     return HCCL_SUCCESS;
 }
