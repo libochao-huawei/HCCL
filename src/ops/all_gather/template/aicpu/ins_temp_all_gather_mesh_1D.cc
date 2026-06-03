@@ -11,6 +11,7 @@
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
+#include "hccl_sym_win.h"
 namespace ops_hccl {
 InsTempAllGatherMesh1D::InsTempAllGatherMesh1D(const OpParam &param, const u32 rankId,
                                                const std::vector<std::vector<u32>> &subCommRanks)
@@ -23,6 +24,7 @@ HcclResult InsTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam &param, 
                                            AlgResourceRequest &resourceRequest)
 {
     HCCL_INFO("[InsTempAllGatherMesh1D][CalcRes] start");
+    enableSymmetryMemory_ = param.enableSymmetryMemory;
     GetRes(resourceRequest);
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
@@ -33,15 +35,24 @@ HcclResult InsTempAllGatherMesh1D::GetRes(AlgResourceRequest &resourceRequest) c
 {
     u32 level0RankSize = templateRankSize_;
     u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;
-    resourceRequest.slaveThreadNum = threadNum - 1;
+    u32 slaveThreadNum = threadNum - 1;
+    // 开启对称内存时，由于不需要等主线程完成本地copy就可以开始通信，因此通信时需要多一个线程并发。
+    if (enableSymmetryMemory_ && level0RankSize > 1) {
+        slaveThreadNum += 1;
+    }
+    resourceRequest.slaveThreadNum = slaveThreadNum;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
-    resourceRequest.notifyNumOnMainThread = threadNum - 1;
+    resourceRequest.notifyNumOnMainThread = slaveThreadNum;
     return HCCL_SUCCESS;
 }
 
 u64 InsTempAllGatherMesh1D::GetThreadNum() const
 {
-    return templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    u64 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    if (enableSymmetryMemory_ && templateRankSize_ > 1) {
+        return threadNum + 1;
+    }
+    return threadNum;
 }
 
 u64 InsTempAllGatherMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
@@ -64,6 +75,11 @@ HcclResult InsTempAllGatherMesh1D::KernelRun(const OpParam &param, const Templat
         HCCL_INFO("[InsTempAllGatherMesh1D] Rank [%d], get slicesize zero.", myRank_);
         return HCCL_SUCCESS;
     }
+    inSymWinHandle_ = param.inSymWinHandle;
+    outSymWinHandle_ = param.outSymWinHandle;
+    inOffset_ = param.inOffset;
+    outOffset_ = param.outOffset;
+    enableSymmetryMemory_ = param.enableSymmetryMemory;
     threadNum_ = templateResource.threads.size();
     tempAlgParams_ = tempAlgParams;
     dataType_ = param.DataDes.dataType;
@@ -72,14 +88,19 @@ HcclResult InsTempAllGatherMesh1D::KernelRun(const OpParam &param, const Templat
     if (templateRankSize_ == 1) {
         return HcclResult::HCCL_SUCCESS;
     }
-    if (threadNum_ > 1) {
+
+    // 非对称内存场景需要在通信前做主/从线程同步。等待主线程完成本地copy后从线程才开始通信
+    if (!enableSymmetryMemory_ && threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxMainToSub(notifyIdxMainToSub_);
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
     }
 
+    // 对称内存下，主线程将数据拷贝到output和从线程从其他rank的input接收数据到本端output可以并发进行。
+    // 因此通信和本地copy的先后顺序不确定，不需要前同步，直接进入通信流程。
     CHK_RET(RunAllGatherMesh(templateResource.threads, templateResource.channels));
 
+    // 通信完成后主线程需要等从线程完成本地copy才算真正完成，因此需要后同步。
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxSubToMain(notifyIdxSubToMain_);
@@ -114,6 +135,20 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
 
         const ChannelInfo &linkRemote = channels.at(connectedRank)[0];
         void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
+        
+        // 对称内存下，远端地址需要通过HcclSymWinGetPeerPointer获取
+        // 直接从远端input开始位置，大小为sliceSize大小的内存区域作为接收数据源地址
+        void *remoteInSymmtryPtr = nullptr;
+        void *remoteOutSymmtryPtr = nullptr;
+        if (enableSymmetryMemory_) {
+            HcclResult inRet = HcclSymWinGetPeerPointer(inSymWinHandle_, inOffset_, connectedRank, &remoteInSymmtryPtr);
+            HcclResult outRet = HcclSymWinGetPeerPointer(outSymWinHandle_, outOffset_, connectedRank, &remoteOutSymmtryPtr);
+            if (inRet != HCCL_SUCCESS || outRet != HCCL_SUCCESS)
+            {
+                HCCL_ERROR("[InsTempAllGatherSymmetryMemoryMesh1D] HcclSymWinGetPeerPointer failed, inRet=%d, outRet=%d", inRet, outRet);
+                return HcclResult::HCCL_E_INTERNAL;
+            }
+        }
 
         std::vector<DataSlice> txSrcSlicesAll;
         std::vector<DataSlice> txDstSlicesAll;
@@ -129,19 +164,35 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
             if (tempAlgParams_.tailSize != 0 && connectedAlgRank == templateRankSize_ - 1) {
                 sliceSize = tempAlgParams_.tailSize;
             }
-
-            u64 txOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
-            u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank;
-            u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txOutOffset;
-
-            u64 rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
-            u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank;
-            u64 rxSrcOffset = (!enableRemoteMemAccess_) ? rxScratchOffset : rxOutOffset;
-
-            void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
-            void *txDstPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
-            void *rxSrcPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+            u64 txOutOffset = 0;
+            u64 txDstOffset = 0;
+            u64 rxOutOffset = 0;
+            u64 rxSrcOffset = 0;
+            void *txSrcPtr = enableSymmetryMemory_ ? tempAlgParams_.buffInfo.inputPtr : tempAlgParams_.buffInfo.outputPtr;
+            void *txDstPtr = nullptr;
+            void *rxSrcPtr = nullptr;
             void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
+
+            if (!enableSymmetryMemory_) {
+                txOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
+                u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank;
+                txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txOutOffset;
+
+                rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
+                u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank;
+                rxSrcOffset = (!enableRemoteMemAccess_) ? rxScratchOffset : rxOutOffset;
+
+                txDstPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+                rxSrcPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+            } else {
+                // 对称内存下，读取远端rank的input不需要偏移，写入本端output才需要偏移
+                txDstOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
+                rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
+
+                txDstPtr = remoteOutSymmtryPtr;
+                rxSrcPtr = remoteInSymmtryPtr;
+            }
+            
             u64 sliceCount = sliceSize / dataTypeSize;
 
             txSrcSlicesAll.emplace_back(txSrcPtr, txOutOffset, sliceSize, sliceCount);
@@ -169,7 +220,7 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
         TxRxChannels sendRecvChannels(linkRemote, linkRemote);
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-        CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threadIdx]),
+        CHK_PRT_RET(SendRecvRead(sendRecvInfo, enableSymmetryMemory_ ? threads[threadIdx + 1] : threads[threadIdx]),
                     HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
         }
     return HcclResult::HCCL_SUCCESS;
