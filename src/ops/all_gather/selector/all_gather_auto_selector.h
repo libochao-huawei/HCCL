@@ -40,6 +40,7 @@ private:
     SelectorStatus SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const override;
+    bool SupportSymmetryMemory(const OpParam &opParam) const;
 };
 
 }  // namespace ops_hccl
