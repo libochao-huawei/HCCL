@@ -117,6 +117,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
     tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+    tempAlgParams.enableSymmetryMemory = param.enableSymmetryMemory;
     // 不需要重复
     tempAlgParams.repeatNum = 1;
     tempAlgParams.inputRepeatStride = 0;
@@ -142,6 +143,11 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBoundDataSize);
     } else {
         maxDataSizePerLoop = transportBoundDataSize;
+    }
+
+    // 如果是对称内存，每次传输的大小不受cclbuffer和UB_MAX_DATA_SIZE的限制
+    if (tempAlgParams.enableSymmetryMemory) {
+        maxDataSizePerLoop = dataSize_;
     }
     u64 maxCountPerLoop = maxDataSizePerLoop / dataTypeSize_;
     // 计算loopTimes
