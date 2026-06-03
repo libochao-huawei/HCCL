@@ -13,7 +13,7 @@
 #include "template_utils.h"
 #include "kernel/ccu_kernel_all_to_all_v_mesh2die.h"
 #include "ccu_temp_all_to_all_v_mesh2die.h"
-#include "ccu_launch.h"
+#include "ccu_launch_dl.h"
 #include "ccu_res.h"
 
 namespace ops_hccl {
