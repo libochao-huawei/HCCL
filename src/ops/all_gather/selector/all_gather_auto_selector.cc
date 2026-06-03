@@ -34,6 +34,11 @@ bool IsAllGatherNoMemcpyEnabled()
     return env != nullptr && std::strcmp(env, "1") == 0;
 }
 
+const char *GetAllGatherOptTopoMode()
+{
+    return std::getenv("HCCL_AG_OPT_TOPO");
+}
+
 }  // namespace
 
 namespace ops_hccl {
@@ -350,8 +355,16 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgoMeshClosV2(
             selectAlgName = "InsAllGatherMeshClosV2";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
-                selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
-                    "InsAllGatherSequenceMeshClosV2Mesh1D" : "InsAllGatherParallelMesh1DMeshClosV2";
+                const char *topoMode = GetAllGatherOptTopoMode();
+                if (IsAllGatherAsymmetricOptEnabled() && IsAllGatherNoMemcpyEnabled() &&
+                    topoMode != nullptr && std::strcmp(topoMode, "pod_ubx_v2") == 0) {
+                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyPodUbxV2";
+                } else if (IsAllGatherNoMemcpyEnabled()) {
+                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2NoMemcpy";
+                } else {
+                    selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
+                        "InsAllGatherSequenceMeshClosV2Mesh1D" : "InsAllGatherParallelMesh1DMeshClosV2";
+                }
             } else {
                 selectAlgName = "InsAllGatherNHR";
             }
@@ -395,16 +408,31 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgoMeshClosV2(
                     selectAlgName = "InsAllGatherMesh1D";
                 }
             } else if (isClosNumMultipleOfMeshNum && dataSize > SMALL_COUNT_512KB) {
+                const char *topoMode = GetAllGatherOptTopoMode();
                 if (IsAllGatherAsymmetricOptEnabled()) {
                     if (IsAllGatherNoMemcpyEnabled()) {
-                        selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty";
+                        if (topoMode != nullptr && std::strcmp(topoMode, "pod_ubx_v2") == 0) {
+                            selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyPodUbxV2";
+                        } else {
+                            selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty";
+                        }
                     } else {
                         selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptMultiJetty";
                     }
-                    HCCL_INFO("[AllGatherAutoSelector] asymmetric opt enabled, select V3Opt [%s] noMemcpy[%d]",
-                              selectAlgName.c_str(), IsAllGatherNoMemcpyEnabled());
+                    HCCL_INFO("[AllGatherAutoSelector] asymmetric opt enabled, select V3Opt [%s] noMemcpy[%d] "
+                              "topoMode[%s]",
+                              selectAlgName.c_str(), IsAllGatherNoMemcpyEnabled(),
+                              topoMode == nullptr ? "(unset)" : topoMode);
                 } else {
-                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2MultiJetty";
+                    if (IsAllGatherNoMemcpyEnabled()) {
+                        if (topoMode != nullptr && std::strcmp(topoMode, "pod_ubx_v2") == 0) {
+                            selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2NoMemcpyPodUbxV2";
+                        } else {
+                            selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2NoMemcpyMultiJetty";
+                        }
+                    } else {
+                        selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2MultiJetty";
+                    }
                 }
             } else {
                 selectAlgName = "InsAllGatherMeshClosV2";

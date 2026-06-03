@@ -64,7 +64,11 @@ bool IsRemoteUserMemExperimentalAlg(const OpParam &param)
     return std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpy") == 0 ||
            std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodUbxV2") == 0 ||
            std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodDirect") == 0 ||
-           std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty") == 0;
+           std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosV2NoMemcpy") == 0 ||
+           std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosV2NoMemcpyMultiJetty") == 0 ||
+           std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosV2NoMemcpyPodUbxV2") == 0 ||
+           std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty") == 0 ||
+           std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyPodUbxV2") == 0;
 }
 
 bool NeedRemoteUserMemAccess(const OpParam &param)

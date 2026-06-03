@@ -10,9 +10,11 @@
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_1D.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_1D_no_memcpy.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_nhr.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_clos_v2.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_clos_v2_no_memcpy.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_1D_opt.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_clos_opt.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_1D_opt_no_memcpy.cc

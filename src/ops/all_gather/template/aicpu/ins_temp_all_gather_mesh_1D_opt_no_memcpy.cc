@@ -14,6 +14,20 @@
 namespace ops_hccl {
 namespace {
 constexpr u32 COPY_THREAD_NUM = 1;
+
+HcclResult CheckRemoteOutputRange(const char *tag, u32 myRank, u32 peer, const ChannelInfo &linkRemote,
+                                  u64 offset, u64 size)
+{
+    CHK_PRT_RET(linkRemote.remoteOutputGraphMode.addr == nullptr,
+                HCCL_ERROR("[%s] Rank[%u] peer[%u] remote output unavailable.", tag, myRank, peer),
+                HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(offset + size > linkRemote.remoteOutputGraphMode.size,
+                HCCL_ERROR("[%s] Rank[%u] peer[%u] remote output range overflow. off[%llu] size[%llu] "
+                           "remoteOutputSize[%llu]",
+                           tag, myRank, peer, offset, size, linkRemote.remoteOutputGraphMode.size),
+                HcclResult::HCCL_E_INTERNAL);
+    return HCCL_SUCCESS;
+}
 }
 
 InsTempAllGatherMesh1DOptNoMemcpy::InsTempAllGatherMesh1DOptNoMemcpy(const OpParam &param, const u32 rankId,
@@ -165,13 +179,10 @@ HcclResult InsTempAllGatherMesh1DOptNoMemcpy::RunAllGatherMesh(const std::vector
             u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
             txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, sliceSize, sliceCount);
 
-            CHK_PRT_RET(!enableRemoteMemAccess_ || linkRemote.remoteOutputGraphMode.addr == nullptr,
-                        HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy] remote output unavailable. "
-                                   "rank[%u] peer[%u]",
-                                   myRank_, connectedRank),
-                        HcclResult::HCCL_E_INTERNAL);
             void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
             u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + myRank_ * outputSliceStride;
+            CHK_RET(CheckRemoteOutputRange("InsTempAllGatherMesh1DOptNoMemcpy", myRank_, connectedRank,
+                                           linkRemote, txDstOffset, sliceSize));
             txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
 
             // rx 远端读，不应该启动
@@ -202,13 +213,10 @@ HcclResult InsTempAllGatherMesh1DOptNoMemcpy::RunAllGatherMesh(const std::vector
                 u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
                 txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, sliceSize, sliceCount);
 
-                CHK_PRT_RET(!enableRemoteMemAccess_ || linkRemote.remoteOutputGraphMode.addr == nullptr,
-                            HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy] remote output unavailable. "
-                                       "rank[%u] peer[%u]",
-                                       myRank_, connectedRank),
-                            HcclResult::HCCL_E_INTERNAL);
                 void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
                 u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + myRank_ * outputSliceStride;
+                CHK_RET(CheckRemoteOutputRange("InsTempAllGatherMesh1DOptNoMemcpy", myRank_, connectedRank,
+                                               linkRemote, txDstOffset, sliceSize));
                 txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
 
 

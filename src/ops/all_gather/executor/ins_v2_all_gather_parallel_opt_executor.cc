@@ -24,7 +24,8 @@ namespace ops_hccl {
 namespace {
 bool IsAllGatherNoMemcpyAlg(const OpParam &param)
 {
-    return std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty") == 0;
+    return std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty") == 0 ||
+           std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyPodUbxV2") == 0;
 }
 
 bool ContainsRank(const std::vector<u32> &ranks, u32 rank)
@@ -553,6 +554,10 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherPara
                                InsTempAllGatherMesh1DOpt, InsTempAllGatherMeshClosOpt);
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty,
+                               InsV2AllGatherParallelOptExecutor, TopoMatchUBX_V3,
+                               InsTempAllGatherMesh1DOptNoMemcpy, InsTempAllGatherMeshClosOptNoMemcpy);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosOptNoMemcpyPodUbxV2,
                                InsV2AllGatherParallelOptExecutor, TopoMatchUBX_V3,
                                InsTempAllGatherMesh1DOptNoMemcpy, InsTempAllGatherMeshClosOptNoMemcpy);
 

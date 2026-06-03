@@ -17,6 +17,20 @@ namespace ops_hccl {
 namespace {
 constexpr u32 COPY_THREAD_NUM = 1;
 constexpr u32 COPY_TO_COMM_NOTIFY_IDX = 1;
+
+HcclResult CheckRemoteOutputRange(const char *tag, u32 myRank, u32 peer, const ChannelInfo &linkRemote,
+                                  u64 offset, u64 size)
+{
+    CHK_PRT_RET(linkRemote.remoteOutputGraphMode.addr == nullptr,
+                HCCL_ERROR("[%s] Rank[%u] peer[%u] remote output unavailable.", tag, myRank, peer),
+                HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(offset + size > linkRemote.remoteOutputGraphMode.size,
+                HCCL_ERROR("[%s] Rank[%u] peer[%u] remote output range overflow. off[%llu] size[%llu] "
+                           "remoteOutputSize[%llu]",
+                           tag, myRank, peer, offset, size, linkRemote.remoteOutputGraphMode.size),
+                HcclResult::HCCL_E_INTERNAL);
+    return HCCL_SUCCESS;
+}
 }
 
 InsTempAllGatherMeshClosOptNoMemcpy::InsTempAllGatherMeshClosOptNoMemcpy(const OpParam &param, const u32 rankId,
@@ -259,13 +273,10 @@ HcclResult InsTempAllGatherMeshClosOptNoMemcpy::RunAllGatherToAllRanks(
         u64 txSrcOffset = tempAlgParams1_.buffInfo.inBuffBaseOff;
         txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, sliceSize, sliceCount);
 
-        CHK_PRT_RET(!enableRemoteMemAccess_ || linkRemote.remoteOutputGraphMode.addr == nullptr,
-                    HCCL_ERROR("[InsTempAllGatherMeshClosOptNoMemcpy][C] remote output unavailable. "
-                               "rank[%d] peer[%u]",
-                               myRank_, connectedRank),
-                    HcclResult::HCCL_E_INTERNAL);
         void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
         u64 txDstOffset = tempAlgParams1_.buffInfo.outBuffBaseOff + myRank_ * outputSliceStride;
+        CHK_RET(CheckRemoteOutputRange("InsTempAllGatherMeshClosOptNoMemcpy[C]", myRank_, connectedRank,
+                                       linkRemote, txDstOffset, sliceSize));
         txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
 
         // no-memcpy mode下C直接写到对端output；rx slice仅用于SendRecvInfo占位。
@@ -353,13 +364,10 @@ HcclResult InsTempAllGatherMeshClosOptNoMemcpy::RunAllGatherOnLink(
             u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
             txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, sliceSize, sliceCount);
 
-            CHK_PRT_RET(!enableRemoteMemAccess_ || linkRemote.remoteOutputGraphMode.addr == nullptr,
-                        HCCL_ERROR("[InsTempAllGatherMeshClosOptNoMemcpy][B] remote output unavailable. "
-                                   "rank[%d] peer[%u]",
-                                   myRank_, connectedRank),
-                        HcclResult::HCCL_E_INTERNAL);
             void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
             u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + myRank_ * outputSliceStride;
+            CHK_RET(CheckRemoteOutputRange("InsTempAllGatherMeshClosOptNoMemcpy[B]", myRank_, connectedRank,
+                                           linkRemote, txDstOffset, sliceSize));
             txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
 
             // rx 远端读，不应该启动
@@ -396,13 +404,10 @@ HcclResult InsTempAllGatherMeshClosOptNoMemcpy::RunAllGatherOnLink(
                 u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
                 txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, sliceSize, sliceCount);
 
-                CHK_PRT_RET(!enableRemoteMemAccess_ || linkRemote.remoteOutputGraphMode.addr == nullptr,
-                            HCCL_ERROR("[InsTempAllGatherMeshClosOptNoMemcpy][B] remote output unavailable. "
-                                       "rank[%d] peer[%u]",
-                                       myRank_, connectedRank),
-                            HcclResult::HCCL_E_INTERNAL);
                 void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
                 u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + myRank_ * outputSliceStride;
+                CHK_RET(CheckRemoteOutputRange("InsTempAllGatherMeshClosOptNoMemcpy[B]", myRank_, connectedRank,
+                                               linkRemote, txDstOffset, sliceSize));
                 txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
 
 
