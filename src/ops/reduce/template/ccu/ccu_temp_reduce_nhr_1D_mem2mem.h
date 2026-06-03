@@ -49,8 +49,8 @@ private:
     uint32_t rootId_        = 0;
     // rank对应的channel，size为1-2
     std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
-    HcclResult CcuTempReduceNHR1DMem2Mem::HandlePreSync(u32 kernelNum, TemplateResource& templateResource);
-    HcclResult CcuTempReduceNHR1DMem2Mem::HandlePostSync(u32 kernelNum, TemplateResource& templateResource);
+    HcclResult HandlePreSync(u32 kernelNum, TemplateResource& templateResource);
+    HcclResult HandlePostSync(u32 kernelNum, TemplateResource& templateResource);
     void CalculateDieSizes(const OpParam& param, const TemplateDataParams& templateDataParams,
                            u32 kernelNum, uint64_t& die0Size, uint64_t& die1Size);
     HcclResult GetDieNumFromChannelDescs(HcclComm comm, u32 &dieNum);
