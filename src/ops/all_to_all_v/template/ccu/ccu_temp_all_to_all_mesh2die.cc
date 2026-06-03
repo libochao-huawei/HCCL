@@ -11,7 +11,7 @@
 #include "channel.h"
 #include "alg_data_trans_wrapper.h"
 #include "ccu_launch_dl.h"
-#include "ccu_res.h"
+#include "ccu_res_dl.h"
 #include "ccu_temp_all_to_all_mesh2die.h"
 #include "kernel/ccu_kernel_all_to_all_mesh2die.h"
 

@@ -14,7 +14,7 @@
 #include "kernel/ccu_kernel_all_to_all_v_mesh2die.h"
 #include "ccu_temp_all_to_all_v_mesh2die.h"
 #include "ccu_launch_dl.h"
-#include "ccu_res.h"
+#include "ccu_res_dl.h"
 
 namespace ops_hccl {
 
