@@ -62,6 +62,8 @@ private:
         std::vector<MatrixAlltoAllSlot> &slotPlans) const;
     HcclResult CheckMatrixAlltoAllChannels(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const u32 matrixDim, const u32 myAlgRank) const;
+    HcclResult ResolveMatrixAlltoAllChannelIdx(const std::vector<ChannelInfo> &remoteChannels,
+        const MatrixAlltoAllSlot &slotPlan, u32 &channelIdx) const;
     HcclResult SelectMatrixAlltoAllChannel(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const MatrixAlltoAllSlot &slotPlan, const bool selectTxChannel, ChannelInfo &channel) const;
     HcclResult RunMatrixAlltoAll(const std::map<u32, std::vector<ChannelInfo>> &channels,
@@ -69,7 +71,12 @@ private:
     HcclResult RunMatrixAlltoAllReadPipelined(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank,
         const u32 matrixDim);
+    HcclResult RunMatrixAlltoAllWritePipelined(const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank,
+        const u32 matrixDim);
     HcclResult RunMatrixAlltoAllPreCopyRound(const TemplateDataParams &tempAlgParams,
+        const std::vector<ThreadHandle> &copyThreads, const u32 round, const u32 myAlgRank, const u32 bank) const;
+    HcclResult RunMatrixAlltoAllPostCopyRound(const TemplateDataParams &tempAlgParams,
         const std::vector<ThreadHandle> &copyThreads, const u32 round, const u32 myAlgRank, const u32 bank) const;
     HcclResult RunMatrixAlltoAllCommRound(const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &commThreads,
@@ -79,7 +86,7 @@ private:
     HcclResult WaitMatrixThreadsOnMain(const ThreadHandle &mainThread, const std::vector<u32> &notifyIdxSubToMain) const;
     HcclResult RunMatrixAlltoAllSlot(const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const MatrixAlltoAllSlot &slotPlan,
-        const ThreadHandle &thread, const u32 round, const bool needPreCopy) const;
+        const ThreadHandle &thread, const u32 round, const bool needPreCopy, const bool needPostCopy) const;
 
     HcclResult RunALLtoALL(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
