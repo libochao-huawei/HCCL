@@ -84,7 +84,7 @@ static void PostSync(AllToAllMesh2DieContext &ctx)
 static uint32_t CalcDstRank(AllToAllMesh2DieContext &ctx, uint32_t peerId)
 {
     const auto *arg = ctx.arg;
-    if (peerId >= arg->rankGroup.size()) {
+    if (peerId > arg->rankGroup.size()) {
         HCCL_ERROR("[CcuKernelAllToAllMesh2Die][CalcDstRank] Unexpected peerId[%u]", peerId);
     }
     return arg->rankGroup[peerId];
