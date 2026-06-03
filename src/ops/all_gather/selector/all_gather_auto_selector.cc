@@ -214,6 +214,25 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     return SelectorStatus::MATCH;
 }
 
+bool AllGatherAutoSelector::SupportSymmetryMemory(const OpParam &opParam) const
+{
+    HcclCommSymWindow inSymWinHandle = nullptr;
+    HcclCommSymWindow outSymWinHandle = nullptr;
+    u64 inOffset;
+    u64 outOffset;
+
+    HcclResult inRet = HcclCommSymWinGet(opParam.hcclComm, opParam.inputPtr, opParam.inputSize, &inSymWinHandle, &inOffset);
+    HcclResult outRet = HcclCommSymWinGet(opParam.hcclComm, opParam.outputPtr, opParam.outputSize, &outSymWinHandle, &outOffset);
+    if (inRet == HCCL_SUCCESS && outRet == HCCL_SUCCESS && inSymWinHandle != nullptr && outSymWinHandle != nullptr) {
+        opParam.inSymWinHandle = inSymWinHandle;
+        opParam.outSymWinHandle = outSymWinHandle;
+        opParam.inOffset = inOffset;
+        opParam.outOffset = outOffset;
+        return true;
+    }
+    return false;
+}
+
 SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
@@ -224,6 +243,13 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     u64 dataSize = opParam.DataDes.count * perDataSize;
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
               topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo);
+
+    if (SupportSymmetryMemory(opParam)) {
+        selectAlgName = "InsAllGatherSymmetryMemoryMesh1D";
+        HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
+
     if (topoInfo->topoLevelNums > 1) {
         // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
         if (topoInfo->Level1Nhr) {
