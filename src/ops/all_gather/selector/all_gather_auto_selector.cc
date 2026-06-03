@@ -222,12 +222,8 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
-                if (topoInfo->Level1Hd) {
-                    selectAlgName = "InsAllGatherParallelMesh1DHD";
-                } else {
-                    selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
-                        "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherPipelinedMesh1DNHR";
-                }
+                selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
+                    "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherPipelinedMesh1DNHR";
             } else {
                 selectAlgName = "InsAllGatherNHR";
             }

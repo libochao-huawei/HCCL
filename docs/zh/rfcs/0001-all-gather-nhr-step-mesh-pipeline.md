@@ -163,6 +163,76 @@ for (u32 channelIdx = 0; channelIdx < channelsPerRank_; ++channelIdx) {
 }
 ```
 
+### 为什么拆出三个 NHR 接口
+
+旧 `InsTempAllGatherNHR::KernelRun` 的粒度是完整 NHR，它一次性完成：
+
+- 初始化模板状态、计算多 channel 数据切分、同步 NHR 子线程。
+- 将本 rank 的本地数据拷到 NHR scratch。
+- 在内部循环跑完整个 `RunAllGatherNHR`，即所有 NHR step。
+- 将 scratch 中的全量 NHR 结果 `PostLocalCopy` 到 output。
+- 做 NHR 子线程收尾同步。
+
+流水线方案需要打破的是“完整 NHR 完成后才进入 mesh”的阶段边界。`part1` 每完成一个 NHR step 后，executor 必须立刻拿到本 step 新收到的 `rxSliceIdxs`，并把这些 node 的数据送入 server 内 mesh。如果仍只暴露完整 `KernelRun`，`rxSliceIdxs` 被藏在 NHR 内部循环里，外层 executor 无法在 step 之间插入 streamed mesh。
+
+因此 NHR 被拆成生命周期接口，而不是新增三套算法：
+
+- `PrepareStepRun`：执行一次性准备工作，保存 `tempAlgParams_`、设置 `dataType_`/`isDmaRead_`、计算多 channel split、同步 NHR 子线程，并把本地数据 copy 到 inter scratch。
+- `RunNHRStep`：只执行指定 `step` 的 NHR send/recv，复用原有 `GetStepInfo` 计算 `txSliceIdxs`/`rxSliceIdxs`，并通过 `stepInfo` 把本 step 收到的 node 切片暴露给 executor。
+- `FinalizeStepRun`：执行收尾。兼容旧语义时传 `copyToOutput=true`，会执行原来的 `PostLocalCopy`；流水线 `part1` 传 `copyToOutput=false`，因为 `part1` 的最终 output 由后续 streamed mesh 写入。
+
+关键实现对应如下：
+
+```cpp
+// PrepareStepRun: 原 KernelRun 的前半段。
+tempAlgParams_ = tempAlgParams;
+dataType_ = param.DataDes.dataType;
+isDmaRead_ = IsPcieProtocol(templateResource.channels);
+PreprareDataSplitForMultiChannel(templateResource);
+PreSyncInterThreads(...);        // 多 NHR channel 时同步子线程
+for (u32 channelIdx = 0; channelIdx < channelsPerRank_; ++channelIdx) {
+    LocalDataCopy(templateResource.threads, channelIdx);
+}
+
+// RunNHRStep: 原 RunAllGatherNHR 内部 step 循环的一次迭代。
+GetStepInfo(step, nSteps, stepInfo);
+channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[channelIdx];
+channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[channelIdx];
+Build tx/rx DataSlice by stepInfo.txSliceIdxs/rxSliceIdxs;
+SendRecvRead(...) or SendRecvBatchWrite(...);
+
+// FinalizeStepRun: 原 KernelRun 的后半段。
+if (copyToOutput) {
+    PostLocalCopy(threads, channelIdx);
+}
+if (last channel) {
+    PostSyncInterThreads(...);
+}
+```
+
+### 为什么不新增 Mesh Step 接口
+
+Mesh 模板不需要类似拆分，因为流水线里需要被切开的生产者是 NHR。executor 需要知道 NHR 每个 step 新收到哪些 node 数据，才能决定触发哪些 streamed mesh；这个信息只存在于 NHR 的 `GetStepInfo`/`rxSliceIdxs`。
+
+Mesh 侧已经可以通过现有 `KernelRun` 表达足够小的调度粒度：executor 每次生成一组新的 `TemplateDataParams`，让同一个 mesh template 只处理一个 `nodeIdx` 的 `part1` 数据。也就是说，Mesh 的分批不需要改模板内部循环，只需要改输入、输出和 scratch 偏移：
+
+```cpp
+GenTemplateAlgParamsIntra1FromInterScratch(..., nodeIdx, ...);
+tempAlgParamsIntra1.buffInfo.inputPtr = resCtx.cclMem.addr;
+tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
+tempAlgParamsIntra1.buffInfo.inBuffBaseOff =
+    interScratchOffset + nodeIdx * sliceSize;
+tempAlgParamsIntra1.buffInfo.outBuffBaseOff =
+    nodeIdx * rankSizeLevel0_ * dataSize_ + dataOffset;
+tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff =
+    intraScratchOffset + nodeIdx * sliceSize * rankSizeLevel0_;
+tempAlgParamsIntra1.repeatNum = 1;
+
+tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes);
+```
+
+因此本方案只扩展 NHR template 的 step 级接口；Mesh template 保持原接口，由 executor 通过参数化多次调用完成 streamed mesh。
+
 ## CCL Buffer 排布
 
 CCL/HCCL 临时 buffer 的总体分区沿用 parallel executor：
