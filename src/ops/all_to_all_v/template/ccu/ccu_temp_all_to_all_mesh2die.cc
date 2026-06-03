@@ -43,7 +43,7 @@ HcclResult CcuTempAllToAllMesh2Die::CalcRes(HcclComm comm, const OpParam &param,
     resourceRequest.ccuKernelNum.push_back(DIE_NUM);
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {
         CcuKernelInfo kernelInfo;
-        strcpy(kernelInfo.kernelFuncName, "CcuAllToAllMesh2DieKernel");
+        CHK_SAFETY_FUNC_RET(strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllToAllMesh2DieKernel"));
         kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllToAllMesh2DieKernel);
 
         const bool withMyRank = channels_[dieId].size() > channels_[1 - dieId].size() ? false : true;
@@ -144,9 +144,7 @@ HcclResult CcuTempAllToAllMesh2Die::KernelRun(const OpParam &param, const Templa
         }
 
         uint32_t argSize = static_cast<uint32_t>(taskArgs.size());
-        CcuResult launchRet = HcommCcuKernelLaunch(
-            templateResource.threads[dieId], templateResource.ccuKernels[dieId],
-            taskArgs.data(), argSize);
+        CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[dieId], templateResource.ccuKernels[dieId], taskArgs.data(), argSize);
         if (launchRet != CCU_SUCCESS) {
             HCCL_ERROR("[CcuTempAlltoAllMesh2Die][KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
             return ConvertCcuToHccl(launchRet);

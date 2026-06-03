@@ -41,6 +41,7 @@ public:
 
 private:
     HcclResult PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs);
+    void FillRankGroupTaskArgs(uint32_t dieId, const LoopGroupConfig &config, std::vector<uint64_t> &taskArgs);
 
     const uint32_t DIE_NUM = 2; // 2Die
 
