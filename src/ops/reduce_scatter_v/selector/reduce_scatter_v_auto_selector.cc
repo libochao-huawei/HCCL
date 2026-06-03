@@ -135,7 +135,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
 SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(const TopoInfoWithNetLayerDetails* topoInfo,
     const OpParam &opParam, std::string &selectAlgName) const
 {
-    const u64* varData = reinterpret_cast<const u64*>(param.varData);
+    const u64* varData = reinterpret_cast<const u64*>(opParam.varData);
     // 从0长数组中还原出任务信息
     std::vector<u64> sendCounts;
     sendCounts.assign(varData, varData + topoInfo->userRankSize);
@@ -161,7 +161,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(const TopoI
             if (inputDataSize < RSV_CCU_8P_MIN_DATA_SIZE) {
                 selectAlgName = "CcuReduceScatterVMesh1D";
             } else {
-                return SelectorStatus::NOT_MATCH
+                return SelectorStatus::NOT_MATCH;
             }
         } else {
             HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
