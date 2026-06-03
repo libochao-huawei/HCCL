@@ -144,6 +144,26 @@ HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, con
     return HCCL_SUCCESS;
 }
 
+HcclResult AllGatherSupportSymmetricMemory(OpParam &opParam)
+{
+    HcclCommSymWindow inputSymWindow = nullptr;
+    HcclCommSymWindow outputSymWindow = nullptr;
+    size_t inputOffset;
+    size_t outputOffset;
+
+    CHK_RET(HcclCommSymWinGet(opParam.hcclComm, opParam.inputPtr, opParam.inputSize, &inputSymWindow, &inputOffset));
+    CHK_RET(HcclCommSymWinGet(opParam.hcclComm, opParam.outputPtr, opParam.outputSize, &outputSymWindow, &outputOffset));
+    if (inputSymWindow != nullptr && outputSymWindow != nullptr) {
+        opParam.inputSymWindow = inputSymWindow;
+        opParam.outputSymWindow = outputSymWindow;
+        opParam.inputOffset = inputOffset;
+        opParam.outputOffset = outputOffset;
+        opParam.supportSymmetricMemory = true;
+        return HCCL_SUCCESS;
+    }
+    return HCCL_E_INTERNAL;
+}
+
 HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                                    aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
 {
@@ -198,6 +218,11 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(comm, param));
         return HcclResult::HCCL_SUCCESS;
+    }
+    if (AllGatherSupportSymmetricMemory(param) == HCCL_SUCCESS) {
+        HCCL_INFO("[%s] symmetric memory enabled", __func__);
+    } else {
+        HCCL_INFO("[%s] symmetric memory not supported", __func__);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
     HCCL_INFO("Execute AllGatherOutPlace success.");
