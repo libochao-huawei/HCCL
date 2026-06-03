@@ -222,12 +222,17 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     (void)configAlgMap;
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
-    HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
-              topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo);
-    HCCL_ERROR("20260632")
+    HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d], "
+              "serverNum[%d]",
+        topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo, topoInfo->serverNum);
+    HCCL_ERROR("114514");
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->topoLevelNums == 3) {
-            selectAlgName = "InsAllGatherNHR";
+            if ((topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7)) {
+                    selectAlgName = "InsAllGatherParallelMesh1DNHRTest";
+                } else {
+                    selectAlgName = "InsAllGatherNHR";
+                }
         // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
         } else if (topoInfo->Level1Nhr) {
             selectAlgName = "InsAllGatherNHR";
