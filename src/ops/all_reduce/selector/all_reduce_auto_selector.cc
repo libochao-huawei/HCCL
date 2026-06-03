@@ -24,6 +24,8 @@ constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 AR_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_CCU_CLOS_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_SEQUENCE_DATA_SIZE = 1 * 1024 * 1024 * 1024;
+constexpr u64 AR_AIV_SMALL_DATA_SIZE_IN_BOARD = 128 * 1024;
+constexpr u64 AR_AIV_BOARD_SIZE = 8;
 
 SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -473,10 +475,19 @@ SelectorStatus AllReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
         return SelectorStatus::NOT_MATCH;
     }
 
-    if (IsSmallData(dataSize)) {
-        selectAlgName = "AivAllReduceMesh1DOneShot";
+    if (topoInfo->userRankSize <= AR_AIV_BOARD_SIZE) {
+        // 板内8p场景，按照时延拐点选择算法
+        if (dataSize < AR_AIV_SMALL_DATA_SIZE_IN_BOARD) {
+            selectAlgName = "AivAllReduceMesh1DOneShot";
+        } else {
+            selectAlgName = "AivAllReduceMesh1DTwoShot";
+        }
     } else {
-        selectAlgName = "AivAllReduceMesh1DTwoShot";
+        if (IsSmallData(dataSize)) {
+            selectAlgName = "AivAllReduceMesh1DOneShot";
+        } else {
+            selectAlgName = "AivAllReduceMesh1DTwoShot";
+        }
     }
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
