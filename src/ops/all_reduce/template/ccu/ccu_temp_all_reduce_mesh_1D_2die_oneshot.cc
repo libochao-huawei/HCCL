@@ -67,7 +67,7 @@ HcclResult CcuTempAllreduceMesh1D2DieOneShot::CalcRes(HcclComm comm, const OpPar
 
     for (uint32_t die = 0; die < ALL_REDUCE_DIE_NUM; die++) {
         CcuKernelInfo kernelInfo;
-        strcpy(kernelInfo.kernelFuncName, "CcuKernelAllreduceMesh1D2DieOneShot");
+        strcpy_s(kernelInfo.kernelFuncName, "CcuKernelAllreduceMesh1D2DieOneShot");
         kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllreduceMesh1D2DieOneShotKernel);
 
         bool rmtReduceWithMyRank = channelDescsDie[die].size() > channelDescsDie[1 - die].size() ? false : true;
