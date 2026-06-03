@@ -12,6 +12,7 @@
 #define OPS_HCCL_SRC_OPS_SCATTER_OP
 
 #include <array>
+#include <map>
 #include <string>
 #include "hccl.h"
 
@@ -32,6 +33,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDat
 #endif
 
 namespace ops_hccl {
+
 using NotifyArray = std::array<aclrtNotify, AICPU_CONTROL_NOTIFY_NUM>;
 
 HcclResult ScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
