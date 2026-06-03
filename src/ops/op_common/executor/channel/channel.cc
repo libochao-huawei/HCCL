@@ -201,31 +201,31 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
         case CommEngine::COMM_ENGINE_AICPU:
         case CommEngine::COMM_ENGINE_AICPU_TS:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
-        protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
-        protocols.push_back(CommProtocol::COMM_PROTOCOL_PCIE);
-        protocols.push_back(CommProtocol::COMM_PROTOCOL_UBOE);
-        break;
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_PCIE);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBOE);
+            break;
         case CommEngine::COMM_ENGINE_CCU:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
-        protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
-        break;
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
+            break;
         case CommEngine::COMM_ENGINE_AIV:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UB_MEM);
-        protocols.push_back(CommProtocol::COMM_PROTOCOL_PCIE);
-        break;
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_PCIE);
+            break;
         case CommEngine::COMM_ENGINE_CPU:
             // level 1到level n-1使用UB协议，server内建联，最外层使用网卡建联
-                protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
-        protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
-        protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
-        break;
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
+            break;
         case CommEngine::COMM_ENGINE_CPU_TS:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
-        break;
+            break;
         default:
             HCCL_WARNING("[GetProtocolByEngine] Unknown engine[%d], set protocol to RESERVED",
                          static_cast<int>(param.engine));
-        break;
+            break;
     }
 #else
     // 8.5.0 CANN 无 UBC_CTP/UB_MEM 等枚举值；此函数所在的 CalcChannelRequestXxx/CreateChannelRequestByRankId 通路
