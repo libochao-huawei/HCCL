@@ -53,7 +53,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     if ((GetHcommVersion() == CANN_VERSION(9, 0, 0)) &&
         (GetExternalInputHcclCcuMSMode() ||
         GetExternalInputHcclCcuSchedMode())) {
-        return HcclScatterInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
     
     // AclGraph引导到老的流程上面

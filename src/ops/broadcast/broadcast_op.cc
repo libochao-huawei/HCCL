@@ -46,7 +46,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     if ((GetHcommVersion() == CANN_VERSION(9, 0, 0)) &&
         (GetExternalInputHcclCcuMSMode() ||
         GetExternalInputHcclCcuSchedMode())) {
-        return HcclBroadcastInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+        return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
 
     CHK_RET(BroadcastEntryLog(buf, count, dataType, root, stream, param.tag, "HcclBroadcast"));

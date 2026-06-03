@@ -47,7 +47,7 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     if ((GetHcommVersion() == CANN_VERSION(9, 0, 0)) &&
         (GetExternalInputHcclCcuMSMode() ||
         GetExternalInputHcclCcuSchedMode())) {
-        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
 
     /* 接口交互信息日志 */

@@ -49,7 +49,7 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     if ((GetHcommVersion() == CANN_VERSION(9, 0, 0)) &&
         (GetExternalInputHcclCcuMSMode() ||
         GetExternalInputHcclCcuSchedMode())) {
-        return HcclAllGatherInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
 
     CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "HcclAllGather"));
