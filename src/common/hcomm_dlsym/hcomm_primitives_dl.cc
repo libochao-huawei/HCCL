@@ -38,6 +38,7 @@ DEFINE_WEAK_FUNC(int32_t, HcommChannelFence, ChannelHandle channel);
 DEFINE_WEAK_FUNC(int32_t, HcommFenceOnThread, ThreadHandle thread);
 DEFINE_WEAK_FUNC(int32_t, HcommChannelFenceOnThread, ThreadHandle thread, ChannelHandle channel);
 DEFINE_WEAK_FUNC(HcclResult, HcommThreadJoin, ThreadHandle thread, uint32_t timeout);
+DEFINE_WEAK_FUNC(HcclResult, HcclSymWinGetPeerPointer, HcclCommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr);
 
 using HcclHcommBatchTransferOnThreadFunc =
     int32_t (*)(ThreadHandle, ChannelHandle, const HcclHcommBatchTransferDesc *, uint32_t);
@@ -82,6 +83,7 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommThreadJoin);
+    INIT_SUPPORT_FLAG(libHcommHandle, HcclSymWinGetPeerPointer);
     g_HcommBatchTransferOnThread = reinterpret_cast<HcclHcommBatchTransferOnThreadFunc>(
         dlsym(libHcommHandle, "HcommBatchTransferOnThread"));
     if (g_HcommBatchTransferOnThread == nullptr) {
