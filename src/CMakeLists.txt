@@ -644,6 +644,7 @@ target_compile_options(opgraph_hccl PRIVATE
 target_link_libraries(opgraph_hccl PRIVATE
     ${_op_proto_link_libs}
     -Wl,--whole-archive
+    rt2_registry
     -Wl,--no-whole-archive
     -Wl,-Bsymbolic
 )
