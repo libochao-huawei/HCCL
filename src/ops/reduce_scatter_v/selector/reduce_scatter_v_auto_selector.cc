@@ -135,16 +135,18 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
 SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(const TopoInfoWithNetLayerDetails* topoInfo,
     const OpParam &opParam, std::string &selectAlgName) const
 {
-    const u64* varData = reinterpret_cast<const u64*>(param.varData);
+    const u64* varData = reinterpret_cast<const u64*>(opParam.varData);
     // 从0长数组中还原出任务信息
     std::vector<u64> sendCounts;
     sendCounts.assign(varData, varData + topoInfo->userRankSize);
     u64 inputCount = 0;
     for (u64 i = 0; i < topoInfo->userRankSize; i++) {
         inputCount += sendCounts[i];
+        HCCL_ERROR("inputCount[%u]",inputCount);
     }
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
-    u64 inputDataSize = perDataSize * perDataSize;
+    u64 inputDataSize = inputCount * perDataSize;
+    HCCL_ERROR("inputDataSize[%u]",inputDataSize);
     
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->is2DieFullMesh) {
@@ -152,6 +154,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(const TopoI
             return SelectorStatus::NOT_MATCH;
         } else if (inputDataSize < RSV_CCU_8P_MIN_DATA_SIZE) {
             selectAlgName = "CcuReduceScatterVMesh1D";
+            HCCL_ERROR("11111111111111111");
         } else {
             return SelectorStatus::NOT_MATCH;
         }
@@ -160,8 +163,9 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(const TopoI
         if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
             if (inputDataSize < RSV_CCU_8P_MIN_DATA_SIZE) {
                 selectAlgName = "CcuReduceScatterVMesh1D";
+                HCCL_ERROR("22222222222222222222222");
             } else {
-                return SelectorStatus::NOT_MATCH
+                return SelectorStatus::NOT_MATCH;
             }
         } else {
             HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
