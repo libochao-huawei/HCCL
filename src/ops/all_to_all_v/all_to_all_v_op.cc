@@ -47,7 +47,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     if ((GetHcommVersion() == CANN_VERSION(9, 0, 0)) &&
         (GetExternalInputHcclCcuMSMode() ||
         GetExternalInputHcclCcuSchedMode())) {
-        return HcclAlltoAllInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
 
     // 参数校验等工作

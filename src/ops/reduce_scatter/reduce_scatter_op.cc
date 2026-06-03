@@ -44,7 +44,7 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     if ((GetHcommVersion() == CANN_VERSION(9, 0, 0)) &&
         (GetExternalInputHcclCcuMSMode() ||
         GetExternalInputHcclCcuSchedMode())) {
-        return HcclReduceScatterInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
 
     OpParam param;

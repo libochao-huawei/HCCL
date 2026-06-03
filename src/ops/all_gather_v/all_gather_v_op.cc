@@ -43,7 +43,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     if ((GetHcommVersion() == CANN_VERSION(9, 0, 0)) &&
         (GetExternalInputHcclCcuMSMode() ||
         GetExternalInputHcclCcuSchedMode())) {
-        return HcclAllGatherVInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+        return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
     // 参数校验等工作
  	CHK_RET(CheckAllGatherVInputPara(comm, recvBuf, recvCounts, recvDispls, stream));
