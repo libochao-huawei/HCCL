@@ -312,7 +312,7 @@ HcclResult InsTempAlltoAllVMesh1D::CheckMatrixAlltoAllChannels(
                 userRank), HCCL_E_PARA);
         u32 peerCol = algRank % matrixDim;
         bool sameColumn = (peerCol == myCol);
-        u32 expectedChannelNum = sameColumn ? (matrixDim + 1) : matrixDim;
+        u32 expectedChannelNum = sameColumn ? 1 : matrixDim;
         CHK_PRT_RET(iter->second.size() < expectedChannelNum,
             HCCL_WARNING("[InsTempAlltoAllVMesh1D][CheckMatrixAlltoAllChannels] rank[%u], algRank[%u], "
                 "sameColumn[%d], channelNum[%zu] less than expected[%u].",
