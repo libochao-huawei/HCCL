@@ -59,6 +59,36 @@ constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify 
 constexpr u32 HOST_NOTIFY_TIMEOUT_OFFSET = 27;  // host等待Device通知的超时时间偏移量
 constexpr u32 KERNEL_TIMEOUT_OFFSET = 25;       // kernel启动超时时间偏移量
 
+bool IsRemoteUserMemExperimentalAlg(const OpParam &param)
+{
+    return std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpy") == 0 ||
+           std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodUbxV2") == 0 ||
+           std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodDirect") == 0 ||
+           std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty") == 0;
+}
+
+bool NeedRemoteUserMemAccess(const OpParam &param)
+{
+    return param.opMode == OpMode::OFFLOAD || IsRemoteUserMemExperimentalAlg(param);
+}
+
+bool IsAlltoAllNoMemcpyAlg(const OpParam &param)
+{
+    return std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpy") == 0 ||
+           std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodUbxV2") == 0 ||
+           std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodDirect") == 0;
+}
+
+u64 GetGraphModeInputRegisterSize(const OpParam &param)
+{
+    return param.inputSize;
+}
+
+u64 GetGraphModeOutputRegisterSize(const OpParam &param)
+{
+    return param.outputSize;
+}
+
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
 HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetLayerDetails* topoInfo)
@@ -1340,8 +1370,11 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
                           AlgResourceCtxSerializable* resCtxHost)
 {
     MemRegInfo memRegInfo;
-    if (param.opMode == OpMode::OFFLOAD) {
-        HCCL_INFO("[HcclGetChannelImpl] start to RegGraphModeBuffers");
+    const bool needRemoteUserMemAccess = NeedRemoteUserMemAccess(param);
+    if (needRemoteUserMemAccess) {
+        HCCL_WARNING("[HcclGetChannelImpl] start to RegGraphModeBuffers. algName[%s] opMode[%d] inputSize[%llu] "
+                     "outputSize[%llu]",
+                     param.algName, static_cast<int>(param.opMode), param.inputSize, param.outputSize);
         CHK_RET(RegGraphModeBuffers(comm, param, memRegInfo.inputBuffTag, memRegInfo.outputBuffTag, memRegInfo.memHandles));
     }
     resCtxHost->channels.resize(resRequest.channels.size());
@@ -1376,7 +1409,8 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
     u32 channelNum = channelRequest.size();
     std::vector<ChannelHandle> levelNChannels;
     levelNChannels.resize(channelNum);
-    if (param.opMode == OpMode::OFFLOAD) {
+    const bool needRemoteUserMemAccess = NeedRemoteUserMemAccess(param);
+    if (needRemoteUserMemAccess) {
         for (auto &channelDesc : channelRequest) {
             channelDesc.memHandles = memRegInfo.memHandles.data();
             channelDesc.memHandleNum = memRegInfo.memHandles.size();
@@ -1416,8 +1450,13 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         HCCL_INFO("[%s]remoteRank[%u] protocol[%u] remoteCclBufferAddr[0x%llx] remoteCclBufferSize[%u]",
             __func__, channelDescNew.remoteRank,channelDescNew.channelProtocol, remoteCclBufferAddr, remoteCclBufferSize);
 
-        if (param.opMode == OpMode::OFFLOAD) {
+        if (needRemoteUserMemAccess) {
             CHK_RET(GetGraphModeBuffers(comm, levelNChannels[idx], memRegInfo.inputBuffTag, memRegInfo.outputBuffTag, channel));
+            HCCL_WARNING("[HcclGetChannelImpl] remote graph buffers. algName[%s] remoteRank[%u] "
+                         "remoteInput[0x%llx,%llu] remoteOutput[0x%llx,%llu]",
+                         param.algName, channelDescNew.remoteRank, channel.remoteInputGraphMode.addr,
+                         channel.remoteInputGraphMode.size, channel.remoteOutputGraphMode.addr,
+                         channel.remoteOutputGraphMode.size);
         }
         resCtxHost->channels[level].push_back(channel);
     }
@@ -1433,16 +1472,20 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param,char* inputBu
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buuffer");
-    if (param.inputPtr != nullptr && param.inputSize != 0) {
+    u64 inputRegisterSize = GetGraphModeInputRegisterSize(param);
+    u64 outputRegisterSize = GetGraphModeOutputRegisterSize(param);
+    HCCL_WARNING("[RegGraphModeBuffers] graph mode registry remote buffer. algName[%s] "
+                 "inputSize[%llu] inputRegSize[%llu] outputSize[%llu] outputRegSize[%llu]",
+                 param.algName, param.inputSize, inputRegisterSize, param.outputSize, outputRegisterSize);
+    if (param.inputPtr != nullptr && inputRegisterSize != 0) {
         HcclMemHandle inputHandle = nullptr;
-        CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
+        CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, inputRegisterSize, &inputHandle));
         CHK_PTR_NULL(inputHandle);
         memHandles.emplace_back(inputHandle);
     }
-    if (param.outputPtr != nullptr && param.outputSize != 0) {
+    if (param.outputPtr != nullptr && outputRegisterSize != 0) {
         HcclMemHandle outputHandle = nullptr;
-        CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
+        CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, outputRegisterSize, &outputHandle));
         CHK_PTR_NULL(outputHandle);
         memHandles.emplace_back(outputHandle);
     }
