@@ -229,7 +229,6 @@ function run_st() {
   fi
 }
 
-# 这个需要整改吗
 function build_custom() {
     # 编译 Device 包
     log "Info: build_custom_device"
