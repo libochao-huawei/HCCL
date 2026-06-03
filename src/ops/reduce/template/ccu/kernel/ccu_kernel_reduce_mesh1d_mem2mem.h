@@ -18,6 +18,7 @@
 
 namespace ops_hccl {
 constexpr uint64_t LOCAL_COPY_MS = 8;
+constexpr uint64_t LOOP_NUM = 8;
 
 struct CcuKernelArgReduceMesh1DMem2Mem: CcuKernelArgBase {
     uint64_t                                rankSize;

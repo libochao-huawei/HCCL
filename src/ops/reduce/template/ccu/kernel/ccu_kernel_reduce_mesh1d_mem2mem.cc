@@ -18,6 +18,7 @@ constexpr int OUTPUT_XN_ID   = 1;
 constexpr int TOKEN_XN_ID    = 2;
 constexpr int POST_SYNC_ID   = 3;
 constexpr int CKE_IDX_0      = 0;
+constexpr int GROUP_NUM      = 2;
 const std::string LOOP_NAME  = "reduceMesh1DMem2MemLoop";
 
 static CcuResult ParseKernelArg(ReduceMesh1DMem2MemContext &ctx, CcuKernelArgReduceMesh1DMem2Mem *kernelArg)
@@ -122,7 +123,7 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
 		loops.loopParam[0] = loopCfg0;
  	    loops.loopParam[1] = loopCfg1;
  	    std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
- 	    ccu::LoopGroup group(ctx.localGoSize.parallelParam, offsetCfg, 2, grpLoops);
+ 	    ccu::LoopGroup group(ctx.localGoSize.parallelParam, offsetCfg, GROUP_NUM, grpLoops);
     }
     return CCU_SUCCESS;
 }
@@ -153,7 +154,7 @@ static CcuResult InitResource(ReduceMesh1DMem2MemContext &ctx)
 
     ctx.chunkSize.resize(arg->rankSize - 1);
 
-    ctx.moConfig.loopCount = 8;
+    ctx.moConfig.loopCount = LOOP_NUM;
     ctx.moConfig.msInterleave = LOCAL_COPY_MS;
     ctx.moConfig.memSlice = LOCAL_COPY_MS * CCU_MS_SIZE;
 

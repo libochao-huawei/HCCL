@@ -156,7 +156,7 @@ HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
     HCCL_INFO("[CcuTempReduceMesh1DMem2Mem::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], normalSliceSize[%llu], lastSliceSize[%llu], repeatNumVar[%llu], bigDataSliceNum[%llu], bigDataSliceSize[%llu], smallDataSliceNum[%llu], smallDataSliceSize[%llu]", inputAddr, outputAddr, repeatNum, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, repeatNumVar, bigDataSliceNum, bigDataSliceSize, smallDataSliceNum, smallDataSliceSize);
     LoopGroupConfig  config{};
     config.msInterleave = LOCAL_COPY_MS;
-    config.loopCount    = 8;
+    config.loopCount    = LOOP_NUM;
     config.memSlice     = LOCAL_COPY_MS * CCU_MS_SIZE;
     auto     goSize     = CalGoSize(normalSliceSize, config);
 
