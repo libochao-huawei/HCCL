@@ -152,14 +152,13 @@ inline std::string GetDataTypeEnumStr(u32 dataType)
 
 inline std::string GetDataStr(const void *data, u32 totalRanks)
 {
-    std::string dataCounts = "[";
+    std::string dataCounts;
     for (u32 i = 0; i < totalRanks; i++) {
         if (i > 0) {
             dataCounts += ", ";
         }
         dataCounts += std::to_string(static_cast<const u64 *>(data)[i]);
     }
-    dataCounts += "]";
     return dataCounts;
 }
 
