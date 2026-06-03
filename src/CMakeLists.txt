@@ -642,8 +642,10 @@ target_compile_options(opgraph_hccl PRIVATE
     -fvisibility=hidden
 )
 target_link_libraries(opgraph_hccl PRIVATE
+    PRIVATE $<BUILD_INTERFACE:intf_pub_cxx17>
     ${_op_proto_link_libs}
     -Wl,--whole-archive
+    rt2_registry_static
     -Wl,--no-whole-archive
     -Wl,-Bsymbolic
 )
