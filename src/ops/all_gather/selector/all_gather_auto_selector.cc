@@ -28,6 +28,12 @@ bool IsAllGatherAsymmetricOptEnabled()
     return (env != nullptr && std::strcmp(env, "1") == 0);
 }
 
+bool IsAllGatherNoMemcpyEnabled()
+{
+    const char *env = std::getenv("HCCL_ENABLE_AG_NO_MEMCPY");
+    return env != nullptr && std::strcmp(env, "1") == 0;
+}
+
 }  // namespace
 
 namespace ops_hccl {
@@ -390,8 +396,13 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgoMeshClosV2(
                 }
             } else if (isClosNumMultipleOfMeshNum && dataSize > SMALL_COUNT_512KB) {
                 if (IsAllGatherAsymmetricOptEnabled()) {
-                    selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptMultiJetty";
-                    HCCL_INFO("[AllGatherAutoSelector] asymmetric opt enabled, select V3Opt [%s]", selectAlgName.c_str());
+                    if (IsAllGatherNoMemcpyEnabled()) {
+                        selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty";
+                    } else {
+                        selectAlgName = "InsAllGatherParallelMesh1DMeshClosOptMultiJetty";
+                    }
+                    HCCL_INFO("[AllGatherAutoSelector] asymmetric opt enabled, select V3Opt [%s] noMemcpy[%d]",
+                              selectAlgName.c_str(), IsAllGatherNoMemcpyEnabled());
                 } else {
                     selectAlgName = "InsAllGatherParallelMesh1DMeshClosV2MultiJetty";
                 }

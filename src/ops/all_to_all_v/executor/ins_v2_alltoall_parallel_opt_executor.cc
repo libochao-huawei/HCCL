@@ -17,11 +17,21 @@
 #include "alg_data_trans_wrapper.h"
 #include "ins_temp_alltoall_mesh_2d_v3.h"
 #include "ins_temp_alltoall_mesh_clos_v3.h"
+#include "ins_temp_alltoall_mesh_2d_v3_no_memcpy.h"
+#include "ins_temp_alltoall_mesh_clos_v3_no_memcpy.h"
 
 #include "topo_match_ubx_v2.h"
 #include "topo_match_alltoall_pod_direct.h"
 
 namespace ops_hccl {
+namespace {
+bool IsAlltoAllNoMemcpyAlg(const OpParam &param)
+{
+    return std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpy") == 0 ||
+           std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodUbxV2") == 0 ||
+           std::strcmp(param.algName, "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodDirect") == 0;
+}
+}
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AlltoAllParallelOptExecutor()
@@ -499,7 +509,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 
     {
-        tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD || IsAlltoAllNoMemcpyAlg(param);
 
         tempAlgParams.buffInfo.inputPtr = param.inputPtr;
         tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
@@ -549,6 +559,14 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(
     HcclCMDType::HCCL_CMD_ALLTOALL,
+    InsAlltoAllParallelMesh2DClosV3NoMemcpy,
+    InsV2AlltoAllParallelOptExecutor,
+    TopoMatchUBX_V2,
+    InsTempAlltoAllMesh2DV3NoMemcpy,
+    InsTempAlltoAllMeshClosV3NoMemcpy);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(
+    HcclCMDType::HCCL_CMD_ALLTOALL,
     InsAlltoAllParallelMesh2DClosV3PodUbxV2,
     InsV2AlltoAllParallelOptExecutor,
     TopoMatchUBX_V2,
@@ -557,10 +575,26 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(
     HcclCMDType::HCCL_CMD_ALLTOALL,
+    InsAlltoAllParallelMesh2DClosV3NoMemcpyPodUbxV2,
+    InsV2AlltoAllParallelOptExecutor,
+    TopoMatchUBX_V2,
+    InsTempAlltoAllMesh2DV3NoMemcpy,
+    InsTempAlltoAllMeshClosV3NoMemcpy);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(
+    HcclCMDType::HCCL_CMD_ALLTOALL,
     InsAlltoAllParallelMesh2DClosV3PodDirect,
     InsV2AlltoAllParallelOptExecutor,
     TopoMatchAlltoAllPodDirect,
     InsTempAlltoAllMesh2DV3,
     InsTempAlltoAllMeshClosV3);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(
+    HcclCMDType::HCCL_CMD_ALLTOALL,
+    InsAlltoAllParallelMesh2DClosV3NoMemcpyPodDirect,
+    InsV2AlltoAllParallelOptExecutor,
+    TopoMatchAlltoAllPodDirect,
+    InsTempAlltoAllMesh2DV3NoMemcpy,
+    InsTempAlltoAllMeshClosV3NoMemcpy);
 
 }  // namespace ops_hccl

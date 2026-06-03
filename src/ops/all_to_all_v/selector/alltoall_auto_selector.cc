@@ -29,6 +29,12 @@ bool IsAlltoAllClosMesh2DEnabled()
     return enabled;
 }
 
+bool IsAlltoAllNoMemcpyEnabled()
+{
+    const char *env = std::getenv("HCCL_ENABLE_A2A_NO_MEMCPY");
+    return env != nullptr && std::strcmp(env, "1") == 0;
+}
+
 const char *GetAlltoAllOptTopoMode()
 {
     return std::getenv("HCCL_A2A_OPT_TOPO");
@@ -205,15 +211,20 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
         const char *env = std::getenv("HCCL_ENABLE_A2A_ASYMMETRIC_OPT");
         const char *topoMode = GetAlltoAllOptTopoMode();
         if ((env != nullptr && std::strcmp(env, "1") == 0) || topoMode != nullptr) {
+            const bool noMemcpy = IsAlltoAllNoMemcpyEnabled();
             if (topoMode != nullptr && std::strcmp(topoMode, "pod_ubx_v2") == 0) {
-                selectAlgName = "InsAlltoAllParallelMesh2DClosV3PodUbxV2";
+                selectAlgName = noMemcpy ? "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodUbxV2" :
+                                            "InsAlltoAllParallelMesh2DClosV3PodUbxV2";
             } else if (topoMode != nullptr && std::strcmp(topoMode, "pod_direct") == 0) {
-                selectAlgName = "InsAlltoAllParallelMesh2DClosV3PodDirect";
+                selectAlgName = noMemcpy ? "InsAlltoAllParallelMesh2DClosV3NoMemcpyPodDirect" :
+                                            "InsAlltoAllParallelMesh2DClosV3PodDirect";
             } else {
-                selectAlgName = "InsAlltoAllParallelMesh2DClosV3";
+                selectAlgName = noMemcpy ? "InsAlltoAllParallelMesh2DClosV3NoMemcpy" :
+                                            "InsAlltoAllParallelMesh2DClosV3";
             }
-            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] A2A asymmetric opt enabled, selecting V3: %s",
-                      selectAlgName.c_str());
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] A2A asymmetric opt enabled, selecting V3: %s "
+                         "noMemcpy=%d",
+                         selectAlgName.c_str(), noMemcpy);
             HCCL_WARNING("[ALLTOALL_V2_DEBUG][Selector][A2AOpt] HCCL_A2A_OPT_TOPO=%s",
                          topoMode == nullptr ? "(unset)" : topoMode);
             return SelectorStatus::MATCH;

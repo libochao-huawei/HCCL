@@ -11,14 +11,22 @@
 #include "ins_v2_all_gather_parallel_opt_executor.h"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include "alg_data_trans_wrapper.h"
 #include "ins_temp_all_gather_mesh_1D_opt.h"
 #include "ins_temp_all_gather_mesh_clos_opt.h"
+#include "ins_temp_all_gather_mesh_1D_opt_no_memcpy.h"
+#include "ins_temp_all_gather_mesh_clos_opt_no_memcpy.h"
 
 #include "topo_match_ubx_v3.h"
 
 namespace ops_hccl {
 namespace {
+bool IsAllGatherNoMemcpyAlg(const OpParam &param)
+{
+    return std::strcmp(param.algName, "InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty") == 0;
+}
+
 bool ContainsRank(const std::vector<u32> &ranks, u32 rank)
 {
     return std::find(ranks.begin(), ranks.end(), rank) != ranks.end();
@@ -344,6 +352,8 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     TemplateDataParams tempAlgParamsInter1;
     TemplateDataParams tempAlgParamsAll1;
 
+    const bool enableRemoteUserMemAccess = param.opMode == OpMode::OFFLOAD || IsAllGatherNoMemcpyAlg(param);
+
     tempAlgIntra.SetMeshDimensions(rankSizeLevel1_, myRank_, rankSizeLevel0_, rankSizeLevel1_);
     tempAlgInter.SetMeshDimensions(rankSizeLevel1_, myRank_, rankSizeLevel0_, rankSizeLevel1_);
 
@@ -353,7 +363,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
 
     // tempAlgParamsIntra0
     {
-        tempAlgParamsIntra0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsIntra0.enableRemoteMemAccess = enableRemoteUserMemAccess;
 
         tempAlgParamsIntra0.buffInfo.inputPtr = param.inputPtr;
         tempAlgParamsIntra0.buffInfo.inBuffType = BufferType::INPUT;
@@ -369,15 +379,17 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
         tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff = 0;
         tempAlgParamsIntra0.outputSliceStride = dataSize_;
 
-        // 不需要 copy out
-        tempAlgParamsIntra0.buffInfo.outputPtr = nullptr;
+        tempAlgParamsIntra0.buffInfo.outputPtr = param.outputPtr;
+        tempAlgParamsIntra0.buffInfo.outBuffType = BufferType::OUTPUT;
+        tempAlgParamsIntra0.buffInfo.outputSize = param.outputSize;
+        tempAlgParamsIntra0.buffInfo.outBuffBaseOff = 0;
 
         tempAlgParamsIntra0.sliceSize = dataSizeAxis0;
         tempAlgParamsIntra0.count = dataCountAxis0;
     }
 
     {
-        tempAlgParamsInter0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsInter0.enableRemoteMemAccess = enableRemoteUserMemAccess;
 
         tempAlgParamsInter0.buffInfo.inputPtr = param.inputPtr;
         tempAlgParamsInter0.buffInfo.inBuffType = BufferType::INPUT;
@@ -393,15 +405,17 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
         tempAlgParamsInter0.buffInfo.hcclBuffBaseOff = dataSizeAxis0;
         tempAlgParamsInter0.outputSliceStride = dataSize_;
 
-        // 不需要 copy out
-        tempAlgParamsInter0.buffInfo.outputPtr = nullptr;
+        tempAlgParamsInter0.buffInfo.outputPtr = param.outputPtr;
+        tempAlgParamsInter0.buffInfo.outBuffType = BufferType::OUTPUT;
+        tempAlgParamsInter0.buffInfo.outputSize = param.outputSize;
+        tempAlgParamsInter0.buffInfo.outBuffBaseOff = dataSizeAxis0;
 
         tempAlgParamsInter0.sliceSize = dataSizeAxis1;
         tempAlgParamsInter0.count = dataCountAxis1;
     }
 
     {
-        tempAlgParamsAll0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsAll0.enableRemoteMemAccess = enableRemoteUserMemAccess;
 
         tempAlgParamsAll0.buffInfo.inputPtr = param.inputPtr;
         tempAlgParamsAll0.buffInfo.inBuffType = BufferType::INPUT;
@@ -443,7 +457,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
 
     // tempAlgParamsIntra0
     {
-        tempAlgParamsIntra1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsIntra1.enableRemoteMemAccess = enableRemoteUserMemAccess;
 
         tempAlgParamsIntra1.buffInfo.inputPtr = param.inputPtr;
         tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::INPUT;
@@ -470,7 +484,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     }
 
     {
-        tempAlgParamsInter1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsInter1.enableRemoteMemAccess = enableRemoteUserMemAccess;
 
         tempAlgParamsInter1.buffInfo.inputPtr = param.inputPtr;
         tempAlgParamsInter1.buffInfo.inBuffType = BufferType::INPUT;
@@ -497,7 +511,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     }
 
     {
-        tempAlgParamsAll1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+        tempAlgParamsAll1.enableRemoteMemAccess = enableRemoteUserMemAccess;
 
         tempAlgParamsAll1.buffInfo.inputPtr = param.inputPtr;
         tempAlgParamsAll1.buffInfo.inBuffType = BufferType::INPUT;
@@ -537,6 +551,10 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosOptMultiJetty,
                                InsV2AllGatherParallelOptExecutor, TopoMatchUBX_V3,
                                InsTempAllGatherMesh1DOpt, InsTempAllGatherMeshClosOpt);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosOptNoMemcpyMultiJetty,
+                               InsV2AllGatherParallelOptExecutor, TopoMatchUBX_V3,
+                               InsTempAllGatherMesh1DOptNoMemcpy, InsTempAllGatherMeshClosOptNoMemcpy);
 
 }
 // 算法注册
