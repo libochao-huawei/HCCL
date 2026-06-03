@@ -719,15 +719,20 @@ HcclResult AlltoAllVEntryLog(const void *sendBuf, const void *recvBuf, const voi
         ACLCHECK(aclrtGetDevice(&deviceLogicId));
         s32 streamId = 0;
         ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char tempLogBuffer[LOG_TMPBUF_SIZE];
+
+    std::string sendCounts_, recvCounts_, sdispls_, rdispls_;
     for (u32 i = 0; i < totalRanks; i++) {
-        HCCL_INFO(" totalRanks is [%u] sendCounts[%u], recvCounts[%u], sdispls[%u], rdispls[%u],", i,
-            static_cast<const u64 *>(sendCounts)[i], static_cast<const u64 *>(recvCounts)[i], static_cast<const u64 *>(sdispls)[i], static_cast<const u64 *>(rdispls)[i]);
+        sendCounts_ <<" "<< static_cast<const u64 *>(sendCounts)[i];
+        recvCounts_ <<" "<< static_cast<const u64 *>(recvCounts)[i];
+        sdispls_ <<" "<< static_cast<const u64 *>(sdispls)[i];
+        rdispls_ <<" "<< static_cast<const u64 *>(rdispls)[i];
     }
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "tag[%s], sendBuf[%p], recvBuf[%p], sendCounts[%p], recvCounts[%p], sdispls[%p], rdispls[%p], sendType[%s], recvType[%s], streamId[%d], deviceLogicId[%d]",
-            tag.c_str(), sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, GetDataTypeEnumStr(sendType).c_str(),
-            GetDataTypeEnumStr(recvType).c_str(), streamId, deviceLogicId);
+            "tag[%s], sendBuf[%p], recvBuf[%p], sendCounts[%s], recvCounts[%s], sdispls[%s], rdispls[%s], sendType[%s], recvType[%s], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), sendBuf, recvBuf, sendCounts_.str().c_str(), recvCounts_.str().c_str(), sdispls_.str().c_str(),
+            rdispls_.str().c_str(), GetDataTypeEnumStr(sendType).c_str(), GetDataTypeEnumStr(recvType).c_str(), streamId, deviceLogicId);
 
         CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
         std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
