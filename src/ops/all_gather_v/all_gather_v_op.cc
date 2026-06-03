@@ -226,8 +226,6 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    paramPtr->~OpParam();
-    free(paramMem);
     HCCL_INFO("Execute AllGatherVOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -256,7 +254,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
 {
  	HCCL_INFO("Start to execute AllGatherVOutPlaceGraphMode");
  	u32 userRankSize;
- 	CHK_RET(HcclGetRankSize(comm, &userRankSize));	  	 
+ 	CHK_RET(HcclGetRankSize(comm, &userRankSize));
  	u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
  	u64 inputSize = sendCount * perDataSize;    // all gather v 每个rank上一份数据
  	u64 outputSize = 0;  
