@@ -33,6 +33,9 @@
 using namespace std;
 using namespace ops_hccl;
 
+extern "C" rtError_t rtRegTaskFailCallbackByModule(const char_t *moduleName,
+    rtTaskFailCallback callback) __attribute__((weak));
+
 #ifdef HCCL_STATIC_MODE
 // 静态库模式下，AIV kernel `.o` 已通过 `ld -r -b binary` 内嵌进 libhccl_static.a。
 // 这里声明 ld 自动生成的 _binary_<name>_start/end 符号，
@@ -178,6 +181,10 @@ thread_local std::string g_aivCurrentCommName;
 
 static void RegisterAivExceptionCallback()
 {
+    if (rtRegTaskFailCallbackByModule == nullptr) {
+        HCCL_INFO("[AIV][RegisterAivExceptionCallback] runtime callback registration is not supported.");
+        return;
+    }
     rtError_t rtRet = rtRegTaskFailCallbackByModule("HCCL", ProcessAivExceptionCallBack);
     if (rtRet != RT_ERROR_NONE) {
         HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", rtRet);
