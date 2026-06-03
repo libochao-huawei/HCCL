@@ -24,9 +24,6 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
-#if CANN_VERSION_NUM >= 90000000
-#include "hccl_diag.h"
-#endif
 #include "hccl_device_comm_dl.h"
 #include "exec_timeout_manager.h"
 #include "alg_data_trans_wrapper.h"
@@ -221,7 +218,7 @@ namespace {
 
     std::unique_ptr<AlgResourceCtxSerializable> DeserializeResCtx(const OpParam *param)
     {
-        std::unique_ptr<AlgResourceCtxSerializable> resCtx(new AlgResourceCtxSerializable());
+        std::unique_ptr<AlgResourceCtxSerializable> resCtx = std::make_unique<AlgResourceCtxSerializable>();
         char *ctx = static_cast<char *>(param->resCtx);
         std::vector<char> seq(ctx, ctx + param->ctxSize);
         resCtx->DeSerialize(seq);
@@ -309,6 +306,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         std::shared_ptr<const AlgResourceCtxSerializable> cachedResCtxHolder;
         std::unique_ptr<AlgResourceCtxSerializable> resCtx;
         const AlgResourceCtxSerializable* resCtxPtr{nullptr};
+        u32 hitRateNum = 100;
         if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
             cachedResCtxHolder = g_cacheManager.Get(param->algTag, param->commName);
@@ -321,7 +319,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 size_t cacheSize;
                 if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
                     HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
-                    __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
+                    __func__, commName.c_str(), stats.hitRate() * hitRateNum, cacheSize);
                 }
                 resCtxPtr = cachedResCtxHolder.get();
             } else {

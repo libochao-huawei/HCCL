@@ -46,6 +46,7 @@ SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDet
         HCCL_WARNING("[ReduceAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
     }
+    
     SelectorStatus ret = SelectMeshAlgoCcums(topoInfo, opParam, selectAlgName);
     if (ret == SelectorStatus::NOT_MATCH) {
         return ret;
@@ -62,6 +63,10 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoCcums(
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        if (IsInputOutputOverlap(opParam) == true) { // 不支持 inplace 场景
+            HCCL_WARNING("[ReduceScatterAutoSelector] ccu_ms mode not support inplace.");
+            return SelectorStatus::NOT_MATCH;
+        }
         if (topoInfo->is2DieFullMesh) {
             HCCL_WARNING("[ReduceAutoSelector] 2DieFullMesh is not supported yet for ccu_ms mode.");
             return SelectorStatus::NOT_MATCH;
@@ -108,12 +113,14 @@ SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLa
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING( "[ReduceAutoSelector] ReduceOp[%d] is not supported yet for ccu schedule mode.",
             opParam.reduceType), SelectorStatus::NOT_MATCH);
-
+    CHK_PRT_RET(IsInputOutputOverlap(opParam) == true,
+        HCCL_WARNING("[Algo][ReduceAutoSelector] ccu schedule does not support inplace allreduce."),
+        SelectorStatus::NOT_MATCH);
     if (Is64BitDataType(opParam.DataDes.dataType)) {
         HCCL_WARNING("[ReduceAutoSelector] ccu_schedule mode not support INT64, UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
-
+    
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) == 1) {

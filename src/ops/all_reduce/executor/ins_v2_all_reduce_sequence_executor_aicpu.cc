@@ -419,6 +419,7 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     return HCCL_SUCCESS;
 }
 
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE,
                                 InsAllReduceSequenceMesh1DNhr,
                                 InsV2AllReduceSequenceExecutorAicpu,
@@ -427,4 +428,5 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE,
                                 InsTempReduceScatterNHR,
                                 InsTempAllGatherNHR,
                                 InsTempAllGatherMesh1D1DZAxisDetour);
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 }

@@ -57,18 +57,11 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest)
 {
-    HCCL_DEBUG("[InsV2ReduceScatterSequenceExecutor3Level] CalcRes start");
+    HCCL_DEBUG("[InsV2ReduceScatterSequenceExecutor3Level][CalcRes] myRank[%u] CalcRes start", myRank_);
     InitCommInfo(param, topoInfo, algHierarchyInfo);
     if (algHierarchyInfo.infos.size() != SEQUENCE_EXECUTOR_LEVEL_NUM) {
-        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] algHierarchyInfo size should be %u",
-            SEQUENCE_EXECUTOR_LEVEL_NUM);
-        return HCCL_E_INTERNAL;
-    }
-    if (algHierarchyInfo.infos[0].size() != 1 || algHierarchyInfo.infos[1].size() != 1 ||
-        algHierarchyInfo.infos[2].size() != 1) {
-        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] each level should have exactly 1 sub-group, "
-            "level0[%u] level1[%u] level2[%u]",
-            algHierarchyInfo.infos[0].size(), algHierarchyInfo.infos[1].size(), algHierarchyInfo.infos[2].size());
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] algHierarchyInfo size should be %u",
+            myRank_, SEQUENCE_EXECUTOR_LEVEL_NUM);
         return HCCL_E_INTERNAL;
     }
     std::shared_ptr<InsAlgTemplate0> tempAlgLevel0 = std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo.infos[0]);
@@ -97,19 +90,19 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
         }
     }
     resourceRequest.notifyNumOnMainThread = std::max({resReq0.notifyNumOnMainThread, resReq1.notifyNumOnMainThread, resReq2.notifyNumOnMainThread});
-    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] notifyNumOnMainThread is %u", resourceRequest.notifyNumOnMainThread);
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] notifyNumOnMainThread is %u", myRank_, resourceRequest.notifyNumOnMainThread);
     resourceRequest.channels.resize(SEQUENCE_EXECUTOR_LEVEL_NUM);
     if (resReq0.channels.empty() || resReq1.channels.empty() || resReq2.channels.empty()) {
-        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] channels empty, level0[%u] level1[%u] level2[%u]",
-            resReq0.channels.size(), resReq1.channels.size(), resReq2.channels.size());
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] channels empty, level0[%u] level1[%u] level2[%u]",
+            myRank_, resReq0.channels.size(), resReq1.channels.size(), resReq2.channels.size());
         return HCCL_E_INTERNAL;
     }
     resourceRequest.channels[0] = resReq0.channels[0];
     resourceRequest.channels[1] = resReq1.channels[0];
     resourceRequest.channels[2] = resReq2.channels[0];
-    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] slaveThreadNum is [%u], notifyNumOnMainThread is [%u], "
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] slaveThreadNum is [%u], notifyNumOnMainThread is [%u], "
         "level0 chanel size [%u], level1 channel size [%u], level2 channel size [%u]",
-        resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread,
+        myRank_, resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread,
         resourceRequest.channels[0].size(), resourceRequest.channels[1].size(), resourceRequest.channels[2].size());
     return HCCL_SUCCESS;
 }
@@ -137,11 +130,14 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     rankSizeLevel1_ = algHierarchyInfo_.infos[1][0].size();
     rankSizeLevel2_ = algHierarchyInfo_.infos[2][0].size();
     CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
-
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] [Orchestrate] myRank_[%llu] rankIdxLevel0_[%llu] "
+        "rankIdxLevel1_[%llu] rankIdxLevel2_[%llu] rankSizeLevel0_[%llu] rankSizeLevel1_[%llu] "
+        "rankSizeLevel2_[%llu]",
+        myRank_, rankIdxLevel0_, rankIdxLevel1_,rankIdxLevel2_, rankSizeLevel0_, rankSizeLevel1_, rankSizeLevel2_);
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level][Orchestrate] errNo[0x%016llx] "
-            "Reduce scatter excutor kernel run failed", HCCL_ERROR_CODE(ret)), ret);
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level][Orchestrate] myRank[%u] errNo[0x%016llx] "
+            "Reduce scatter excutor kernel run failed", myRank_, HCCL_ERROR_CODE(ret)), ret);
     return HCCL_SUCCESS;
 }
 
@@ -163,10 +159,10 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
     tempAlgParamsIntra.inputRepeatStride = rankSizeLevel0_ * dataSize_;
     tempAlgParamsIntra.outputRepeatStride = rankSizeLevel0_ * currDataCount * dataTypeSize_;
 
-    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] loop[%llu] Intra inputSliceStride[%llu] "
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] loop[%llu] Intra inputSliceStride[%llu] "
         "outputSliceStride[%llu] sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] "
         "repeatNum[%llu] inputRepeatStride[%llu] outputRepeatStride[%llu]",
-        loop, tempAlgParamsIntra.inputSliceStride, tempAlgParamsIntra.outputSliceStride,
+        myRank_, loop, tempAlgParamsIntra.inputSliceStride, tempAlgParamsIntra.outputSliceStride,
         tempAlgParamsIntra.sliceSize, tempAlgParamsIntra.buffInfo.inBuffBaseOff,
         tempAlgParamsIntra.buffInfo.outBuffBaseOff, tempAlgParamsIntra.repeatNum,
         tempAlgParamsIntra.inputRepeatStride, tempAlgParamsIntra.outputRepeatStride);
@@ -185,15 +181,15 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
     tempAlgParamsInter.tailSize = tempAlgParamsInter.sliceSize;
 
     tempAlgParamsInter.inputSliceStride = rankSizeLevel0_ * currDataCount * dataTypeSize_;
-    tempAlgParamsInter.outputSliceStride = 0;
+    tempAlgParamsInter.outputSliceStride = currDataCount * dataTypeSize_;
     tempAlgParamsInter.repeatNum = rankSizeLevel2_;
     tempAlgParamsInter.inputRepeatStride = rankSizeLevel0_ * rankSizeLevel1_ * currDataCount * dataTypeSize_;
     tempAlgParamsInter.outputRepeatStride = rankSizeLevel0_ * rankSizeLevel1_ * currDataCount * dataTypeSize_;
 
-    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] loop[%llu] Inter1 inputSliceStride[%llu] "
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] loop[%llu] Inter1 inputSliceStride[%llu] "
         "outputSliceStride[%llu] sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] "
         "repeatNum[%llu] inputRepeatStride[%llu] outputRepeatStride[%llu]",
-        loop, tempAlgParamsInter.inputSliceStride, tempAlgParamsInter.outputSliceStride,
+        myRank_, loop, tempAlgParamsInter.inputSliceStride, tempAlgParamsInter.outputSliceStride,
         tempAlgParamsInter.sliceSize, tempAlgParamsInter.buffInfo.inBuffBaseOff,
         tempAlgParamsInter.buffInfo.outBuffBaseOff, tempAlgParamsInter.repeatNum,
         tempAlgParamsInter.inputRepeatStride, tempAlgParamsInter.outputRepeatStride);
@@ -217,10 +213,10 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
     tempAlgParamsInter.inputRepeatStride = 0;
     tempAlgParamsInter.outputRepeatStride = 0;
 
-    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] loop[%llu] Inter2 inputSliceStride[%llu] "
+    HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] loop[%llu] Inter2 inputSliceStride[%llu] "
         "outputSliceStride[%llu] sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] "
         "repeatNum[%llu] inputRepeatStride[%llu] outputRepeatStride[%llu]",
-        loop, tempAlgParamsInter.inputSliceStride, tempAlgParamsInter.outputSliceStride,
+        myRank_, loop, tempAlgParamsInter.inputSliceStride, tempAlgParamsInter.outputSliceStride,
         tempAlgParamsInter.sliceSize, tempAlgParamsInter.buffInfo.inBuffBaseOff,
         tempAlgParamsInter.buffInfo.outBuffBaseOff, tempAlgParamsInter.repeatNum,
         tempAlgParamsInter.inputRepeatStride, tempAlgParamsInter.outputRepeatStride);
@@ -235,8 +231,8 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     AlgResourceRequest req;
     algTemplate->GetRes(req);
     if (channelLevelIdx >= remoteRankToChannelInfo_.size()) {
-        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level][GenTempResource] channelLevelIdx[%u] should be lower"
-            "than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level][GenTempResource] myRank[%u] channelLevelIdx[%u] should be lower"
+            "than remoteRankToChannelInfo_.size()[%u]", myRank_, channelLevelIdx, remoteRankToChannelInfo_.size());
         return HCCL_E_INTERNAL;
     }
     tempResource.channels = remoteRankToChannelInfo_[channelLevelIdx];
@@ -296,9 +292,9 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     u64 maxCountPerLoop = tempAlgParamsLevel2.buffInfo.hcclBuff.size / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN
         * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
     if (maxCountPerLoop == 0) {
-        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] maxCountPerLoop is 0, "
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] maxCountPerLoop is 0, "
             "scratchMultiplier[%u] too large for cclBuffSize[%llu]",
-            templateScratchMultiplier, tempAlgParamsLevel2.buffInfo.hcclBuff.size);
+            myRank_, templateScratchMultiplier, tempAlgParamsLevel2.buffInfo.hcclBuff.size);
         return HCCL_E_INTERNAL;
     }
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);

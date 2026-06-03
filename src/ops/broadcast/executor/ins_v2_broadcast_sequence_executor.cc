@@ -394,6 +394,8 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     InsAlgTemplate3>::SplitData(const u64 &dataCount, const uint64_t &rankSize, TemplateDataParams &tempAlgParams)
 {
     u32 sliceNum = rankSize;
+    u64 offsetCount = 0;
+    u64 offsetSize = 0;
     tempAlgParams.allRankSliceSize.clear();
     tempAlgParams.allRankDispls.clear();
     tempAlgParams.allRankProcessedDataCount.clear();
@@ -404,20 +406,18 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     u64 sliceCount = RoundUp(dataCount, sliceNum);
     u64 sliceSize = sliceCount * dataTypeSize_;
 
-    u64 offsetCount = 0;
-    u64 offsetSize = 0;
     for (u32 sliceIdx = 0; sliceIdx < sliceNum; ++sliceIdx) {
         if (dataCount - offsetCount >= sliceCount) {
-            tempAlgParams.allRankSliceSize.emplace_back(sliceSize);
             tempAlgParams.allRankDispls.emplace_back(offsetSize);
+            tempAlgParams.allRankSliceSize.emplace_back(sliceSize);
             tempAlgParams.allRankProcessedDataCount.emplace_back(sliceCount);
             offsetCount += sliceCount;
             offsetSize = offsetCount * dataTypeSize_;
         } else {
             u64 curSliceCount = dataCount - offsetCount;
             u64 curSliceSize = curSliceCount * dataTypeSize_;
-            tempAlgParams.allRankSliceSize.emplace_back(curSliceSize);
             tempAlgParams.allRankDispls.emplace_back(offsetSize);
+            tempAlgParams.allRankSliceSize.emplace_back(curSliceSize);
             tempAlgParams.allRankProcessedDataCount.emplace_back(curSliceCount);
             offsetCount = dataCount;
             offsetSize = offsetCount * dataTypeSize_;
