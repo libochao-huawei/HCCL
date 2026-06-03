@@ -81,11 +81,17 @@ bool IsAlltoAllNoMemcpyAlg(const OpParam &param)
 
 u64 GetGraphModeInputRegisterSize(const OpParam &param)
 {
+    if (IsAlltoAllNoMemcpyAlg(param)) {
+        return param.inputSize * DATATYPE_SIZE_TABLE[param.all2AllVDataDes.sendType];
+    }
     return param.inputSize;
 }
 
 u64 GetGraphModeOutputRegisterSize(const OpParam &param)
 {
+    if (IsAlltoAllNoMemcpyAlg(param)) {
+        return param.outputSize * DATATYPE_SIZE_TABLE[param.all2AllVDataDes.recvType];
+    }
     return param.outputSize;
 }
 

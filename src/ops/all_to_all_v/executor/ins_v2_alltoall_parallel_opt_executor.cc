@@ -278,17 +278,14 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
                     HCCL_ERROR("[ALLTOALL_NO_MEMCPY][Orchestrate] invalid buffer size. inputSize=%llu outputSize=%llu",
                                param.inputSize, param.outputSize),
                     HcclResult::HCCL_E_INTERNAL);
-        if (dataSize_ != param.inputSize) {
-            HCCL_WARNING("[ALLTOALL_NO_MEMCPY][Orchestrate] dataSize from sendCounts[%llu] is different from "
-                         "inputSize[%llu]. Use param.inputSize as byte dataSize.",
-                         dataSize_, param.inputSize);
-            dataSize_ = param.inputSize;
-            dataCount_ = dataSize_ / dataTypeSize_;
-        }
-        CHK_PRT_RET(dataSize_ != param.outputSize,
-                    HCCL_ERROR("[ALLTOALL_NO_MEMCPY][Orchestrate] input/output byte size mismatch. "
-                               "inputSize=%llu outputSize=%llu",
-                               dataSize_, param.outputSize),
+        const u64 paramInputBytes = param.inputSize * dataTypeSize_;
+        const u64 paramOutputBytes = param.outputSize * dataTypeSize_;
+        CHK_PRT_RET(dataSize_ != paramInputBytes || dataSize_ != paramOutputBytes,
+                    HCCL_ERROR("[ALLTOALL_NO_MEMCPY][Orchestrate] inconsistent alltoall size. "
+                               "dataSizeBytes=%llu inputSizeElements=%llu inputSizeBytes=%llu "
+                               "outputSizeElements=%llu outputSizeBytes=%llu dataTypeSize=%u",
+                               dataSize_, param.inputSize, paramInputBytes, param.outputSize,
+                               paramOutputBytes, dataTypeSize_),
                     HcclResult::HCCL_E_INTERNAL);
     }
     HCCL_WARNING("[AllToAll_V3_DEBUG][L1] dataCount=%llu dataType=%d dataTypeSize=%u dataSize=%llu",
@@ -531,7 +528,7 @@ HcclResult InsV2AlltoAllParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     const bool enableRemoteUserMemAccess = param.opMode == OpMode::OFFLOAD || IsAlltoAllNoMemcpyAlg(param);
     u64 inputSizeBytes = param.inputSize;
     u64 outputSizeBytes = param.outputSize;
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL && !IsAlltoAllNoMemcpyAlg(param)) {
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
         inputSizeBytes = param.inputSize * dataTypeSize_;
         outputSizeBytes = param.outputSize * dataTypeSize_;
     }
