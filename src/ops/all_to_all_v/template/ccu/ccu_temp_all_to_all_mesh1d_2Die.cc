@@ -218,8 +218,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     kernelInfoMesh.channels = channels_[meshDieId];
     resourceRequest.ccuKernelInfos.emplace_back(kernelInfoMesh);
 
-    HCCL_INFO("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankGroupSize=%llu, rankSize=%llu, ccuKernelInfos=%llu",
-    meshDieId, channels_[meshDieId].size(), rankGroup_[meshDieId].size(), rankSize, resourceRequest.ccuKernelInfos.size());
+    HCCL_INFO("[CcuTempAllToAllMesh1D2Die][CalcRes] rankId: %llu, dieId=%u, channels=%llu, rankGroupSize=%llu, rankSize=%llu, ccuKernelInfos=%llu",
+    myRank_, meshDieId, channels_[meshDieId].size(), rankGroup_[meshDieId].size(), rankSize, resourceRequest.ccuKernelInfos.size());
 
     // 下发clos的kenrel
     // CcuKernelInfo kernelInfoClos;
@@ -251,6 +251,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     HCCL_INFO("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankGroupSize=%llu, rankSize=%llu, ccuKernelInfos=%llu",
         closDieId, channels_[closDieId].size(), rankGroup_[closDieId].size(), rankSize, resourceRequest.ccuKernelInfos.size());
 
+    HCCL_INFO("rankId: %llu end", myRank_);
 
     return HcclResult::HCCL_SUCCESS;
 }
