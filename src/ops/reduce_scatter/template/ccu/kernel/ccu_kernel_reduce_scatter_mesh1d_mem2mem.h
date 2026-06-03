@@ -99,6 +99,10 @@ private:
     void DoReduceScatter();
     void DoReduceScatterRead(uint32_t unrollIdx);
     void DoReduceScatterWait(uint32_t unrollIdx);
+    void InitReduceScatterAddr();
+    void ResetReduceScatterAddr();
+    void DoReduceScatterReduce();
+    HcclResult InitChannelVariables();
     
     std::string GetLoopBlockTag(std::string loopType, int32_t index);
     void CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);

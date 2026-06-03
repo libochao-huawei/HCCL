@@ -73,9 +73,7 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
     repeatTimeflag_               = CreateVariable();
     repeatTimeflag_               = 0;
     waitRepeatNum_                = CreateVariable();
-    waitRepeatNum_                = 0;
     groupCopyRepeatNum_           = CreateVariable();
-    groupCopyRepeatNum_           = 0;
     isInputOutputEqual_           = CreateVariable();
     localGoSize_                  = CreateGroupOpSize();
 
@@ -208,7 +206,7 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGatherWait(uint32_t unrollIdx)
     }
 }
 
-void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
+void CcuKernelAllGatherMesh1DMem2Mem::InitAllGatherAddr()
 {
     src.addr = localInput_;
     src.addr += currentRankSliceInputOffset_;
@@ -229,47 +227,10 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
             dst[rankIdx].token = token_[rankIdx];
         }
     }
-    // 软件展开三阶段设计（仅支持repeatNum <= UNROLL_NUM）：
-    // Phase 1: 先下发所有WriteNb（非阻塞，event错开），不包含GroupCopy
-    // Phase 2: GroupCopy使用CCU_WHILE（实际do-while），节省指令空间
-    // Phase 3: 最后一把WaitEvent，收齐所有远端WriteNb完成信号
-    // waitRepeatNum_/groupCopyRepeatNum_从tmpRepeatNum_派生，不再单独传参
+}
 
-    // 从tmpRepeatNum_派生Phase 2/3计数器
-    waitRepeatNum_ += tmpRepeatNum_;
-    groupCopyRepeatNum_ += tmpRepeatNum_;
-
-    // Phase 1: 第1轮迭代（不需要地址步进）
-    CCU_IF(tmpRepeatNum_ != UINT64_MAX)
-    {
-        tmpRepeatNum_ += constVar1_;
-        CCU_IF(normalSliceSize_ != 0)
-        {
-            DoAllGatherWrite(src, dst, normalSliceSize_, 0);
-        }
-    }
-
-    // 第2~UNROLL_NUM轮迭代（需要地址步进）
-    for (uint32_t i = 1; i < UNROLL_NUM; i++) {
-        CCU_IF(tmpRepeatNum_ != UINT64_MAX)
-        {
-            tmpRepeatNum_ += constVar1_;
-            src.addr += inputRepeatStride_;
-            for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-                if (rankIdx != rankId_){
-                    dst[rankIdx].addr += outputRepeatStride_;
-                }
-            }
-            CCU_IF(normalSliceSize_ != 0)
-            {
-                DoAllGatherWrite(src, dst, normalSliceSize_, i);
-            }
-        }
-    }
-
-    // Phase 2: GroupCopy使用CCU_WHILE（实际do-while语义），节省指令空间
-    // isInputOutputEqual_==1时跳过全部GroupCopy（input==output无需拷贝）
-    // repeatTimeflag_处理首轮地址步进跳过
+void CcuKernelAllGatherMesh1DMem2Mem::DoAllGatherGroupCopy()
+{
     CCU_IF(isInputOutputEqual_ == 0)
     {
         CCU_IF(groupCopyRepeatNum_ != UINT64_MAX)
@@ -287,8 +248,45 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
             }
         }
     }
+}
 
-    // Phase 3: 批量WaitEvent，收齐所有远端WriteNb完成信号
+void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
+{
+    InitAllGatherAddr();
+    waitRepeatNum_ = tmpRepeatNum_;
+    groupCopyRepeatNum_ = tmpRepeatNum_;
+
+    // Phase 1: 先下发所有WriteNb（非阻塞，event错开），不包含GroupCopy
+    CCU_IF(tmpRepeatNum_ != UINT64_MAX)
+    {
+        tmpRepeatNum_ += constVar1_;
+        CCU_IF(normalSliceSize_ != 0)
+        {
+            DoAllGatherWrite(src, dst, normalSliceSize_, 0);
+        }
+    }
+
+    for (uint32_t i = 1; i < UNROLL_NUM; i++) {
+        CCU_IF(tmpRepeatNum_ != UINT64_MAX)
+        {
+            tmpRepeatNum_ += constVar1_;
+            src.addr += inputRepeatStride_;
+            for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
+                if (rankIdx != rankId_){
+                    dst[rankIdx].addr += outputRepeatStride_;
+                }
+            }
+            CCU_IF(normalSliceSize_ != 0)
+            {
+                DoAllGatherWrite(src, dst, normalSliceSize_, i);
+            }
+        }
+    }
+
+    // Phase 2: GroupCopy使用CCU_WHILE
+    DoAllGatherGroupCopy();
+
+    // Phase 3: 批量WaitEvent
     for (uint32_t i = 0; i < UNROLL_NUM; i++) {
         CCU_IF(waitRepeatNum_ != UINT64_MAX)
         {
@@ -296,7 +294,6 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
             DoAllGatherWait(i);
         }
     }
-
 }
 
 HcclResult CcuKernelAllGatherMesh1DMem2Mem::Algorithm()

@@ -98,6 +98,8 @@ private:
                           const CcuRep::Variable            &sliceSize,
                           uint32_t unrollIdx);
     void DoAllGatherWait(uint32_t unrollIdx);
+    void InitAllGatherAddr();
+    void DoAllGatherGroupCopy();
 
     // CcuKernelAlgDataWrapper algWrapper;
     uint64_t rankSize_{0};
