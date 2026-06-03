@@ -60,10 +60,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetL
 
 SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     std::string &selectAlgName) const
-{
-    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+{   u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        if (IsInputOutputOverlap(opParam) == true) { // 不支持 inplace 场景
+            return SelectorStatus::NOT_MATCH;
+        }
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
             selectAlgName = "CcuReduceScatterMesh2Die";
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
@@ -72,8 +74,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWith
         } else {
             selectAlgName = "CcuReduceScatterMesh1D";
         }
-    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) { // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
         if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
             HCCL_WARNING("[ReduceScatterAutoSelector] pcie mixed topo is not supported yet for ccu ms mode.");
             return SelectorStatus::NOT_MATCH;
@@ -85,20 +86,18 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWith
             HCCL_ERROR("[ReduceScatterAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
         CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
             HCCL_ERROR("[ReduceScatterAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-        if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
-            // 4P mesh
-            if (IsSmallData(dataSize)) {
-                // 小数据量，用1d mesh算法
+        if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {// 4P mesh
+            if (IsSmallData(dataSize)) { // 小数据量，用1d mesh算法
                 selectAlgName = "CcuReduceScatterMesh1D";
-            } else {
-                // 大数据量，用mesh+clos并行算法
+            } else { // 大数据量，用mesh+clos并行算法
                 selectAlgName = "CcuReduceScatterConcurrentMeshNHRMs";
             }
         } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             HCCL_WARNING("[%s] MESH_1D_CLOS not match.", __func__);
             return SelectorStatus::NOT_MATCH;
         } else {
-            selectAlgName = "CcuReduceScatterMesh1D";
+            HCCL_DEBUG("[ReduceScatterAutoSelector] level0Topo[%u] is not supported mesh yet.", topoInfo->level0Topo);
+            return SelectorStatus::NOT_MATCH;       
         }
     } else {
         HCCL_WARNING("[ReduceScatterAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
@@ -139,8 +138,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
                 HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is not supported yet for ccu schedule mode.",
                     opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
-                if ((dataSize * topoInfo->userRankSize) <= RS_FLATTEN_MAX_DATA_SIZE &&
-                     topoInfo->userRankSize <= ccuSize) {
+                if ((dataSize * topoInfo->userRankSize) <= RS_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize && (!IsInputOutputOverlap(opParam))) {
                     selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
                     return SelectorStatus::MATCH;
                 } else if (dataSize * topoInfo->userRankSize <= RS_CCU_64P_MIN_DATA_SIZE &&
@@ -187,6 +185,10 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuScheduleMesh1D(const 
     if (dataSize * ratio >= RS_M2M_1D_MAX_DATA_SIZE) {
         HCCL_DEBUG("[ReduceScatterAutoSelector] dataSize[%lu] * ratio[%f] >= MAX_DATA_SIZE[%lu].",
                    dataSize, ratio, RS_M2M_1D_MAX_DATA_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+    if (IsInputOutputOverlap(opParam) == true) { // 不支持 inplace 场景
+        HCCL_WARNING("[ReduceScatterAutoSelector] ccu_ms mode not support inplace.");
         return SelectorStatus::NOT_MATCH;
     }
     if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
