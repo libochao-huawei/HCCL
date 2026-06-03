@@ -24,7 +24,7 @@ HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* to
 {
 #ifndef AICPU_COMPILE
     // 不支持2层以上的拓扑
-    CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > 2,
+    CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > 3,
         HCCL_ERROR("[CalcTopoLevelNums] topoLevelNum[%u] is invalid.",
             topoInfo->topoLevelNums),
         HCCL_E_INTERNAL);
@@ -55,6 +55,12 @@ HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* to
     algHierarchyInfoExector.infos.resize(1);
     algHierarchyInfoExector.infos[0].resize(1);
     algHierarchyInfoExector.infos[0][0] = rankIds_;
+
+    HCCL_INFO("alg topo:");
+    uint32_t i = 0;
+    for (auto id: rankIds_) {
+        HCCL_INFO("alg topo[%d]:%d", i++, id);
+    }
 #endif
     return HcclResult::HCCL_SUCCESS;
 }
