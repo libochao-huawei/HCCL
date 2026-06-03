@@ -224,7 +224,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     u64 dataSize = opParam.DataDes.count * perDataSize;
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
               topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo);
-    HCCL_ERROR("20260632")
+    HCCL_ERROR("20260632");
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->topoLevelNums == 3) {
             selectAlgName = "InsAllGatherNHR";
