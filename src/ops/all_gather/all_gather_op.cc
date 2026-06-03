@@ -199,6 +199,9 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
         CHK_RET(SingleRankProc(comm, param));
         return HcclResult::HCCL_SUCCESS;
     }
+    if (SupportSymmetryMemory(param)) {
+        HCCL_INFO("[%s] symmetry memory enabled", __func__);
+    }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
     HCCL_INFO("Execute AllGatherOutPlace success.");
     return HCCL_SUCCESS;
@@ -241,5 +244,25 @@ HcclResult AllGatherEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, H
         HCCL_RUN_INFO("%s", logInfo.c_str());
     }
     return HCCL_SUCCESS;
+}
+
+bool SupportSymmetryMemory(OpParam &opParam)
+{
+    HcclCommSymWindow inputSymWindow = nullptr;
+    HcclCommSymWindow outputSymWindow = nullptr;
+    size_t inputOffset;
+    size_t outputOffset;
+
+    HcclResult inRet = HcclCommSymWinGet(opParam.hcclComm, opParam.inputPtr, opParam.inputSize, &inputSymWindow, &inputOffset);
+    HcclResult outRet = HcclCommSymWinGet(opParam.hcclComm, opParam.outputPtr, opParam.outputSize, &outputSymWindow, &outputOffset);
+    if (inRet == HCCL_SUCCESS && outRet == HCCL_SUCCESS && inputSymWindow != nullptr && outputSymWindow != nullptr) {
+        opParam.inputSymWindow = inputSymWindow;
+        opParam.outputSymWindow = outputSymWindow;
+        opParam.inputOffset = inputOffset;
+        opParam.outputOffset = outputOffset;
+        opParam.supportSymmetricMemory = true;
+        return true;
+    }
+    return false;
 }
 }  // namespace ops_hccl
