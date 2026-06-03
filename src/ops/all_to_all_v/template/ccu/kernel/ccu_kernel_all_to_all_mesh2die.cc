@@ -25,6 +25,7 @@ static CcuResult InitResource(AllToAllMesh2DieContext &ctx)
         HCCL_ERROR("[CcuKernelAllToAllMesh2Die] RankId[%u] channels is empty", arg->rankId);
         return CCU_E_INTERNAL;
     }
+    HCCL_INFO("InitResource: rankSize: %llu, rankId: %llu, channelCount: %llu, withMyRank: %d", arg->rankSize, arg->rankId, arg->channelCount, arg->withMyRank);
     ctx.virRankSize = arg->channelCount + 1;
 
     ctx.output.resize(ctx.virRankSize);
