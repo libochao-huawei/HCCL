@@ -125,6 +125,14 @@ HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::KernelRun(const OpParam& param, c
     uint64_t sliceSize = templateDataParams.sliceSize;
     uint64_t offSet = rankId * templateDataParams.outputSliceStride;
 
+    HcclDataType dataType       = param.DataDes.dataType;
+    uint64_t dataTypeSize       = DataTypeSizeGet(dataType);
+    uint64_t dataCount          = sliceSize / dataTypeSize;
+    if (dataCount == 0) {
+        HCCL_INFO("[CcuTempAllGather2DiesMeshMem2Mem1D] DataCount == 0, Template Run Ends.");
+        return HcclResult::HCCL_SUCCESS;
+    }
+
     LoopGroupConfig config{};
     config.msInterleave = CCU_MS_INTERLEAVE;
     config.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
