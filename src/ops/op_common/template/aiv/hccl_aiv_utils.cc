@@ -20,7 +20,6 @@
 #include <algorithm>
 #include "rt_external.h"
 #include "adapter_acl.h"
-#include "adapter_rts_common.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "universal_concurrent_map.h"
@@ -179,9 +178,9 @@ thread_local std::string g_aivCurrentCommName;
 
 static void RegisterAivExceptionCallback()
 {
-    HcclResult ret = hrtRegTaskFailCallbackByModule(ProcessAivExceptionCallBack);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", ret);
+    rtError_t rtRet = rtRegTaskFailCallbackByModule("HCCL", ProcessAivExceptionCallBack);
+    if (rtRet != RT_ERROR_NONE) {
+        HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", rtRet);
     } else {
         HCCL_INFO("[AIV][RegisterAivExceptionCallback] register callback success.");
     }
