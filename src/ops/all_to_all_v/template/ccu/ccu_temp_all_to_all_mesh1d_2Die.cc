@@ -193,7 +193,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
 
     // 先下发mesh的kenrel
     CcuKernelInfo kernelInfoMesh;
-    strcpy(kernelInfoMesh.kernelFuncName, "CcuAllToAllMesh2DieKernel");
+    strcpy_s(kernelInfoMesh.kernelFuncName, sizeof(kernelInfoMesh.kernelFuncName), "CcuAllToAllMesh2DieKernel");
     kernelInfoMesh.kernelFunc = reinterpret_cast<void *>(CcuAllToAllMesh2DieKernel);
 
     auto kernelArgMesh = std::make_shared<CcuKernelArgAllToAllMesh2Die>();
@@ -213,7 +213,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     // 下发clos的kenrel
     CcuKernelInfo kernelInfoClos;
     uint32_t closDieId = 1 - meshDieId;
-    strcpy(kernelInfoClos.kernelFuncName, "CcuAllToAllMesh2DieKernel");
+    strcpy_s(kernelInfoClos.kernelFuncName, sizeof(kernelInfoClos.kernelFuncName), "CcuAllToAllMesh2DieKernel");
     kernelInfoClos.kernelFunc = reinterpret_cast<void *>(CcuAllToAllMesh2DieKernel);
 
     auto kernelArgClos = std::make_shared<CcuKernelArgAllToAllMesh2Die>();

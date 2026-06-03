@@ -45,7 +45,7 @@ HcclResult CcuTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 
     // 创建每个kernel的kernelArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    strcpy(kernelInfo.kernelFuncName, "CcuAllGatherMesh1DKernel");
+    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllGatherMesh1DKernel");
     kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllGatherMesh1DKernel);
 
     std::vector<HcclChannelDesc> channelDescs;
