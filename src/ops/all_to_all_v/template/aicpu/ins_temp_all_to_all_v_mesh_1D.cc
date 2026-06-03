@@ -9,6 +9,7 @@
  */
 
 #include "aicpu/ins_temp_all_to_all_v_mesh_1D.h"
+#include "exec_timeout_manager.h"
 
 #define NET_NUM 2
 
@@ -37,7 +38,14 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     }
 
     std::vector<HcclChannelDesc> level0Channels;
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+    u32 matrixDim = 0;
+    bool isMatrixAlltoAll = IsMatrixAlltoAllParam(param) && IsMatrixAlltoAllTopo(topoInfo) &&
+        IsMatrixAlltoAllRankSize(matrixDim);
+    if (isMatrixAlltoAll) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] matrix alltoall resource path, matrixDim[%u], "
+            "templateRankSize[%u], channelNum[%zu].", matrixDim, templateRankSize_, level0Channels.size());
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         std::vector<HcclChannelDesc> myChannelDescs;
         CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
         for(auto channel : myChannelDescs) {
@@ -54,12 +62,17 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
         channelsPerRank_ = CalcChannelsPerRank(level0Channels);
     }
     HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] channelsPerRank_ is [%u]", channelsPerRank_);
-    resourceRequest.slaveThreadNum = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1) * channelsPerRank_;
+    u32 matrixSlotNum = matrixDim + 1;
+    resourceRequest.slaveThreadNum = isMatrixAlltoAll ? (2 * matrixSlotNum) :
+        std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1) * channelsPerRank_;
     for (u32 index = 0; index < resourceRequest.slaveThreadNum; index++) {
         // 从流的notify数量以rank间channel数的最大值为准，用于和主流同步以及同一个rank多条链路间的同步
-        resourceRequest.notifyNumPerThread.push_back(channelsPerRank_);
+        resourceRequest.notifyNumPerThread.push_back(isMatrixAlltoAll ? 1 : channelsPerRank_);
     }
     resourceRequest.notifyNumOnMainThread = resourceRequest.slaveThreadNum;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcRes] slaveThreadNum[%u], notifyNumOnMainThread[%u], "
+        "matrixSlotNum[%u], isMatrixAlltoAll[%d].", resourceRequest.slaveThreadNum,
+        resourceRequest.notifyNumOnMainThread, matrixSlotNum, isMatrixAlltoAll);
     return HCCL_SUCCESS;
 }
 
@@ -67,6 +80,16 @@ u64 InsTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
 {
     (void) inBuffType;
     (void) outBuffType;
+    u32 matrixDim = 0;
+    if (IsMatrixAlltoAllRankSize(matrixDim)) {
+        u32 legacyConcurrentNum = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1);
+        u32 matrixScratchNum = 2 * (matrixDim + 1);
+        concurrentSendRecvNum_ = std::max(legacyConcurrentNum, matrixScratchNum);
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcScratchMultiple] matrix alltoall scratch multiple[%u], "
+            "matrixDim[%u], matrixScratchNum[%u], legacyConcurrentNum[%u].", concurrentSendRecvNum_,
+            matrixDim, matrixScratchNum, legacyConcurrentNum);
+        return concurrentSendRecvNum_;
+    }
     // 分组fullmesh，每轮最多通信maxConcurrentSize_个
     concurrentSendRecvNum_ = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1);
     return concurrentSendRecvNum_;
@@ -149,6 +172,20 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     if (std::string(param.algName) != "InsAlltoAllMesh1DSingleChannel") {
         channelsPerRank_ = CalcChannelsPerRank(templateResource.channels); // 每个rank的channel数量的最大值
     }
+    u32 matrixDim = 0;
+    if (IsMatrixAlltoAllParam(param) && IsMatrixAlltoAllRankSize(matrixDim)) {
+        HcclResult matrixRet = CheckMatrixAlltoAllChannels(templateResource.channels, matrixDim, myAlgRank);
+        if (matrixRet == HCCL_SUCCESS) {
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] enter matrix alltoall path, matrixDim[%u], "
+                "myRank[%u], myAlgRank[%u], threadNum[%u], channelsPerRank[%u].",
+                matrixDim, myRank_, myAlgRank, threadNum_, channelsPerRank_);
+            CHK_RET(RunMatrixAlltoAll(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] Run End");
+            return HcclResult::HCCL_SUCCESS;
+        }
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][KernelRun] matrix alltoall channel check failed[%u].", matrixRet);
+        return matrixRet;
+    }
     CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
 
     HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] Run End");
@@ -170,6 +207,502 @@ HcclResult InsTempAlltoAllVMesh1D::LocalCopyForMyRank(const TemplateDataParams &
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] do local copy on thread[%u], data size[%llu].",
             queIdx, tempAlgParams.sendCounts[myAlgRank] * dataTypeSize_);
     }
+    return HCCL_SUCCESS;
+}
+
+bool InsTempAlltoAllVMesh1D::IsMatrixAlltoAllRankSize(u32 &matrixDim) const
+{
+    matrixDim = 0;
+    if (templateRankSize_ <= 1) {
+        return false;
+    }
+    for (u32 dim = 2; dim <= templateRankSize_ / dim; dim++) {
+        if (dim * dim == templateRankSize_) {
+            matrixDim = dim;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool InsTempAlltoAllVMesh1D::IsMatrixAlltoAllParam(const OpParam &param) const
+{
+    std::string algName(param.algName);
+    bool isUbxAlg = algName == "InsAlltoAllMesh1DUBX" || algName == "InsAlltoAllVMesh1DUBX";
+    bool isAlltoAllCmd = param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV;
+    return isAlltoAllCmd && isUbxAlg;
+}
+
+bool InsTempAlltoAllVMesh1D::IsMatrixAlltoAllTopo(const TopoInfoWithNetLayerDetails *topoInfo) const
+{
+    if (topoInfo == nullptr) {
+        HCCL_WARNING("[InsTempAlltoAllVMesh1D][IsMatrixAlltoAllTopo] topoInfo is null.");
+        return false;
+    }
+    bool isMatrixTopo = topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix;
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][IsMatrixAlltoAllTopo] level0Topo[%d], level0PcieMix[%d], "
+        "isMatrixTopo[%d].", topoInfo->level0Topo, topoInfo->level0PcieMix, isMatrixTopo);
+    return isMatrixTopo;
+}
+
+u32 InsTempAlltoAllVMesh1D::CalcMatrixRank(const u32 row, const u32 col, const u32 matrixDim) const
+{
+    return row * matrixDim + col;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::CalcMatrixAlltoAllRoundPlan(const u32 round, const u32 myAlgRank,
+    std::vector<MatrixAlltoAllSlot> &slotPlans) const
+{
+    u32 matrixDim = 0;
+    CHK_PRT_RET(!IsMatrixAlltoAllRankSize(matrixDim),
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcMatrixAlltoAllRoundPlan] invalid rankSize[%u].",
+            templateRankSize_), HCCL_E_PARA);
+    CHK_PRT_RET(round == 0 || round >= matrixDim,
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcMatrixAlltoAllRoundPlan] invalid round[%u], matrixDim[%u].",
+            round, matrixDim), HCCL_E_PARA);
+
+    slotPlans.clear();
+    u32 myRow = myAlgRank / matrixDim;
+    u32 myCol = myAlgRank % matrixDim;
+    u32 txCol = (myCol + round) % matrixDim;
+    u32 rxCol = (myCol + matrixDim - round) % matrixDim;
+
+    MatrixAlltoAllSlot meshSlot;
+    meshSlot.txRank = subCommRanks_[0][CalcMatrixRank((myRow + round) % matrixDim, myCol, matrixDim)];
+    meshSlot.rxRank = subCommRanks_[0][CalcMatrixRank((myRow + matrixDim - round) % matrixDim, myCol, matrixDim)];
+    meshSlot.channelIdx = 0;
+    meshSlot.cclBuffIdx = 0;
+    meshSlot.isMesh = true;
+    slotPlans.push_back(meshSlot);
+
+    for (u32 plane = 0; plane < matrixDim; plane++) {
+        u32 peerRow = (plane + matrixDim - myRow) % matrixDim;
+        MatrixAlltoAllSlot closSlot;
+        closSlot.txRank = subCommRanks_[0][CalcMatrixRank(peerRow, txCol, matrixDim)];
+        closSlot.rxRank = subCommRanks_[0][CalcMatrixRank(peerRow, rxCol, matrixDim)];
+        closSlot.channelIdx = plane;
+        closSlot.cclBuffIdx = plane + 1;
+        closSlot.isMesh = false;
+        slotPlans.push_back(closSlot);
+    }
+
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][CalcMatrixAlltoAllRoundPlan] myRank[%u], myAlgRank[%u], "
+        "round[%u], matrixDim[%u], slotNum[%zu].", myRank_, myAlgRank, round, matrixDim, slotPlans.size());
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::CheckMatrixAlltoAllChannels(
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 matrixDim, const u32 myAlgRank) const
+{
+    if (channels.empty()) {
+        HCCL_WARNING("[InsTempAlltoAllVMesh1D][CheckMatrixAlltoAllChannels] channels is empty.");
+        return HCCL_E_PARA;
+    }
+    u32 myRow = myAlgRank / matrixDim;
+    u32 myCol = myAlgRank % matrixDim;
+    for (u32 algRank = 0; algRank < templateRankSize_; algRank++) {
+        if (algRank == myAlgRank) {
+            continue;
+        }
+        u32 userRank = subCommRanks_[0][algRank];
+        auto iter = channels.find(userRank);
+        CHK_PRT_RET(iter == channels.end(),
+            HCCL_WARNING("[InsTempAlltoAllVMesh1D][CheckMatrixAlltoAllChannels] rank[%u] not found.",
+                userRank), HCCL_E_PARA);
+        u32 peerCol = algRank % matrixDim;
+        bool sameColumn = (peerCol == myCol);
+        u32 expectedChannelNum = sameColumn ? 1 : matrixDim;
+        CHK_PRT_RET(iter->second.size() < expectedChannelNum,
+            HCCL_WARNING("[InsTempAlltoAllVMesh1D][CheckMatrixAlltoAllChannels] rank[%u], algRank[%u], "
+                "sameColumn[%d], channelNum[%zu] less than expected[%u].",
+                userRank, algRank, sameColumn, iter->second.size(), expectedChannelNum), HCCL_E_PARA);
+        HCCL_DEBUG("[InsTempAlltoAllVMesh1D][CheckMatrixAlltoAllChannels] myRow[%u], myCol[%u], "
+            "remoteRank[%u], remoteAlgRank[%u], channelNum[%zu], expected[%u].",
+            myRow, myCol, userRank, algRank, iter->second.size(), expectedChannelNum);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::SelectMatrixAlltoAllChannel(
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const MatrixAlltoAllSlot &slotPlan,
+    const bool selectTxChannel, ChannelInfo &channel) const
+{
+    u32 remoteRank = selectTxChannel ? slotPlan.txRank : slotPlan.rxRank;
+    auto iter = channels.find(remoteRank);
+    CHK_PRT_RET(iter == channels.end(),
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectMatrixAlltoAllChannel] remoteRank[%u] not found, "
+            "selectTx[%d].", remoteRank, selectTxChannel), HCCL_E_PARA);
+    const std::vector<ChannelInfo> &remoteChannels = iter->second;
+    u32 channelIdx = slotPlan.channelIdx;
+    CHK_RET(ResolveMatrixAlltoAllChannelIdx(remoteChannels, slotPlan, channelIdx));
+    CHK_PRT_RET(remoteChannels.size() <= channelIdx,
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][SelectMatrixAlltoAllChannel] remoteRank[%u], selectTx[%d], "
+            "channelIdx[%u], channelNum[%zu], isMesh[%d].",
+            remoteRank, selectTxChannel, channelIdx, remoteChannels.size(), slotPlan.isMesh), HCCL_E_PARA);
+    channel = remoteChannels[channelIdx];
+    HCCL_DEBUG("[InsTempAlltoAllVMesh1D][SelectMatrixAlltoAllChannel] selectTx[%d], remoteRank[%u], "
+        "channelIdx[%u], cclBuffIdx[%u], isMesh[%d], handle[%llu].",
+        selectTxChannel, remoteRank, channelIdx, slotPlan.cclBuffIdx, slotPlan.isMesh,
+        static_cast<unsigned long long>(channel.handle));
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::ResolveMatrixAlltoAllChannelIdx(
+    const std::vector<ChannelInfo> &remoteChannels, const MatrixAlltoAllSlot &slotPlan, u32 &channelIdx) const
+{
+    channelIdx = slotPlan.channelIdx;
+    u32 matrixDim = 0;
+    if (slotPlan.isMesh) {
+        return HCCL_SUCCESS;
+    }
+    CHK_PRT_RET(!IsMatrixAlltoAllRankSize(matrixDim),
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][ResolveMatrixAlltoAllChannelIdx] invalid rankSize[%u].",
+            templateRankSize_), HCCL_E_PARA);
+    CHK_PRT_RET(remoteChannels.size() < matrixDim,
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][ResolveMatrixAlltoAllChannelIdx] channelNum[%zu] less than "
+            "closPlaneNum[%u].", remoteChannels.size(), matrixDim), HCCL_E_PARA);
+    u32 closOffset = static_cast<u32>(remoteChannels.size()) - matrixDim;
+    channelIdx = closOffset + slotPlan.channelIdx;
+    CHK_PRT_RET(channelIdx >= remoteChannels.size(),
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][ResolveMatrixAlltoAllChannelIdx] logicalChannelIdx[%u], "
+            "resolvedChannelIdx[%u], channelNum[%zu], closOffset[%u].",
+            slotPlan.channelIdx, channelIdx, remoteChannels.size(), closOffset), HCCL_E_PARA);
+    HCCL_DEBUG("[InsTempAlltoAllVMesh1D][ResolveMatrixAlltoAllChannelIdx] logicalChannelIdx[%u], "
+        "resolvedChannelIdx[%u], channelNum[%zu], closPlaneNum[%u], closOffset[%u].",
+        slotPlan.channelIdx, channelIdx, remoteChannels.size(), matrixDim, closOffset);
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::RunMatrixAlltoAll(
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
+    const TemplateDataParams &tempAlgParams, const u32 myAlgRank)
+{
+    u32 matrixDim = 0;
+    CHK_PRT_RET(!IsMatrixAlltoAllRankSize(matrixDim),
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAll] invalid rankSize[%u].", templateRankSize_),
+        HCCL_E_PARA);
+    u32 matrixSlotNum = matrixDim + 1;
+    CHK_PRT_RET(threads.size() < 2 * matrixSlotNum + 1,
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAll] threadNum[%zu] less than expected[%u].",
+            threads.size(), 2 * matrixSlotNum + 1), HCCL_E_PARA);
+
+    if (isDmaRead_) {
+        return RunMatrixAlltoAllReadPipelined(channels, threads, tempAlgParams, myAlgRank, matrixDim);
+    }
+    return RunMatrixAlltoAllWritePipelined(channels, threads, tempAlgParams, myAlgRank, matrixDim);
+}
+
+HcclResult InsTempAlltoAllVMesh1D::RunMatrixAlltoAllReadPipelined(
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
+    const TemplateDataParams &tempAlgParams, const u32 myAlgRank, const u32 matrixDim)
+{
+    u32 matrixSlotNum = matrixDim + 1;
+    std::vector<ThreadHandle> commThreads(threads.begin() + 1, threads.begin() + matrixSlotNum + 1);
+    std::vector<ThreadHandle> copyThreads(threads.begin() + matrixSlotNum + 1, threads.begin() + 2 * matrixSlotNum + 1);
+
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllReadPipelined] start, matrixDim[%u], "
+        "slotNum[%u], commThreadNum[%zu], copyThreadNum[%zu].",
+        matrixDim, matrixSlotNum, commThreads.size(), copyThreads.size());
+
+    std::vector<std::vector<u32>> notifyIdxByBank(2);
+    for (u32 bank = 0; bank < 2; bank++) {
+        for (u32 notifyIdx = 0; notifyIdx < matrixSlotNum; notifyIdx++) {
+            notifyIdxByBank[bank].push_back(bank * matrixSlotNum + notifyIdx);
+        }
+    }
+    std::vector<u32> copyStartNotifyIdx(copyThreads.size(), 0);
+    std::vector<u32> commStartNotifyIdx(commThreads.size(), 0);
+
+    u32 firstRound = 1;
+    u32 firstBank = firstRound % 2;
+    CHK_RET(PreSyncInterThreads(threads[0], copyThreads, copyStartNotifyIdx));
+    CHK_RET(RunMatrixAlltoAllPreCopyRound(tempAlgParams, copyThreads, firstRound, myAlgRank, firstBank));
+    CHK_RET(PostSyncInterThreads(threads[0], copyThreads, notifyIdxByBank[firstBank]));
+
+    bool commRecorded[2] = {false, false};
+    for (u32 round = 1; round < matrixDim; round++) {
+        u32 commBank = round % 2;
+        CHK_RET(PreSyncInterThreads(threads[0], commThreads, commStartNotifyIdx));
+        CHK_RET(RunMatrixAlltoAllCommRound(tempAlgParams, channels, commThreads, round, myAlgRank, commBank, false));
+        CHK_RET(RecordMatrixThreadsToMain(threads[0], commThreads, notifyIdxByBank[commBank]));
+        commRecorded[commBank] = true;
+
+        u32 nextRound = round + 1;
+        if (nextRound < matrixDim) {
+            u32 nextBank = nextRound % 2;
+            if (commRecorded[nextBank]) {
+                CHK_RET(WaitMatrixThreadsOnMain(threads[0], notifyIdxByBank[nextBank]));
+                commRecorded[nextBank] = false;
+                HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllReadPipelined] wait bank[%u] before "
+                    "preCopyRound[%u].", nextBank, nextRound);
+            }
+            CHK_RET(PreSyncInterThreads(threads[0], copyThreads, copyStartNotifyIdx));
+            CHK_RET(RunMatrixAlltoAllPreCopyRound(tempAlgParams, copyThreads, nextRound, myAlgRank, nextBank));
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllReadPipelined] overlap commRound[%u] "
+                "with preCopyRound[%u], nextBank[%u].", round, nextRound, nextBank);
+        }
+        if (round == firstRound) {
+            CHK_RET(LocalCopyForMyRank(tempAlgParams, threads[0], myAlgRank, 0));
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllReadPipelined] overlap local copy with "
+                "commRound[%u].", round);
+        }
+
+        if (nextRound < matrixDim) {
+            CHK_RET(PostSyncInterThreads(threads[0], copyThreads, notifyIdxByBank[nextRound % 2]));
+        }
+    }
+    for (u32 bank = 0; bank < 2; bank++) {
+        if (commRecorded[bank]) {
+            CHK_RET(WaitMatrixThreadsOnMain(threads[0], notifyIdxByBank[bank]));
+            commRecorded[bank] = false;
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllReadPipelined] final wait bank[%u].", bank);
+        }
+    }
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllReadPipelined] finish.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::RunMatrixAlltoAllWritePipelined(
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
+    const TemplateDataParams &tempAlgParams, const u32 myAlgRank, const u32 matrixDim)
+{
+    u32 matrixSlotNum = matrixDim + 1;
+    std::vector<ThreadHandle> commThreads(threads.begin() + 1, threads.begin() + matrixSlotNum + 1);
+    std::vector<ThreadHandle> copyThreads(threads.begin() + matrixSlotNum + 1, threads.begin() + 2 * matrixSlotNum + 1);
+
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllWritePipelined] start, matrixDim[%u], "
+        "slotNum[%u], commThreadNum[%zu], copyThreadNum[%zu].",
+        matrixDim, matrixSlotNum, commThreads.size(), copyThreads.size());
+
+    std::vector<std::vector<u32>> notifyIdxByBank(2);
+    for (u32 bank = 0; bank < 2; bank++) {
+        for (u32 notifyIdx = 0; notifyIdx < matrixSlotNum; notifyIdx++) {
+            notifyIdxByBank[bank].push_back(bank * matrixSlotNum + notifyIdx);
+        }
+    }
+    std::vector<u32> copyStartNotifyIdx(copyThreads.size(), 0);
+    std::vector<u32> commStartNotifyIdx(commThreads.size(), 0);
+    bool postCopyRecorded[2] = {false, false};
+
+    for (u32 round = 1; round < matrixDim; round++) {
+        u32 commBank = round % 2;
+        if (postCopyRecorded[commBank]) {
+            CHK_RET(WaitMatrixThreadsOnMain(threads[0], notifyIdxByBank[commBank]));
+            postCopyRecorded[commBank] = false;
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllWritePipelined] wait postCopy bank[%u] "
+                "before commRound[%u].", commBank, round);
+        }
+
+        CHK_RET(PreSyncInterThreads(threads[0], commThreads, commStartNotifyIdx));
+        CHK_RET(RunMatrixAlltoAllCommRound(tempAlgParams, channels, commThreads, round, myAlgRank, commBank, false));
+
+        if (round == 1) {
+            CHK_RET(LocalCopyForMyRank(tempAlgParams, threads[0], myAlgRank, 0));
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllWritePipelined] overlap local copy with "
+                "commRound[%u].", round);
+        }
+
+        CHK_RET(PostSyncInterThreads(threads[0], commThreads, notifyIdxByBank[commBank]));
+        CHK_RET(PreSyncInterThreads(threads[0], copyThreads, copyStartNotifyIdx));
+        CHK_RET(RunMatrixAlltoAllPostCopyRound(tempAlgParams, copyThreads, round, myAlgRank, commBank));
+        CHK_RET(RecordMatrixThreadsToMain(threads[0], copyThreads, notifyIdxByBank[commBank]));
+        postCopyRecorded[commBank] = true;
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllWritePipelined] start postCopyRound[%u], "
+            "bank[%u].", round, commBank);
+    }
+
+    for (u32 bank = 0; bank < 2; bank++) {
+        if (postCopyRecorded[bank]) {
+            CHK_RET(WaitMatrixThreadsOnMain(threads[0], notifyIdxByBank[bank]));
+            postCopyRecorded[bank] = false;
+            HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllWritePipelined] final wait postCopy bank[%u].",
+                bank);
+        }
+    }
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllWritePipelined] finish.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::RunMatrixAlltoAllPreCopyRound(const TemplateDataParams &tempAlgParams,
+    const std::vector<ThreadHandle> &copyThreads, const u32 round, const u32 myAlgRank, const u32 bank) const
+{
+    std::vector<MatrixAlltoAllSlot> slotPlans;
+    CHK_RET(CalcMatrixAlltoAllRoundPlan(round, myAlgRank, slotPlans));
+    u32 matrixSlotNum = slotPlans.size();
+    CHK_PRT_RET(copyThreads.size() < matrixSlotNum,
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllPreCopyRound] copyThreadNum[%zu] less than "
+            "slotNum[%u].", copyThreads.size(), matrixSlotNum), HCCL_E_PARA);
+
+    for (u32 slotIdx = 0; slotIdx < matrixSlotNum; slotIdx++) {
+        MatrixAlltoAllSlot slotPlan = slotPlans[slotIdx];
+        slotPlan.cclBuffIdx = bank * matrixSlotNum + slotPlan.cclBuffIdx;
+        u64 sendCount = tempAlgParams.sendCounts[slotPlan.txRank];
+        u64 sendSize = sendCount * dataTypeSize_;
+        if (sendSize > 0) {
+            CHK_RET(PreCopy(tempAlgParams, copyThreads[slotIdx], slotPlan.cclBuffIdx, slotPlan.txRank,
+                sendSize, sendCount, 0));
+        }
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllPreCopyRound] round[%u], slotIdx[%u], "
+            "txRank[%u], bank[%u], cclBuffIdx[%u], sendSize[%llu].",
+            round, slotIdx, slotPlan.txRank, bank, slotPlan.cclBuffIdx, sendSize);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::RunMatrixAlltoAllPostCopyRound(const TemplateDataParams &tempAlgParams,
+    const std::vector<ThreadHandle> &copyThreads, const u32 round, const u32 myAlgRank, const u32 bank) const
+{
+    std::vector<MatrixAlltoAllSlot> slotPlans;
+    CHK_RET(CalcMatrixAlltoAllRoundPlan(round, myAlgRank, slotPlans));
+    u32 matrixSlotNum = slotPlans.size();
+    CHK_PRT_RET(copyThreads.size() < matrixSlotNum,
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllPostCopyRound] copyThreadNum[%zu] less than "
+            "slotNum[%u].", copyThreads.size(), matrixSlotNum), HCCL_E_PARA);
+
+    for (u32 slotIdx = 0; slotIdx < matrixSlotNum; slotIdx++) {
+        MatrixAlltoAllSlot slotPlan = slotPlans[slotIdx];
+        slotPlan.cclBuffIdx = bank * matrixSlotNum + slotPlan.cclBuffIdx;
+        u64 recvCount = tempAlgParams.recvCounts[slotPlan.rxRank];
+        u64 recvSize = recvCount * dataTypeSize_;
+        if (recvSize > 0) {
+            CHK_RET(PostCopy(tempAlgParams, copyThreads[slotIdx], slotPlan.cclBuffIdx, slotPlan.rxRank,
+                recvSize, recvCount, 0));
+        }
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllPostCopyRound] round[%u], slotIdx[%u], "
+            "rxRank[%u], bank[%u], cclBuffIdx[%u], recvSize[%llu].",
+            round, slotIdx, slotPlan.rxRank, bank, slotPlan.cclBuffIdx, recvSize);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::RunMatrixAlltoAllCommRound(const TemplateDataParams &tempAlgParams,
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &commThreads,
+    const u32 round, const u32 myAlgRank, const u32 bank, const bool needPreCopy) const
+{
+    std::vector<MatrixAlltoAllSlot> slotPlans;
+    CHK_RET(CalcMatrixAlltoAllRoundPlan(round, myAlgRank, slotPlans));
+    u32 matrixSlotNum = slotPlans.size();
+    CHK_PRT_RET(commThreads.size() < matrixSlotNum,
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllCommRound] commThreadNum[%zu] less than "
+            "slotNum[%u].", commThreads.size(), matrixSlotNum), HCCL_E_PARA);
+
+    for (u32 slotIdx = 0; slotIdx < matrixSlotNum; slotIdx++) {
+        MatrixAlltoAllSlot slotPlan = slotPlans[slotIdx];
+        slotPlan.cclBuffIdx = bank * matrixSlotNum + slotPlan.cclBuffIdx;
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllCommRound] round[%u], slotIdx[%u], txRank[%u], "
+            "rxRank[%u], channelIdx[%u], bank[%u], cclBuffIdx[%u], isMesh[%d], needPreCopy[%d].",
+            round, slotIdx, slotPlan.txRank, slotPlan.rxRank, slotPlan.channelIdx, bank, slotPlan.cclBuffIdx,
+            slotPlan.isMesh, needPreCopy);
+        CHK_RET(RunMatrixAlltoAllSlot(tempAlgParams, channels, slotPlan, commThreads[slotIdx], round, needPreCopy,
+            needPreCopy));
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::RecordMatrixThreadsToMain(const ThreadHandle &mainThread,
+    const std::vector<ThreadHandle> &subThreads, const std::vector<u32> &notifyIdxSubToMain) const
+{
+    CHK_PRT_RET(subThreads.size() != notifyIdxSubToMain.size(),
+        HCCL_ERROR("[InsTempAlltoAllVMesh1D][RecordMatrixThreadsToMain] subThreadNum[%zu], "
+            "notifyNum[%zu] not equal.", subThreads.size(), notifyIdxSubToMain.size()), HCCL_E_PARA);
+    for (u32 threadIdx = 0; threadIdx < subThreads.size(); threadIdx++) {
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(subThreads[threadIdx], mainThread,
+            notifyIdxSubToMain[threadIdx])));
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::WaitMatrixThreadsOnMain(const ThreadHandle &mainThread,
+    const std::vector<u32> &notifyIdxSubToMain) const
+{
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    for (u32 notifyIdx : notifyIdxSubToMain) {
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(mainThread, notifyIdx, execTimeout)));
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::RunMatrixAlltoAllSlot(const TemplateDataParams &tempAlgParams,
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const MatrixAlltoAllSlot &slotPlan,
+    const ThreadHandle &thread, const u32 round, const bool needPreCopy, const bool needPostCopy) const
+{
+    ChannelInfo txChannel;
+    ChannelInfo rxChannel;
+    CHK_RET(SelectMatrixAlltoAllChannel(channels, slotPlan, true, txChannel));
+    CHK_RET(SelectMatrixAlltoAllChannel(channels, slotPlan, false, rxChannel));
+
+    u64 sendCount = tempAlgParams.sendCounts[slotPlan.txRank];
+    u64 recvCount = tempAlgParams.recvCounts[slotPlan.rxRank];
+    u64 sendSize = sendCount * dataTypeSize_;
+    u64 recvSize = recvCount * dataTypeSize_;
+    u64 sendOffset = 0;
+    u64 recvOffset = 0;
+    u64 cclOffset = slotPlan.cclBuffIdx * tempAlgParams.inputSliceStride + tempAlgParams.buffInfo.hcclBuffBaseOff;
+
+    if (isDmaRead_ && needPreCopy && sendSize > 0) {
+        CHK_RET(PreCopy(tempAlgParams, thread, slotPlan.cclBuffIdx, slotPlan.txRank, sendSize, sendCount, sendOffset));
+    }
+
+    DataSlice txSrcSlice = isDmaRead_ ?
+        DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, cclOffset + sendOffset, sendSize, sendCount) :
+        DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.sdispls[slotPlan.txRank] * dataTypeSize_ + sendOffset,
+            sendSize, sendCount);
+    DataSlice txDstSlice = DataSlice(txChannel.remoteCclMem.addr, cclOffset + sendOffset, sendSize, sendCount);
+    DataSlice rxSrcSlice = DataSlice(rxChannel.remoteCclMem.addr, cclOffset + recvOffset, recvSize, recvCount);
+    DataSlice rxDstSlice = isDmaRead_ ?
+        DataSlice(tempAlgParams.buffInfo.outputPtr, tempAlgParams.rdispls[slotPlan.rxRank] * dataTypeSize_ + recvOffset,
+            recvSize, recvCount) :
+        DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, cclOffset + recvOffset, recvSize, recvCount);
+
+    std::vector<DataSlice> txSrcSlices{txSrcSlice};
+    std::vector<DataSlice> txDstSlices{txDstSlice};
+    std::vector<DataSlice> rxSrcSlices{rxSrcSlice};
+    std::vector<DataSlice> rxDstSlices{rxDstSlice};
+    DataInfo sendInfo{txChannel, {txSrcSlices, txDstSlices}, dataType_};
+    DataInfo recvInfo{rxChannel, {rxSrcSlices, rxDstSlices}, dataType_};
+    SendRecvInfo sendRecvInfo{{txChannel, rxChannel},
+        {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_};
+
+    if (sendSize > 0 && recvSize > 0) {
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread),
+                HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllSlot] SendRecvRead failed."),
+                HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread),
+                HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllSlot] SendRecvWrite failed."),
+                HCCL_E_INTERNAL);
+        }
+    } else if (sendSize > 0) {
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRead(sendInfo, thread),
+                HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllSlot] SendRead failed."),
+                HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendWrite(sendInfo, thread),
+                HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllSlot] SendWrite failed."),
+                HCCL_E_INTERNAL);
+        }
+    } else if (recvSize > 0) {
+        if (isDmaRead_) {
+            CHK_PRT_RET(RecvRead(recvInfo, thread),
+                HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllSlot] RecvRead failed."),
+                HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(RecvWrite(recvInfo, thread),
+                HCCL_ERROR("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllSlot] RecvWrite failed."),
+                HCCL_E_INTERNAL);
+        }
+    }
+
+    if (!isDmaRead_ && needPostCopy && recvSize > 0) {
+        CHK_RET(PostCopy(tempAlgParams, thread, slotPlan.cclBuffIdx, slotPlan.rxRank, recvSize, recvCount, recvOffset));
+    }
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunMatrixAlltoAllSlot] round[%u], txRank[%u], rxRank[%u], "
+        "channelIdx[%u], cclBuffIdx[%u], sendSize[%llu], recvSize[%llu], isDmaRead[%d], needPostCopy[%d].",
+        round, slotPlan.txRank, slotPlan.rxRank, slotPlan.channelIdx, slotPlan.cclBuffIdx,
+        sendSize, recvSize, isDmaRead_, needPostCopy);
     return HCCL_SUCCESS;
 }
 
