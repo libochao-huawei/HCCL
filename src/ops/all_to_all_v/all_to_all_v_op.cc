@@ -126,7 +126,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(CheckDataType(recvType, false));
 
     /* 接口交互信息日志 */
-    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, opTag, rankSize,"HcclAlltoAllVGraphMode"));
+    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, tag, rankSize,"HcclAlltoAllVGraphMode"));
 
     // 底层走AlltoAllV
     bool useInnerOp = false;
