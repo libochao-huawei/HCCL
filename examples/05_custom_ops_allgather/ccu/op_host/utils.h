@@ -19,14 +19,12 @@ namespace ops_hccl_ag {
 
 HcclResult GetDeviceType(DeviceType *deviceType);
 
-HcclResult AcquireChannel(HcclComm comm, CommEngine engine,
-                          uint32_t srcRank, uint32_t dstRank, ChannelHandle *channel);
-
 HcclResult GetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost);
 
-HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, CcuKernelInfo &kernelInfo);
+HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, std::vector<ChannelHandle> &kernelChannels);
 
-HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, CcuKernelInfo &kernelInfo);
+HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, 
+    const std::vector<ChannelHandle> &kernelChannels, CcuKernelInfo &kernelInfo);
 
 HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost);
 

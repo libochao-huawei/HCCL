@@ -81,23 +81,18 @@ struct ChannelInfo {
 };
 
 struct CcuKernelArgBase {
-    // std::vector<ChannelHandle> channels;
     ChannelHandle channels[CCU_MAX_RANK_SIZE];
     uint32_t      channelCount;
 };
 
 // ccu kernel register所需信息
 struct CcuKernelInfo {
-    // kernel资源组序号，group号不同时，资源复用
-    uint32_t resGroup = 0;
-    // kernel名 string？
+    // kernel名称
     char kernelFuncName[64];
     // kernel函数
     void* kernelFunc;
     // KernelArg实例指针
     void *kernelArg;
-    // kernel所需channel
-    std::vector<HcclChannelDesc> channels;
 
 private:
     std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;

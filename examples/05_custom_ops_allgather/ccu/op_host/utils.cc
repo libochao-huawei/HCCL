@@ -48,45 +48,6 @@ HcclResult GetDeviceType(DeviceType *deviceType) {
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult AcquireChannel(HcclComm comm, CommEngine engine,
-                          uint32_t srcRank, uint32_t dstRank, ChannelHandle *channel)
-{
-    // Ascend 950 创建 Channel
-    uint32_t netLayer = 0, listSize = 0;
-    CommLink *linkList = nullptr;
-    CHK_RET(HcclRankGraphGetLinks(comm, netLayer, srcRank, dstRank, &linkList,
-                                  &listSize)); // 获取srcRank和dstRank间link信息
-
-    HcclChannelDesc desc;
-    CHK_RET(HcclChannelDescInit(&desc, 1));
-    CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
-    bool protocolExists = false;
-    for (uint32_t idx = 0; idx < listSize; idx++) {
-        CommLink link = linkList[idx];
-        if (link.linkAttr.linkProtocol == protocol) {
-            desc.remoteRank = dstRank;
-            desc.notifyNum = CHANNEL_NOTIFY_NUM;
-            desc.channelProtocol = link.linkAttr.linkProtocol;
-            desc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
-            desc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
-            desc.localEndpoint.loc = link.srcEndpointDesc.loc;
-            desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
-            desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
-            desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-            protocolExists = true;
-            break;
-        }
-    }
-    if (!protocolExists) {
-        HCCL_ERROR(
-            "[AcquireChannel] Protocol %d not found between rank %u and rank %u",
-            protocol, srcRank, dstRank);
-        return HCCL_E_NOT_FOUND;
-    }
-    CHK_RET(HcclChannelAcquire(comm, engine, &desc, 1, channel)); // 获取channelhandle
-    return HCCL_SUCCESS;
-}
-
 HcclResult GetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost) {
     // 只考虑threadNum = 1场景
     ThreadHandle thread;
@@ -96,21 +57,58 @@ HcclResult GetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSe
     return HCCL_SUCCESS;
 }
 
-HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, CcuKernelInfo &kernelInfo) {
+HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, std::vector<ChannelHandle> &kernelChannels) {
     uint32_t channelNum = param.rankSize - 1;
-    std::vector<ChannelHandle> kernelChannels(channelNum);
+    kernelChannels.resize(channelNum);
 
     uint32_t channelIndex = 0;
     for(uint32_t remoteRank = 0; remoteRank < param.rankSize; remoteRank++) {
         if (remoteRank == param.myRank) {
             continue;
         }
-        CHK_RET(AcquireChannel(comm, param.engine, param.myRank, remoteRank, &kernelChannels[channelIndex]));
+
+        uint32_t netLayer = 0, listSize = 0;
+        CommLink *linkList = nullptr;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, param.myRank, remoteRank, &linkList,
+                                      &listSize)); // 获取srcRank和dstRank间link信息
+
+        HcclChannelDesc desc;
+        CHK_RET(HcclChannelDescInit(&desc, 1));
+        CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
+        bool protocolExists = false;
+        for (uint32_t idx = 0; idx < listSize; idx++) {
+            CommLink link = linkList[idx];
+            if (link.linkAttr.linkProtocol == protocol) {
+                desc.remoteRank = remoteRank;
+                desc.notifyNum = CHANNEL_NOTIFY_NUM;
+                desc.channelProtocol = link.linkAttr.linkProtocol;
+                desc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+                desc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+                desc.localEndpoint.loc = link.srcEndpointDesc.loc;
+                desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+                desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+                desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+                protocolExists = true;
+                break;
+            }
+        }
+        if (!protocolExists) {
+            HCCL_ERROR("[GetChannelForCcu] Protocol %d not found between rank %u and rank %u",
+                protocol, param.myRank, remoteRank);
+            return HCCL_E_NOT_FOUND;
+        }
+        CHK_RET(HcclChannelAcquire(comm, param.engine, &desc, 1, &kernelChannels[channelIndex])); // 获取channelhandle
         channelIndex++;
     }
 
-    // 创建kernelinfo
-    snprintf(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllGatherMesh1DMem2MemKernel"); // kernelFuncName 对应 kernel.cc中函数名
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, 
+                        const std::vector<ChannelHandle> &kernelChannels, CcuKernelInfo &kernelInfo) {
+    
+    // 设置kernel函数名和函数指针
+    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllGatherMesh1DMem2MemKernel");
     kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllGatherMesh1DMem2MemKernel);
 
     auto kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();
@@ -120,18 +118,15 @@ HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxS
 
     auto* kernelArgBase = static_cast<CcuKernelArgBase*>(kernelInfo.kernelArg);
     if (!kernelArgBase) {
-        HCCL_ERROR("[GetChannelForCcu] kernelArg ptr is err.");
+        HCCL_ERROR("[GetCcuKernel] kernelArg ptr is err.");
         return HCCL_E_INTERNAL;
     }
-    for (uint32_t i = 0; i < channelNum; ++i) {
-        kernelArgBase->channels[i] = kernelChannels[i]; // 将channelhandle保存在kernelArg中
+
+    for (uint32_t i = 0; i < kernelChannels.size(); ++i) {
+        kernelArgBase->channels[i] = kernelChannels[i];  // 将channelhandle保存在kernelArgBase中
     }
-    kernelArgBase->channelCount = channelNum;
+    kernelArgBase->channelCount = static_cast<uint32_t>(kernelChannels.size());
 
-    return HCCL_SUCCESS;
-}
-
-HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, CcuKernelInfo &kernelInfo) {
     CcuInsHandle insHandle{0};
     uint32_t insNum = 0;
     CHK_RET(HcclCommQueryCcuIns(comm, &insHandle, &insNum));
@@ -177,11 +172,12 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxS
     resCtxHost.notifyNumOnMainThread = 0;
 
     CHK_RET(GetThreadForCcu(comm, param, resCtxHost)); // 申请流资源
+
+    std::vector<ChannelHandle> kernelChannels;
+    CHK_RET(GetChannelForCcu(comm, param, kernelChannels)); // 申请channel资源
     
     CcuKernelInfo kernelInfo;
-    CHK_RET(GetChannelForCcu(comm, param, resCtxHost, kernelInfo)); // 申请channel资源
-    
-    CHK_RET(GetCcuKernel(comm, param, resCtxHost, kernelInfo)); // 注册kernel
+    CHK_RET(GetCcuKernel(comm, param, resCtxHost, kernelChannels, kernelInfo)); // 注册kernel
 
     HCCL_INFO("End to execute AllocAlgResourceCCU success.");
     return HCCL_SUCCESS;
