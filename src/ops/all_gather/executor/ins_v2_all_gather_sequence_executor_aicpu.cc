@@ -120,6 +120,9 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     threads_ = resCtx.threads;
     rankSizeLevel0_ = algHierarchyInfo_.infos[0][0].size();
     rankSizeLevel1_ = algHierarchyInfo_.infos[1][0].size();
+    rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
+    rankIdxLevel1_ = myRank_ / rankSizeLevel0_;
+    engine_ = param.engine;
     // ccu路径无channel数据，跳过RestoreChannelMap
     if (param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
@@ -163,6 +166,11 @@ void InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     interTempDataParams.inputRepeatStride = 0;
     interTempDataParams.outputRepeatStride = 0;
 
+    if (engine_ == CommEngine::COMM_ENGINE_CCU) {
+        interTempDataParams.buffInfo.outBuffBaseOff = rankIdxLevel0_ * dataSize_ + processedDataCount * dataTypeSize_;
+        interTempDataParams.outputSliceStride = dataSize_ * rankSizeLevel0_;
+    }
+
     HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu] loop[%llu] interTempDataParams.inputSliceStride[%llu] "
         "interTempDataParams.outputSliceStride[%llu] interTempDataParams.sliceSize[%llu] "
         "interTempDataParams.buffInfo.inBuffBaseOff[%llu] interTempDataParams.buffInfo.outBuffBaseOff[%llu] "
@@ -192,6 +200,12 @@ void InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     intraTempDataParams.repeatNum = rankSizeLevel1_;
     intraTempDataParams.inputRepeatStride = currDataCount * dataTypeSize_;
     intraTempDataParams.outputRepeatStride = dataSize_ * rankSizeLevel0_;
+
+    if (engine_ == CommEngine::COMM_ENGINE_CCU) {
+        intraTempDataParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_; 
+        intraTempDataParams.inputSliceStride = dataSize_;
+        intraTempDataParams.inputRepeatStride = dataSize_ * rankSizeLevel0_;
+    }
 
     HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu] loop[%llu] intraTempDataParams.inputSliceStride[%llu] "
         "intraTempDataParams.outputSliceStride[%llu] intraTempDataParams.sliceSize[%llu] "
@@ -285,16 +299,13 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
         templateResourceIntra.ccuKernels = intraCcuKernels_;
         templateResourceIntra.threads = threads_;
     } else {
-        // aicpu: 原有逻辑不变
         CHK_RET(GenTempResource(resCtx, 1, interTempAlg, templateResourceInter));
         CHK_RET(GenTempResource(resCtx, 0, intraTempAlg, templateResourceIntra));
     }
     
     u64 maxCountPerLoop = 0;
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
-        maxCountPerLoop = interTempDataParams.buffInfo.hcclBuff.size /
-            HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
-        maxCountPerLoop = std::min<u64>(maxCountPerLoop, UB_MAX_DATA_SIZE);
+        maxCountPerLoop = UB_MAX_DATA_SIZE / dataTypeSize_;
     } else {
         maxCountPerLoop = interTempDataParams.buffInfo.hcclBuff.size / templateScratchMultiplier /
             HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;

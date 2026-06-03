@@ -48,6 +48,10 @@ private:
         const InsAlgTemplate &algTemplate, TemplateResource &tempReousrce) const;
     uint32_t rankSizeLevel0_{0};
     uint32_t rankSizeLevel1_{0};
+    uint32_t rankIdxLevel0_{0};
+    uint32_t rankIdxLevel1_{0};
+
+    CommEngine engine_{CommEngine::COMM_ENGINE_AICPU};
 
     u32 ccuKernelLaunchNumInter_{0};
     u32 ccuKernelLaunchNumIntra_{0};

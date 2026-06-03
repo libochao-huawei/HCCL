@@ -349,7 +349,7 @@ std::vector<uint64_t> CcuKernelAllGatherMesh1DMem2Mem::GeneArgs(const CcuTaskArg
     HCCL_INFO("[CcuKernelAllGatherMesh1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
         "currentRankSliceInputOffset[%llu], currentRankSliceOutputOffset[%llu], "
         "repeatNum[%llu],inputRepeatStride[%llu], outputRepeatStride[%llu], normalSliceSize[%llu], lastSliceSize[%llu]",
-        inputAddr, outputAddr, currentRankSliceInputOffset, currentRankSliceOutputOffset, tmpRepeatNum,
+        inputAddr, outputAddr, currentRankSliceInputOffset, currentRankSliceOutputOffset, UINT64_MAX - tmpRepeatNum,
         inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize);
     return taskArgs;
 }
