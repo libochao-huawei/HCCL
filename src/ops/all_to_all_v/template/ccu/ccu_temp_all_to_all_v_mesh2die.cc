@@ -52,7 +52,7 @@ HcclResult CcuTempAlltoAllVMesh2Die::CalcRes(HcclComm comm, const OpParam &param
     resourceRequest.ccuKernelNum.push_back(DIE_NUM);        // kernel数量
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
         CcuKernelInfo kernelInfo;
-        strcpy(kernelInfo.kernelFuncName, "CcuAllToAllVMesh2DieKernel");
+        CHK_SAFETY_FUNC_RET(strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllToAllVMesh2DieKernel"));
         kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllToAllVMesh2DieKernel);
 
         const bool withMyRank = channels_[dieId].size() < channels_[1 - dieId].size();
@@ -115,6 +115,27 @@ void CcuTempAlltoAllVMesh2Die::SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRec
     localSendRecvInfo_ = sendRecvInfo;
 }
 
+void CcuTempAlltoAllVMesh2Die::FillRankGroupTaskArgs(uint32_t dieId, const LoopGroupConfig &config, std::vector<uint64_t> &taskArgs)
+{
+    for (auto peerId : rankGroup_[dieId]) {
+        const uint64_t sendSize = localSendRecvInfo_.sendLength[peerId];
+        const uint64_t floorLoopNum = sendSize / UB_MAX_TRANS_SIZE;
+        uint64_t sendLoopNum = UINT64_MAX - 1 - floorLoopNum;
+        uint64_t sendTailSize = sendSize - floorLoopNum * UB_MAX_TRANS_SIZE;
+        auto sendTailGoSize = CalGoSize(sendTailSize, config);
+        uint64_t sendOffset = localSendRecvInfo_.sendOffset[peerId];
+        uint64_t recvOffset = localSendRecvInfo_.recvOffset[peerId];
+        taskArgs.push_back(sendOffset);
+        taskArgs.push_back(recvOffset);
+        taskArgs.push_back(sendTailSize);
+        for (auto val : sendTailGoSize) {
+            taskArgs.push_back(val);
+        }
+        taskArgs.push_back(sendLoopNum);
+    }
+    return;
+}
+
 HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
     TemplateResource& templateResource)
 {
@@ -155,22 +176,8 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
         for (auto val : xnMaxTransportGoSize) {
             taskArgs.push_back(val);
         }
-        for (auto peerId : rankGroup_[dieId]) {
-            const uint64_t sendSize = localSendRecvInfo_.sendLength[peerId];
-            const uint64_t floorLoopNum = sendSize / UB_MAX_TRANS_SIZE;
-            uint64_t sendLoopNum = UINT64_MAX - 1 - floorLoopNum;
-            uint64_t sendTailSize = sendSize - floorLoopNum * UB_MAX_TRANS_SIZE;
-            auto sendTailGoSize = CalGoSize(sendTailSize, config);
-            uint64_t sendOffset = localSendRecvInfo_.sendOffset[peerId];
-            uint64_t recvOffset = localSendRecvInfo_.recvOffset[peerId];
-            taskArgs.push_back(sendOffset);
-            taskArgs.push_back(recvOffset);
-            taskArgs.push_back(sendTailSize);
-            for (auto val : sendTailGoSize) {
-                taskArgs.push_back(val);
-            }
-            taskArgs.push_back(sendLoopNum);
-        }
+
+        FillRankGroupTaskArgs(dieId, config, taskArgs);
 
         uint64_t argSize = taskArgs.size();
         CcuResult launchRet = HcommCcuKernelLaunch(
