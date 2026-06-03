@@ -18,7 +18,6 @@
 #include "ccu_primitives_impl_dl.h"
 
 
-
 #define CCU_CONCAT_INNER(a, b) a##b
 #define CCU_CONCAT(a, b)       CCU_CONCAT_INNER(a, b)
 #define CCU_STRINGIFY_INNER(x) #x
@@ -91,7 +90,6 @@
          uid##_rc == (int)CCU_SUCCESS && !uid##_done;                       \
          uid##_done = 1,                                                    \
              uid##_rc = (int)CcuIfEnd(uid##_lbl))
-
 
 
 #define CCU_DO                                                              \

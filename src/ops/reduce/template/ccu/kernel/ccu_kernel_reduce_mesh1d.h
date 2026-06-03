@@ -53,8 +53,6 @@ struct ReduceMesh1DContext: CcuKernelCtxBase {
     // std::vector<ccu::RemoteAddr> inputAddr;
 
     ccu::Event event;
-
-
 };
 
 CcuResult CcuReduceMesh1DKernel(CcuKernelArg arg);

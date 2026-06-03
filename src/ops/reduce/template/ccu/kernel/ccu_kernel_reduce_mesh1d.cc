@@ -22,9 +22,6 @@ constexpr int CKE_IDX_0    = 0;
 static CcuResult ParseKernelArg(ReduceMesh1DContext &ctx, CcuKernelArgReduceMesh1D *kernelArg)
 
 {
-    // ctx.rankId          = kernelArg->rankId;
-    // ctx.rankSize        = kernelArg->rankSize;
-    // ctx.channels       = kernelArg->channels;
     ctx.dataType        = kernelArg->opParam.DataDes.dataType;
     ctx.outputDataType  = kernelArg->opParam.DataDes.outputType;
     if (ctx.outputDataType == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
