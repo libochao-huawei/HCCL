@@ -225,10 +225,12 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
               topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo);
     if (topoInfo->topoLevelNums > 1) {
+        HCCL_ERROR("202606031454");
         if (topoInfo->topoLevelNums == 3) {
             if (topoInfo->deviceNumPerModule == 8) {
                 selectAlgName = "InsTestUboeAlgorithm";
-            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4) {
+            } else if ((topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7)
+                       || (topoInfo->deviceNumPerModule == 1 && topoInfo->serverNum > 1)) {
                 selectAlgName = "InsAllGatherParallelMesh1DNHRTest";
             } else {
                 selectAlgName = "InsAllGatherNHR";
@@ -345,7 +347,8 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
         if (topoInfo->topoLevelNums == 3) {
             if (topoInfo->deviceNumPerModule == 8) {
                 selectAlgName = "InsTestAlgorithm";
-            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4) {
+            } else if ((topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7)
+                       || (topoInfo->deviceNumPerModule == 1 && topoInfo->serverNum > 1)) {
                 selectAlgName = "InsAllGatherParallelMesh1DNHRDPUTest";
             } else {
                 selectAlgName = "InsAllGatherNHRDPU";
