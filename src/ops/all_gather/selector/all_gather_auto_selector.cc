@@ -225,7 +225,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d], "
               "serverNum[%d]",
         topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo, topoInfo->serverNum);
-    HCCL_ERROR("114514");
+    HCCL_ERROR("7777777");
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->topoLevelNums == 3) {
             if ((topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7)) {
