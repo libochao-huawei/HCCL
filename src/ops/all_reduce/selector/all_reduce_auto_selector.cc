@@ -310,8 +310,7 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
         if (topoInfo->topoLevelNums == 3) {
             if (topoInfo->deviceNumPerModule == 8) {
                 selectAlgName = "InsV2AllReduceOmniPipeUboe";
-            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4
-                       && topoInfo->serverNum > 1) {
+            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4) {
                 selectAlgName = "InsAllReduceParallelRSAGUboe";
             } else {
                 selectAlgName = "InsAllGatherNHR";
@@ -515,8 +514,7 @@ SelectorStatus AllReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDe
         if (topoInfo->topoLevelNums == 3) {
              if (topoInfo->deviceNumPerModule == 8) {
                 selectAlgName = "InsV2AllReduceOmniPipeDpu";
-             } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4
-                        && topoInfo->serverNum > 1) {
+             } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4) {
                 selectAlgName = "InsAllReduceParallelRSAGDpu";
              } else {
                 selectAlgName = "InsAllReduceNHR";

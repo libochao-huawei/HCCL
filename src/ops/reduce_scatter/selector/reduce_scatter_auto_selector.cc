@@ -279,8 +279,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
         if (topoInfo->topoLevelNums == 3) {
             if (topoInfo->deviceNumPerModule == 8) {
                 selectAlgName = "InsV2ReduceScatterOmniPipeUboe";
-            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4
-                       && topoInfo->serverNum > 1) {
+            } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4) {
                 selectAlgName = "InsReduceScatterParallelMesh1DNHRUboe";
             } else {
                 selectAlgName = "InsReduceScatterNHR";
@@ -413,8 +412,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLay
         if (topoInfo->topoLevelNums == 3) {
              if (topoInfo->deviceNumPerModule == 8) {
                 selectAlgName = "InsV2ReduceScatterOmniPipeDpu";
-             } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4
-                        && topoInfo->serverNum > 1) {
+             } else if (topoInfo->deviceNumPerModule >= 1 && topoInfo->deviceNumPerModule <= 4) {
                 selectAlgName = "InsReduceScatterParallelMesh1DNHRDpu";
              } else {
                 selectAlgName = "InsReduceScatterNHR";
