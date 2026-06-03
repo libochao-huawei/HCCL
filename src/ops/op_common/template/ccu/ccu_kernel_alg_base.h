@@ -26,7 +26,7 @@ namespace ops_hccl {
 constexpr uint64_t CCU_MS_INTERLEAVE         = 8;
 constexpr uint64_t CCU_MS_DEFAULT_LOOP_COUNT = 64;
 constexpr uint64_t CCU_MS_SIZE               = 4096;
-
+constexpr uint64_t NUM_TWO                   = 2;
 constexpr uint32_t LOCAL_COPY_MS_PER_LOOP = 8;
 constexpr uint32_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
 
@@ -75,7 +75,7 @@ struct CcuKernelCtxBase {
 
 struct GroupReduceVar {
     ccu::LocalAddr loopDst[2];
-    std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteSrc;
+    std::array<std::vector<ccu::RemoteAddr>, NUM_TWO> loopRemoteSrc;
     ccu::LocalAddr loopLocalSrc[2];
     ccu::Variable  loopLen[2];
     ccu::Variable  loopLenExp[2];
@@ -84,7 +84,7 @@ struct GroupReduceVar {
 struct GroupBroadcastVar {
     ccu::LocalAddr loopSrc[2];
     ccu::LocalAddr loopLocalDst[2];
-    std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteDst;
+    std::array<std::vector<ccu::RemoteAddr>, NUM_TWO> loopRemoteDst;
     ccu::Variable  loopLen[2];
 };
 
@@ -96,7 +96,7 @@ struct GroupCopyVar {
 
 struct GroupLocalReduceVar {
     ccu::LocalAddr loopDst[2];
-    std::array<std::vector<ccu::LocalAddr>, 2> loopScratch;
+    std::array<std::vector<ccu::LocalAddr>, NUM_TWO> loopScratch;
     ccu::Variable  loopLen[2];
     ccu::Variable  loopLenExp[2];
 };

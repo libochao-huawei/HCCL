@@ -1569,17 +1569,15 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     CcuInsHandle insHandle{0};
     uint32_t insNum = 0;
     CHK_RET(HcclCommQueryCcuIns(comm, &insHandle, &insNum));
-    CHK_PRT_RET(insNum != 1,
-        HCCL_ERROR("[HcclGetCcuKernel] HcclCommQueryCcuIns fail! insNum is [%u]", insNum),
-        HCCL_E_INTERNAL);
+    CHK_PRT_RET(insNum != 1, HCCL_ERROR("[HcclGetCcuKernel] HcclCommQueryCcuIns fail! insNum is [%u]", insNum),
+                HCCL_E_INTERNAL);
 
     u32 totalKernelNum = 0;
     for (auto t: resRequest.ccuKernelNum) {
         totalKernelNum += t;
     }
     CHK_PRT_RET(totalKernelNum != resRequest.ccuKernelInfos.size(),
-        HCCL_ERROR("[HcclGetCcuKernel]ccuKernel num not match!"),
-        HCCL_E_INTERNAL);
+                HCCL_ERROR("[HcclGetCcuKernel]ccuKernel num not match!"), HCCL_E_INTERNAL);
 
     // 按照resgroup进行注册
     u32 currentResGroup = 0;

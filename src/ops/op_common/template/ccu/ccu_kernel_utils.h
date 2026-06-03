@@ -14,7 +14,6 @@
 #include <vector>
 #include <queue>
 #include "alg_param.h"
-// #include "ccu_kernel.h"
 
 
 namespace ops_hccl {

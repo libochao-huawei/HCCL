@@ -64,6 +64,7 @@ std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig &config)
 
     uint64_t loopExtendNum = 0;
     uint64_t tailSize      = 0;
+    uint64_t LoopNumTwo  = 2;
 
     if (n == 0 && p == 0) {
         loopExtendNum = 0;
@@ -75,7 +76,7 @@ std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig &config)
         loopExtendNum = GetParallelParam(0, 0, 1);
         tailSize      = p;
     } else {
-        loopExtendNum = GetParallelParam(n - 1, 1, 2);
+        loopExtendNum = GetParallelParam(n - 1, 1, LoopNumTwo);
         tailSize      = p;
     }
 
@@ -101,8 +102,9 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
     uint32_t size = channelSize + 1;
     uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
     uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
+    uint32_t loopNum = 2;
 
-    for (int32_t index = 0; index < 2; index++) {
+    for (int32_t index = 0; index < loopNum; index++) {
         var.loopRemoteSrc[index].resize(size - 1);
 
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
@@ -243,7 +245,8 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
-        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
+        uint32_t loopNum = 2;
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, loopNum, grpLoops);
     }
     return CCU_SUCCESS;
 }
@@ -260,8 +263,8 @@ CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
     auto &loops = ctx.loopMap["broadcast"];
 
     uint32_t channelSize = channelCount;
-
-    for (int32_t index = 0; index < 2; index++) {
+    uint32_t loopNum = 2;
+    for (int32_t index = 0; index < loopNum; index++) {
         var.loopRemoteDst[index].resize(channelSize);
 
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
@@ -374,7 +377,8 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
-        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
+        uint32_t loopNum = 2;
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, loopNum, grpLoops);
     }
     return CCU_SUCCESS;
 }
@@ -392,8 +396,8 @@ CcuResult CreateMultiOpBroadcastWithoutMyRank(CcuKernelCtxBase &ctx, GroupBroadc
     auto &loops = ctx.loopMap[loopType];
 
     uint32_t channelSize = channelCount;
-
-    for (int32_t index = 0; index < 2; index++) {
+    uint32_t loopNum = 2;
+    for (int32_t index = 0; index < loopNum; index++) {
         var.loopRemoteDst[index].resize(channelSize);
 
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
@@ -496,7 +500,8 @@ CcuResult GroupBroadcastWithoutMyRank(CcuKernelCtxBase &ctx, const size_t channe
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
-        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
+        uint32_t loopNum = 2;
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, loopNum, grpLoops);
     }
     return CCU_SUCCESS;
 }
@@ -518,8 +523,8 @@ CcuResult CreateMultiOpReduceWithoutMyRank(CcuKernelCtxBase &ctx, GroupReduceVar
     uint32_t size = channelSize;
     uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
     uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
-
-    for (int32_t index = 0; index < 2; index++) {
+    uint32_t loopNum = 2;
+    for (int32_t index = 0; index < loopNum; index++) {
         var.loopRemoteSrc[index].resize(size);
 
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
@@ -650,7 +655,8 @@ CcuResult GroupReduceWithoutMyRank(CcuKernelCtxBase &ctx, const size_t channels[
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
-        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
+        uint32_t loopNum = 2;
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, loopNum, grpLoops);
     }
     return CCU_SUCCESS;
 }
@@ -667,8 +673,8 @@ CcuResult CreateMultiOpCopy(CcuKernelCtxBase &ctx, GroupCopyVar &var)
     auto &loops = ctx.loopMap[loopType];
 
     uint32_t usedBufNum = ctx.moConfig.memSlice / CCU_MS_SIZE;
-
-    for (uint32_t index = 0; index < 2; index++) {
+    uint32_t loopNum = 2;
+    for (uint32_t index = 0; index < loopNum; index++) {
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
         ccu::Event loopEvt = ctx.moRes.completedEvent[index];
 
@@ -751,7 +757,8 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
-        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
+        uint32_t loopNum = 2;
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, loopNum, grpLoops);
     }
     return CCU_SUCCESS;
 }
@@ -769,8 +776,8 @@ CcuResult CreateReduceLoop(CcuKernelCtxBase &ctx, GroupLocalReduceVar &var, uint
     auto &loops = ctx.loopMap[loopType];
 
     uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
-
-    for (int32_t index = 0; index < 2; index++) {
+    uint32_t loopNum = 2;
+    for (int32_t index = 0; index < loopNum; index++) {
         var.loopScratch[index].resize(size);
 
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
@@ -910,7 +917,8 @@ CcuResult GroupLocalReduce(CcuKernelCtxBase &ctx, ccu::LocalAddr outDstOrg, std:
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
-        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
+        uint32_t loopNum = 2;
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, loopNum, grpLoops);
     }
     return CCU_SUCCESS;
 }
