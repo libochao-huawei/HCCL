@@ -34,17 +34,18 @@ static CcuResult ParseKernelArg(ReduceNHR1DMem2MemContext &ctx, CcuKernelArgRedu
 static CcuResult LoadArgs(ReduceNHR1DMem2MemContext &ctx)
 {
     HCCL_DEBUG("[CcuKernelReduceNHR1DMem2Mem] LoadArgs run start");
+    uint32_t argId = 0;
     const auto *arg = ctx.arg;
-    CCU_CHK_RET(ccu::LoadArg(ctx.input, 0));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[ctx.myRankIdx], 1));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.myRankIdx], 2));
-    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual, 3));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die0Size, 4));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die1Size, 5));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die0SliceSize, 6));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die1SliceSize, 7));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die0LastSliceSize, 8));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die1LastSliceSize, 9));
+    CCU_CHK_RET(ccu::LoadArg(ctx.input, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[ctx.myRankIdx], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.myRankIdx], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die0Size, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die1Size, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die0SliceSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die1SliceSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die0LastSliceSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die1LastSliceSize, argId++));
     HCCL_DEBUG("[CcuKernelReduceNHR1DMem2Mem] LoadArgs run end");
     return CCU_SUCCESS;
 }

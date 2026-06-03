@@ -178,6 +178,16 @@ HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
         return ConvertCcuToHccl(launchRet);
     }
 
+    CHK_RET(SubmitKernelInfo(templateResource, taskArgs));
+    
+    HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::KernelRun] end");
+
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempReduceMesh1DMem2Mem::SubmitKernelInfo(TemplateResource& templateResource,
+                                                        const std::vector<uint64_t>& taskArgs) const
+{
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
 
@@ -192,11 +202,7 @@ HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
     }
     submitInfo.cachedArgs[taskArgs.size()] = buffInfo_.inBuffBaseOff;
     submitInfo.cachedArgs[taskArgs.size() + 1] = buffInfo_.outBuffBaseOff;
-
     templateResource.submitInfos.push_back(submitInfo);
-    
-    HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::KernelRun] end");
-
     return HcclResult::HCCL_SUCCESS;
 }
 

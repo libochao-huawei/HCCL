@@ -116,8 +116,9 @@ void CcuTempReduceNHR1DMem2Mem::SetRoot(u32 root) const
     return;
 }
 
-HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                                                      AlgResourceRequest& resourceRequest)
+HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param,
+                                              const TopoInfoWithNetLayerDetails* topoInfo,
+                                              AlgResourceRequest& resourceRequest)
 {
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, channelDescs));
@@ -287,13 +288,10 @@ HcclResult CcuTempReduceNHR1DMem2Mem::CalcSliceInfoAllReduce(const u64 dataSize,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
-                                                const TemplateDataParams& templateDataParams,
+HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
                                                 TemplateResource& templateResource)
 {
     HCCL_INFO("[CcuTempReduceNHR1DMem2Mem] Template KernelRun start.");
-
-    u32 kernelNum = templateResource.ccuKernels.size();
 
     if (templateDataParams.sliceSize == 0) {
         HCCL_INFO("[CcuTempReduceNHR1DMem2Mem] sliceSize is 0, no need do, just success.");
@@ -301,12 +299,9 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
     }
     uint64_t die0Size = 0;
     uint64_t die1Size = 0;
-    constexpr uint32_t MAX_DIE_NUM_2 = 2;
-    if (kernelNum == MAX_DIE_NUM_2) {
-        SplitDataFor2Dies(param, templateDataParams, die0Size, die1Size);
-    } else {
-        die0Size = templateDataParams.sliceSize;
-    }
+    u32 kernelNum = templateResource.ccuKernels.size();
+    CalculateDieSizes(param, templateDataParams, kernelNum, die0Size, die1Size);
+
     buffInfo_ = templateDataParams.buffInfo;
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
@@ -320,20 +315,8 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
     RankSliceInfo die1SliceInfoVec;
     CHK_RET(CalcSliceInfoAllReduce(die1Size, die1SliceInfoVec));
 
-    HCCL_INFO("[CcuTempReduceNHRMem2Mem1D] kernelNum[%lu], dimSize[%llu], die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
-        "outputAddr[%llu], repeatNum[%llu], die0Slicesize[%llu], die1Slicesize[%llu], die0LastSlicesize[%llu],"\
-        "die1LastSlicesize[%llu]",
-        kernelNum, templateRankSize_, die0Size, die1Size, inputAddr, outputAddr, repeatNum,
-        die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size,
-        die0SliceInfoVec[templateRankSize_-1][0].size, die1SliceInfoVec[templateRankSize_-1][0].size);
-
     // 前流同步
-    if (kernelNum > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        std::vector<u32> notifyIdxMainToSub(1, 0);
-
-        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
-    }
+    HandlePreSync(kernelNum, templateResource);
 
     for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {
         if ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0)) {
@@ -342,9 +325,9 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
 
         std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
                                           die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size,
-                                          die0SliceInfoVec[templateRankSize_ - 1][0].size, die1SliceInfoVec[templateRankSize_ - 1][0].size};
+                                          die0SliceInfoVec[templateRankSize_ - 1][0].size,
+                                          die1SliceInfoVec[templateRankSize_ - 1][0].size};
         uint64_t argSize = 10;
-
         CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[axisId], templateResource.ccuKernels[axisId], taskArgs.data(), argSize);
         if (launchRet != CCU_SUCCESS) {
             HCCL_ERROR("[CcuTempReduceNHR1DMem2Mem::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
@@ -353,12 +336,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
     }
 
     // 后流同步
-    if (kernelNum > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        std::vector<u32> notifyIdxSubToMain(1, 0);
-
-        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
-    }
+    HandlePostSync(kernelNum, templateResource);
 
     // 所有task下发完后再保存参数信息
     CcuKernelSubmitInfo submitInfo;
@@ -373,6 +351,39 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
 
     HCCL_INFO("[CcuTempReduceNHR1DMem2Mem] Template Run for all steps Ends.");
     return HcclResult::HCCL_SUCCESS;
+}
+
+void CalculateDieSizes(const OpParam& param, const TemplateDataParams& templateDataParams,
+                       u32 kernelNum, uint64_t& die0Size, uint64_t& die1Size)
+{
+    constexpr uint32_t MAX_DIE_NUM_2 = 2;
+    if (kernelNum == MAX_DIE_NUM_2) {
+        SplitDataFor2Dies(param, templateDataParams, die0Size, die1Size);
+    } else {
+        die0Size = templateDataParams.sliceSize;
+    }
+}
+
+HcclResult CcuTempReduceNHR1DMem2Mem::HandlePreSync(u32 kernelNum, TemplateResource& templateResource)
+{
+    if (kernelNum <= 1) {
+        return HCCL_SUCCESS;
+    }
+
+    std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+    std::vector<u32> notifyIdxMainToSub(1, 0);
+    return PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub);
+}
+
+HcclResult CcuTempReduceNHR1DMem2Mem::HandlePostSync(u32 kernelNum, TemplateResource& templateResource)
+{
+    if (kernelNum <= 1) {
+        return HCCL_SUCCESS;
+    }
+
+    std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+    std::vector<u32> notifyIdxSubToMain(1, 0);
+    return PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain);
 }
 
 HcclResult CcuTempReduceNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const

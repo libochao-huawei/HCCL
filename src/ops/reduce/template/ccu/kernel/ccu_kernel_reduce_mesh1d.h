@@ -57,5 +57,5 @@ struct ReduceMesh1DContext: CcuKernelCtxBase {
 
 CcuResult CcuReduceMesh1DKernel(CcuKernelArg arg);
 
-}// namespace ops_hccl
+} // namespace ops_hccl
 #endif // HCCLV2_CCU_KERNEL_REDUCE_MESH_1D_H
