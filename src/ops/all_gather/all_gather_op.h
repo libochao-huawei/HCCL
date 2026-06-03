@@ -42,6 +42,6 @@ HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, con
 
 HcclResult AllGatherInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, aclrtStream stream, std::string &opTag);
 HcclResult AllGatherEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, aclrtStream stream, const std::string &tag, const std::string &opName);
-
+HcclResult AllGatherSupportSymmetricMemory(OpParam &opParam);
 }
 #endif
