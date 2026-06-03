@@ -23,6 +23,7 @@ HcclResult InsTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam &param, 
                                            AlgResourceRequest &resourceRequest)
 {
     HCCL_INFO("[InsTempAllGatherMesh1D][CalcRes] start");
+    enableSymmetryMemory = param.enableSymmetryMemory;
     GetRes(resourceRequest);
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
@@ -33,7 +34,7 @@ HcclResult InsTempAllGatherMesh1D::GetRes(AlgResourceRequest &resourceRequest) c
 {
     u32 level0RankSize = templateRankSize_;
     u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;
-    resourceRequest.slaveThreadNum = threadNum - 1;
+    resourceRequest.slaveThreadNum = enableSymmetryMemory ? threadNum : threadNum - 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
     return HCCL_SUCCESS;

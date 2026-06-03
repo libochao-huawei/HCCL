@@ -233,6 +233,7 @@ struct TemplateDataParams {
     u64 outputRepeatStride{0};
     u64 tailSize{0};
     bool enableRemoteMemAccess{false};
+    bool enableSymmetryMemory{false};
     u64 processedDataCount{0};
     u64 root{0};
     HcclDataType dataType{HCCL_DATA_TYPE_INT8};
