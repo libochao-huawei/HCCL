@@ -245,7 +245,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     kernelArgClos->subCommRanks = subCommRanks_;
     kernelArgClos->withMyRank = false;
     kernelArgClos->rankGroup = rankGroup_[closDieId];
-    kernelInfoClos.setKernelArg(kernelArgMesh);
+    kernelInfoClos.setKernelArg(kernelArgClos);
     kernelInfoClos.channels = channels_[closDieId];
     resourceRequest.ccuKernelInfos.emplace_back(kernelInfoClos);
     HCCL_INFO("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankGroupSize=%llu, rankSize=%llu, ccuKernelInfos=%llu",
