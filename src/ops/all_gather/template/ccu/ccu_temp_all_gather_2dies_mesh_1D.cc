@@ -55,9 +55,9 @@ HcclResult CcuTempAllGather2DiesMesh1D::CalcRes(HcclComm comm, const OpParam& pa
     bool if0HandleSelfRank = true;
 
     CcuKernelInfo kernelInfo0, kernelInfo1;
-    strcpy(kernelInfo0.kernelFuncName, "CcuAllGather2DiesMesh1DKernel");
+    strcpy_s(kernelInfo0.kernelFuncName, sizeof(kernelInfo0.kernelFuncName), "CcuAllGather2DiesMesh1DKernel");
     kernelInfo0.kernelFunc = reinterpret_cast<void *>(CcuAllGather2DiesMesh1DKernel);
-    strcpy(kernelInfo1.kernelFuncName, "CcuAllGather2DiesMesh1DKernel");
+    strcpy_s(kernelInfo1.kernelFuncName, sizeof(kernelInfo1.kernelFuncName), "CcuAllGather2DiesMesh1DKernel");
     kernelInfo1.kernelFunc = reinterpret_cast<void *>(CcuAllGather2DiesMesh1DKernel);
 
     std::vector<HcclChannelDesc> channels0, channels1;

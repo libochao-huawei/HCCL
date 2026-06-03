@@ -48,7 +48,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const 
 
     // 创建每个kernel的KernelArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    strcpy(kernelInfo.kernelFuncName, "CcuAllGatherNHR1DMultiJettyMem2MemKernel");
+    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllGatherNHR1DMultiJettyMem2MemKernel");
     kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllGatherNHR1DMultiJettyMem2MemKernel);
     
     std::vector<HcclChannelDesc> channelDescs;

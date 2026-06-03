@@ -45,7 +45,7 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceScatterMesh1D");
+    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuKernelReduceScatterMesh1D");
     kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterMesh1DKernel);
     
     std::vector<HcclChannelDesc> channelDescs;

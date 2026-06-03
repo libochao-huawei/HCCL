@@ -73,7 +73,7 @@ HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes(HcclComm comm, const O
 
     for (int dieId = 0; dieId < DIE_NUM; dieId++) {
         CcuKernelInfo kernelInfo;
-        strcpy(kernelInfo.kernelFuncName, "CcuReduceScatterMesh1D2DieMem2MemKernel");
+        strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuReduceScatterMesh1D2DieMem2MemKernel");
         kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterMesh1D2DieMem2MemKernel);
 
         isReduceToOuput = channelDescsVec[dieId].size() > channelDescsVec[1 - dieId].size() ? false : true;

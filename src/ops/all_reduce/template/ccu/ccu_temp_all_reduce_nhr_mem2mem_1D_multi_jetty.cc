@@ -70,7 +70,7 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const 
 
     // 创建每个kernel的KernelArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    strcpy(kernelInfo.kernelFuncName, "CcuKernelAllReduceNhrMem2Mem1DMultiJetty");
+    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuKernelAllReduceNhrMem2Mem1DMultiJetty");
     kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllReduceNhrMem2Mem1DMultiJettyKernel);
     auto kernelArg = std::make_shared<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty>();
     kernelArg->rankSize = templateRankSize_;
@@ -195,7 +195,6 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
         return ConvertCcuToHccl(launchRet);
     }
 
-    
     // 下发完再保存参数信息
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
