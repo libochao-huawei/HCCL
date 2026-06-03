@@ -95,6 +95,7 @@ static CcuResult DoRepeatAllToAll(AllToAllMesh2DieContext &ctx)
     const auto *arg = ctx.arg;
     std::vector<ccu::LocalAddr> src(ctx.logicRankSize);
     std::vector<ccu::RemoteAddr> dst(ctx.logicRankSize);
+    HCCL_INFO("DoRepeatAllToAll: logicRankSize: %llu, channelCount: %llu", ctx.logicRankSize, arg->channelCount);
 
     for (uint64_t r = 0; r < ctx.logicRankSize; r++) {
         const u32 dstRank = CalcDstRank(ctx, r);
