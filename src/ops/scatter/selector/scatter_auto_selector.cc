@@ -160,5 +160,21 @@ SelectorStatus ScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDeta
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus ScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetails *topoInfo,
+                                                        const OpParam &opParam,
+                                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                        std::string &selectAlgName) const
+{
+    HCCL_INFO("topoInfo->topoLevelNums is %u, topoInfo->level0Topo is %u", topoInfo->topoLevelNums, topoInfo->level0Topo);
+    (void)configAlgMap;
+    if (topoInfo->topoLevelNums > 1) {
+        selectAlgName = "InsScatterSequenceMeshNhrDPU";
+        HCCL_INFO("Using algo InsScatterSequenceMeshNhrDPU");
+        return SelectorStatus::MATCH;
+    }
+
+    return SelectorStatus::NOT_MATCH;
+}
+
 REGISTER_SELECTOR_BY_OPTYPE(HcclCMDType::HCCL_CMD_SCATTER, 18, ScatterAutoSelector);
 } // namespace ops_hccl
