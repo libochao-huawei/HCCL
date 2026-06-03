@@ -143,22 +143,23 @@ namespace ops_hccl {
             aivSendArgs.input = reinterpret_cast<u64>(param.inputPtr);
             aivSendArgs.output = reinterpret_cast<u64>(param.outputPtr) + processedDataCount * dataTypeSize_;
             aivSendArgs.rank = u32(myRank_);
+            aivSendArgs.dataType = dataType_;
+            aivSendArgs.sliceId = sliceId_;
             aivSendArgs.sendRecvRemoteRank = remoteRank_;
             aivSendArgs.rankSize = resCtx.topoInfo.userRankSize;
             aivSendArgs.count = currDataCount; // 需要传输的数据量
-            aivSendArgs.dataType = dataType_;
-            aivSendArgs.sliceId = sliceId_;
             aivSendArgs.buffersIn = resCtx.aivCommInfoPtr;
             aivSendArgs.stream = param.stream;
             aivSendArgs.isOpBase = (opMode_ == OpMode::OPBASE);
-            aivSendArgs.xRankSize = resCtx.topoInfo.userRankSize;
             aivSendArgs.yRankSize = 0;
             aivSendArgs.zRankSize = 0;
+            aivSendArgs.xRankSize = resCtx.topoInfo.userRankSize;
+
             CHK_RET(CalNumBlocks(aivSendArgs.numBlocks, currDataCount * dataTypeSize_, param.numBlocksLimit));
 
+            aivSendArgs.repeatNum = 1; // 不重复
             aivSendArgs.inputSliceStride = 0;
             aivSendArgs.outputSliceStride = 0;
-            aivSendArgs.repeatNum = 1; // 不重复
             aivSendArgs.inputRepeatStride = 0;
             aivSendArgs.outputRepeatStride = 0;
 

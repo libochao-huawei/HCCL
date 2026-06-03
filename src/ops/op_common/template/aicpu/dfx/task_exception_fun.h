@@ -34,6 +34,6 @@ HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo);
 
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size);
 
-HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *dfxOpInfo);
+HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo);
 }
 #endif

@@ -28,15 +28,15 @@ public:
         return StringFormat("Template of all gather ccu sche mesh 1D Mem2Mem with tempRankSize [%u].",
                             subCommRanks_[0].size());
     }
- 
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                       AlgResourceRequest& resourceRequest) override;
- 
+
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
-    u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+                       AlgResourceRequest& resourceRequest) override;
+
     u64 GetThreadNum() const override;
+    u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
 private:
     uint32_t mySubCommRank_ = 0;

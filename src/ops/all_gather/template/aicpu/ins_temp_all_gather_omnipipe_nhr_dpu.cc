@@ -64,7 +64,7 @@ HcclResult InsTempAllGatherOmniPipeNHRDPU::KernelRun(const OpParam& param, const
         HCCL_ERROR("HcommSendRequest failed");
         return HCCL_E_INTERNAL;
     }
-    HCCL_INFO("HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
+    HCCL_INFO("[InsTempAllGatherOmniPipeNHRDPU] HcommSendRequest run over, sendMsgId[%u]", sendMsgId);
 
     // 等待DPU数据传输，然后回写结果回来
     void* recvData = nullptr;
@@ -73,7 +73,7 @@ HcclResult InsTempAllGatherOmniPipeNHRDPU::KernelRun(const OpParam& param, const
         HCCL_ERROR("HcommWaitResponse failed");
         return HCCL_E_INTERNAL;
     }
-    HCCL_INFO("HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
+    HCCL_INFO("[InsTempAllGatherOmniPipeNHRDPU] HcommWaitResponse run over, recvMsgId[%u]", recvMsgId);
 
     if (recvMsgId != sendMsgId) {
         HCCL_ERROR("recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);

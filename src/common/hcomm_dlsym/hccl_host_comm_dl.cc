@@ -10,8 +10,6 @@
 
 #include "hccl_host_comm_dl.h"
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatus *status);
 

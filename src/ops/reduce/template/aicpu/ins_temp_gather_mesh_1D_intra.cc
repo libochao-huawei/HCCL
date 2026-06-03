@@ -118,9 +118,9 @@ HcclResult InsTempGatherMesh1dIntra::RunGatherMesh(const std::vector<ThreadHandl
                                    myRank_, threadIdx, threads.size(), connectedRank, channels.size()),
                         HcclResult::HCCL_E_INTERNAL);
 
+            u64 connectedAlgOffset = tempAlgParams_.allRankDispls.at(connectedAlgRank);
             u64 connectedAlgSize = tempAlgParams_.allRankSliceSize.at(connectedAlgRank);
             u64 connectedAlgCount = tempAlgParams_.allRankProcessedDataCount.at(connectedAlgRank);
-            u64 connectedAlgOffset = tempAlgParams_.allRankDispls.at(connectedAlgRank);
 
             // 既不发送也不接受
             if (myAlgSize == 0 && connectedAlgSize == 0) {
@@ -128,14 +128,13 @@ HcclResult InsTempGatherMesh1dIntra::RunGatherMesh(const std::vector<ThreadHandl
             }
 
             ThreadHandle currQue = threads[threadIdx];
-            // 预留兼容offload模式
+            // gather预留兼容offload模式
             const ChannelInfo &linkRemote = channels.at(connectedRank)[0];
             void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
 
             u64 txOutOffset = outBaseOff + myAlgOffset;
             u64 txScratchOffset = scratchBase + myAlgOffset;
             u64 txDstOffset = txScratchOffset;
-
             u64 rxOutOffset = connectedAlgOffset + outBaseOff;
             u64 rxScratchOffset = scratchBase + connectedAlgOffset;
             u64 rxDstOffset = rxScratchOffset;
@@ -144,13 +143,14 @@ HcclResult InsTempGatherMesh1dIntra::RunGatherMesh(const std::vector<ThreadHandl
             void *txDstPtr = remoteCclBuffAddr;
             void *rxSrcPtr = tempAlgParams_.buffInfo.outputPtr;
             void *rxDstPtr = remoteCclBuffAddr;
-            // write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
-            // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
+
+            // gather write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
+            // gather read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
             std::vector<DataSlice> txSrcSlices{
                 DataSlice(txSrcPtr, txOutOffset, myAlgSize, myAlgCount)};  // 本地(send)
             std::vector<DataSlice> txDstSlices{
                 DataSlice(txDstPtr, txDstOffset, myAlgSize, myAlgCount)};  // 远程(send)
-            // read模式使用rx
+            // gather read模式使用rx
             std::vector<DataSlice> rxDstSlices{
                 DataSlice(rxDstPtr, rxDstOffset, connectedAlgSize, connectedAlgCount)};  // 本地(recv)
             std::vector<DataSlice> rxSrcSlices{

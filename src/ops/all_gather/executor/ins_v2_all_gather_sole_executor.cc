@@ -111,11 +111,11 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.buffInfo.inputPtr = param.inputPtr;
     tempAlgParams.buffInfo.outputPtr = param.outputPtr;
     tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
+    tempAlgParams.buffInfo.inputSize = param.inputSize;
+    tempAlgParams.buffInfo.outputSize = param.outputSize;
     tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParams.buffInfo.inputSize = param.inputSize;
-    tempAlgParams.buffInfo.outputSize = param.outputSize;
     tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     // 不需要重复
     tempAlgParams.repeatNum = 1;
@@ -187,7 +187,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread) const
 {
     HCCL_INFO("[InsV2AllGatherSoleExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = 1;
@@ -278,12 +278,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, AivAllGatherMesh1D, InsV2AllGa
     AivTempAllGatherMesh1D);
 
 #if !defined(HCCL_CANN_COMPAT_850)
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuKernelAllGather2DiesMeshMem2Mem1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
-    CcuTempAllGather2DiesMeshMem2Mem1D);
-#endif /* !HCCL_CANN_COMPAT_850 */
-
-#if !defined(HCCL_CANN_COMPAT_850)
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuKernelAllGather2DiesMesh1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh2Die, InsV2AllGatherSoleExecutor, TopoMatch1D,
     CcuTempAllGather2DiesMesh1D);
 #endif /* !HCCL_CANN_COMPAT_850 */
 

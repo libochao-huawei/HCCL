@@ -40,12 +40,14 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
+    uint32_t rankSize = 64;
     uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
     uint64_t* sendCountPtr = (uint64_t*)opParam.all2AllVDataDes.sendCounts;
     uint64_t sendCount = *sendCountPtr;
     uint64_t dataSize = sendCount * dataTypeSize * topoInfo->userRankSize;
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->level0Topo == Level0Shape::MESH_1D && topoInfo->userRankSize <= 64 && dataSize < A2A_CCU_64P_MAX_DATA_SIZE) {
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D &&
+            topoInfo->userRankSize <= rankSize && dataSize < A2A_CCU_64P_MAX_DATA_SIZE) {
             selectAlgName = "CcuAllToAllMesh1D2Die";
         } else {
             HCCL_WARNING("[AlltoAllAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
@@ -153,6 +155,17 @@ SelectorStatus AlltoAllAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDet
         return SelectorStatus::NOT_MATCH;
     }
 
+    void *cclBufferAddr;
+    uint64_t cclBufferSize;
+    CHK_PRT_RET(HcclGetHcclBuffer(opParam.hcclComm, &cclBufferAddr, &cclBufferSize) != HCCL_SUCCESS,
+        HCCL_WARNING("[AlltoAllAutoSelector] HcclGetHcclBuffer failed."), SelectorStatus::NOT_MATCH);
+    u32 dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllVDataDes.sendType];
+    u64* sendCounts = reinterpret_cast<u64*>(opParam.all2AllVDataDes.sendCounts);
+    u64 totalSize = sendCounts[0] * dataTypeSize * topoInfo->userRankSize;
+    if (totalSize > cclBufferSize * AIV_MAX_CCL_LOOP_NUM) {
+        HCCL_DEBUG("[AlltoAllAutoSelector][%s] totalSize[%llu] too large for cclBufferSize [%llu]", __func__, totalSize, cclBufferSize);
+        return SelectorStatus::NOT_MATCH;
+    }
     selectAlgName = "AivAlltoAllMesh1D";
 
     HCCL_INFO("[AlltoAllAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());

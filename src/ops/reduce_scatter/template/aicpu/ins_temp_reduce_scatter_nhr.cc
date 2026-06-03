@@ -268,10 +268,8 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
         std::vector<DataSlice> txDstSlices;
         std::vector<DataSlice> rxSrcSlices;
         std::vector<DataSlice> rxDstSlices;
-        // std::vector<DataSlice> rxSlices;
         txSrcSlices.reserve(st.nSlices * rptNum);
         txDstSlices.reserve(st.nSlices * rptNum);
-        // rxSlices.reserve(st.nSlices);
         rxSrcSlices.reserve(st.nSlices * rptNum);
         rxDstSlices.reserve(st.nSlices * rptNum);
         
@@ -333,7 +331,7 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
         };
 
         if (isDmaRead_) {
-            CHK_PRT_RET(SendRecvBatchReadReduce(info, threads[channelIdx]),
+            CHK_PRT_RET(SendRecvReadReduce(info, threads[channelIdx]),
                 HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u)",
                     st.step),
                 HcclResult::HCCL_E_INTERNAL);

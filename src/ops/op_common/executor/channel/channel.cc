@@ -18,8 +18,9 @@
 #include "topo.h"
 #include "topo_host.h"
 #include "alg_env_config.h"
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_alg_template_base.h"
-
+#endif
 namespace ops_hccl {
 HcclResult CalcLevel0ChannelRequest(const OpParam& param, const TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo,
     const AlgType& algType, std::vector<HcclChannelDesc> &channels)
@@ -53,13 +54,13 @@ HcclResult CalcLevel0ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     return HCCL_SUCCESS;
 }
 
-HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
+HcclResult ProcessMeshInfo(const HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
                         std::map<u32, u32>& rank2ChannelIdx, u32 myRank,
                         std::vector<std::vector<HcclChannelDesc>>& channelsPerDie,
                         u32 enableDieNum, u32 enableDieId,
                         std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {
-#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(AICPU_COMPILE)
     constexpr u32 DIE_NUM_1 = 1;
     constexpr u32 DIE_NUM_2 = 2;
     constexpr u32 DIE_0 = 0;
@@ -88,13 +89,12 @@ HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& su
 
 HcclResult ProcessFlattenLink(HcclComm comm, u32 myRank, const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
-#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(AICPU_COMPILE)
     std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc;
     CHK_RET(CcuAlgTemplateBase::RestoreChannelMap(channels, rankIdToChannelDesc));
     uint32_t enableDieNum = 0;
     uint32_t enableDieId = 0;
     CHK_RET(CcuAlgTemplateBase::GetDieInfoFromChannelDescs(comm, rankIdToChannelDesc, myRank, enableDieNum, enableDieId));
-    HCCL_INFO("enableDieNum = %llu, enableDieId = %llu",enableDieNum, enableDieId);
     if (enableDieNum < 1 || enableDieNum > CCU_DIE_NUM_MAX_2) { // 目前只支持1个或2个die
         HCCL_ERROR("[ProcessFlattenLink] get channelDescs fail");
         return HcclResult::HCCL_E_INTERNAL;
@@ -242,10 +242,10 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
     channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
     channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-    HCCL_DEBUG("%s local device phyId: %u, remote device phyId: %u.",
+    HCCL_DEBUG("[CreateChannelFromLink]%s local device phyId: %u, remote device phyId: %u.",
                 funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
                 channelDesc.remoteEndpoint.loc.device.devPhyId);
-    HCCL_INFO("%s Add channel request between %zu and %zu, netLayerIdx %u, "
+    HCCL_INFO("[CreateChannelFromLink]%s Add channel request between %zu and %zu, netLayerIdx %u, "
               "linkListIdx %u, protocol %zu",
               funcName.c_str(), myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
     channelDesc.channelProtocol = link.linkAttr.linkProtocol;
@@ -354,7 +354,7 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo, const std::vector<std::vector<u32>>& subcommInfo,
     std::vector<HcclChannelDesc> &channels)
 {
-#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(AICPU_COMPILE)
     channels.clear();
     (void) param;
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
@@ -384,10 +384,8 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
         bool protocolFound = false;
         CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, curNetLayer, channels, protocolFound,
             std::string("[CalcChannelRequestMesh1D]")));
-
     }
     if (curNetLayer != 0) { // 通过端口数划分channel，适配跨框die0连die1的场景，避免建链失败
-        HCCL_INFO("curNetLayer = %lld",curNetLayer);
         CHK_RET(ProcessFlattenLink(comm, myRank, subcommInfo, channels));
     }
     return HCCL_SUCCESS;
@@ -645,7 +643,6 @@ static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
             (endPoint0.commAddr.type == endPoint1.commAddr.type) &&
             (memcmp(endPoint0.commAddr.eid, endPoint1.commAddr.eid, sizeof(endPoint0.commAddr.eid)) == 0);
     }
-
 }
 #endif /* CANN_VERSION_NUM >= 90000000 */
 

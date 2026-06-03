@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_REDUCE_SCATTER_OMNIPIPE_MESH_1D_H
 #define INS_TEMP_REDUCE_SCATTER_OMNIPIPE_MESH_1D_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -38,7 +37,7 @@ public:
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    u64 CalcScratchSlice(u64 dataSize);
+    u64 CalcScratchSlice(u64 dataSize) const;
 
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
     HcclResult DoLocalCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
