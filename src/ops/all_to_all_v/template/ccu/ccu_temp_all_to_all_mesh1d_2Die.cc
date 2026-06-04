@@ -41,19 +41,19 @@ CcuTempAllToAllMesh1D2Die::~CcuTempAllToAllMesh1D2Die()
 {
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
-    const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels)
+HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(const HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
+    const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels) const
 {
     (void) comm;
     HcclChannelDesc channelDesc;
     HcclChannelDescInit(&channelDesc, 1);
     channelDesc.remoteRank = rank;
-    channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
-    channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
-    channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
     channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
     channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
     channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+    channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+    channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+    channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
     HCCL_DEBUG("%s local device phyId: %u, remote device phyId: %u.",
                 funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
                 channelDesc.remoteEndpoint.loc.device.devPhyId);
@@ -66,20 +66,21 @@ HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(HcclComm comm, u32 m
     return HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
+HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(const HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
     const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
-    std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName)
+    std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName) const
 {
     protocolFound = false;
-    for (auto expectedProtocol : expectedProtocols) {
+    for (auto Protocol : expectedProtocols) {
         for (u32 idx = 0; idx < linkList.size(); idx++) {
-            if (linkList[idx].linkAttr.linkProtocol == expectedProtocol) {
+            if (linkList[idx].linkAttr.linkProtocol == Protocol) {
                 CHK_RET(CreateChannelFromLink(comm, myRank, remoteRank, netLayer, idx, linkList[idx],
                     funcName, channels));
                 protocolFound = true;
             }
         }
         if (protocolFound) {
+            HCCL_INFO("[ProcessLinkForProtocol]protocolFound=%d", protocolFound);
             break;
         }
     }
@@ -94,7 +95,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocolNhr(HcclComm comm, c
         netLayer, channels, protocolFound, std::string("[CalcLevel1ChannelRequestNhr]"));
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks)
+HcclResult CcuTempAllToAllMesh1D2Die::CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks) const
 {
     (void)root;
     connectRanks.clear();
@@ -121,11 +122,11 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
     channels.clear();
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
     CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
-                HCCL_ERROR("[CollAlgFactory] [channel] Rank [%d] is not in commInfo.", topoInfo->userRank),
+                HCCL_ERROR("[CcuTempAllToAllMesh1D2Die] [CalcChannelRequest] Rank [%d] is not in commInfo.", topoInfo->userRank),
                 HcclResult::HCCL_E_PARA);
 
-    u32 myRank = topoInfo->userRank;
     std::vector<CommProtocol> expectedProtocols;
+    u32 myRank = topoInfo->userRank;
     CHK_RET(GetProtocolByEngine(param, expectedProtocols));
 
     for (u32 rank: subcommInfo[COMM_LEVEL0]) {
@@ -133,22 +134,22 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             continue;
         }
         size_t channelCountBefore = channels.size();
-        uint32_t *netLayers;
         uint32_t netLayerNum;
+        uint32_t *netLayers;
         CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
         std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
 
         for (auto netLayer : netLayersVector) {
-            CommLink *linkList = nullptr;
             u32 listSize;
+            CommLink *linkList = nullptr;
             CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
 
             if (listSize == 0) {
                 continue;
             }
 
-            std::vector<CommLink> links(linkList, linkList + listSize);
             bool protocolFound = false;
+            std::vector<CommLink> links(linkList, linkList + listSize);
             CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
                 std::string("[CalcChannelRequestMesh1D]")));
 
@@ -158,7 +159,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
         }
 
         CHK_PRT_RET(channels.size() == channelCountBefore,
-            HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.",
+            HCCL_ERROR("[CalcChannelRequest] Failed to create channel between myRank=%u and rank=%u, there is no link.",
                 myRank, rank), HcclResult::HCCL_E_INTERNAL);
     }
 #endif
@@ -226,6 +227,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
                                                         std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {   // 目前channelDescs传入的是level0的
     // layer 0 -> mesh layer 1 -> clos 在mesh的时候查一下dieId，选择另外一个dieId的就是6口clos
+    (void) channelDescs;
     std::map<uint32_t, std::vector<HcclChannelDesc>> clos_channels; // key is DieId
     for (auto& rankToChannels: rankIdToChannelDesc){
         u32 remoteRank = rankToChannels.first;
@@ -234,7 +236,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
         using DieIdType = uint32_t;
         const uint32_t dieIdTypeSize = sizeof(DieIdType);
         // clos 链路
-        if(channel_list.size() == 2) {
+        uint32_t channelSize = 2;
+        if (channel_list.size() == channelSize) {
             for (const auto &channel : channel_list) {
                 DieIdType dieId = 0;
                 EndpointDesc localEndpoint = channel.localEndpoint;
@@ -266,7 +269,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
             channels_[dieId].emplace_back(channel);
             rankGroup_[dieId].push_back(channel.remoteRank);
         }
-        
     }
 
     rankGroup_[0].push_back(myRank_);   // keep myRank_ at last, sync with kernel

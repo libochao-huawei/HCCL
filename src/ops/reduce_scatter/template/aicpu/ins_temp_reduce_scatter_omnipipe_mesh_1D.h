@@ -38,7 +38,7 @@ public:
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    u64 CalcScratchSlice(u64 dataSize);
+    u64 CalcScratchSlice(u64 dataSize) const;
 
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
     HcclResult DoLocalCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);

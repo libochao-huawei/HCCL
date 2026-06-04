@@ -40,15 +40,15 @@ private:
                                 std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc);
     HcclResult CalcChannelRequest(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
         const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
-    HcclResult ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
+    HcclResult ProcessLinkForProtocol(const HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
         const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
-        std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName);
-    HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
-        const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels);
+        std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName) const;
+    HcclResult CreateChannelFromLink(const HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
+        const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels) const;
     HcclResult ProcessLinkForProtocolNhr(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
         const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
         std::vector<HcclChannelDesc>& channels, bool& protocolFound);
-    HcclResult CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks);
+    HcclResult CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks) const;
 
     const uint32_t DIE_NUM = 2; // 2Die
 

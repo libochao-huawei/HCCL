@@ -150,6 +150,10 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcSlice(const u64 dataSize, RankSlice
     sliceInfoVec.clear();
     sliceInfoVec.resize(templateRankSize_);
     u32 dataSizePerVolume = DataTypeSizeGet(dataType_);
+    if (templateRankSize_ == 0) {
+        HCCL_ERROR("[CcuTempAllReduceNHRMem2Mem1D::CalcSlice] templateRankSize is 0, invalid");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
     u64 unitPerSlice = dataSize / dataSizePerVolume / templateRankSize_;
 
     u64       accumOff = 0;

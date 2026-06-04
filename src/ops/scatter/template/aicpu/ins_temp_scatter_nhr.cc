@@ -71,19 +71,19 @@ HcclResult InsTempScatterNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo
     stepInfo.txSliceIdxs.clear();
     stepInfo.rxSliceIdxs.clear();
     stepInfo.nSlices = 0;
+    stepInfo.step = step;
     stepInfo.toRank = rankSize;
     stepInfo.fromRank = rankSize;
-    stepInfo.step = step;
     stepInfo.myRank = myRank_;
 
     u32 deltaRoot = (rootAlgRank + rankSize - myAlgRank) % rankSize;
     u32 deltaRankPair = 1 << step;
 
-    // 数据份数和数据编号增量
+    // ScatterNHR 数据份数和数据编号增量
     u32 nSlices = (rankSize - 1 + (1 << step)) / (1 << (step + 1));
     u32 deltaSliceIndex = 1 << (step + 1);
 
-    // 判断是否是2的幂
+    // ScatterNHR 判断是否是2的幂
     u32 nRanks = 0;  // 本步需要进行收/发的rank数
     bool isPerfect = (rankSize & (rankSize - 1)) == 0;
     if (!isPerfect && step == nSteps - 1) {
@@ -92,7 +92,7 @@ HcclResult InsTempScatterNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo
         nRanks = deltaRankPair;
     }
 
-    if (deltaRoot < nRanks) {  // 需要发
+    if (deltaRoot < nRanks) {  // ScatterNHR 需要发
         HCCL_DEBUG("[InsTempScatterNHR][GetStepInfo] Need to Send: deltaRoot[%u], nRanks[%d]", deltaRoot, nRanks);
         u32 sendTo = (myAlgRank + rankSize - deltaRankPair) % rankSize;
         u32 txSliceIdx = sendTo;

@@ -250,7 +250,7 @@ void CcuKernelAllReduceMesh1DMem2Mem2DieOneShot::ReduceLoopGroup(CcuRep::LocalAd
     }
  
     // m部分
-    CCU_IF(goSize.loopParam != 0) // goSize1
+    CCU_IF(goSize.loopParam != 0) // reduce goSize1
     {
         CcuRep::Variable loopParam = CreateVariable();
         loopParam                  = GetLoopParam(0, moConfig.memSlice * moConfig.loopCount, 0);
@@ -269,7 +269,7 @@ void CcuKernelAllReduceMesh1DMem2Mem2DieOneShot::ReduceLoopGroup(CcuRep::LocalAd
         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
     }
  
-    CCU_IF(goSize.parallelParam != 0) // goSize2
+    CCU_IF(goSize.parallelParam != 0) // reduce goSize2
     {
         // p部分，加m的偏移
         for (uint32_t i = 0; i < size; i++) {
@@ -281,7 +281,7 @@ void CcuKernelAllReduceMesh1DMem2Mem2DieOneShot::ReduceLoopGroup(CcuRep::LocalAd
  
         sliceSizeExpansion = 0;
         for (uint32_t i = 0; i < expansionNum; i++) {
-            sliceSizeExpansion += goSize.residual; // goSize3
+            sliceSizeExpansion += goSize.residual; // reduce goSize3
         }
  
         auto lc0 = Loop(GetLoopBlockTag(loopType, 0))(dst, src, goSize.residual, sliceSizeExpansion);
