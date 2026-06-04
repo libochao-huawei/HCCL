@@ -138,12 +138,10 @@ public:
         for (uint64_t loop = 0; loop < loopTimes; loop++) {
             ExtraArgs extraArgsPerLoop;
             uint64_t currDataCount = (loop == loopTimes - 1) ? maxSendOrRecvDataCount - processedDataCount : cclBufferCountPerRank;
-            uint32_t sendRecvRank[MAX_RANK_SIZE] = {0};
             for (uint64_t i = 0; i < rankSize_; i++) {
                 if (extraArgs.sendCounts[i] > processedDataCount) {
                     extraArgsPerLoop.sendCounts[i] = min(currDataCount, extraArgs.sendCounts[i] - processedDataCount);
                     extraArgsPerLoop.sendDispls[i] = extraArgs.sendDispls[i] + processedDataCount;
-                    sendRecvRank[i] = 1;
                 } else {
                     extraArgsPerLoop.sendCounts[i] = 0;
                     extraArgsPerLoop.sendDispls[i] = extraArgs.sendDispls[i] + extraArgs.sendCounts[i];
@@ -152,7 +150,6 @@ public:
                 if (extraArgs.recvCounts[i] > processedDataCount) {
                     extraArgsPerLoop.recvCounts[i] = min(currDataCount, extraArgs.recvCounts[i] - processedDataCount);
                     extraArgsPerLoop.recvDispls[i] = extraArgs.recvDispls[i] + processedDataCount;
-                    sendRecvRank[i] = 1;
                 } else {
                     extraArgsPerLoop.recvCounts[i] = 0;
                     extraArgsPerLoop.recvDispls[i] = extraArgs.recvDispls[i] + extraArgs.recvCounts[i];
