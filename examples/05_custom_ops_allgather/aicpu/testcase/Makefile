@@ -41,10 +41,9 @@ all:
 # Test target
 test: 
 	export LD_LIBRARY_PATH=${CUSTOM_ALLGATHER_AICPU_LIB_DIR}:${LD_LIBRARY_PATH}; \
-	./$(TARGET); \
-	echo "AllGatherCustom test completed successfully"
+	./$(TARGET)
 
-# Clean build artifacts  
+# Clean build artifacts
 clean:
 	rm ${TARGET}
 
