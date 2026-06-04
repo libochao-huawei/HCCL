@@ -59,16 +59,12 @@ HcclResult HcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback ca
 
 HcclResult HcclDfxRegOpInfoByCommId(char* commId, void* hcclDfxOpInfo)
 {
-    (void) commId;
-    (void) hcclDfxOpInfo;
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }
 
 HcclResult HcclReportAivKernel(HcclComm comm, uint64_t beginTime)
 {
-    (void) comm;
-    (void) beginTime;
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }
