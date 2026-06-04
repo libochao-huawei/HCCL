@@ -16,7 +16,8 @@ namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 AG_CCU_SMALL_DATA_SIZE = 4 * 1024 * 1024;
-constexpr u32 AG_FLATTEN_MAX_DATA_SIZE = 1 * 1024 * 1024;
+constexpr u32 AG_FLATTEN_MAX_DATA_SIZE = 64 * 1024;
+constexpr u64 AG_CCU_SEQUENCE_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AG_AICPU_SMALL_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
 constexpr u64 AG_CCU_CLOS_SMALL_DATA_SIZE = 1 * 1024 * 1024;
@@ -181,6 +182,9 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
+            CHK_PRT_RET(IsInputOutputOverlap(opParam) == true,
+                HCCL_WARNING("[Algo][AllGatherAutoSelector] ccu_sched does not support inplace allgather."),
+                SelectorStatus::NOT_MATCH);
             if (topoInfo->Level1Nhr) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
                 HCCL_INFO("[AllGatherAutoSelector] Level1Nhr=true, select [%s]", selectAlgName.c_str());
@@ -191,8 +195,11 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
-            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize && (!IsInputOutputOverlap(opParam))) {
+            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize) {
                 selectAlgName = "CcuAllGatherMesh1DMem2Mem";
+                return SelectorStatus::MATCH;
+            } else if (dataSize < AG_CCU_SEQUENCE_MAX_DATA_SIZE) {
+                selectAlgName = "CcuAllGatherSequenceMeshMesh";
                 return SelectorStatus::MATCH;
             } else {
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
@@ -207,7 +214,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
         }
     } else {
         CHK_PRT_RET(IsInputOutputOverlap(opParam) == true,
-            HCCL_WARNING("[Algo][AllGatherAutoSelector] ccu_sched does not support inplace allreduce."),
+            HCCL_WARNING("[Algo][AllGatherAutoSelector] ccu_sched does not support inplace allgather."),
             SelectorStatus::NOT_MATCH);
         return SelectCcuScheduleLevel0Algo(topoInfo, selectAlgName, dataSize);
     }
