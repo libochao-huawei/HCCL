@@ -21,8 +21,8 @@ public:
     {
         uint64_t smallDataSize = 512 * 1024;
         dataSize_ = len_ * sizeof(T);
-        coreIdx_ = GetBlockIdx();
-        coreNum_ = block_num;
+        coreIdx_ = blockIdx_;
+        coreNum_ = numBlocks_;
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     }
 

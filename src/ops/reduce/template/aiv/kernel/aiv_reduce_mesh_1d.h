@@ -58,20 +58,20 @@ private:
 
         innerChunkStride = RoundUp(dataCount, coreNumFirstStage);
         rankChunkStride = innerChunkStride * coreNumPerRank;
-        if (GetBlockIdx() < coreNumFirstStage) {
-            targetRank = GetBlockIdx() / coreNumPerRank;
+        if (blockIdx_ < coreNumFirstStage) {
+            targetRank = blockIdx_ / coreNumPerRank;
             rankChunkSize = ((targetRank + 1) * rankChunkStride <= dataCount)
                 ? rankChunkStride
                 : (dataCount <= targetRank * rankChunkStride ? 0 : (dataCount - targetRank * rankChunkStride));
-        } else if (GetBlockIdx() < coreNumTotal) {
+        } else if (blockIdx_ < coreNumTotal) {
             targetRank = rank_;
             rankChunkSize = ((rank_ + 1) * rankChunkStride <= dataCount)
                 ? rankChunkStride
                 : (dataCount <= rank_ * rankChunkStride ? 0 : (dataCount - rank_ * rankChunkStride));
         }
 
-        if (GetBlockIdx() < coreNumTotal) {
-            innerId = GetBlockIdx() % coreNumPerRank;
+        if (blockIdx_ < coreNumTotal) {
+            innerId = blockIdx_ % coreNumPerRank;
             innerChunkSize = ((innerId + 1) * innerChunkStride <= rankChunkSize)
                 ? innerChunkStride
                 : (rankChunkSize <= innerId * innerChunkStride ? 0 : (rankChunkSize - innerId * innerChunkStride));
@@ -81,7 +81,7 @@ private:
 
     __aicore__ inline void ReduceScatter()
     {
-        if (GetBlockIdx() < coreNumFirstStage) {
+        if (blockIdx_ < coreNumFirstStage) {
             if (innerChunkSize > 0) {
                 uint64_t inputOffset =
                     input_ + (targetRank * rankChunkStride + innerId * innerChunkStride) * sizeof(T);
@@ -91,7 +91,7 @@ private:
                 pipe_barrier(PIPE_ALL);
             }
             Record(targetRank, rank_ * coreNumPerRank + innerId, curTag);
-        } else if (GetBlockIdx() < coreNumTotal) {
+        } else if (blockIdx_ < coreNumTotal) {
             if (innerChunkSize > 0) {
                 for (uint32_t i = 0; i < rankSize_; i++) {
                     WaitFlag(rank_, i * coreNumPerRank + innerId, curTag);
@@ -112,7 +112,7 @@ private:
 
     __aicore__ inline void GatherToRoot()
     {
-        if (rank_ != root_ || GetBlockIdx() >= coreNumFirstStage || innerChunkSize == 0) {
+        if (rank_ != root_ || blockIdx_ >= coreNumFirstStage || innerChunkSize == 0) {
             return;
         }
         WaitFlag(targetRank, ipcReduceFlagOffset + innerId, curTag);
@@ -134,7 +134,7 @@ private:
     {
         useCoreNum_ = maxCoreNum_;  // 少核场景使用全核
         maxRankPerCore_ = (rankSize_ + maxCoreNum_ - 1) / maxCoreNum_;  // 向上取整
-        coreIdx_ = static_cast<uint32_t>(GetBlockIdx());
+        coreIdx_ = static_cast<uint32_t>(blockIdx_);
 
         uint64_t dataCount = len_;
         sliceCount_ = dataCount / rankSize_;
@@ -246,7 +246,7 @@ public:
         if (useBlocks_ > rankSize_) {
             useBlocks_ = rankSize_;
         }
-        if (block_idx >= useBlocks_) {
+        if (blockIdx_ >= useBlocks_) {
             return;
         }
         SplitData(len_, sliceLen_, offsetLen_);
@@ -266,7 +266,7 @@ public:
     __aicore__ inline void Process(int32_t sliceId)
     {
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
-        if (block_idx >= useBlocks_) {
+        if (blockIdx_ >= useBlocks_) {
             return;
         }
         if (rank_ != root_) {
@@ -278,9 +278,9 @@ public:
             // 写同步：将aivTag写入root上的数据同步标志位，表示数据搬运完成
             uint64_t flagOffset;
             if (rank_ < root_) {
-                flagOffset = rank_ * useBlocks_ + block_idx;
+                flagOffset = rank_ * useBlocks_ + blockIdx_;
             } else {
-                flagOffset = (rank_ - 1) * useBlocks_ + block_idx;
+                flagOffset = (rank_ - 1) * useBlocks_ + blockIdx_;
             }
             Record(root_, flagOffset, curTag_);
         } else {
@@ -295,7 +295,7 @@ public:
                     continue;
                 }
                 // 读同步：阻塞读取本地数据同步标志位，当前aivTag等于读取值时，继续步骤
-                uint64_t flagOffset = sliceIdx * useBlocks_ + block_idx;
+                uint64_t flagOffset = sliceIdx * useBlocks_ + blockIdx_;
                 WaitFlag(rank_, flagOffset, curTag_);
                 // 本地规约：将本地ScratchBuffer上的数据Reduce到本地OutputBuffer上
                 if (sliceLen_ > 0) {
@@ -313,12 +313,12 @@ public:
         uint64_t sliceLenMin = dataLen / useBlocks_;
         uint64_t remainLen = dataLen % useBlocks_;
         // remainLen必然小于dataLen，均分给前remainLen个aiv处理
-        if (block_idx < remainLen) {
+        if (blockIdx_ < remainLen) {
             sliceLen = sliceLenMin + 1;
-            offsetLen = block_idx * (sliceLenMin + 1);
+            offsetLen = blockIdx_ * (sliceLenMin + 1);
         } else {
             sliceLen = sliceLenMin;
-            offsetLen = remainLen * (sliceLenMin + 1) + (block_idx - remainLen) * sliceLenMin;
+            offsetLen = remainLen * (sliceLenMin + 1) + (blockIdx_ - remainLen) * sliceLenMin;
         }
     }
 

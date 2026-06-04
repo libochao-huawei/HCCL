@@ -25,9 +25,7 @@ public:
         lenPerRank_ = len;
         inputStride_ = inputStride;
         rankSizeU32_ = static_cast<uint32_t>(rankSize_);
-        blockIdx_ = static_cast<uint32_t>(GetBlockIdx());
-        blockNum_ = static_cast<uint32_t>(GetBlockNum());
-        valid_ = rankSizeU32_ > 0 && blockNum_ >= rankSizeU32_;
+        valid_ = rankSizeU32_ > 0 && numBlocks_ >= rankSizeU32_;
     }
 
     __aicore__ inline void Process(uint32_t sliceId)
@@ -55,8 +53,6 @@ private:
     uint64_t lenPerRank_ = 0;
     uint64_t inputStride_ = 0;
     uint32_t rankSizeU32_ = 0;
-    uint32_t blockIdx_ = 0;
-    uint32_t blockNum_ = 0;
 
     __aicore__ inline uint64_t LocalPublishOffset(uint32_t targetRank)
     {
