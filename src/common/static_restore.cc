@@ -264,7 +264,7 @@ static int safe_open_dir_chain(const char* path) {
  *
  * @return const char* 安全的基础路径（静态缓冲区）
  */
-static const char* get_safe_base_path(void) {f
+static const char* get_safe_base_path(void) {
     static char safe_path[PATH_BUFFER_SIZE];
     const char* env_path;
 
