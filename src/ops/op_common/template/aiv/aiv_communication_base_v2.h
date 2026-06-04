@@ -155,11 +155,11 @@ constexpr int32_t TAG_INIT_VALUE = 1;
 constexpr int32_t TAG_RESET_COUNT = 1000;
 constexpr uint32_t AIV_FLAG_CLEAR_OFFSET = 16 * 1024 * 1024;
 constexpr uint32_t AIV_FLAG_EMPTY_OFFSET = 17 * 1024 * 1024;
-constexpr uint32_t GM_OUT_PINGPONG_OFFSET = 18 * 1024 * 1024;
+constexpr uint32_t GM_OUT_PINGPONG_OFFSET = 33 * 1024 * 1024;
 
 /**
  *     GM_OUT                  BarrierBase(大小n*FLAG_SIZE)             Tag(大小4)                    Clear
- * 0 | 40K(FLAG_ADDR_OFFSET) | 16M(AIV_FLAG_CLEAR_OFFSET)-n*FLAG_SIZE | 16M(AIV_FLAG_CLEAR_OFFSET) | 17M(AIV_FLAG_EMPTY_OFFSET) | 18M->35M
+ * 0 | 40K(FLAG_ADDR_OFFSET) | 16M(AIV_FLAG_CLEAR_OFFSET)-n*FLAG_SIZE | 16M(AIV_FLAG_CLEAR_OFFSET) | 17M(AIV_FLAG_EMPTY_OFFSET) | 33M->
  */ 
 // 相对于GM_OUT，前同步、尾同步使用的同步标记区的偏移，也是普通标记区的大小
 constexpr uint32_t BASE_FLAG_OFFSET = (AIV_FLAG_CLEAR_OFFSET - FLAG_ADDR_OFFSET) - MAX_RANK_SIZE * FLAG_SIZE;
