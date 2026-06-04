@@ -28,21 +28,19 @@ public:
         lenPerRank_ = len;
         inputStride_ = inputStride;
         rankSizeU32_ = static_cast<uint32_t>(rankSize_);
-        blockIdx_  = static_cast<uint32_t>(GetBlockIdx());
-        blockNum_ = static_cast<uint32_t>(GetBlockNum());
-        if (rankSizeU32_ == 0 || blockNum_ == 0) {
+        if (rankSizeU32_ == 0 || numBlocks_ == 0) {
             valid_ = false;
             return;
         }
         fullLogical_ = rankSizeU32_ * STAGE_NUM;
-        if (blockNum_ >= fullLogical_) {
+        if (numBlocks_ >= fullLogical_) {
             valid_ = false;
             return;
         }
 
         processNum_ = lenPerRank_ / rankSizeU32_;
-        const uint32_t baseCnt = fullLogical_ / blockNum_; // 每个核当几个核用 (2*4) / 5 = 1
-        const uint32_t extra = fullLogical_ % blockNum_; // 剩下的核数 3
+        const uint32_t baseCnt = fullLogical_ / numBlocks_; // 每个核当几个核用 (2*4) / 5 = 1
+        const uint32_t extra = fullLogical_ % numBlocks_; // 剩下的核数 3
         const uint32_t myCnt = baseCnt + (blockIdx_ < extra ? 1u : 0u); // 1 + (1 1 1 0 0) = 2 2 2 1 1
         // 0 1 2 3 4 + (0 1 2 3 3) = 0 2 4 6 7
         const uint32_t myStart = baseCnt * blockIdx_ + (blockIdx_ < extra ? blockIdx_ : extra);
@@ -97,8 +95,6 @@ private:
     uint64_t inputStride_ = 0;
     uint64_t processNum_ = 0;
     uint32_t rankSizeU32_ = 0;
-    uint32_t blockIdx_ = 0;
-    uint32_t blockNum_ = 0;
     uint32_t fullLogical_ = 0;
     uint32_t producerBegin_ = 0;
     uint32_t producerEnd_ = 0;
