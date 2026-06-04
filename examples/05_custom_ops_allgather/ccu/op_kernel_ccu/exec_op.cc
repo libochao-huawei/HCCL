@@ -70,7 +70,7 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtxSerializable &resCtx
         LoopGroupConfig  config{};
         config.msInterleave = CCU_MS_INTERLEAVE;
         config.loopCount    = CCU_MS_LOCAL_COPY_LOOP_COUNT;
-        config.memSlice     = CCU_MS_SIZE * LOCAL_COPY_MS_PER_LOOP;
+        config.memSlice     = CCU_MS_SIZE * CCU_LOCAL_COPY_MS_PER_LOOP;
         auto  goSize        = CalGoSize(sliceSize, config);
 
         std::vector<uint64_t> taskArgs = {

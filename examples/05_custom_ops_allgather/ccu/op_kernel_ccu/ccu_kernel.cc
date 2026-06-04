@@ -22,9 +22,9 @@ static CcuResult GroupCopy(AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr ds
                             GroupOpSizeVars goSize)
 {
     if (!ctx.resourceAllocated) {
-        ctx.moConfig.msInterleave = MS_INTERLEAVE;
-        ctx.moConfig.loopCount = MS_LOCAL_COPY_LOOP_COUNT;
-        ctx.moConfig.memSlice = LOCAL_COPY_MS_PER_LOOP * MS_SIZE;
+        ctx.moConfig.msInterleave = CCU_MS_INTERLEAVE;
+        ctx.moConfig.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+        ctx.moConfig.memSlice = CCU_LOCAL_COPY_MS_PER_LOOP * CCU_MS_SIZE;
 
         ctx.moRes.eventCount = ctx.moConfig.loopCount;
         ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moRes.eventCount);
