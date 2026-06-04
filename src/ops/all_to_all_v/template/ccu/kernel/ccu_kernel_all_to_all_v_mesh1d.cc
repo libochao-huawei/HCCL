@@ -19,6 +19,8 @@ constexpr int CKE_IDX_0    = 0; // pre
 constexpr int CKE_IDX_1    = 1; // post
 constexpr int CKE_IDX_2    = 2;
 constexpr int CONST_ONE    = 1;
+constexpr int CONST_EIGHT  = 8;
+constexpr int CONST_NINE   = 9;
 
 static CcuResult ParseKernelArg(AlltoAllVMesh1DContext &ctx, CcuKernelArgAlltoAllVMesh1D *kernelArg)
 {
@@ -164,7 +166,7 @@ static CcuResult LoadArgs(AlltoAllVMesh1DContext &ctx)
     // 恢复当前卡对所有卡的收发信息
     ctx.sendRecvInfo.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
-        uint16_t index = 9 + 8 * peerId;
+        uint16_t index = CONST_NINE + CONST_EIGHT * peerId;
         CCU_CHK_RET(LoadAll2allSendRecvInfo(ctx, ctx.sendRecvInfo[peerId], index));
     }
 
