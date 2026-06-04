@@ -183,7 +183,7 @@ static void RegisterAivExceptionCallback()
         HCCL_INFO("[AIV][RegisterAivExceptionCallback] runtime callback registration is not supported.");
         return;
     }
-    rtError_t rtRet = rtRegTaskFailCallbackByModule("HCCL", ProcessAivExceptionCallBack);
+    rtError_t rtRet = rtRegTaskFailCallbackByModule("HCCL_OPS", ProcessAivExceptionCallBack);
     if (rtRet != RT_ERROR_NONE) {
         HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", rtRet);
     } else {
