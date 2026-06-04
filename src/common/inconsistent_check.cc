@@ -83,10 +83,6 @@ HcclResult InconsistentCheckParams(HcclComm comm, const OpExchangeInfo &exchange
                 rmtExchangeInfo.root));
         }
         CHK_RET(InconsistentCheckOpType(exchangeInfo, rmtExchangeInfo.opType));
-        if (exchangeInfo.engine != rmtExchangeInfo.engine) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "CommEngine",
-                static_cast<uint32_t>(exchangeInfo.engine), static_cast<uint32_t>(rmtExchangeInfo.engine)));
-        }
         if (exchangeInfo.opExecuteConfig != rmtExchangeInfo.opExecuteConfig) {
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "OpExecuteConfig",
                 static_cast<uint32_t>(exchangeInfo.opExecuteConfig),
