@@ -402,6 +402,7 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
     if (useCache && g_hcclCacheMap.find(cacheKey) != g_hcclCacheMap.end()) {
         // Hit
         auto queue = g_hcclCacheMap[cacheKey];
+        g_aivCurrentCclBufferSize = resCtxHost.cclMem.size;
         for (auto& ins : *queue) {
             AivOpArgs newArgs = ins.opArgs;
             newArgs.stream = param.stream;
@@ -412,6 +413,7 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 
             CHK_RET(ExecuteKernelLaunch(newArgs));
         }
+        g_aivCurrentCclBufferSize = 0;
     } else {
         // Miss
         if (useCache) {
@@ -420,7 +422,9 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
             g_baseOutputAddr = (u64)param.outputPtr;
         }
 
+        g_aivCurrentCclBufferSize = resCtxHost.cclMem.size;
         CHK_RET(executor->Orchestrate(param, resCtxHost));
+        g_aivCurrentCclBufferSize = 0;
 
         if (useCache && g_recordingQueue) {
             g_hcclCacheMap[cacheKey] = g_recordingQueue;

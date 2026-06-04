@@ -96,6 +96,7 @@ struct AivOpArgs {
     u64 repeatNum = 0;
     u64 inputRepeatStride = 0;
     u64 outputRepeatStride = 0;
+    u64 hcclBuffSize = 0;
     bool isOpBase = false;
     ExtraArgs extraArgs = {}; 
     uint64_t topo_[TOPO_LEN] = {0}; 
@@ -145,6 +146,7 @@ extern thread_local std::shared_ptr<InsQueue> g_recordingQueue;
 extern thread_local bool g_recordOnlyMode;
 extern thread_local u64 g_baseInputAddr;
 extern thread_local u64 g_baseOutputAddr;
+extern thread_local u64 g_aivCurrentCclBufferSize;
 
 using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     const void* buffersIn = nullptr; // 注册的CCLIN地址，所有卡可访问
