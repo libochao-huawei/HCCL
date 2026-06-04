@@ -144,6 +144,7 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
 
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     uint64_t rankSize = args[5];
+    uint32_t myRank = static_cast<uint32_t>(args[6]);
     HcclDataType dataType = param.all2AllVDataDes.sendType;
     uint64_t dataTypeSize =  SIZE_TABLE[dataType];
     CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64),
@@ -178,7 +179,9 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
         }
     }
 
-    std::vector<uint64_t> taskArgs = {args[0], args[1], args[2], args[3], args[4]};
+    uint64_t inputAddr = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[7];
+    uint64_t outputAddr = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[8];
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, args[2], args[3], args[4]};
 
     LoopGroupConfig  config{};
     config.msInterleave = CCU_MS_INTERLEAVE;
@@ -206,7 +209,7 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
             taskArgs.push_back(recvOffset);
             std::vector<uint64_t> virTailSize;
             virTailSize.resize(ALL_TO_ALL_V_VECTOR_NUM, 0);
-            if (i == myRank_) {
+            if (i == myRank) {
                 auto tailGoSize = CalGoSize(tailSize, config);
                 for (auto val : tailGoSize) {
                     taskArgs.push_back(val);
@@ -223,7 +226,7 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
 
     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu],srcOffset[%llu],"
         " dstOffset[%llu], rankSize[%llu], myRank[%lu]", PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr),
-        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr), args[3], args[4], args[5], myRank_);
+        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr), args[3], args[4], args[5], myRank);
 
     CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
                                         tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
