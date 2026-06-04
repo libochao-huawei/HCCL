@@ -44,11 +44,23 @@ protected:
         const std::map<u32, std::vector<ChannelInfo>> &channels) override;
 
 private:
-    HcclResult RunAlltoAllOnLink(
-        const std::vector<ThreadHandle> &commThreads,
-        const std::map<u32, std::vector<ChannelInfo>> &channels,
-        u32 linkIdx, u32 step, u32 numSteps);
+    struct ClosNoMemcpySlot {
+        u32 txRank = 0;
+        u32 rxRank = 0;
+        u32 channelIdx = 0;
+    };
 
+    HcclResult CalcClosRoundPlan(u32 round, std::vector<ClosNoMemcpySlot> &slotPlans) const;
+    HcclResult SelectClosChannel(
+        const std::map<u32, std::vector<ChannelInfo>> &channels,
+        u32 remoteRank, u32 channelIdx, ChannelInfo &channel) const;
+    HcclResult RunAlltoAllSlot(
+        const ThreadHandle &thread,
+        const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const ClosNoMemcpySlot &slotPlan, u32 round, u32 slotIdx);
+    HcclResult ValidateClosTopology(u32 &columnNum) const;
+
+    u32 GetClosSlotNum() const;
     u32 GetCopyNotifySlotCount() const;
 };
 
