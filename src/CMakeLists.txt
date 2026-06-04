@@ -660,16 +660,9 @@ set(_op_proto_link_libs
     -Wl,--as-needed
 )
 
-if(BUILD_OPEN_PROJECT)
-    set(OP_PROTO_INCLUDE
-        ${ASCEND_CANN_PACKAGE_PATH}/include/exe_graph
-    )
-else()
-    set(OP_PROTO_INCLUDE
-        ${TOP_DIR}/air/inc/graph_metadef/external
-        ${TOP_DIR}/metadef/inc/external/exe_graph
-    )
-endif()
+set(OP_PROTO_INCLUDE
+    ${ASCEND_CANN_PACKAGE_PATH}/include/exe_graph
+)
 
 add_library(opgraph_hccl SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/common/log.cc
@@ -679,13 +672,14 @@ target_include_directories(opgraph_hccl PRIVATE
     ${INCLUDE_LIST}
     ${OP_PROTO_INCLUDE}
 )
-if(NOT ${CMAKE_BUILD_MODE} STREQUAL "FALSE")
-    set(compile_opt_mode ${CMAKE_BUILD_MODE})
-else()
-    set(compile_opt_mode -O2)
-endif()
 target_compile_options(opgraph_hccl PRIVATE
-    ${compile_opt_mode}
+    -fno-common
+    -fno-strict-aliasing
+    -pipe
+    $<$<CONFIG:Release>:-O3>
+    $<$<CONFIG:Debug>:-O3 -g>
+    $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
+    -fstack-protector-all
     -fvisibility=hidden
 )
 target_link_libraries(opgraph_hccl PRIVATE
@@ -706,19 +700,11 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/common/op_graph/ops_proto_hccl.h
     COMPONENT hccl
 )
 
-if(STATIC_MODE)
-    install(TARGETS opgraph_hccl
-        ARCHIVE DESTINATION ${INSTALL_OPGRAPH_LIBRARY_DIR} 
-        ${INSTALL_OPTIONAL}
-        COMPONENT hccl
-    )
-else()
-    install(TARGETS opgraph_hccl
-        LIBRARY DESTINATION ${INSTALL_OPGRAPH_LIBRARY_DIR} 
-        ${INSTALL_OPTIONAL}
-        COMPONENT hccl
-    )
-endif()
+install(TARGETS opgraph_hccl
+    LIBRARY DESTINATION ${INSTALL_OPGRAPH_LIBRARY_DIR} 
+    ${INSTALL_OPTIONAL}
+    COMPONENT hccl
+)
 
 add_dependencies(hccl opgraph_hccl)
 
@@ -808,12 +794,7 @@ if(DEVICE_MODE AND KERNEL_MODE)
 endif()
 
 #生成ES API
-if(BUILD_OPEN_PROJECT)
-    list(APPEND CMAKE_MODULE_PATH "${ASCEND_CANN_PACKAGE_PATH}/include/ge/cmake")
-else()
-    list(APPEND CMAKE_MODULE_PATH "${TOP_DIR}/air/cmake")
-endif()
-
+list(APPEND CMAKE_MODULE_PATH "${ASCEND_CANN_PACKAGE_PATH}/include/ge/cmake")
 find_package(GenerateEsPackage REQUIRED)
 
 add_es_library(
