@@ -12,6 +12,7 @@
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
 #include "channel.h"
+#include <algorithm>
 namespace ops_hccl {
 namespace {
 constexpr u32 COPY_THREAD_NUM = 0;
@@ -35,12 +36,31 @@ std::string InsTempAlltoAllMeshClosV3NoMemcpy::Describe() const
 
 u64 InsTempAlltoAllMeshClosV3NoMemcpy::GetThreadNum() const
 {
-    return channelsPerRank_ + COPY_THREAD_NUM;
+    return GetClosSlotNum() + COPY_THREAD_NUM;
+}
+
+u32 InsTempAlltoAllMeshClosV3NoMemcpy::GetClosSlotNum() const
+{
+    u32 rowNum = GetRowNum();
+    u32 runtimeSlotNum = rowNum > 1 ? rowNum - 1 : 0;
+    u32 fallbackByTemplate = templateRankSize_ > 1 ? templateRankSize_ - 1 : templateRankSize_;
+    return std::max(std::max(runtimeSlotNum, channelsPerRank_), std::max(fallbackByTemplate, 1u));
+}
+
+u32 InsTempAlltoAllMeshClosV3NoMemcpy::GetRowNum() const
+{
+    if (rankSize_ > 0 && meshSize_ > 0) {
+        return rankSize_ / meshSize_;
+    }
+    if (closSize_ > 0) {
+        return closSize_;
+    }
+    return 0;
 }
 
 u32 InsTempAlltoAllMeshClosV3NoMemcpy::GetCopyNotifySlotCount() const
 {
-    u32 commThreadNum = channelsPerRank_ == 0 ? 1 : channelsPerRank_;
+    u32 commThreadNum = GetClosSlotNum();
     u32 peerNum = templateRankSize_ > 0 ? templateRankSize_ - 1 : 0;
     if (peerNum == 0) {
         return 1;
@@ -90,18 +110,46 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllMesh(
     if (templateRankSize_ <= 1) {
         return HCCL_SUCCESS;
     }
-    CHK_PRT_RET(threads.size() < channelsPerRank_ + COPY_THREAD_NUM,
+    u32 closSlotNum = GetClosSlotNum();
+    u32 rowNum = GetRowNum();
+    CHK_PRT_RET(meshSize_ == 0 || rowNum == 0 || rankSize_ == 0,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunAlltoAllMesh] invalid mesh dims. "
+                           "meshSize=%u rowNum=%u closSize=%u rankSize=%u myRank=%d",
+                           meshSize_, rowNum, closSize_, rankSize_, myRank_),
+                HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(threads.size() < closSlotNum + COPY_THREAD_NUM,
                 HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] threads[%zu] < required[%u]. "
                            "commThreads=%u copyThreads=%u myRank=%d",
-                           threads.size(), channelsPerRank_ + COPY_THREAD_NUM, channelsPerRank_, COPY_THREAD_NUM,
+                           threads.size(), closSlotNum + COPY_THREAD_NUM, closSlotNum, COPY_THREAD_NUM,
                            myRank_),
                 HcclResult::HCCL_E_INTERNAL);
 
-    std::vector<ThreadHandle> commThreads(threads.begin(), threads.begin() + channelsPerRank_);
-    u32 numSteps = (subCommRanks_[0].size() - 1 + commThreads.size() - 1) / commThreads.size();
-    for (u32 step = 0; step < numSteps; step++) {
-        for (u32 linkIdx = 0; linkIdx < commThreads.size(); linkIdx++) {
-            CHK_RET(RunAlltoAllOnLink(commThreads, channels, linkIdx, step, numSteps));
+    const bool isPcie = IsPcieProtocol(channels);
+    CHK_PRT_RET(isPcie,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos] pcie/read protocol is not supported."),
+                HcclResult::HCCL_E_NOT_SUPPORT);
+
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    u64 totalSliceSize = tempAlgParams_.sliceSize;
+    u64 actualChunkSize = (totalSliceSize + rankSize_ - 1) / rankSize_;
+    u64 chunkCount = actualChunkSize / dataTypeSize;
+    HCCL_WARNING("[ALLTOALL_NO_MEMCPY][MeshClos][RunAlltoAllMesh] matrix clos schedule: "
+                 "rank=%d meshSize=%u rowNum=%u closSize=%u rankSize=%u slotNum=%u "
+                 "actualChunkSize=%llu chunkCount=%llu",
+                 myRank_, meshSize_, rowNum, closSize_, rankSize_, closSlotNum, actualChunkSize, chunkCount);
+
+    std::vector<ThreadHandle> commThreads(threads.begin(), threads.begin() + closSlotNum);
+    for (u32 round = 1; round < meshSize_; round++) {
+        std::vector<ClosNoMemcpySlot> slotPlans;
+        CHK_RET(CalcClosNoMemcpyRoundPlan(round, slotPlans));
+        CHK_PRT_RET(slotPlans.size() > commThreads.size(),
+                    HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunAlltoAllMesh] slotNum[%zu] > commThreads[%zu]. "
+                               "round=%u myRank=%d",
+                               slotPlans.size(), commThreads.size(), round, myRank_),
+                    HcclResult::HCCL_E_INTERNAL);
+        for (u32 slotIdx = 0; slotIdx < slotPlans.size(); slotIdx++) {
+            CHK_RET(RunClosNoMemcpySlot(channels, slotPlans[slotIdx], commThreads[slotIdx], round,
+                                        actualChunkSize, chunkCount, isPcie));
         }
     }
 
@@ -113,6 +161,184 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllMesh(
             return HcclResult::HCCL_E_INTERNAL;
         }
     }
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::CalcClosNoMemcpyRoundPlan(
+    u32 round, std::vector<ClosNoMemcpySlot> &slotPlans) const
+{
+    u32 rowNum = GetRowNum();
+    CHK_PRT_RET(meshSize_ == 0 || rowNum == 0 || rankSize_ == 0,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][CalcRoundPlan] invalid mesh dims. "
+                           "meshSize=%u rowNum=%u closSize=%u rankSize=%u myRank=%d",
+                           meshSize_, rowNum, closSize_, rankSize_, myRank_),
+                HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(round == 0 || round >= meshSize_,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][CalcRoundPlan] invalid round[%u], meshSize[%u]. "
+                           "myRank=%d",
+                           round, meshSize_, myRank_),
+                HcclResult::HCCL_E_PARA);
+
+    slotPlans.clear();
+    u32 myRow = myRank_ / meshSize_;
+    u32 myCol = myRank_ % meshSize_;
+    u32 txCol = (myCol + round) % meshSize_;
+    u32 rxCol = (myCol + meshSize_ - round) % meshSize_;
+    for (u32 plane = 0; plane < rowNum; plane++) {
+        if (plane == myRow) {
+            continue;
+        }
+        u64 txRank64 = static_cast<u64>(plane) * meshSize_ + txCol;
+        u64 rxRank64 = static_cast<u64>(plane) * meshSize_ + rxCol;
+        CHK_PRT_RET(txRank64 >= rankSize_ || rxRank64 >= rankSize_,
+                    HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][CalcRoundPlan] slot rank out of range. "
+                               "round=%u plane=%u txRank=%llu rxRank=%llu rankSize=%u "
+                               "myRank=%d myRow=%u myCol=%u",
+                               round, plane, txRank64, rxRank64, rankSize_, myRank_, myRow, myCol),
+                    HcclResult::HCCL_E_INTERNAL);
+        u32 txRank = static_cast<u32>(txRank64);
+        u32 rxRank = static_cast<u32>(rxRank64);
+        if (txRank == myRank_ || rxRank == myRank_) {
+            HCCL_INFO("[ALLTOALL_NO_MEMCPY][MeshClos][CalcRoundPlan] skip self slot. "
+                      "round=%u plane=%u txRank=%u rxRank=%u myRank=%d",
+                      round, plane, txRank, rxRank, myRank_);
+            continue;
+        }
+        slotPlans.push_back({txRank, rxRank, plane});
+    }
+    HCCL_INFO("[ALLTOALL_NO_MEMCPY][MeshClos][CalcRoundPlan] myRank=%d round=%u myRow=%u myCol=%u "
+              "txCol=%u rxCol=%u slotNum=%zu",
+              myRank_, round, myRow, myCol, txCol, rxCol, slotPlans.size());
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::SelectClosNoMemcpyChannel(
+    const std::map<u32, std::vector<ChannelInfo>> &channels, u32 remoteRank, u32 channelIdx, ChannelInfo &channel) const
+{
+    auto iter = channels.find(remoteRank);
+    CHK_PRT_RET(iter == channels.end(),
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] remoteRank[%u] not found. "
+                           "myRank=%d channelIdx=%u",
+                           remoteRank, myRank_, channelIdx),
+                HcclResult::HCCL_E_PARA);
+    const std::vector<ChannelInfo> &remoteChannels = iter->second;
+    u32 rowNum = GetRowNum();
+    u32 closChannelNum = rowNum > 0 ? rowNum - 1 : 0;
+    CHK_PRT_RET(closChannelNum == 0 || remoteChannels.size() < closChannelNum,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] channelNum[%zu] < closChannelNum[%u]. "
+                           "remoteRank=%u myRank=%d channelIdx=%u rowNum=%u",
+                           remoteChannels.size(), closChannelNum, remoteRank, myRank_, channelIdx, rowNum),
+                HcclResult::HCCL_E_PARA);
+    u32 closOffset = static_cast<u32>(remoteChannels.size()) - closChannelNum;
+    u32 remoteRow = remoteRank / meshSize_;
+    u32 myRow = myRank_ / meshSize_;
+    u32 closPlaneIdx = channelIdx > myRow ? channelIdx - 1 : channelIdx;
+    CHK_PRT_RET(channelIdx == myRow || remoteRow != channelIdx,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] invalid clos channelIdx. "
+                           "remoteRank=%u remoteRow=%u channelIdx=%u myRow=%u myRank=%d",
+                           remoteRank, remoteRow, channelIdx, myRow, myRank_),
+                HcclResult::HCCL_E_PARA);
+    u32 resolvedIdx = closOffset + closPlaneIdx;
+    CHK_PRT_RET(resolvedIdx >= remoteChannels.size(),
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] resolvedIdx[%u] out of range. "
+                           "remoteRank=%u channelNum=%zu closOffset=%u channelIdx=%u myRank=%d",
+                           resolvedIdx, remoteRank, remoteChannels.size(), closOffset, channelIdx, myRank_),
+                HcclResult::HCCL_E_PARA);
+    channel = remoteChannels[resolvedIdx];
+    CHK_PRT_RET(channel.remoteOutputGraphMode.addr == nullptr,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] remote output is null. "
+                           "remoteRank=%u resolvedIdx=%u myRank=%d",
+                           remoteRank, resolvedIdx, myRank_),
+                HcclResult::HCCL_E_INTERNAL);
+    HCCL_DEBUG("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] myRank=%d remoteRank=%u "
+               "channelIdx=%u resolvedIdx=%u channelNum=%zu",
+               myRank_, remoteRank, channelIdx, resolvedIdx, remoteChannels.size());
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunClosNoMemcpySlot(
+    const std::map<u32, std::vector<ChannelInfo>> &channels,
+    const ClosNoMemcpySlot &slotPlan,
+    const ThreadHandle &thread,
+    u32 round,
+    u64 actualChunkSize,
+    u64 chunkCount,
+    bool isPcie)
+{
+    CHK_PRT_RET(isPcie,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos] pcie/read protocol is not supported."),
+                HcclResult::HCCL_E_NOT_SUPPORT);
+    CHK_PRT_RET(!enableRemoteMemAccess_,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] remote output access is disabled. "
+                           "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u",
+                           myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx),
+                HcclResult::HCCL_E_INTERNAL);
+
+    ChannelInfo txChannel;
+    ChannelInfo rxChannel;
+    CHK_RET(SelectClosNoMemcpyChannel(channels, slotPlan.txRank, slotPlan.channelIdx, txChannel));
+    CHK_RET(SelectClosNoMemcpyChannel(channels, slotPlan.rxRank, slotPlan.channelIdx, rxChannel));
+
+    u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff + static_cast<u64>(slotPlan.txRank) * actualChunkSize;
+    u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + static_cast<u64>(myRank_) * actualChunkSize;
+    CHK_PRT_RET(txSrcOffset + actualChunkSize > tempAlgParams_.buffInfo.inputSize ||
+                    txDstOffset + actualChunkSize > txChannel.remoteOutputGraphMode.size,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] tx slice out of registered range. "
+                           "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u "
+                           "txSrcOff=%llu txDstOff=%llu chunk=%llu inputSize=%llu remoteOutputSize=%llu",
+                           myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx,
+                           txSrcOffset, txDstOffset, actualChunkSize,
+                           tempAlgParams_.buffInfo.inputSize, txChannel.remoteOutputGraphMode.size),
+                HcclResult::HCCL_E_INTERNAL);
+
+    u64 rxSrcOffset = tempAlgParams_.buffInfo.outBuffBaseOff + static_cast<u64>(myRank_) * actualChunkSize;
+    u64 rxDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + static_cast<u64>(slotPlan.rxRank) * actualChunkSize;
+    CHK_PRT_RET(rxSrcOffset + actualChunkSize > rxChannel.remoteOutputGraphMode.size ||
+                    rxDstOffset + actualChunkSize > tempAlgParams_.buffInfo.outputSize,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] rx slice out of registered range. "
+                           "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u "
+                           "rxSrcOff=%llu rxDstOff=%llu chunk=%llu remoteOutputSize=%llu outputSize=%llu",
+                           myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx,
+                           rxSrcOffset, rxDstOffset, actualChunkSize,
+                           rxChannel.remoteOutputGraphMode.size, tempAlgParams_.buffInfo.outputSize),
+                HcclResult::HCCL_E_INTERNAL);
+
+    std::vector<DataSlice> txSrcSlices;
+    std::vector<DataSlice> txDstSlices;
+    std::vector<DataSlice> rxSrcSlices;
+    std::vector<DataSlice> rxDstSlices;
+
+    txSrcSlices.emplace_back(tempAlgParams_.buffInfo.inputPtr, txSrcOffset, actualChunkSize, chunkCount);
+    txDstSlices.emplace_back(txChannel.remoteOutputGraphMode.addr, txDstOffset, actualChunkSize, chunkCount);
+    rxSrcSlices.emplace_back(rxChannel.remoteOutputGraphMode.addr, rxSrcOffset, actualChunkSize, chunkCount);
+    rxDstSlices.emplace_back(tempAlgParams_.buffInfo.outputPtr, rxDstOffset, actualChunkSize, chunkCount);
+
+    TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
+    TxRxChannels sendRecvChannels(txChannel, rxChannel);
+    SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
+
+    HCCL_WARNING("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] myRank=%d round=%u channelIdx=%u "
+                 "txRank=%u rxRank=%u txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu chunk=%llu",
+                 myRank_, round, slotPlan.channelIdx, slotPlan.txRank, slotPlan.rxRank,
+                 txSrcOffset, txDstOffset, rxSrcOffset, rxDstOffset, actualChunkSize);
+
+    HcclResult dmaResult = SendRecvWrite(sendRecvInfo, thread);
+    if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
+        u32 failedAlgRank = 0;
+        if (GetAlgRank(slotPlan.txRank, subCommRanks_[0], failedAlgRank) == HCCL_SUCCESS &&
+            failedAlgRank < failedRanks_.size()) {
+            failedRanks_[failedAlgRank] = 1;
+        }
+        HCCL_WARNING("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] peer timed out. "
+                     "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u",
+                     myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx);
+        return HCCL_SUCCESS;
+    }
+    CHK_PRT_RET(dmaResult != HCCL_SUCCESS,
+                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] SendRecvWrite failed. "
+                           "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u err=0x%x",
+                           myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx, dmaResult),
+                dmaResult);
     return HCCL_SUCCESS;
 }
 

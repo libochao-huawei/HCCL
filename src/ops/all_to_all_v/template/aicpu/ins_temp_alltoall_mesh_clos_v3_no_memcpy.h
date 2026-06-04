@@ -44,6 +44,29 @@ protected:
         const std::map<u32, std::vector<ChannelInfo>> &channels) override;
 
 private:
+    struct ClosNoMemcpySlot {
+        u32 txRank = 0;
+        u32 rxRank = 0;
+        u32 channelIdx = 0;
+
+        ClosNoMemcpySlot() = default;
+        ClosNoMemcpySlot(u32 tx, u32 rx, u32 channel) : txRank(tx), rxRank(rx), channelIdx(channel)
+        {
+        }
+    };
+
+    HcclResult CalcClosNoMemcpyRoundPlan(u32 round, std::vector<ClosNoMemcpySlot> &slotPlans) const;
+    HcclResult SelectClosNoMemcpyChannel(const std::map<u32, std::vector<ChannelInfo>> &channels,
+                                         u32 remoteRank, u32 channelIdx, ChannelInfo &channel) const;
+    HcclResult RunClosNoMemcpySlot(const std::map<u32, std::vector<ChannelInfo>> &channels,
+                                   const ClosNoMemcpySlot &slotPlan,
+                                   const ThreadHandle &thread,
+                                   u32 round,
+                                   u64 actualChunkSize,
+                                   u64 chunkCount,
+                                   bool isPcie);
+    u32 GetRowNum() const;
+    u32 GetClosSlotNum() const;
     HcclResult RunAlltoAllOnLink(
         const std::vector<ThreadHandle> &commThreads,
         const std::map<u32, std::vector<ChannelInfo>> &channels,
