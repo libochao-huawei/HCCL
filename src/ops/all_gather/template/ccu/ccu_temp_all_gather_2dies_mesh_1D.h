@@ -13,6 +13,7 @@
 
 #include "utils.h"
 #include "ccu_alg_template_base.h"
+#include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
 using RankId = u32;
@@ -26,7 +27,7 @@ public:
                                                 const std::vector<std::vector<u32>> &subCommRanks);
  
     ~CcuTempAllGather2DiesMesh1D() override;
- 
+
     std::string Describe() const override
     {
         return StringFormat("Template of all gather ccu sche mesh 1D with tempRankSize [%u].",
@@ -35,13 +36,13 @@ public:
  
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest) override;
- 
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
-    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
+
 private:
 
     uint32_t mySubCommRank_ = 0;

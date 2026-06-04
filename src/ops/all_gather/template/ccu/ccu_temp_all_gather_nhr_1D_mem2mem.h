@@ -13,25 +13,10 @@
  
 #include "utils.h"
 #include "ccu_alg_template_base.h"
-
-#ifndef NHR_STEP_INFO_DEFINED
-#define NHR_STEP_INFO_DEFINED
-using NHRStepInfo = struct NHRStepInfoDef {
-    u32 step = 0;
-    u32 myRank = 0;
-    u32 nSlices;
-    u32 toRank = 0;
-    u32 fromRank = 0;
-    std::vector<u32> txSliceIdxs;
-    std::vector<u32> rxSliceIdxs;
-
-    NHRStepInfoDef() : nSlices(0)
-    {
-    }
-};
-#endif
+#include "ccu_kernel_all_gather_nhr1d_mem2mem.h"
 
 namespace ops_hccl {
+
 class CcuTempAllGatherNHR1DMem2Mem : public CcuAlgTemplateBase {
 public:
     CcuTempAllGatherNHR1DMem2Mem() = default;

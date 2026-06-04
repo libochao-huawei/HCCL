@@ -11,7 +11,7 @@
 #include "template_utils.h"
 #include "ins_all_to_all_v_sole_executor.h"
 #ifndef AICPU_COMPILE
-#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
 #include "ccu_temp_all_to_all_v_mesh2die.h"
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
@@ -74,10 +74,9 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
     }
 
     // 构建template
-    std::shared_ptr<InsAlgTemplate> algTemplate = 
-        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
+    algTemplate_ = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
     // 调用计算资源的函数
-    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
+    CHK_RET(algTemplate_->CalcRes(comm, param, topoInfo, resourceRequest));
 
     return HCCL_SUCCESS;
 }
@@ -165,11 +164,15 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     const OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
     HCCL_INFO("[InsAlltoAllVSoleExecutor][OrchestrateLoop] Start");
-    
+
+    std::vector<std::vector<u32>> tempAlgHierachyInfo;
+    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
+        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
+    } else {
+        tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
+    }
     // 构建template
-    std::shared_ptr<InsAlgTemplate> algTemplate =
-        std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
-    algTemplate->SetA2ASendRecvInfo(localSendRecvInfo_);
+    algTemplate_->SetA2ASendRecvInfo(localSendRecvInfo_);
 
     // 准备资源
     TemplateResource templateAlgRes;
@@ -198,7 +201,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.inputRepeatStride = 0;
     tempAlgParams.outputRepeatStride = 0;
 
-    CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
+    CHK_RET(algTemplate_->KernelRun(param, tempAlgParams, templateAlgRes));
 
 #ifndef AICPU_COMPILE
     if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opType != HcclCMDType::HCCL_CMD_ALLTOALLVC && param.opMode != OpMode::OFFLOAD) {
@@ -277,20 +280,20 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
 
 // 第二个参数是All to AllV的template文件
 #ifndef AICPU_COMPILE
-#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAlltoAllVMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAlltoAllVMesh1D);
-#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+#endif /* !HCCL_CANN_COMPAT_850 */
 
-#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, CcuAlltoAllVCMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAlltoAllVMesh1D);
-#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+#endif /* !HCCL_CANN_COMPAT_850 */
 
-#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAlltoAllVMesh2Die);
-#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+#endif /* !HCCL_CANN_COMPAT_850 */
 
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
