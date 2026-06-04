@@ -29,6 +29,7 @@ CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
 ENABLE_SIGN="false"
 VERSION_INFO="8.5.0"
 BUILD_AARCH="false"
+ENABLE_EXPERIMENTAL="false"
 
 ENABLE_UT="off"
 ENABLE_ST="off"
@@ -506,6 +507,8 @@ function usage() {
   echo "                   Set custom ops name to <OPS>"
   echo "    --vendor=<VENDOR>"
   echo "                   Set custom ops vendor to <VENDOR>"
+  echo "    --experimental"
+  echo "                   Enable experimental features"
   echo "    --static"
   echo "                   Enable static library build mode"
   echo ""
@@ -624,6 +627,10 @@ while [[ $# -gt 0 ]]; do
         VERSION_INFO="$2"
         shift 2
         ;;
+    --experimental)
+        ENABLE_EXPERIMENTAL="true"
+        shift
+        ;;
     --custom_ops_path=*)
         OPTARG=$1
         CUSTOM_OPS_PATH="$(realpath ${OPTARG#*=})"
@@ -668,6 +675,10 @@ fi
 
 if [ "${BUILD_AARCH}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DAARCH_MODE=ON"
+fi
+
+if [ "${ENABLE_EXPERIMENTAL}" == "true" ];then
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_EXPERIMENTAL=ON"
 fi
 
 if [ "${ASAN}" == "true" ];then
