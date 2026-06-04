@@ -904,7 +904,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
 
     // 参数一致性校验
     if (NeedInconsistentCheck(param))
-        OpExcahngeInfo exchangeInfo{};
+        OpExchangeInfo exchangeInfo{};
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(CompareOpExchangeInfos(comm, param, resRequest, exchangeInfo));
     }
