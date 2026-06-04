@@ -772,14 +772,15 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_DEBUG("[InsAllReduceParallelExecutor][GenInsQues] dataCount_[%lu], myRank_[%d], sliceCountUB[%d], sliceCountUB0[%d], sliceCount[%d]",
               dataCount_, myRank_, sliceCountUB, sliceCountUB0, sliceCount);
 
-    u64 alignSize = AICPU_ALIGN_SIZE; // 用于4k对齐
+    // 原4K对齐逻辑保留：
+    // u64 alignSize = AICPU_ALIGN_SIZE; // 用于4k对齐
     u64 sliceCountPart0 = static_cast<u64>(std::floor(double(sliceCount) * dataSplitSize.at(0)));
     u64 sliceCountPart1 = sliceCount - sliceCountPart0;
-    if (sliceCountPart0 * dataTypeSize_ >= alignSize) {
-        // 进行4K对齐（向下取整）
-        sliceCountPart0 = sliceCountPart0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
-        sliceCountPart1 = sliceCount - sliceCountPart0;
-    }
+    // if (sliceCountPart0 * dataTypeSize_ >= alignSize) {
+    //     // 进行4K对齐（向下取整）
+    //     sliceCountPart0 = sliceCountPart0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+    //     sliceCountPart1 = sliceCount - sliceCountPart0;
+    // }
 
     if (sliceCount == 0) {
         HCCL_WARNING("The divisor cannot be zero.");
@@ -787,10 +788,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     }
     // 计算循环次数
     u32 loopTimes = dataCount_ / sliceCount + ((dataCount_ % sliceCount == 0) ? 0 : 1);
-    // 计算尾块
-    u64 finalSliceCount = dataCount_ - (loopTimes - 1) * sliceCount;
-    u64 finalSliceCountPart0 = static_cast<u64>(std::floor(double(finalSliceCount) * dataSplitSize.at(0)));
-    u64 finalSliceCountPart1 = finalSliceCount - finalSliceCountPart0;
+    // 原尾块计算逻辑保留：
+    // u64 finalSliceCount = dataCount_ - (loopTimes - 1) * sliceCount;
+    // u64 finalSliceCountPart0 = static_cast<u64>(std::floor(double(finalSliceCount) * dataSplitSize.at(0)));
+    // u64 finalSliceCountPart1 = finalSliceCount - finalSliceCountPart0;
     // 计算Scratch偏移，数据尾块必然小于常规块，不用额外计算尾块时的Scratch偏移
     u64 scratchOffsetCountIntraStage0 = 0;
     u64 scratchOffsetCountInterStage0 = sliceCountPart0 * multipleIntra;
@@ -809,10 +810,19 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     TemplateDataParams tempAlgParamsInter11;
     TemplateDataParams tempAlgParamsIntra11;
 
-    for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
-        u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalSliceCountPart0 : sliceCountPart0;
-        u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalSliceCountPart1 : sliceCountPart1;
-        u64 dataOffset0 = loopIndex * sliceCount * dataTypeSize_;
+    u64 processedCount = 0;
+    u32 loopIndex = 0;
+    while (processedCount < dataCount_) {
+        u64 remainingCount = dataCount_ - processedCount;
+        u32 remainingLoopTimes = (loopIndex < loopTimes) ? (loopTimes - loopIndex) : 1;
+        u64 currCount = (remainingCount + remainingLoopTimes - 1) / remainingLoopTimes;
+        currCount = std::min(currCount, sliceCount);
+        u64 currCountPart0 = static_cast<u64>(std::floor(double(currCount) * dataSplitSize.at(0)));
+        u64 currCountPart1 = currCount - currCountPart0;
+        CHK_PRT_RET(currCountPart0 + currCountPart1 == 0,
+                    HCCL_ERROR("[InsAllReduceParallelExecutor][GenInsQues] currCount is 0"),
+                    HcclResult::HCCL_E_INTERNAL);
+        u64 dataOffset0 = processedCount * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
         // 计算算法模板所需资源
         TemplateResource intraTempAlgRes;
@@ -891,7 +901,94 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
             CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, intraTempAlgRes1, interTempAlgRes1, resCtx.notifyNumOnMainThread));
         }
         #endif
+
+        processedCount += currCountPart0 + currCountPart1;
+        loopIndex++;
     }
+
+//     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
+//         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalSliceCountPart0 : sliceCountPart0;
+//         u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalSliceCountPart1 : sliceCountPart1;
+//         u64 dataOffset0 = loopIndex * sliceCount * dataTypeSize_;
+//         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
+//         // 计算算法模板所需资源
+//         TemplateResource intraTempAlgRes;
+//         TemplateResource interTempAlgRes;
+//         CHK_RET(PrepareResForTemplate(tempAlgIntra, tempAlgInter, tempAlgIntra1));
+//         PrepareResForTemplateResource(param, resCtx, intraTempAlgRes, interTempAlgRes, true);
+//         //server 间地址偏移
+//         for (int i = 0; i < temp0HierarchyInfo_[0].size(); i++) {
+//             tempVirtRankMapInter_.insert(std::make_pair(temp0HierarchyInfo_[0][i], i));
+//         }
+//         //server 内地址偏移
+//         for (int i = 0; i < temp1HierarchyInfo_[0].size(); i++) {
+//             tempVirtRankMapIntra_.insert(std::make_pair(temp1HierarchyInfo_[0][i], i));
+//         }
+//         CalcIntraDataAllRank(currCountPart0, intraLocalRankSize_, interLocalRankSize_, meshPartDataMap_);
+//         CalcInterDataAllRank(currCountPart1, interLocalRankSize_, intraLocalRankSize_, nhrPartDataMap_);
+//         // 第一步开始前同步
+//         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+//         RunTemplateIntra0(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountIntraStage0, tempAlgParamsIntra0, intraTempAlgRes, tempAlgIntra);
+//         RunTemplateInter1(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountInterStage0, tempAlgParamsInter1, interTempAlgRes, tempAlgInter);
+//         // 第一步做完后回到主流做尾同步
+//         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+//
+//         #ifndef AICPU_COMPILE
+//         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+//             ccuKernelLaunchNumIntra0_ = intraTempAlgRes.submitInfos.size();
+//             ccuKernelLaunchNumInter1_ = interTempAlgRes.submitInfos.size();
+//         }
+//         #endif
+//
+//         // 第二步开始前同步
+//         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+//         RunTemplateInter0(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountInterStage1, tempAlgParamsInter0, interTempAlgRes, tempAlgInter);
+//         RunTemplateIntra1(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountIntraStage1, tempAlgParamsIntra1, intraTempAlgRes, tempAlgIntra);
+//         // 尾同步
+//         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+//
+//         #ifndef AICPU_COMPILE
+//         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+//             ccuKernelLaunchNumIntra1_ = intraTempAlgRes.submitInfos.size() - ccuKernelLaunchNumIntra0_;
+//             ccuKernelLaunchNumInter0_ = interTempAlgRes.submitInfos.size() - ccuKernelLaunchNumInter1_;
+//         }
+//         #endif
+//
+//         // 计算算法模板所需资源 InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1
+//         TemplateResource intraTempAlgRes1;
+//         TemplateResource interTempAlgRes1;
+//         CHK_RET(PrepareResForTemplate23(tempAlgIntra, tempAlgIntra1, tempAlgInter1));
+//         PrepareResForTemplateResource(param, resCtx, intraTempAlgRes1, interTempAlgRes1, false);
+//
+//         // 第三步开始前同步
+//         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+//         RunTemplateInter01(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountInterStage1, tempAlgParamsInter01, interTempAlgRes1, tempAlgInter1);
+//         RunTemplateIntra11(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountIntraStage1, tempAlgParamsIntra11, intraTempAlgRes1, tempAlgIntra1);
+//         // 尾同步
+//         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+//
+//         #ifndef AICPU_COMPILE
+//         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+//             ccuKernelLaunchNumIntra11_ = intraTempAlgRes1.submitInfos.size();
+//             ccuKernelLaunchNumInter00_ = interTempAlgRes1.submitInfos.size();
+//         }
+//         #endif
+//
+//         // 第四步开始前同步
+//         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+//         RunTemplateIntra01(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountIntraStage0, tempAlgParamsIntra01, intraTempAlgRes1, tempAlgIntra1);
+//         RunTemplateInter11(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountInterStage0, tempAlgParamsInter11, interTempAlgRes1, tempAlgInter1);
+//         // 第四步做完后回到主流做尾同步
+//         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+//
+//         #ifndef AICPU_COMPILE
+//         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+//             ccuKernelLaunchNumIntra00_ = intraTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumIntra11_;
+//             ccuKernelLaunchNumInter11_ = interTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumInter00_;
+//             CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, intraTempAlgRes1, interTempAlgRes1, resCtx.notifyNumOnMainThread));
+//         }
+//         #endif
+//     }
 
     HCCL_INFO("[InsAllReduceParallelExecutor][GenInsQues] End.myRank[%d]", myRank_);
     return HcclResult::HCCL_SUCCESS;
