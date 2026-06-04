@@ -169,7 +169,7 @@ u64 CcuTempAllGather2DiesMeshMem2Mem1D::CalcScratchMultiple(BufferType inBuffTyp
 {
     (void)inBuffType;
     (void)outBuffType;
-    return 1;
+    return 0;
 }
 
 u64 CcuTempAllGather2DiesMeshMem2Mem1D::GetThreadNum() const
