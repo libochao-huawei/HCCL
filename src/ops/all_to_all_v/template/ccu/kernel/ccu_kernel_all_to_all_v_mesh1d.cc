@@ -22,9 +22,6 @@ constexpr int CONST_ONE    = 1;
 
 static CcuResult ParseKernelArg(AlltoAllVMesh1DContext &ctx, CcuKernelArgAlltoAllVMesh1D *kernelArg)
 {
-    // ctx.rankId          = kernelArg->rankId;
-    // ctx.rankSize        = kernelArg->rankSize;
-    // ctx.channels       = kernelArg->channels;
     return CCU_SUCCESS;
 }
 
@@ -39,28 +36,26 @@ static CcuResult LoadAll2allSendRecvInfo(AlltoAllVMesh1DContext &ctx, A2AsingleS
 
         // 要求client端排列内存为[size,send,recv][size,send,recv]...
         ccu::Load(ctx.a2avXnAddr, sendRecvInfo.tailSize);
-        // sendRecvInfo.tailSize = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
 
         ccu::Load(ctx.a2avXnAddr, sendRecvInfo.sendOffset);
-        // sendRecvInfo.sendOffset = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
 
         // 跳过recvSize
         ctx.a2avXnAddr += ctx.xnLength;
 
         ccu::Load(ctx.a2avXnAddr, sendRecvInfo.recvOffset);
-        // sendRecvInfo.recvOffset = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
     } else {
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailSize, index));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.loopNum, index + 1));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.sendOffset, index + 2));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.recvOffset, index + 3));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.addrOffset, index + 4));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.loopParam, index + 5));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.parallelParam, index + 6));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.residual, index + 7));
+        uint32_t curIndex = index;
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailSize, curIndex++));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.loopNum, curIndex++));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.sendOffset, curIndex++));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.recvOffset, curIndex++));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.addrOffset, curIndex++));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.loopParam, curIndex++));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.parallelParam, curIndex++));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.residual, curIndex++));
     }
 
     return CCU_SUCCESS;
@@ -98,10 +93,7 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     //  all2allv 数据搬运
     ctx.xnLength = 8; // xn长度为8byte
 
-    // CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE));
-
     ctx.resourceAllocated = false;
-    // ctx.IsLoopResRegistered    = false;
 
     return CCU_SUCCESS;
 }
@@ -155,19 +147,19 @@ static CcuResult LoadArgs(AlltoAllVMesh1DContext &ctx)
     // 从SQE load args，本rank需要的input、output地址等信息
     // inputAddr, outputAddr, tokenInfo, srcStride, dstStride, srcOffset, dstOffset
     const auto *arg = ctx.arg;
-
-    CCU_CHK_RET(ccu::LoadArg(ctx.input[0], 0));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], 1));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], 2));
-    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset, 3));
-    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset, 4));
+    uint32_t cnt = 0;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[0], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset, cnt++));
     if (arg->loadFromMem) {
-        CCU_CHK_RET(ccu::LoadArg(ctx.a2avXnAddr, 5));
+        CCU_CHK_RET(ccu::LoadArg(ctx.a2avXnAddr, cnt++));
     } else {
-        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.addrOffset, 5));
-        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.loopParam, 6));
-        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.parallelParam, 7));
-        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.residual, 8));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.addrOffset, cnt++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.loopParam, cnt++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.parallelParam, cnt++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.residual, cnt++));
     }
     // 恢复当前卡对所有卡的收发信息
     ctx.sendRecvInfo.resize(arg->rankSize);
@@ -295,7 +287,6 @@ CcuResult CcuAlltoAllVMesh1DKernel(CcuKernelArg arg)
     AlltoAllVMesh1DContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    // ctx.loopRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;

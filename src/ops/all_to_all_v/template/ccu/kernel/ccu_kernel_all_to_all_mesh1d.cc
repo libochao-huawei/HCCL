@@ -23,9 +23,6 @@ constexpr uint64_t LOCAL_COPY_MS = 8;
 
 static CcuResult ParseKernelArg(AlltoAllMesh1DContext &ctx, CcuKernelArgAlltoAllMesh1D *kernelArg)
 {
-    // ctx.rankId          = kernelArg->rankId;
-    // ctx.rankSize        = kernelArg->rankSize;
-    // ctx.channels       = kernelArg->channels;
     return CCU_SUCCESS;
 }
 
@@ -52,10 +49,7 @@ static CcuResult InitResource(AlltoAllMesh1DContext &ctx)
         }
     }
 
-    // CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE));
-
     ctx.resourceAllocated = false;
-    // ctx.IsLoopResRegistered    = false;
 
     return CCU_SUCCESS;
 }
@@ -63,18 +57,18 @@ static CcuResult InitResource(AlltoAllMesh1DContext &ctx)
 static CcuResult LoadArgs(AlltoAllMesh1DContext &ctx)
 {
     const auto *arg = ctx.arg;
-
-    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], 0));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], 1));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], 2));
-    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, 3));
-    CCU_CHK_RET(ccu::LoadArg(ctx.srcStride, 4));
-    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset, 5));
-    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset, 6));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, 7));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, 8));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, 9));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, 10));
+    uint32_t cnt = 0;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcStride, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, cnt++));
 
     ctx.srcOffset += ctx.input[arg->rankId];
 
@@ -180,7 +174,6 @@ CcuResult CcuAlltoAllMesh1DKernel(CcuKernelArg arg)
     AlltoAllMesh1DContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    // ctx.IsLoopResRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;
@@ -196,7 +189,6 @@ CcuResult CcuAlltoAllMesh1DKernel(CcuKernelArg arg)
     PreSync(ctx);
 
     CCU_CHK_RET(DoAlltoAll(ctx));
-
 
     PostSync(ctx);
     HCCL_INFO("[CcuKernelAlltoAllMesh1D] AlltoAllMesh1D end");
