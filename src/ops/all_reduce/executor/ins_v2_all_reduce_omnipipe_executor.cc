@@ -356,7 +356,7 @@ HcclResult InsV2AllReduceOmniPipeExecutor<
     AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ, InsAgAlgTemplateX, InsAgAlgTemplateY,
     InsAgAlgTemplateZ>::InitOmniPipeScratchParam(OmniPipeScratchParam& scratchParam, const OpParam& param,
                                                  const std::vector<EndpointAttrBwCoeff>& endpointAttrBwNew,
-                                                 std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap) const
+                                                 const std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap) const
 {
     std::vector<u64> levelRankSizeVec = {rankSizeLevel0_, rankSizeLevel1_, rankSizeLevel2_};
     std::vector<u64> levelRankIdVec = {rankIdxLevel0_, rankIdxLevel1_, rankIdxLevel2_};
@@ -390,7 +390,7 @@ HcclResult InsV2AllReduceOmniPipeExecutor<
     AlgTopoMatch, InsRsAlgTemplateX, InsRsAlgTemplateY, InsRsAlgTemplateZ, InsAgAlgTemplateX, InsAgAlgTemplateY,
     InsAgAlgTemplateZ>::InitOmniPipeSliceParam(OmniPipeSliceParam& sliceParam, const OpParam& param,
                                                const std::vector<EndpointAttrBwCoeff>& endpointAttrBwNew,
-                                               std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap,
+                                               const std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap,
                                                u64 maxCountPerLoop) const
 {
     (void) maxCountPerLoop;
