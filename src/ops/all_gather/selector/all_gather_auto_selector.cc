@@ -267,11 +267,8 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
                 if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
                     selectAlgName = "InsAllGatherMesh1D";
                 } else {
-                    if (dataSize < OMNI_PCIE_AG_DATA_SIZE) {
-                        selectAlgName = "InsAllGatherParallelMesh1DNHRPcie";
-                    } else {
-                        selectAlgName = "InsV2AllGatherOmniPipePcie";
-                    }
+                    selectAlgName = (dataSize < OMNI_PCIE_AG_DATA_SIZE) ? "InsAllGatherParallelMesh1DNHRPcie" :
+                                                                          "InsV2AllGatherOmniPipePcie";
                 }
                 HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
                 return SelectorStatus::MATCH;
