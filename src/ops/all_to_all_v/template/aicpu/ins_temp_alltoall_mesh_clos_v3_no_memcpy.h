@@ -65,7 +65,8 @@ private:
                                    u64 actualChunkSize,
                                    u64 chunkCount,
                                    bool isPcie);
-    u32 GetRowNum() const;
+    u32 GetMatrixRowNum() const;
+    u32 GetMatrixColNum() const;
     u32 GetClosSlotNum() const;
     HcclResult RunAlltoAllOnLink(
         const std::vector<ThreadHandle> &commThreads,
