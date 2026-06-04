@@ -396,7 +396,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     u64 interScratchOffset = scratchMultipleIntra * scratchMemBlockSize;
 
     u64 maxCountPerLoop =
-        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_ / 10) * 10;
+        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_);
 
     // ============ 循环前的数据对齐操作 ============
     u64 alignSize = AICPU_ALIGN_SIZE; // 用于4k对齐
@@ -416,6 +416,9 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     // 用对齐后的数据量之和重新刷新 maxCountPerLoop
     maxCountPerLoop = dataCountPerLoopAixs0 + dataCountPerLoopAixs1;
     // ====================================================
+    CHK_PRT_RET(maxCountPerLoop == 0,
+                HCCL_ERROR("[InsV2AllGatherParallelExecutor][OrchestrateLoop] maxCountPerLoop is 0"),
+                HcclResult::HCCL_E_INTERNAL);
 
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
 
@@ -446,28 +449,35 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         interTempAlgRes.channels = interLinkMap_;
     }
     
-    // 新增：声明尾块变量
-    u64 finalDataCountPerLoopAixs0 = dataCountPerLoopAixs0;
-    u64 finalDataCountPerLoopAixs1 = dataCountPerLoopAixs1;
-    
-    // 如果存在尾块，单独计算尾块的对齐
-    if (loopTimes > 1) {
-        u64 finalCount = dataCount_ - (loopTimes - 1) * maxCountPerLoop;
-        finalDataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * finalCount);
-        finalDataCountPerLoopAixs1 = finalCount - finalDataCountPerLoopAixs0;
-    } else {
-        finalDataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * dataCount_);
-        finalDataCountPerLoopAixs1 = dataCount_ - finalDataCountPerLoopAixs0;
-    }
+    u64 processedCount = 0;
+    u32 loopIndex = 0;
+    while (processedCount < dataCount_) {
+        u64 remainingCount = dataCount_ - processedCount;
+        u32 remainingLoopTimes = (loopIndex < loopTimes) ? (loopTimes - loopIndex) : 1;
+        u64 currCount = (remainingCount + remainingLoopTimes - 1) / remainingLoopTimes;
+        currCount = std::min(currCount, maxCountPerLoop);
+        u64 currCountPart0 = static_cast<u64>(dataSplitSize[0] * currCount);
+        u64 currCountPart1 = currCount - currCountPart0;
 
-    for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
-        // 使用预计算的对齐后数据量
-        u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs0 : dataCountPerLoopAixs0;
-        u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs1 : dataCountPerLoopAixs1;
-        
+        if (remainingLoopTimes > 1) {
+            // 对两块数据分别进行4K对齐（向下取整）
+            if (currCountPart0 * dataTypeSize_ >= alignSize) {
+                currCountPart0 = currCountPart0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+            }
+            if (currCountPart1 * dataTypeSize_ >= alignSize) {
+                currCountPart1 = currCountPart1 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+            }
+        } else {
+            currCountPart0 = static_cast<u64>(dataSplitSize[0] * currCount);
+            currCountPart1 = currCount - currCountPart0;
+        }
+        CHK_PRT_RET(currCountPart0 + currCountPart1 == 0,
+                    HCCL_ERROR("[InsV2AllGatherParallelExecutor][OrchestrateLoop] currCount is 0"),
+                    HcclResult::HCCL_E_INTERNAL);
+
         // 第一步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
-        u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
+        u64 dataOffset0 = processedCount * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
         // 数据0的server内的mesh算法
         GenTemplateAlgParamsIntra0(param, resCtx, dataOffset0, currCountPart0, intraScratchOffset,
@@ -500,12 +510,62 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes));
         // 尾同步
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+
+        processedCount += currCountPart0 + currCountPart1;
+        loopIndex++;
     }
 #ifndef AICPU_COMPILE
     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
         CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, resCtx.notifyNumOnMainThread));
     }
 #endif
+
+//     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
+//         // 使用预计算的对齐后数据量
+//         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs0 : dataCountPerLoopAixs0;
+//         u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs1 : dataCountPerLoopAixs1;
+        
+//         // 第一步开始前同步
+//         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+//         u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
+//         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
+//         // 数据0的server内的mesh算法
+//         GenTemplateAlgParamsIntra0(param, resCtx, dataOffset0, currCountPart0, intraScratchOffset,
+//                                    tempAlgParamsIntra0);
+//         // 把每个template需要的queue传进去，比如stars的mesh要传多条queue
+//         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes));
+//         // 数据1的server间的nhr算法
+//         GenTemplateAlgParamsInter1(param, resCtx, dataOffset1, currCountPart1, interScratchOffset,
+//                                    tempAlgParamsInter1);
+//         CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes));
+//         // 第一步做完后回到主流做尾同步
+//         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+
+// #ifndef AICPU_COMPILE
+//     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+//         ccuKernelLaunchNumIntra0_ = intraTempAlgRes.submitInfos.size();
+//         ccuKernelLaunchNumInter1_ = interTempAlgRes.submitInfos.size();
+//     }
+// #endif
+
+//         // 第二步开始前同步
+//         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+//         // 数据0的server间的nhr算法
+//         GenTemplateAlgParamsInter0(param, resCtx, dataOffset0, currCountPart0, interScratchOffset,
+//                                    tempAlgParamsInter0);
+//         CHK_RET(tempAlgInter.KernelRun(param, tempAlgParamsInter0, interTempAlgRes));
+//         // 数据1的server内的mesh算法
+//         GenTemplateAlgParamsIntra1(param, resCtx, dataOffset1, currCountPart1, intraScratchOffset,
+//                                    tempAlgParamsIntra1);
+//         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes));
+//         // 尾同步
+//         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+//     }
+// #ifndef AICPU_COMPILE
+//     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+//         CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, resCtx.notifyNumOnMainThread));
+//     }
+// #endif
     HCCL_INFO("[InsV2AllGatherParallelExecutor][OrchestrateLoop] End.");
     return HcclResult::HCCL_SUCCESS;
 };
