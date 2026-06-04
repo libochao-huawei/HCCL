@@ -195,9 +195,9 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
-            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize) {
-                selectAlgName = "CcuAllGatherMesh1DMem2Mem";
-                return SelectorStatus::MATCH;
+            // } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize) {
+            //     selectAlgName = "CcuAllGatherMesh1DMem2Mem";
+            //     return SelectorStatus::MATCH;
             } else if (dataSize < AG_CCU_SEQUENCE_MAX_DATA_SIZE) {
                 selectAlgName = "CcuAllGatherSequenceMeshMesh";
                 return SelectorStatus::MATCH;
