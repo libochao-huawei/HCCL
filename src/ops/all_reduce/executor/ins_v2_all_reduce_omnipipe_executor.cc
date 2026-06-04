@@ -583,9 +583,9 @@ HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRs
     std::vector<double> bdvec;
     CHK_RET(ClacOmniBandwidthInSever(resCtx, bdvec));
     //计算等价带宽
-    double eqBw0 = bdvec[0];  //L0 mesh
-    double eqBw1 = bdvec[1];  //L1 NHR
-    double eqBw2 = bdvec[2];  //L2 NHR
+    double eqBw0 = bdvec[0];  // L0 mesh
+    double eqBw1 = bdvec[1];  // L1 NHR
+    double eqBw2 = bdvec[2];  // L2 NHR
 
     //level0为mesh,等价mesh为其本身
     //level1为nhr
@@ -600,7 +600,6 @@ HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRs
     eqBw4 = rankSizeLevel1_ > 1 ? eqBw4 / (rankSizeLevel1_ - 1) : eqBw4;
     eqBw5 = rankSizeLevel2_ > 1 ? eqBw5 / (rankSizeLevel2_ - 1) : eqBw5;
     std::vector<double> endpointAttrBwNew{eqBw3, eqBw4, eqBw5};
-    
 
     // 2.1 计算scratch
     OmniPipeScratchParam scratchParam;
