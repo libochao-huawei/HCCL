@@ -19,10 +19,10 @@ namespace ccu = ::AscendC::ccu;
 
 namespace ops_hccl_ag {
 
-constexpr uint64_t MS_INTERLEAVE = 8;
-constexpr uint64_t MS_SIZE = 4096;
-constexpr uint32_t LOCAL_COPY_MS_PER_LOOP = 8;
-constexpr uint32_t MS_LOCAL_COPY_LOOP_COUNT = 8;
+constexpr uint64_t CCU_MS_INTERLEAVE = 8;
+constexpr uint64_t CCU_MS_SIZE = 4096;
+constexpr uint32_t CCU_LOCAL_COPY_MS_PER_LOOP = 8;
+constexpr uint32_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
 
 struct LoopGroupConfig {
     uint32_t msInterleave;
