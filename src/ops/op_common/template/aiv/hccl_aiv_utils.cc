@@ -259,7 +259,7 @@ using AivKernelArgs = struct AivKernelArgsDef {
         u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride,
         bool isOpBase = true,
         const void* headCountMem = nullptr, const void* tailCountMem = nullptr, const void* addOneMem = nullptr,
-        u32 counterMemSize = 0, isEnableCounter = false)
+        u32 counterMemSize = 0, bool isEnableCounter = false)
         : buffersIn(buffIn),input(input), output(output), rank(rank), sendRecvRemoteRank(sendRecvRemoteRank), rankSize(rankSize), xRankSize(xRankSize), yRankSize(yRankSize), zRankSize(zRankSize),
         len(len) ,dataType(dataType),
         reduceOp(reduceOp), root(root), tag(tag),
