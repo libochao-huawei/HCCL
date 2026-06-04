@@ -56,32 +56,6 @@ struct GroupCopyVar {
     ccu::Variable  loopLen[2];
 };
 
-struct CcuKernelCtxBase {
-    struct CcuLoopEntity {
-        std::unique_ptr<ccu::Func> body[2];
-        std::unique_ptr<ccu::Loop> loops[2];
-        ccu::Variable              loopParam[2];
-    };
-
-    LoopGroupConfig  moConfig;
-    LoopGroupResource moRes;
-    bool resourceAllocated;
-
-    std::map<std::string, CcuLoopEntity> loopMap;
-    CcuLoopExecutors enginePool;
-
-    // GroupCopy持久化变量：确保Loop录制时绑定的句柄在整个kernel生命周期内稳定
-    GroupCopyVar gcVar;
-
-    void CreateLoopEntity(std::string loopStr) {
-        loopMap.emplace(loopStr, CcuLoopEntity());
-    }
-
-    bool IsLoopEntityRegistered(std::string loopStr) {
-        return loopMap.count(loopStr) != 0;
-    }
-};
-
 struct GroupReduceVar {
     ccu::LocalAddr loopDst[2];
     std::array<std::vector<ccu::RemoteAddr>, NUM_TWO> loopRemoteSrc;
@@ -102,6 +76,37 @@ struct GroupLocalReduceVar {
     std::array<std::vector<ccu::LocalAddr>, NUM_TWO> loopScratch;
     ccu::Variable  loopLen[2];
     ccu::Variable  loopLenExp[2];
+};
+
+struct CcuKernelCtxBase {
+    struct CcuLoopEntity {
+        std::unique_ptr<ccu::Func> body[2];
+        std::unique_ptr<ccu::Loop> loops[2];
+        ccu::Variable              loopParam[2];
+    };
+
+    LoopGroupConfig  moConfig;
+    LoopGroupResource moRes;
+    bool resourceAllocated;
+
+    std::map<std::string, CcuLoopEntity> loopMap;
+    CcuLoopExecutors enginePool;
+
+    // Group操作持久化变量：确保Loop录制时绑定的句柄在整个kernel生命周期内稳定
+    GroupCopyVar           gcVar;
+    GroupBroadcastVar      gbVar;
+    GroupBroadcastVar      gbWmrVar;   // broadcast without my rank
+    GroupReduceVar         grVar;
+    GroupReduceVar         grWmrVar;   // reduce without my rank
+    GroupLocalReduceVar    glrVar;
+
+    void CreateLoopEntity(std::string loopStr) {
+        loopMap.emplace(loopStr, CcuLoopEntity());
+    }
+
+    bool IsLoopEntityRegistered(std::string loopStr) {
+        return loopMap.count(loopStr) != 0;
+    }
 };
 
 std::vector<uint64_t> CalGoSize(uint64_t size);
