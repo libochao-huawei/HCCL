@@ -17,7 +17,6 @@ constexpr int TOKEN_XN_ID = 2;
 constexpr int CKE_IDX_0 = 0;
 constexpr int POST_SYNC_ID = 3;
 constexpr uint16_t BIT_NUM_PER_CKE = 16;
-constexpr uint32_t UNROLL_NUM = 16; // 最多支持8 * 16 = 128个rank
 
 static CcuResult ParseKernelArg(AllGatherMesh1DMem2MemContext &ctx, CcuKernelArgAllGatherMesh1DMem2Mem *kernelArg)
 {
@@ -195,10 +194,6 @@ static CcuResult DoRepeatAllGather(AllGatherMesh1DMem2MemContext &ctx)
                 } else {
                     dst[rankIdx].addr += ctx.outputRepeatStride;
                 }
-            }
-            CCU_IF(normalSliceSize_ != 0)
-            {
-                DoAllGatherWrite(src, dst, normalSliceSize_, i);
             }
         }
         CCU_IF(ctx.normalSliceSize != 0)
