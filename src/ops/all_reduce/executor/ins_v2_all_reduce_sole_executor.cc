@@ -17,7 +17,7 @@
 #ifndef AICPU_COMPILE
 #include "aiv_temp_all_reduce_mesh_1D_oneshot.h"
 #include "aiv_temp_all_reduce_mesh_1D_twoshot.h"
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "ccu_temp_all_reduce_mesh_1D_one_shot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_mesh_1D.h"
@@ -25,7 +25,7 @@
 #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
 #include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 #endif
 
 namespace ops_hccl {
@@ -75,6 +75,11 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.DataDes.dataType];
+    if (dataCount_ > UINT64_MAX / dataTypeSize_) {
+        HCCL_ERROR("[InsV2AllReduceSoleExecutor][Orchestrate] dataCount[%llu] * dataTypeSize_[%llu] is greater than UINT64_MAX",
+            dataCount_, dataTypeSize_);
+        return HCCL_E_INTERNAL;
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
@@ -123,7 +128,8 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     // 计算最小传输大小
     u64 maxDataSizePerLoop = 0;
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
-    u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
+    u64 transportBoundDataSize = (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) ?
+        maxTmpMemSize_ : UB_MAX_DATA_SIZE;
     HCCL_INFO("[InsV2AllReduceSoleExecutor]maxTmpMemSize_ [%u]", maxTmpMemSize_);
     if (templateScratchMultiplier != 0) {
         u64 scratchBoundDataSize = maxTmpMemSize_ / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN
@@ -133,6 +139,8 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         maxDataSizePerLoop = transportBoundDataSize;
     }
     // 单次循环处理的数据量大小
+    CHK_PRT_RET(dataTypeSize_ == 0,
+        HCCL_ERROR("[InsV2AllReduceSoleExecutor][OrchestrateOpbase] dataTypeSize_ is 0"), HCCL_E_INTERNAL);
     u64 maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize_;
     HCCL_INFO(
         "[InsV2AllReduceSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop[%llu], maxDataSizePerLoop[%llu], "
@@ -179,7 +187,7 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread) const
 {
     HCCL_INFO("[InsV2AllReduceSoleExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = 1;
@@ -257,34 +265,34 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DOneShot, Ins
     AivTempAllReduceMesh1DOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DTwoShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     AivTempAllReduceMesh1DTwoShot);
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1D, InsV2AllReduceSoleExecutor, TopoMatch1D,
                  CcuTempAllReduceNHRMem2Mem1D);
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem, InsV2AllReduceSoleExecutor,
                  TopoMatch1D, CcuTempAllReduceMeshMem2Mem1D);
-#endif /* !HCCL_CANN_COMPAT_850 */
-#if !defined(HCCL_CANN_COMPAT_850)
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1D, InsV2AllReduceSoleExecutor, 
                  TopoMatch1D, CcuTempAllReduceMesh1D);
-#endif /* !HCCL_CANN_COMPAT_850 */
-#if !defined(HCCL_CANN_COMPAT_850)
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh2Die, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllreduceMesh1D2DieOneShot);
-#endif /* !HCCL_CANN_COMPAT_850 */
-#if !defined(HCCL_CANN_COMPAT_850)
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
     TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
-#endif /* !HCCL_CANN_COMPAT_850 */
-#if !defined(HCCL_CANN_COMPAT_850)
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllReduceMesh1DMem2Mem2DieOneShot);
-#endif /* !HCCL_CANN_COMPAT_850 */
-#if !defined(HCCL_CANN_COMPAT_850)
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1DMem2MemMultiJetty, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllReduceNhrMem2Mem1DMultiJetty);
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 #endif
 }  // namespace ops_hccl

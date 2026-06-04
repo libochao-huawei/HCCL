@@ -130,7 +130,7 @@ HcclResult InsTempAllGatherMesh1dIntra::RunAllGatherMesh(const std::vector<Threa
             }
 
             ThreadHandle currQue = threads[threadIdx];
-            // 预留兼容offload模式
+            // allgather 预留兼容offload模式
             const ChannelInfo &linkRemote = channels.at(connectedRank)[0];
             void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
 
@@ -146,13 +146,13 @@ HcclResult InsTempAllGatherMesh1dIntra::RunAllGatherMesh(const std::vector<Threa
             void *txDstPtr = remoteCclBuffAddr;
             void *rxSrcPtr = tempAlgParams_.buffInfo.outputPtr;
             void *rxDstPtr = remoteCclBuffAddr;
-            // write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
-            // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
+            // allgather write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
+            // allgather read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
             std::vector<DataSlice> txSrcSlices{
                 DataSlice(txSrcPtr, txOutOffset, myAlgSize, myAlgCount)};  // 本地(send)
             std::vector<DataSlice> txDstSlices{
                 DataSlice(txDstPtr, txDstOffset, myAlgSize, myAlgCount)};  // 远程(send)
-            // read模式使用rx
+            // allgather read模式使用rx
             std::vector<DataSlice> rxDstSlices{
                 DataSlice(rxDstPtr, rxDstOffset, connectedAlgSize, connectedAlgCount)};  // 本地(recv)
             std::vector<DataSlice> rxSrcSlices{

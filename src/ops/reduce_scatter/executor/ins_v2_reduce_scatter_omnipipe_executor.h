@@ -33,7 +33,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2ReduceScatterOmniPipeExecutor : public InsCollAlgBase {
 public:
     explicit InsV2ReduceScatterOmniPipeExecutor();
-    ~InsV2ReduceScatterOmniPipeExecutor() = default;
+    ~InsV2ReduceScatterOmniPipeExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -45,7 +45,7 @@ public:
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
     HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
-        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo);
+        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
 protected:
     /* *************** 算法编排 *************** */
@@ -53,11 +53,11 @@ protected:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
         std::map<u32, std::shared_ptr<InsAlgTemplateBase>> tempMap);
     HcclResult InitCommInfo(
-        const OpParam &param, const TopoInfo *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
+        const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
     HcclResult PrepareResForTemplateLevel(u32 level, std::shared_ptr<InsAlgTemplateBase> &tempBase);
-    HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, const StepSliceInfo &stepSliceInfo);
+    HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, const StepSliceInfo &stepSliceInfo) const;
     HcclResult CalcResLevel(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
-        std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest &resourceRequest);
+        std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest &resourceRequest) const;
 
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
@@ -91,7 +91,7 @@ protected:
     std::vector<ThreadHandle> level2Threads_;
 
     AlgHierarchyInfoForAllLevel algHierarchyInfo_;
-    std::vector<std::map<u32 ,std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
+    std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;                 // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
 };
 }

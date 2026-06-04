@@ -18,8 +18,9 @@
 #include "topo.h"
 #include "topo_host.h"
 #include "alg_env_config.h"
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_alg_template_base.h"
-
+#endif
 namespace ops_hccl {
 HcclResult CalcLevel0ChannelRequest(const OpParam& param, const TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo,
     const AlgType& algType, std::vector<HcclChannelDesc> &channels)
@@ -53,13 +54,13 @@ HcclResult CalcLevel0ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     return HCCL_SUCCESS;
 }
 
-HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
+HcclResult ProcessMeshInfo(const HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
                         std::map<u32, u32>& rank2ChannelIdx, u32 myRank,
                         std::vector<std::vector<HcclChannelDesc>>& channelsPerDie,
                         u32 enableDieNum, u32 enableDieId,
                         std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {
-#ifndef AICPU_COMPILE
+#if !defined(AICPU_COMPILE) && (CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0))
     constexpr u32 DIE_NUM_1 = 1;
     constexpr u32 DIE_NUM_2 = 2;
     constexpr u32 DIE_0 = 0;
@@ -83,18 +84,21 @@ HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& su
         }
     }
     return HcclResult::HCCL_SUCCESS;
+#else
+    (void)comm; (void)subcommInfo; (void)rank2ChannelIdx; (void)myRank;
+    (void)channelsPerDie; (void)enableDieNum; (void)enableDieId; (void)rankIdToChannelDesc;
+    return HcclResult::HCCL_E_NOT_SUPPORT;
 #endif
 }
 
 HcclResult ProcessFlattenLink(HcclComm comm, u32 myRank, const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
-#ifndef AICPU_COMPILE
+#if !defined(AICPU_COMPILE) && (CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0))
     std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc;
     CHK_RET(CcuAlgTemplateBase::RestoreChannelMap(channels, rankIdToChannelDesc));
     uint32_t enableDieNum = 0;
     uint32_t enableDieId = 0;
     CHK_RET(CcuAlgTemplateBase::GetDieInfoFromChannelDescs(comm, rankIdToChannelDesc, myRank, enableDieNum, enableDieId));
-    HCCL_INFO("enableDieNum = %llu, enableDieId = %llu",enableDieNum, enableDieId);
     if (enableDieNum < 1 || enableDieNum > CCU_DIE_NUM_MAX_2) { // 目前只支持1个或2个die
         HCCL_ERROR("[ProcessFlattenLink] get channelDescs fail");
         return HcclResult::HCCL_E_INTERNAL;
@@ -108,6 +112,9 @@ HcclResult ProcessFlattenLink(HcclComm comm, u32 myRank, const std::vector<std::
     }
     channels = channelsPerDie[0];
     return HcclResult::HCCL_SUCCESS;
+#else
+    (void)comm; (void)myRank; (void)subcommInfo; (void)channels;
+    return HcclResult::HCCL_E_NOT_SUPPORT;
 #endif
 }
 
@@ -189,7 +196,7 @@ HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoIn
 HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols)
 {
     protocols.clear();
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 1, 0)
     switch (param.engine) {
         case CommEngine::COMM_ENGINE_AICPU:
         case CommEngine::COMM_ENGINE_AICPU_TS:
@@ -222,7 +229,7 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
     }
 #else
     // 8.5.0 CANN 无 UBC_CTP/UB_MEM 等枚举值；此函数所在的 CalcChannelRequestXxx/CreateChannelRequestByRankId 通路
-    // 仅 9.0.0 新路径使用，运行时已由算子入口 GetHcommVersion() < 90000000 分流到 HcclXxxInner，
+    // 仅 9.0.0 新路径使用，运行时已由算子入口 GetHcommVersion() < CANN_VERSION(9, 0, 0) 分流到 HcclXxxInner，
     // 8.5.0 下不会真正走到。这里保留空桩让 libhccl.so 外部链接（hccl_test 等）能解析符号。
     (void)param;
 #endif
@@ -242,10 +249,10 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
     channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
     channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-    HCCL_DEBUG("%s local device phyId: %u, remote device phyId: %u.",
+    HCCL_DEBUG("[CreateChannelFromLink]%s local device phyId: %u, remote device phyId: %u.",
                 funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
                 channelDesc.remoteEndpoint.loc.device.devPhyId);
-    HCCL_INFO("%s Add channel request between %zu and %zu, netLayerIdx %u, "
+    HCCL_INFO("[CreateChannelFromLink]%s Add channel request between %zu and %zu, netLayerIdx %u, "
               "linkListIdx %u, protocol %zu",
               funcName.c_str(), myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
     channelDesc.channelProtocol = link.linkAttr.linkProtocol;
@@ -354,7 +361,7 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo, const std::vector<std::vector<u32>>& subcommInfo,
     std::vector<HcclChannelDesc> &channels)
 {
-#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850) && !defined(AICPU_COMPILE)
     channels.clear();
     (void) param;
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
@@ -384,10 +391,8 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
         bool protocolFound = false;
         CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, curNetLayer, channels, protocolFound,
             std::string("[CalcChannelRequestMesh1D]")));
-
     }
     if (curNetLayer != 0) { // 通过端口数划分channel，适配跨框die0连die1的场景，避免建链失败
-        HCCL_INFO("curNetLayer = %lld",curNetLayer);
         CHK_RET(ProcessFlattenLink(comm, myRank, subcommInfo, channels));
     }
     return HCCL_SUCCESS;
@@ -513,7 +518,7 @@ HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const T
     if (subcommInfo.size() == 2) { // 2D Mesh
         CHK_RET(CalcMesh2DChannelConnect(myRank, subcommInfo, connectRanks));
     }
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 1, 0)
     CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
     if (param.engine == CommEngine::COMM_ENGINE_AIV) {
         protocol = CommProtocol::COMM_PROTOCOL_UB_MEM;
@@ -624,7 +629,7 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
     return HCCL_SUCCESS;
 }
 
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 1, 0)
 static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
 {
     HCCL_INFO("endPoint0:phyId[%u], protocol[%u], addr.type[%u], addr.id[%u]",
@@ -645,14 +650,13 @@ static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
             (endPoint0.commAddr.type == endPoint1.commAddr.type) &&
             (memcmp(endPoint0.commAddr.eid, endPoint1.commAddr.eid, sizeof(endPoint0.commAddr.eid)) == 0);
     }
-
 }
-#endif /* CANN_VERSION_NUM >= 90000000 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 1, 0) */
 
 HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, CommTopo &topoType)
 {
-#if defined(AICPU_COMPILE) || CANN_VERSION_NUM < 90000000
-    // 8.5.0 CANN 无 HcclRankGraphGetEndpointNum / GetEndpointDesc / GetTopoType 等 9.0.0-only API，
+#if defined(AICPU_COMPILE) || CANN_VERSION_NUM < CANN_VERSION(9, 1, 0)
+    // 9.1.0 之前不使用 HcclRankGraphGetEndpointNum / GetEndpointDesc / GetTopoType 等新 API，
     // 且 CommAddr.eid 字段也不存在；整函数在 8.5.0 下不提供真实实现（上游在 9.0.0 新路径里调用，
     // 入口版本号守护后 8.5.0 永远走不到这里）。
     (void)comm; (void)netLayer; (void)link; (void)topoType;
@@ -668,6 +672,10 @@ HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, C
         uint32_t endPointNum;
         CHK_RET(HcclRankGraphGetEndpointNum(comm, netLayer, topoInstId, &endPointNum));
         EndpointDesc *endPointDescs = (EndpointDesc*)malloc(endPointNum * sizeof(EndpointDesc));
+        if (endPointDescs == nullptr) {
+            HCCL_ERROR("Malloc endPointDescs failed!");
+            return HCCL_E_PARA;
+        }
         CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayer, topoInstId, &endPointNum, endPointDescs));
         CHK_RET(HcclRankGraphGetTopoType(comm, netLayer, topoInstId, &topoType));
         HCCL_DEBUG("[%s]topoInstId=%u, endPointNum=%u, topoType=%u", __func__, topoInstId, endPointNum, topoType);

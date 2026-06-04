@@ -27,12 +27,13 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
+    uint32_t userRankSizeMax = 128;
     if (topoInfo->topoLevelNums > 1) {
         if (opParam.all2AllDataDes.sendType == HcclDataType::HCCL_DATA_TYPE_INT8) {
             HCCL_WARNING("[Algo][AlltoAllVAutoSelector] int8 is not supported yet for ccu_schedule mode.");
             return SelectorStatus::NOT_MATCH;
         }
-        if (topoInfo->userRankSize > 128) {
+        if (topoInfo->userRankSize > userRankSizeMax) {
             HCCL_WARNING("[Algo][AlltoAllVAutoSelector] rankSize > 128 is not supported yet for ccu_schedule mode.");
             return SelectorStatus::NOT_MATCH;
         }
@@ -134,8 +135,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
         HCCL_DEBUG("[AlltoAllVAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
         return SelectorStatus::NOT_MATCH;
     }
-
-    selectAlgName = "AivAlltoAllVMesh1D";
+        selectAlgName = "AivAlltoAllVMesh1D";
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }

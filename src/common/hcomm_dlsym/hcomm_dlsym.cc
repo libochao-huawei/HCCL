@@ -15,6 +15,7 @@
 #include "hccl_inner_dl.h"
 #include "hcomm_host_profiling_dl.h"
 #include "hccl_host_comm_dl.h"
+#include "hccl_res_expt_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
 #include <cstdio>
@@ -37,7 +38,7 @@ int GetHcommVersion(void) {
 
 bool HcommIsProfilingSupported()
 {
-    if (GetHcommVersion() >= 90000000) {
+    if (GetHcommVersion() >= CANN_VERSION(9, 0, 0)) {
         return true;
     } else {
         return false;
@@ -46,7 +47,7 @@ bool HcommIsProfilingSupported()
 
 bool HcommIsExportThreadSupported()
 {
-    if (GetHcommVersion() >= 90000000 && HcommIsSupportHcclThreadExportToCommEngine()) {
+    if (GetHcommVersion() >= CANN_VERSION(9, 0, 0) && HcommIsSupportHcclThreadExportToCommEngine()) {
         return true;
     } else {
         return false;
@@ -71,4 +72,5 @@ void HcommDlInit(void) {
     HcclInnerDlInit(gLibHandle);
     HcommProfilingDlInit(gLibHandle);
     HcclCommDlInit(gLibHandle);
+    HcclResExptDlInit(gLibHandle);
 }

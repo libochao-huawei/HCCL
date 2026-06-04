@@ -34,6 +34,7 @@ HcclResult InsTempReduceScatterOmniPipeMesh1D::CalcRes(HcclComm comm, const OpPa
 
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    HCCL_INFO("InsTempReduceScatterOmniPipeMesh1D--CalcRes],level0Channels.size()=[%u]",level0Channels.size());
     resourceRequest.channels.push_back(level0Channels);
     HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
@@ -62,7 +63,7 @@ u64 InsTempReduceScatterOmniPipeMesh1D::CalcScratchMultiple(BufferType inBuffTyp
 }
 
 // 这个也不用，计算scratch、对齐、loop信息封装在雪松接口里
-u64 InsTempReduceScatterOmniPipeMesh1D::CalcScratchSlice(u64 dataSize)
+u64 InsTempReduceScatterOmniPipeMesh1D::CalcScratchSlice(u64 dataSize) const
 {
     // mesh直接乘rankSize
     u64 scratchMultiple = templateRankSize_ * dataSize;
@@ -258,11 +259,11 @@ HcclResult InsTempReduceScatterOmniPipeMesh1D::RunReduceScatter(const std::map<u
                                              tempAlgParam.stepSliceInfo.stepSliceSize[nextRank][repeatIdx],
                                              tempAlgParam.stepSliceInfo.stepCount[nextRank][repeatIdx]);  // 发送目标
             DataSlice rxSrcSlice = DataSlice(remoteCclBuffAddr, rxSrcCurrent,
-                                             tempAlgParam.stepSliceInfo.stepSliceSize[nextRank][repeatIdx],
-                                             tempAlgParam.stepSliceInfo.stepCount[nextRank][repeatIdx]);  // 接收源
+                                             tempAlgParam.stepSliceInfo.stepSliceSize[myAlgRank][repeatIdx],
+                                             tempAlgParam.stepSliceInfo.stepCount[myAlgRank][repeatIdx]);  // 接收源
             DataSlice rxDstSlice = DataSlice(localCclBuffAddr, rxDstCurrent,
-                                             tempAlgParam.stepSliceInfo.stepSliceSize[nextRank][repeatIdx],
-                                             tempAlgParam.stepSliceInfo.stepCount[nextRank][repeatIdx]);  // 接收目标
+                                             tempAlgParam.stepSliceInfo.stepSliceSize[myAlgRank][repeatIdx],
+                                             tempAlgParam.stepSliceInfo.stepCount[myAlgRank][repeatIdx]);  // 接收目标
             rxSrcSlices.push_back(rxSrcSlice);
             rxDstSlices.push_back(rxDstSlice);
             txSrcSlices.push_back(txSrcSlice);

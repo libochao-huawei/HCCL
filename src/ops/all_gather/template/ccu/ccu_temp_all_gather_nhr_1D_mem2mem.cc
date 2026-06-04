@@ -225,16 +225,17 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     } else {
         die0Size = templateDataParams.sliceSize;
     }
+
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
     uint64_t offset = 0;
-    uint64_t repeatNum = templateDataParams.repeatNum;
     uint64_t inputSliceStride = templateDataParams.inputSliceStride;
     uint64_t outputSliceStride = templateDataParams.outputSliceStride;
     uint64_t inputRepeatStride = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
+    uint64_t repeatNum = templateDataParams.repeatNum;
     uint64_t repeatNumVar = UINT64_MAX - repeatNum;
     uint64_t die0LastSize = templateDataParams.tailSize / kernelNum;
     uint64_t die1LastSize = templateDataParams.tailSize - die0LastSize;
@@ -332,7 +333,8 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRSt
 
 u64 CcuTempAllGatherNHR1DMem2Mem::GetThreadNum() const
 {
-    return 2;
+    u32 threadNum = 2;
+    return threadNum;
 }
  
 HcclResult CcuTempAllGatherNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const

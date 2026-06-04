@@ -18,7 +18,14 @@
 #include "template_utils.h"
 #include "alg_template_base.h"
 namespace ops_hccl {
+constexpr u64 HCCL_MIN_SLICE_ALIGN_OMNIPIPE=512;
 constexpr u64 MAX_STEP_NUM = 5;
+
+constexpr double BW_OMNI_DEFAULT = 50;
+constexpr double BW_OMNI_PCIE_EIGHT_AG_CLOS = 20;
+constexpr double BW_OMNI_PCIE_EIGHT_RS_CLOS = 29;
+constexpr double BW_OMNI_PCIE_SIXTEEN_RS_CLOS = 35;
+constexpr double BW_OMNI_PCIE_SIXTEEN_AG_CLOS = 35;
 
 enum OmniPipeLevel{
     OMNIPIPE_LEVEL0 = 0,
@@ -54,7 +61,7 @@ struct OmniPipeSplitSliceInfo {
 // 计算SliceInfo的入参
 struct OmniPipeSliceParam {
     std::vector<u64> levelRankSize;  // 依次为三个维度的rankSize
-    std::vector<EndpointAttrBwCoeff> endpointAttrBw;  // 依次为三个维度的平均带宽
+    std::vector<double> endpointAttrBw;  // 依次为三个维度的平均带宽
     std::vector<u64> dataSizePerLoop{0};  // 一次loop总数据量大小
     u64 dataTypeSize{0};  // 数据类型大小
     std::vector<u64> dataWholeSize{
@@ -127,7 +134,7 @@ struct OmniPipeSliceParam {
 // 计算ScratchInfo的入参，只给RS用
 struct OmniPipeScratchParam {
     std::vector<u64> levelRankSize;  // 依次为三个维度的rankSize
-    std::vector<EndpointAttrBwCoeff> endpointAttrBw;  // 依次为三个维度的平均带宽
+    std::vector<double> endpointAttrBw;  // 依次为三个维度的平均带宽
     std::vector<u64> dataSize{0};  // 做之前的数据量大小
     u64 dataTypeSize{0};  // 数据类型大小
     u64 maxTmpMemSize{0};  // 最大scratch大小
@@ -188,29 +195,29 @@ void BuffInfoAssign(BuffInfo& bi, u64 inBuffBaseOff, u64 outBuffBaseOff, u64 hcc
 std::vector<OmniPipeSplitSliceInfo> OmniPipeSplitSliceInfoListAssign(const std::vector<u64> dataWholeSize, u64 rankSize,
                                                                      u64 dataTypeSize);
 u64 RoundUp(const u64 dividend, const u64 divisor);
-u64 DataSliceCut(u64 originSliceSize, u64 originSliceOffset, u64 stopOffect);
-u64 sliceOffsetCut(u64 originOffset, u64 stopOffect);
+u64 DataSliceCut(u64 originSliceSize, u64 originSliceOffset, u64 stopOffset);
+u64 sliceOffsetCut(u64 originOffset, u64 stopOffset);
 
 std::vector<std::vector<u64>> OmniPipeSplitRankDataLoop(std::vector<u64> omniPipeSplitSliceInfoList,
                                                         u64 maxDataCountPerLoop, u64 loopCount, u64 dataTypeSize);
 std::vector<u64> OmniPipeSplitData(u64 rankSize, u64 count, u64 dataTypeSize);
 
 double CalcBandwidth2D(double xB, double yB, u64 xRankSize, u64 yRankSize, int maxStepNum);
-void CalAllgather2DOffset(u64* xAGOffect, u64* yAGOffect, u64 stepNum, u64 xRankSize, u64 yRankSize, u64* xAGDataSize,
+void CalAllgather2DOffset(u64* xAGOffset, u64* yAGOffset, u64 stepNum, u64 xRankSize, u64 yRankSize, u64* xAGDataSize,
                           u64* yAGDataSize);
-u64 CalAllgatherDataSizeRatio2D(double* xStepP2pDataSize, double* yStepP2pDataSize, double xB, double yB, u64 j, u64 i,
-                                double dataSize, u64 maxStep);
+u64 CalAllgatherDataSizeRatio2D(double* xStepP2pDataSize, double* yStepP2pDataSize, double xB, double yB, u64 xRankSize,
+                                u64 yRankSize, double dataSize, u64 maxStep);
 u64 CalAllgatherDataSize2D(u64* xStepP2pDataSize, u64* yStepP2pDataSize, double xB, double yB, u64 xRankSize,
                            u64 yRankSize, u64 dataSizeEachRank, u64 maxStep);
 OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam& omniPipeSliceParam);
 
 std::vector<u64> CalScratchSize(u64* xRSDataSize, u64* yRSDataSize, u64* zRSDataSize, std::vector<u64> levelRankSize,
                                 u64 cornerStep, u64 outerStepNum, u64 innerStepNum, u64 maxStepNum,
-                                std::vector<u64> levelAlgType, CommEngine engine);
+                                std::vector<u64> levelAlgType, CommEngine engine,double xB, double yB);
 std::vector<std::vector<u64>> CalRSDataSizeStep(u64* xRSDataSize, u64* yRSDataSize, u64* zRSDataSize,
                                                 std::vector<u64> levelRankSize, u64 cornerStep, u64 outerStepNum,
-                                                u64 innerStepNum, u64 maxStepNum);
-void CalReducescatter2DOffset(u64* xRSOffect, u64* yRSOffect, u64 stepNum, u64 xRankSize, u64 yRankSize,
+                                                u64 innerStepNum, u64 maxStepNum,double xB, double yB);
+void CalReducescatter2DOffset(u64* xRSOffset, u64* yRSOffset, u64 stepNum, u64 xRankSize, u64 yRankSize,
                               u64* xRSDataSize, u64* yRSDataSize);
 u64 CalReducescatterDataSize2D(u64* xStepP2pDataSize, u64* yStepP2pDataSize, double xB, double yB, u64 xRankSize,
                                u64 yRankSize, u64 dataSizeEachRank, u64 maxStep);

@@ -167,7 +167,6 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
 
     CHK_RET(
         HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
-
     
     // 下发完再保存参数信息
     CcuKernelSubmitInfo submitInfo;

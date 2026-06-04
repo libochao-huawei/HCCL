@@ -77,7 +77,7 @@ HcclResult GetHcclDfxOpInfoDataType(const OpParam &param, uint32_t &dataType) {
     return HCCL_SUCCESS;
 }
 
-HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
+HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfoCompat *hcclDfxOpInfo)
 {
     CHK_PTR_NULL(param);
     CHK_PTR_NULL(hcclDfxOpInfo);
@@ -92,11 +92,17 @@ HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
     s32 sRet = strncpy_s(hcclDfxOpInfo->algTag, ALG_TAG_LENGTH, param->algTag, ALG_TAG_LENGTH);
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param->algTag, sRet), HCCL_E_MEMORY);
     hcclDfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
+    hcclDfxOpInfo->inputMemAddr = reinterpret_cast<uint64_t>(param->inputPtr);
+    hcclDfxOpInfo->inputMemSize = param->inputSize;
+    hcclDfxOpInfo->outputMemAddr = reinterpret_cast<uint64_t>(param->outputPtr);
+    hcclDfxOpInfo->outputMemSize = param->outputSize;
     HCCL_INFO("[%s]HcclDfxOpInfo param: algTag[%s], opMode[%u], opType[%u], reduceOp[%u], dataType[%u], dataCount[%llu],"
-        "root[%u], engine[%u], cpuTsThread[%u], cpuWaitAicpuNotifyIdx[%u]",
+        "root[%u], engine[%u], cpuTsThread[%u], cpuWaitAicpuNotifyIdx[%u], "
+        "inputMemAddr[0x%llx], inputMemSize[%llu], outputMemAddr[0x%llx], outputMemSize[%llu]",
         __func__, hcclDfxOpInfo->algTag, hcclDfxOpInfo->opMode, hcclDfxOpInfo->opType, hcclDfxOpInfo->reduceOp,
         hcclDfxOpInfo->dataType, hcclDfxOpInfo->dataCount, hcclDfxOpInfo->root, hcclDfxOpInfo->engine,
-        hcclDfxOpInfo->cpuTsThread, hcclDfxOpInfo->cpuWaitAicpuNotifyIdx);
+        hcclDfxOpInfo->cpuTsThread, hcclDfxOpInfo->cpuWaitAicpuNotifyIdx, hcclDfxOpInfo->inputMemAddr,
+        hcclDfxOpInfo->inputMemSize, hcclDfxOpInfo->outputMemAddr, hcclDfxOpInfo->outputMemSize);
     return HCCL_SUCCESS;
 }
 }

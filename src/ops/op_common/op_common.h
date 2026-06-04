@@ -41,6 +41,15 @@ HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoI
 HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, bool &isResourceReused, const ResPackGraphMode &resPack);
 
+HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo);
+
+HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
+
+HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t &size, bool increCreateChannelFlag,
+    const ResPackGraphMode &resPack);
+
 HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
@@ -60,9 +69,9 @@ HcclResult GeReuseResource(HcclComm comm, OpParam &param, std::unique_ptr<InsCol
         std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo, const ResPackGraphMode &resPack);
 
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
+                          AlgResourceCtxSerializable* resCtxHost);
 HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest,
-                              const CommEngine commEngine, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, MemRegInfo &memRegInfo);
+                              const CommEngine commEngine, AlgResourceCtxSerializable* resCtxHost, MemRegInfo &memRegInfo);
 HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles);
 HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const char* inputBuffTag, const char* outputBuffTag, ChannelInfo& channel);
 HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
@@ -111,7 +120,7 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
                                     AlgResourceRequest &resRequest);
 
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize);
+    const std::vector<char>& seq, void **resCtxSequence, uint64_t& ctxSize);
 
 HcclResult SingleRankProc(HcclComm comm, OpParam &param);
 
@@ -170,10 +179,6 @@ HcclResult LogHcclExit(const std::string &opName, const char *tag, HcclUs startu
 HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam);
 
 HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam);
-
-HcclResult HcclAllocAlgResourceAivGraphMode(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost);
-
-HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
 
 HcclResult SetMultipleDimensionSplitRatio(OpParam &param);
 

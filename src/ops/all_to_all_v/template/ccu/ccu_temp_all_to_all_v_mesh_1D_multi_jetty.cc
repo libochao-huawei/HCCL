@@ -14,6 +14,7 @@
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "alg_data_trans_wrapper.h"
+#include "template_utils.h"
 
 namespace ops_hccl {
 constexpr uint32_t CONST_1 = 1;
@@ -87,6 +88,12 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::KernelRun(const OpParam& param, con
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
+    //所有task下发完再保存参数信息
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff,
+        token, srcOffset, dstOffset, templateRankSize_));
+    templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempAllToAllVMesh1DMultiJetty::KernelRun] end");
 
@@ -97,6 +104,66 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::KernelRun(const OpParam& param, con
 void CcuTempAllToAllVMesh1DMultiJetty::SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRecvInfo)
 {
     localSendRecvInfo_ = sendRecvInfo;
+}
+
+HcclResult CcuTempAllToAllVMesh1DMultiJetty::FastLaunch(const OpParam& param,
+    const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] start");
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    uint64_t rankSize = args[5];
+    HcclDataType dataType = param.all2AllVDataDes.sendType;
+    uint64_t dataTypeSize = SIZE_TABLE[dataType];
+    CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64),
+        HCCL_ERROR("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] param.varMemSize [%llu] is invalid", param.varMemSize), HCCL_E_PARA);
+
+    A2ASendRecvInfo localSendRecvInfo;
+    localSendRecvInfo.sendCounts.resize(rankSize, 0);
+    localSendRecvInfo.sendDispls.resize(rankSize, 0);
+    localSendRecvInfo.sendLength.resize(rankSize, 0);
+    localSendRecvInfo.sendOffset.resize(rankSize, 0);
+    localSendRecvInfo.recvCounts.resize(rankSize, 0);
+    localSendRecvInfo.recvDispls.resize(rankSize, 0);
+    localSendRecvInfo.recvLength.resize(rankSize, 0);
+    localSendRecvInfo.recvOffset.resize(rankSize, 0);
+    const u64* data = reinterpret_cast<const u64*>(param.varData);
+    for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * rankSize; i++) {
+        u64 val = i / rankSize;
+        u64 curRank = i % rankSize;
+        switch(val) {
+            case 0:
+                localSendRecvInfo.sendLength[curRank] = data[i] * dataTypeSize;
+                break;
+            case 2:
+                localSendRecvInfo.sendOffset[curRank] = data[i] * dataTypeSize;
+                break;
+            case 3:
+                localSendRecvInfo.recvOffset[curRank] = data[i] * dataTypeSize;
+                break;
+            default:
+                break;
+        }
+    }
+    uint64_t inputAddr = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[0];
+    uint64_t outputAddr = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[1];
+
+    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllToAllVMesh1DMultiJetty>(
+        inputAddr, outputAddr, args[2], args[3], args[4], localSendRecvInfo);
+    HCCL_INFO("[CcuTempAlltoAllVMesh1DMultiJetty::FastLaunch]: inputAddr[%llu], outputAddr[%llu], ",
+        "srcOffset[%llu], dstOffset[%llu]", inputAddr, outputAddr, args[3], args[4]);
+    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+    HCCL_INFO("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
+u64 CcuTempAllToAllVMesh1DMultiJetty::GetThreadNum() const
+{
+    return 1;
 }
 
 HcclResult CcuTempAllToAllVMesh1DMultiJetty::SetJettyNums(std::vector<uint32_t>& jettyNums, const bool multijetty) const

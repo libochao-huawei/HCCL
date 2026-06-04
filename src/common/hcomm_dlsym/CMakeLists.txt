@@ -74,6 +74,7 @@ if(STATIC_MODE)
         ${CMAKE_CURRENT_SOURCE_DIR}/hccl_inner_dl.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/hcomm_host_profiling_dl.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/hccl_host_comm_dl.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/hccl_res_expt_dl.cc
     )
 else()
     add_library(hccl_compat SHARED)
@@ -89,9 +90,7 @@ else()
         )
     endif()
 
-    if(HCCL_CANN_COMPAT_850)
-        target_compile_definitions(hccl_compat PRIVATE HCCL_CANN_COMPAT_850)
-    endif()
+    hccl_apply_cann_compat(hccl_compat)
 
     target_include_directories(hccl_compat PRIVATE
         ${INCLUDE_LIST}
@@ -150,6 +149,7 @@ endif()
         hccl_inner_dl.cc
         hcomm_host_profiling_dl.cc
         hccl_host_comm_dl.cc
+        hccl_res_expt_dl.cc
     )
 endif()
 
@@ -162,9 +162,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         hccl_device_comm_dl.cc
     )
 
-    if(HCCL_CANN_COMPAT_850)
-        target_compile_definitions(hccl_kernel_compat PRIVATE HCCL_CANN_COMPAT_850)
-    endif()
+    hccl_apply_cann_compat(hccl_kernel_compat)
 
     target_include_directories(hccl_kernel_compat PRIVATE
         ${INCLUDE_LIST}
