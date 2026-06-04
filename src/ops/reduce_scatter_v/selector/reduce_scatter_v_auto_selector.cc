@@ -175,24 +175,12 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
         return SelectorStatus::NOT_MATCH;
     }
 
-    if (topoInfo->topoLevelNums > 1) {
-        HCCL_WARNING("[ReduceScatterVAutoSelector] layerNum > 1 is not supported yet for aicpu_schedule mode.");
-        return SelectorStatus::NOT_MATCH;
-    } else {
-        return SelectMeshAlgoAicpu(topoInfo, opParam, selectAlgName);
-    }
-
-    return SelectorStatus::MATCH;
-}
-
-SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
-                                                          std::string &selectAlgName) const
-{
-    (void) opParam;
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D){
+    if (topoInfo->topoLevelNums >= 1 && topoInfo->topoLevelNums <= 3 &&
+        topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "InsReduceScatterVMesh1D";
     } else {
-        HCCL_WARNING("[ReduceScatterVAutoSelector] topo not match");
+        HCCL_WARNING("[ReduceScatterVAutoSelector] topo not match, topoLevelNums[%u], level0Topo[%u]",
+            topoInfo->topoLevelNums, static_cast<u32>(topoInfo->level0Topo));
         return SelectorStatus::NOT_MATCH;
     }
     return SelectorStatus::MATCH;
