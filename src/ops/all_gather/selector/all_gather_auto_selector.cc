@@ -229,7 +229,8 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         if (topoInfo->topoLevelNums == 3) {
             if (topoInfo->deviceNumPerModule == 8) {
                 selectAlgName = "InsTestUboeAlgorithm";
-            } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7) {
+            } else if ((topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7)
+                       || (topoInfo->deviceNumPerModule == 1 && topoInfo->serverNum > 1)) {
                 selectAlgName = "InsAllGatherParallelMesh1DNHRTest";
             } else {
                 selectAlgName = "InsAllGatherNHR";

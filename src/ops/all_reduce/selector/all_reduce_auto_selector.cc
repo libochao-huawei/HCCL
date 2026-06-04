@@ -313,7 +313,7 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
             } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7) {
                 selectAlgName = "InsAllReduceParallelRSAGUboe";
             } else {
-                selectAlgName = "InsAllGatherNHR";
+                selectAlgName = "InsAllReduceNHR";
             }
         } else if (isDataTypeOrReduceTypeSpecial) {
             selectAlgName = "InsAllReduceNHR";
