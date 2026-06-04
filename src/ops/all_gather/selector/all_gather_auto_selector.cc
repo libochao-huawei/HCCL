@@ -345,16 +345,7 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start, topoInfo topoLevelNums[%u]", __func__, topoInfo->topoLevelNums);
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->topoLevelNums == 3) {
-            if (topoInfo->deviceNumPerModule == 8) {
-                selectAlgName = "InsTestAlgorithm";
-            } else if ((topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7)
-                       || (topoInfo->deviceNumPerModule == 1 && topoInfo->serverNum > 1)) {
-                selectAlgName = "InsAllGatherParallelMesh1DNHRDPUTest";
-            } else {
-                selectAlgName = "InsAllGatherNHRDPU";
-            }
-        } else if ((topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
+        if ((topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAllGatherMeshNhrDPU";
             HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
             return SelectorStatus::MATCH;

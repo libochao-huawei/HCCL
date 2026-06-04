@@ -612,11 +612,8 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherPara
                                InsTempAllGatherNHR);
 // for test
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRTest,
-                            InsV2AllGatherParallelExecutor, TopoMatchSqueeze2D, InsTempAllGatherMesh1D,
+                            InsV2AllGatherParallelExecutor, TopoMatchSqueeze2D, InsTempAllGatherNHR,
                             InsTempAllGatherNHR);
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRDPUTest,
-                            InsV2AllGatherParallelExecutor, TopoMatchSqueeze2D, InsTempAllGatherMesh1D,
-                            InsTempAllGatherNHRDPU);
 #endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 
 #ifndef AICPU_COMPILE
