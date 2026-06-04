@@ -89,6 +89,8 @@ protected:
     HcclResult DoLocalCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
         const std::vector<u64>& allRankSplitData, const std::vector<u64>& curLoopAllRankSplitData) const;
 
+    HcclResult ClacOmniBandwidthInSever(const AlgResourceCtxSerializable &resCtx, std::vector<double>& bdvec);
+
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
     uint64_t rankSizeLevel2_{0};
