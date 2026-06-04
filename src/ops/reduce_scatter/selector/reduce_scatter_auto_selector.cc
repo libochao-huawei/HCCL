@@ -279,10 +279,10 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
         if (topoInfo->topoLevelNums == 3) {
             if (topoInfo->deviceNumPerModule == 8) {
                 selectAlgName = "InsV2ReduceScatterOmniPipeUboe";
-            } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7) {
-                selectAlgName = "InsReduceScatterParallelMesh1DNHRUboe";
-            } else {
+            } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[1] == 1) {
                 selectAlgName = "InsReduceScatterNHR";
+            } else {
+                selectAlgName = "InsReduceScatterParallelMesh1DNHRUboe";
             }
         } else if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";
@@ -409,15 +409,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLay
     HCCL_INFO("topoInfo->topoLevelNums is %u, topoInfo->level0Topo is %u", topoInfo->topoLevelNums, topoInfo->level0Topo);
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->topoLevelNums == 3) {
-             if (topoInfo->deviceNumPerModule == 8) {
-                selectAlgName = "InsV2ReduceScatterOmniPipeDpu";
-             } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7) {
-                selectAlgName = "InsReduceScatterParallelMesh1DNHRDpu";
-             } else {
-                selectAlgName = "InsReduceScatterNHR";
-             }
-        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
             selectAlgName = "InsV2ReduceScatterOmniPipe";
             HCCL_INFO("Using algo InsV2ReduceScatterOmniPipe");
             return SelectorStatus::MATCH;
