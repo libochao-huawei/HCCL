@@ -78,7 +78,6 @@ HcclResult InsTempAllGatherNHRDPUInter::KernelRun(const OpParam& param, const Te
     dpuRunInfo.myRank = myRank_;
     dpuRunInfo.subCommRanks = subCommRanks_;
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
-
     u32 sendMsgId = 0;
     if (HcommSendRequest(reinterpret_cast<uint64_t>(templateResource.npu2DpuShmemPtr), param.algTag,
         static_cast<void*>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
