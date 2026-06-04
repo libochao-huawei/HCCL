@@ -765,6 +765,7 @@ int32_t HcommAcquireComm(const char* commId)
 
 HcclResult HcclCommGetStatus(const char * commId, HcclCommStatus *status)
 {
+    (void) commId;
     HCCL_WARNING("[%s] not support.", __func__);
     *status = HCCL_COMM_STATUS_READY;
     return HCCL_SUCCESS;
@@ -946,6 +947,9 @@ bool HcommIsSupportHcommBatchTransferOnThread()
 
 HcclResult HcclCommAddExchangeInfo(HcclComm comm, const void *data, uint32_t length)
 {
+    (void) comm;
+    (void) data;
+    (void) length;
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }
@@ -953,12 +957,18 @@ HcclResult HcclCommAddExchangeInfo(HcclComm comm, const void *data, uint32_t len
 HcclResult HcclCommGetExchangeInfo(HcclComm comm, uint32_t remoteRank, uint32_t length, void *data,
     uint32_t *actualLength)
 {
+    (void) comm;
+    (void) remoteRank;
+    (void) length;
+    (void) data;
+    (void) actualLength;
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }
 
 HcclResult HcclCommResetExchangeInfo(HcclComm comm)
 {
+    (void) comm;
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }

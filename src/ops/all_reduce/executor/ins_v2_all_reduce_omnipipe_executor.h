@@ -54,15 +54,15 @@ protected:
     HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, StepSliceInfo &stepSliceInfo) const;
 
     HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
-        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
+        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const override;
 
     HcclResult InitOmniPipeScratchParam(OmniPipeScratchParam& scratchParam, const OpParam &param,
         const std::vector<EndpointAttrBwCoeff>& endpointAttrBwNew,
-        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap) const;
+        const std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap) const;
 
-    HcclResult InitOmniPipeSliceParam(OmniPipeSliceParam& scratchParam, const OpParam &param,
+    HcclResult InitOmniPipeSliceParam(OmniPipeSliceParam& sliceParam, const OpParam &param,
         const std::vector<EndpointAttrBwCoeff>& endpointAttrBwNew,
-        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap, u64 maxCountPerLoop) const;
+        const std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap, u64 maxCountPerLoop) const;
 
     HcclResult CalcResLevel(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
         const std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest& resourceRequest, bool addChannel) const;
