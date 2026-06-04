@@ -54,15 +54,15 @@ __aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t s
 {
     curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     uint64_t dataTypeSize = sizeof(T);
-    if (block_idx >= rankSize_) {
+    if (blockIdx_ >= rankSize_) {
         return;
     }
-    uint32_t peerRank = block_idx / (rankSize_ / rankSize_);
+    uint32_t peerRank = blockIdx_ / (rankSize_ / rankSize_);
     uint64_t offsetPerCore = curCount / rankSize_ * dataTypeSize;
-    uint64_t dataOffset = offsetPerCore * block_idx;
-    uint64_t countPerCore = block_idx == rankSize_ - 1 ? curCount - (rankSize_ - 1) * (curCount / rankSize_)
+    uint64_t dataOffset = offsetPerCore * blockIdx_;
+    uint64_t countPerCore = blockIdx_ == rankSize_ - 1 ? curCount - (rankSize_ - 1) * (curCount / rankSize_)
                                     : curCount / rankSize_;
-    uint64_t flag_offset = block_idx;
+    uint64_t flag_offset = blockIdx_;
     __gm__ T *inputGM = (__gm__ T *)(input_ + dataOffset);
     __gm__ T *cclGM = (__gm__ T *)(GM_IN[peerRank] + dataOffset);
     // scatter
@@ -89,13 +89,13 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     // 然后其他卡用全量核去读数据
     // 最后做allgather
     uint64_t curStageCoreNum = numBlocks_ / rankSize_ * rankSize_;
-    if (block_idx >= curStageCoreNum) {
+    if (blockIdx_ >= curStageCoreNum) {
         return;
     }
 
     uint64_t coreNumPerRank = curStageCoreNum / rankSize_;
-    uint64_t targetRank = block_idx / coreNumPerRank;
-    uint64_t coreIndex = (block_idx - (targetRank * coreNumPerRank)) % coreNumPerRank;
+    uint64_t targetRank = blockIdx_ / coreNumPerRank;
+    uint64_t coreIndex = (blockIdx_ - (targetRank * coreNumPerRank)) % coreNumPerRank;
     uint64_t flag_offset = 0;
 
     // 先把数据按照rankSize 切分
@@ -116,7 +116,7 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
         PipeBarrier<PIPE_ALL>();
         // targetRankCurCount这么多的数据量，有coreNumPerRank去写，但是有coreNumPerRank * rankSize的核去读，所以一个核要写rankSize个flag
         for (uint64_t i = 0; i < rankSize_; i++) {
-            Record(root_, block_idx * rankSize_ + i, curTag_);
+            Record(root_, blockIdx_ * rankSize_ + i, curTag_);
         }
     }
 
@@ -126,14 +126,14 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     CalculateOffsetAndCount(curCount, rank_, rankSize_, rankInnerDisplsStage1, targetRankCurCountStage1);
 
     // 给每rankSize个核划分数据
-    uint64_t rankSizeCoreDataIndex = block_idx / rankSize_;
+    uint64_t rankSizeCoreDataIndex = blockIdx_ / rankSize_;
     uint64_t rankSizeCoreInnerDispls = 0;
     uint64_t rankSizeCoreSendCurCount = 0;
     CalculateOffsetAndCount(targetRankCurCountStage1, rankSizeCoreDataIndex, 
                             coreNumPerRank, rankSizeCoreInnerDispls, rankSizeCoreSendCurCount);
 
     // 给每个核划分数据
-    uint64_t coreIndexStage1 = (block_idx - (rankSizeCoreDataIndex * rankSize_)) % rankSize_;
+    uint64_t coreIndexStage1 = (blockIdx_ - (rankSizeCoreDataIndex * rankSize_)) % rankSize_;
     uint64_t innerDisplsStage1 = 0;
     uint64_t sendCurCountStage1 = 0;
     CalculateOffsetAndCount(rankSizeCoreSendCurCount, coreIndexStage1, 

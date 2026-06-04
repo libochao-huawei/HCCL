@@ -51,7 +51,7 @@ public:
  
     __aicore__ inline void FlagClear()
     {
-        uint64_t flag_offset = 0; //(block_idx % coreNumPerRank) * TAG_FLAG_SIZE;
+        uint64_t flag_offset = 0; //(blockIdx_ % coreNumPerRank) * TAG_FLAG_SIZE;
         Record(rank_, flag_offset, 0);
     }
  
@@ -62,13 +62,13 @@ public:
         this->curCount = curCount / coreNumPerRank;
         coreNumPerStage = coreNumPerRank * rankSize_;
  
-        if(GetBlockIdx() < coreNumPerStage){
-            targetRank = GetBlockIdx();
+        if(blockIdx_ < coreNumPerStage){
+            targetRank = blockIdx_;
             uint64_t outerOffset = rank_  * this->curCount * sizeof(T);
             outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + outerOffset;
             Producer();
             SyncAll<true>();
-        } else if(GetBlockIdx() < coreNumPerStage + coreNumPerRank){
+        } else if(blockIdx_ < coreNumPerStage + coreNumPerRank){
             SyncAll<true>();
             Consumer();
         } else {
@@ -82,14 +82,14 @@ public:
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         this->curCount = curCount;
  
-        for(uint32_t i=0;block_idx+i*numBlocks_<rankSize_;i++){
-            targetRank = block_idx+i*numBlocks_;
+        for(uint32_t i=0;blockIdx_+i*numBlocks_<rankSize_;i++){
+            targetRank = blockIdx_+i*numBlocks_;
             uint64_t outerOffset = rank_  * this->curCount * sizeof(T);
             outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + outerOffset;
             Producer();
         }
         SyncAll<true>();
-        if(block_idx==numBlocks_-1){
+        if(blockIdx_==numBlocks_-1){
           Consumer();
         }
     }
@@ -111,7 +111,7 @@ __aicore__ inline void AivAllReduceV2Mesh1DOneShot(KERNEL_ARGS_DEF)
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    if(rankSize+1<=block_num){
+    if(rankSize+1<=op.numBlocks_){
       op.ProcessCoreLargeCase(len, sliceId, inputSliceStride);
     }else{
       op.ProcessCoreSmallCase(len, sliceId, inputSliceStride);

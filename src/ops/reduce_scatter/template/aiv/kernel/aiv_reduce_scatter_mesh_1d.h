@@ -27,23 +27,23 @@ public:
     {
         coreNumPerStage = rankSize_;  // 每个阶段提供的最大核数
         uint64_t processNum = len / rankSize_;
-        if(GetBlockIdx() < coreNumPerStage) { // input->ipc,一个block负责一个rank input
-            targetRank = GetBlockIdx();
+        if(blockIdx_ < coreNumPerStage) { // input->ipc,一个block负责一个rank input
+            targetRank = blockIdx_;
             int64_t outerOffset = targetRank  * inputStride; // inputStride是整个算子的输入size
             int64_t ipcRankOffset = targetRank * len * sizeof(T);
             inputOffset = input_ + outerOffset; // 这里的input是已经偏移过前面处理完数据量的地址了
             outputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + ipcRankOffset;
-        } else if (GetBlockIdx() < (coreNumPerStage * stageNum)) { // ipc->output,一个block负责一个卡的数据
-            int64_t outerOffset = (GetBlockIdx() % coreNumPerStage) * processNum * sizeof(T);
+        } else if (blockIdx_ < (coreNumPerStage * stageNum)) { // ipc->output,一个block负责一个卡的数据
+            int64_t outerOffset = (blockIdx_ % coreNumPerStage) * processNum * sizeof(T);
             outputOffset = output_ + outerOffset;
             int64_t consumInOffset;
             for (int index = 0; index < rankSize_; index++) { // 轮询每个rank的数据，拉取过来，做顺序累加
-                consumInOffset = reinterpret_cast<uint64_t>(GM_IN[(index + GetBlockIdx()) % rankSize_]) +
+                consumInOffset = reinterpret_cast<uint64_t>(GM_IN[(index + blockIdx_) % rankSize_]) +
                                  len * rank_ * sizeof(T) + outerOffset; // 本卡的数据都在ipc
                 inputOffVec[index] = consumInOffset;
             }
             consumProcessNum = processNum;
-            if ((GetBlockIdx() % coreNumPerStage) == (rankSize_ - 1)) {
+            if ((blockIdx_ % coreNumPerStage) == (rankSize_ - 1)) {
                 consumProcessNum = len - processNum * (rankSize_ - 1);
             }
         }
@@ -61,7 +61,7 @@ public:
     {
         uint64_t flag_offset;
         for (int index = 0; index < rankSize_; index++) {
-            uint32_t rankIdx = (index + GetBlockIdx()) % rankSize_;
+            uint32_t rankIdx = (index + blockIdx_) % rankSize_;
             flag_offset = rankIdx;
             WaitFlag(rank_, flag_offset, curTag_);
             if (index == 0) { // 通过直接覆盖output把数据清一下
@@ -76,9 +76,9 @@ public:
     __aicore__ inline void Process(uint32_t sliceId)
     {
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
-        if(GetBlockIdx() < coreNumPerStage){ // 0-1
+        if(blockIdx_ < coreNumPerStage){ // 0-1
             Producer();
-        } else if(GetBlockIdx() < (coreNumPerStage * stageNum)) { // 2-3
+        } else if(blockIdx_ < (coreNumPerStage * stageNum)) { // 2-3
             Consumer();
         }
     }

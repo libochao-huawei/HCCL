@@ -411,6 +411,7 @@ using AivKernelArgs = struct AivKernelArgsDef {
     u64 repeatNum;
     u64 inputRepeatStride;
     u64 outputRepeatStride;
+    u32 numBlocks;
     bool isOpBase;
     const void* headCountMem;
     const void* tailCountMem;
@@ -421,7 +422,7 @@ using AivKernelArgs = struct AivKernelArgsDef {
     AivKernelArgsDef(const void* buffIn, u64 input, u64 output, u32 rank, u32 sendRecvRemoteRank,
         u32 rankSize, u64 xRankSize, u64 yRankSize, u64 zRankSize,
         u64 len, u32 dataType, u32 reduceOp, u32 root, u32 tag,
-        u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride,
+        u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride, u32 numBlocks,
         bool isOpBase = true,
         const void* headCountMem = nullptr, const void* tailCountMem = nullptr, const void* addOneMem = nullptr,
         u32 counterMemSize = 0, bool isEnableCounter = false)
@@ -429,7 +430,7 @@ using AivKernelArgs = struct AivKernelArgsDef {
         len(len) ,dataType(dataType),
         reduceOp(reduceOp), root(root), tag(tag),
         inputSliceStride(inputSliceStride), outputSliceStride(outputSliceStride), repeatNum(repeatNum), inputRepeatStride(inputRepeatStride), outputRepeatStride(outputRepeatStride),
-        isOpBase(isOpBase),
+        numBlocks(numBlocks), isOpBase(isOpBase),
         headCountMem(headCountMem), tailCountMem(tailCountMem), addOneMem(addOneMem),
         counterMemSize(counterMemSize), isEnableCounter(isEnableCounter)
     {
@@ -456,6 +457,7 @@ using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
     u64 repeatNum;
     u64 inputRepeatStride;
     u64 outputRepeatStride;
+    u32 numBlocks;
     bool isOpBase;
     const void* headCountMem;
     const void* tailCountMem;
@@ -467,7 +469,7 @@ using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
     AivExtraKernelArgsDef(const void* buffIn, u64 input, u64 output, u32 rank, u32 sendRecvRemoteRank,
         u32 rankSize, u64 xRankSize, u64 yRankSize, u64 zRankSize,
         u64 len, u32 dataType, u32 reduceOp, u32 root, u32 tag,
-        u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride,
+        u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride, u32 numBlocks,
         bool isOpBase = true,
         const void* headCountMem = nullptr, const void* tailCountMem = nullptr, const void* addOneMem = nullptr,
         u32 counterMemSize = 0, const ExtraArgs* extraArgsPtr = nullptr)
@@ -475,7 +477,7 @@ using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
         len(len) ,dataType(dataType),
         reduceOp(reduceOp), root(root), tag(tag),
         inputSliceStride(inputSliceStride), outputSliceStride(outputSliceStride), repeatNum(repeatNum), inputRepeatStride(inputRepeatStride), outputRepeatStride(outputRepeatStride),
-        isOpBase(isOpBase),
+        numBlocks(numBlocks), isOpBase(isOpBase),
         headCountMem(headCountMem), tailCountMem(tailCountMem), addOneMem(addOneMem),
         counterMemSize(counterMemSize)
     {
@@ -958,7 +960,7 @@ HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
             opArgs.buffersIn, opArgs.input, opArgs.output,
             opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
             opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
-            opArgs.isOpBase,
+            opArgs.numBlocks, opArgs.isOpBase,
             reinterpret_cast<void*>(opArgs.counter.headCountMem),
             reinterpret_cast<void*>(opArgs.counter.tailCountMem), reinterpret_cast<void*>(opArgs.counter.addOneMem),
             opArgs.counter.memSize, &opArgs.extraArgs
@@ -969,7 +971,7 @@ HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
             opArgs.buffersIn, opArgs.input, opArgs.output,
             opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
             opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
-            opArgs.isOpBase,
+            opArgs.numBlocks, opArgs.isOpBase,
             reinterpret_cast<void*>(opArgs.counter.headCountMem),
             reinterpret_cast<void*>(opArgs.counter.tailCountMem), reinterpret_cast<void*>(opArgs.counter.addOneMem),
             opArgs.counter.memSize
