@@ -293,7 +293,7 @@ void InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
     std::vector<float> &splitDataSize) const
 {
     // double splitData = multipleDimensionSplitRatio_;
-    double splitData = 0.465; // 经验值，先发45.5%，后发剩余的55.5%，其中后发的55.5%中再先发45.5%，最后发剩余的30%
+    double splitData = 0.45; // 经验值，先发45.5%，后发剩余的55.5%，其中后发的55.5%中再先发45.5%，最后发剩余的30%
     splitDataSize.push_back(splitData);
     splitDataSize.push_back(splitData);
     splitDataSize.push_back(1 - splitData - splitData);
