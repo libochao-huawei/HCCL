@@ -276,7 +276,15 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->topoLevelNums > 1) {
-        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+        if (topoInfo->topoLevelNums == 3) {
+            if (topoInfo->deviceNumPerModule == 8) {
+                selectAlgName = "InsV2ReduceScatterOmniPipeUboe";
+            } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7) {
+                selectAlgName = "InsReduceScatterParallelMesh1DNHRUboe";
+            } else {
+                selectAlgName = "InsReduceScatterNHR";
+            }
+        } else if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";
         } else if (topoInfo->Level1Nhr) {
             selectAlgName = "InsReduceScatterNHR";
@@ -401,7 +409,15 @@ SelectorStatus ReduceScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLay
     HCCL_INFO("topoInfo->topoLevelNums is %u, topoInfo->level0Topo is %u", topoInfo->topoLevelNums, topoInfo->level0Topo);
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        if (topoInfo->topoLevelNums == 3) {
+             if (topoInfo->deviceNumPerModule == 8) {
+                selectAlgName = "InsV2ReduceScatterOmniPipeDpu";
+             } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7) {
+                selectAlgName = "InsReduceScatterParallelMesh1DNHRDpu";
+             } else {
+                selectAlgName = "InsReduceScatterNHR";
+             }
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
             selectAlgName = "InsV2ReduceScatterOmniPipe";
             HCCL_INFO("Using algo InsV2ReduceScatterOmniPipe");
             return SelectorStatus::MATCH;

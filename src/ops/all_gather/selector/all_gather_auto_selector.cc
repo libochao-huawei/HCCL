@@ -226,8 +226,17 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
               topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo);
     if (topoInfo->topoLevelNums > 1) {
+        HCCL_ERROR("202606031454");
+        if (topoInfo->topoLevelNums == 3) {
+            if (topoInfo->deviceNumPerModule == 8) {
+                selectAlgName = "InsTestUboeAlgorithm";
+            } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7) {
+                selectAlgName = "InsAllGatherParallelMesh1DNHRTest";
+            } else {
+                selectAlgName = "InsAllGatherNHR";
+            }
         // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
-        if (topoInfo->Level1Nhr) {
+        } else if (topoInfo->Level1Nhr) {
             selectAlgName = "InsAllGatherNHR";
             HCCL_INFO("[AllGatherAutoSelector] Level1Nhr=true, select [%s]", selectAlgName.c_str());
         } else if (topoInfo->Level0Nhr) {
@@ -335,7 +344,16 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start, topoInfo topoLevelNums[%u]", __func__, topoInfo->topoLevelNums);
     if (topoInfo->topoLevelNums > 1) {
-        if ((topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
+        if (topoInfo->topoLevelNums == 3) {
+            if (topoInfo->deviceNumPerModule == 8) {
+                selectAlgName = "InsTestAlgorithm";
+            } else if ((topoInfo->deviceNumPerModule > 1 && topoInfo->deviceNumPerModule <= 7)
+                       || (topoInfo->deviceNumPerModule == 1 && topoInfo->serverNum > 1)) {
+                selectAlgName = "InsAllGatherParallelMesh1DNHRDPUTest";
+            } else {
+                selectAlgName = "InsAllGatherNHRDPU";
+            }
+        } else if ((topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAllGatherMeshNhrDPU";
             HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
             return SelectorStatus::MATCH;
