@@ -939,7 +939,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // step2 - parallel 0: RS nhr
     u64 inputOffset = 0;
     u64 hcclBuffOffset = 0;
-    // u64 hcclBuffOffset = 2 * currCountPart * dataTypeSize_;
     u64 outputOffset = 0;
     PrePareDataParamstempAlgInter(dataOffset, currCountPart, scratchOffsetCount);
     if (currCountPart > 0) {
@@ -981,8 +980,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 {
     // step3 - parallel 0: AG nhr
     u64 inputOffset = 0;
-    u64 hcclBuffOffset = 0;
     u64 outputOffset = 0;
+    u64 hcclBuffOffset = 0;
     PrePareDataParamstempAlgInter(dataOffset, currCountPart, scratchOffsetCount);
     if (currCountPart > 0) {
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
