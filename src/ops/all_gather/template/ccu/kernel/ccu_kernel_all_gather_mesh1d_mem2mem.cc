@@ -242,6 +242,7 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGatherGroupCopy()
                 CCU_IF(repeatTimeflag_ != 0)
                 {
                     localCopyDst_.addr += outputRepeatStride_;
+                    src_loccopy.addr += inputRepeatStride_;
                 }
                 GroupCopy(localCopyDst_, src_loccopy, localGoSize_);
                 repeatTimeflag_ = 1;

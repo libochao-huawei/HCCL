@@ -92,7 +92,7 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::FastLaunch(const OpParam& param, c
         PointerToAddr(buffInfo_.outputPtr) + args[1],
         args[2], 
         PointerToAddr(buffInfo_.hcclBuff.addr) + args[3], 
-        args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
+        args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]);
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
@@ -125,12 +125,13 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t normalSliceSize    = templateDataParams.sliceSize;
     uint64_t lastSliceSize      = templateDataParams.tailSize;
+    uint64_t scratchRepeatStride = templateRankSize_ * normalSliceSize;
 
     uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1DMem2Mem>(
         inputAddr, outputAddr, token, scratchAddr, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
-        normalSliceSize, lastSliceSize, repeatNum);
+        normalSliceSize, lastSliceSize, scratchRepeatStride, repeatNum);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
@@ -140,7 +141,7 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, buffInfo_.hcclBuffBaseOff,
         inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
-        repeatNum));
+        scratchRepeatStride, repeatNum));
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] end");

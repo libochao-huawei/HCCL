@@ -51,18 +51,21 @@ public:
                                                 uint64_t scratchAddr,
                                                 uint64_t inputSliceStride, uint64_t outputSliceStride,
                                                 uint64_t inputRepeatStride, uint64_t outputRepeatStride,
-                                                uint64_t normalSliceSize, uint64_t lastSliceSize, uint64_t repeatNum)
+                                                uint64_t normalSliceSize, uint64_t lastSliceSize,
+                                                uint64_t scratchRepeatStride, uint64_t repeatNum)
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), scratchAddr_(scratchAddr),
-        inputSliceStride_(inputSliceStride), outputSliceStride_(outputSliceStride), 
+        inputSliceStride_(inputSliceStride), outputSliceStride_(outputSliceStride),
         inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride),
-        normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize), repeatNum_(repeatNum) 
+        normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize),
+        scratchRepeatStride_(scratchRepeatStride), repeatNum_(repeatNum)
     {
         HCCL_INFO("[CcuTaskArgReduceScatterMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
                    "inputSliceStride: %lu, outputSliceStride: %lu, inputRepeatStride: %lu, "
                    "outputRepeatStride: %lu, normalSliceSize: %lu, "
-                   "lastSliceSize: %lu, repeatNum: %lu",
+                   "lastSliceSize: %lu, scratchRepeatStride: %lu, repeatNum: %lu",
                    inputAddr_, outputAddr_, scratchAddr_, inputSliceStride_, outputSliceStride_,
-                   inputRepeatStride_, outputRepeatStride_, normalSliceSize_, lastSliceSize_, repeatNum_);
+                   inputRepeatStride_, outputRepeatStride_, normalSliceSize_, lastSliceSize_,
+                   scratchRepeatStride_, repeatNum_);
     }
 
     uint64_t inputAddr_;
@@ -75,6 +78,7 @@ public:
     uint64_t outputRepeatStride_;
     uint64_t normalSliceSize_;
     uint64_t lastSliceSize_;
+    uint64_t scratchRepeatStride_;
     uint64_t repeatNum_;
 };
 
@@ -93,6 +97,12 @@ private:
     void PostSync();
     void DoRepeatReduceScatter();
     void DoReduceScatter();
+    void DoReduceScatterRead(uint32_t unrollIdx);
+    void DoReduceScatterWait(uint32_t unrollIdx);
+    void InitReduceScatterAddr();
+    void ResetReduceScatterAddr();
+    void DoReduceScatterReduce();
+    HcclResult InitChannelVariables();
     
     std::string GetLoopBlockTag(std::string loopType, int32_t index);
     void CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
@@ -127,6 +137,10 @@ private:
     std::vector<CcuRep::LocalAddr>      scratchMem_;
     std::vector<CcuRep::CompletedEvent> event_;
     CcuRep::Variable flag_; // 用以判断是否是第一次重复
+    CcuRep::Variable constVar1_; // 常量1，用于计数器递增
+    CcuRep::Variable readRepeatNum_; // Phase 1 ReadNb计数器
+    CcuRep::Variable waitRepeatNum_; // Phase 2 WaitEvent计数器
+    CcuRep::Variable scratchRepeatStride_; // scratch每轮repeat步进量(rankSize*normalSliceSize)
 };
 
 }// namespace ops_hccl
