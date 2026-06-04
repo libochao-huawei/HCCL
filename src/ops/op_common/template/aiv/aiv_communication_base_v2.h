@@ -120,10 +120,7 @@ hiddenInput, input, output
 #define SUPERKERNEL_CLASS_INIT \
 hiddenInput, input, output
 
-constexpr uint64_t AIV_FLAG_BUFFER_SIZE = 3 * 1024 * 1024; // aiv算子的flag区域大小
-constexpr uint64_t CLEAR_BUFFER_OFFSET = 1024 * 1024; // 用于清空的aiv buffer的偏移
-constexpr uint64_t SYNC_BUFFER_OFFSET = 2 * 1024 * 1024; // 用于sync的aiv buffer的偏移
-constexpr uint64_t BUFFER_AREA = 1024 * 1024; // aiv算子的单独功能flag区域大小
+constexpr uint64_t AIV_FLAG_BUFFER_SIZE = 3 * 1024 * 1024;
 
 constexpr uint64_t AIV_PING_PONG_FACTOR_TWO = 2;
 constexpr uint32_t NUM_BLOCKS_FOUR_PER_RANK_A3 = 4;
@@ -420,17 +417,22 @@ __aicore__ inline void AivCommBase::Record(uint32_t targetRank, uint64_t flag_of
 
 __aicore__ inline void AivCommBase::ClearSyncBuf()
 {
-    // 用10个flag
     Barrier(1);
-    ClearFlag();
+    BlockSync();
+    ClearGM();
+    if (GetBlockIdx() == 0) {
+        CpGM2GM((__gm__ int32_t *)(GM_OUT[rank_] + BASE_FLAG_OFFSET),
+                (__gm__ int32_t *)(GM_OUT[rank_] + BASE_FLAG_OFFSET + (AIV_FLAG_EMPTY_OFFSET - FLAG_ADDR_OFFSET)),
+                MAX_RANK_SIZE * FLAG_SIZE / sizeof(int32_t));
+    }
     Barrier(DOUBLE);
     BlockSync();
 }
 
 __aicore__ inline void AivCommBase::Barrier(uint32_t step)
 {
-    // 用10个flag
-    uint32_t flagOffset = 2 * 1024 * 1024 - (step % 2 + 1) * FLAG_SIZE * rankSize_;
+    // 标记区扩展到16M，barrier flags放在clear和empty之间的1M空间内
+    uint32_t flagOffset = (AIV_FLAG_EMPTY_OFFSET - FLAG_ADDR_OFFSET) - (step % 2 + 1) * FLAG_SIZE * rankSize_;
     __gm__ int32_t *ctrlFlagsGM;
     if (GetBlockIdx() == 0) {
         pipe_barrier(PIPE_ALL);
@@ -456,17 +458,17 @@ __aicore__ inline void AivCommBase::Barrier(uint32_t step)
 
 __aicore__ inline void AivCommBase::ClearFlag()
 {
-    // 用10个flag
+    // 标记区扩展到16M
     __gm__ int32_t *ctrlFlagsGM = (__gm__ int32_t *)(GM_OUT[rank_]);
-    __gm__ int32_t *emtpyGM = (__gm__ int32_t *)(GM_OUT[rank_] + CLEAR_BUFFER_OFFSET);
+    __gm__ int32_t *emtpyGM = (__gm__ int32_t *)(GM_OUT[rank_] + (AIV_FLAG_EMPTY_OFFSET - FLAG_ADDR_OFFSET));
     if (GetBlockIdx() == 0) {
-        CpGM2GM(ctrlFlagsGM, emtpyGM, BUFFER_AREA / sizeof(int32_t));
+        CpGM2GM(ctrlFlagsGM, emtpyGM, (AIV_FLAG_CLEAR_OFFSET - FLAG_ADDR_OFFSET) / sizeof(int32_t));
     }
 }
 
 __aicore__ inline void AivCommBase::BlockSync()
 {
-    uint32_t flagOffset = SYNC_BUFFER_OFFSET + 2 * FLAG_SIZE * numBlocks_;
+    uint32_t flagOffset = (AIV_FLAG_EMPTY_OFFSET - FLAG_ADDR_OFFSET) + 2 * FLAG_SIZE * numBlocks_;
     __gm__ int32_t *ctrlFlagsGM = (__gm__ int32_t *)(GM_OUT[rank_] + flagOffset);
     if (GetBlockIdx() == 0) {
         //通知其他核
