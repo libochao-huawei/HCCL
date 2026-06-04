@@ -489,6 +489,10 @@ REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsV2AllGatherOmniPipeMu
 REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsV2AllGatherOmniPipePcie,
                        InsV2AllGatherOmniPipeExecutor, TopoMatchPcieMix, InsTempAllGatherOmniPipeMesh1D,
                        InsTempAllGatherOmniPipeNHR, InsTempAllGatherOmniPipeNHRDPU);
+ REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsV2AllGatherOmniPipe,	 
+                        InsV2AllGatherOmniPipeExecutor, TopoMatchUBX, InsTempAllGatherOmniPipeMesh1D,	 
+                        InsTempAllGatherOmniPipeNHR, InsTempAllGatherOmniPipeNHRDPU);
+
 REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsTestAlgorithm,
                        InsV2AllGatherOmniPipeExecutor, TopoMatch3Level, InsTempAllGatherOmniPipeMesh1D,
                        InsTempAllGatherOmniPipeNHR, InsTempAllGatherOmniPipeNHRDPU);
