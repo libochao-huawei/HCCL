@@ -103,7 +103,6 @@ static void DoAllGatherV(AllGatherVMesh1DMem2MemContext &ctx)
                 ctx.localDst.addr = ctx.output[arg->rankId];
                 ctx.localDst.addr += ctx.mySliceSizeOutputOffset;
                 ctx.localDst.token = ctx.token[arg->rankId];
-                // GroupCopy(ctx, ctx.localDst, ctx.src, ctx.localGoSize); // fix
                 ccu::LocalCopy(ctx.localDst, ctx.src, ctx.mySliceSize, ctx.event, 1);
                 ccu::EventRecord(ctx.event, 1 << rankIdx);
             } else {
