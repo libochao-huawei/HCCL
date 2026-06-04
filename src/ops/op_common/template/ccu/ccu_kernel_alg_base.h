@@ -50,6 +50,12 @@ struct GroupOpSizeVars {
     ccu::Variable residual;          // 尾块数据size
 };
 
+struct GroupCopyVar {
+    ccu::LocalAddr loopSrc[2];
+    ccu::LocalAddr loopDst[2];
+    ccu::Variable  loopLen[2];
+};
+
 struct CcuKernelCtxBase {
     struct CcuLoopEntity {
         std::unique_ptr<ccu::Func> body[2];
@@ -63,6 +69,9 @@ struct CcuKernelCtxBase {
 
     std::map<std::string, CcuLoopEntity> loopMap;
     CcuLoopExecutors enginePool;
+
+    // GroupCopy持久化变量：确保Loop录制时绑定的句柄在整个kernel生命周期内稳定
+    GroupCopyVar gcVar;
 
     void CreateLoopEntity(std::string loopStr) {
         loopMap.emplace(loopStr, CcuLoopEntity());
@@ -85,12 +94,6 @@ struct GroupBroadcastVar {
     ccu::LocalAddr loopSrc[2];
     ccu::LocalAddr loopLocalDst[2];
     std::array<std::vector<ccu::RemoteAddr>, NUM_TWO> loopRemoteDst;
-    ccu::Variable  loopLen[2];
-};
-
-struct GroupCopyVar {
-    ccu::LocalAddr loopSrc[2];
-    ccu::LocalAddr loopDst[2];
     ccu::Variable  loopLen[2];
 };
 

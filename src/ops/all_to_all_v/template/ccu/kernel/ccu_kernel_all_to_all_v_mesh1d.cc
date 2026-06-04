@@ -208,10 +208,10 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
     ctx.xnMaxTransportSize = UB_MAX_TRANS_SIZE;
     ctx.completedRankCount = 0;
     ctx.xnConst1 = 1;
-    u32 channelId = 0;
     uint16_t allBit  = (1 << arg->rankSize) - 1;
-    CCU_WHILE(ctx.completedRankCount != arg->rankSize) {  // 循环发送数据，直到所有对端数据都发送完成
-        for(uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {  // 循环发送所有对端数据
+    CCU_WHILE(ctx.completedRankCount != arg->rankSize) {
+        u32 channelId = 0;
+        for(uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
             if (rankIdx == arg->rankId) {
                 continue;
             }
