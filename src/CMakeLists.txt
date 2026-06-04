@@ -75,6 +75,7 @@ set(INCLUDE_LIST
     ${OPS_BASE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/op_graph
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common
@@ -650,6 +651,63 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
     endif()
 endif()
 
+set(_op_proto_link_libs
+    -Wl,--no-as-needed
+    exe_graph
+    graph
+    graph_base
+    register
+    -Wl,--as-needed
+)
+
+set(OP_PROTO_INCLUDE
+    ${ASCEND_CANN_PACKAGE_PATH}/include/exe_graph
+)
+
+add_library(opgraph_hccl SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/log.cc
+)
+
+target_include_directories(opgraph_hccl PRIVATE
+    ${INCLUDE_LIST}
+    ${OP_PROTO_INCLUDE}
+)
+target_compile_options(opgraph_hccl PRIVATE
+    -fno-common
+    -fno-strict-aliasing
+    -pipe
+    $<$<CONFIG:Release>:-O3>
+    $<$<CONFIG:Debug>:-O3 -g>
+    $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
+    -fstack-protector-all
+    -fvisibility=hidden
+)
+target_link_libraries(opgraph_hccl PRIVATE
+    ${_op_proto_link_libs}
+    -Wl,--whole-archive
+    rt2_registry
+    -Wl,--no-whole-archive
+    -Wl,-Bsymbolic
+)
+
+target_link_directories(opgraph_hccl PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64
+)
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/common/op_graph/ops_proto_hccl.h
+    DESTINATION ${INSTALL_OPGRAPH_INCLUDE_DIR} 
+    ${INSTALL_OPTIONAL}
+    COMPONENT hccl
+)
+
+install(TARGETS opgraph_hccl
+    LIBRARY DESTINATION ${INSTALL_OPGRAPH_LIBRARY_DIR} 
+    ${INSTALL_OPTIONAL}
+    COMPONENT hccl
+)
+
+add_dependencies(hccl opgraph_hccl)
+
 add_subdirectory(common)
 add_subdirectory(ops)
 
@@ -734,3 +792,27 @@ if(DEVICE_MODE AND KERNEL_MODE)
         COMMENT "Copying libscatter_aicpu_kernel.so to ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so"
     )
 endif()
+
+#生成ES API
+list(APPEND CMAKE_MODULE_PATH "${ASCEND_CANN_PACKAGE_PATH}/include/ge/cmake")
+find_package(GenerateEsPackage REQUIRED)
+
+add_es_library(
+    ES_LINKABLE_AND_ALL_TARGET es_hccl
+    OPP_PROTO_TARGET opgraph_hccl
+    OUTPUT_PATH ${CMAKE_BINARY_DIR}/es_output
+)
+
+add_dependencies(hccl es_hccl)
+
+install(DIRECTORY ${CMAKE_BINARY_DIR}/es_output/include/es_hccl
+    DESTINATION ${INSTALL_INCLUDE_DIR}/es/
+    ${INSTALL_OPTIONAL}
+    COMPONENT hccl
+)
+
+install(FILES ${CMAKE_BINARY_DIR}/es_output/lib64/libes_hccl.so
+    DESTINATION ${INSTALL_LIBRARY_DIR}
+    ${INSTALL_OPTIONAL}
+    COMPONENT hccl
+)
