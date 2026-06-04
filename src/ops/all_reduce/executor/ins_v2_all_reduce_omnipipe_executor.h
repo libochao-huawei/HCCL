@@ -58,11 +58,11 @@ protected:
 
     HcclResult InitOmniPipeScratchParam(OmniPipeScratchParam& scratchParam, const OpParam &param,
         const std::vector<EndpointAttrBwCoeff>& endpointAttrBwNew,
-        const std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap) const;
+        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap) const;
 
     HcclResult InitOmniPipeSliceParam(OmniPipeSliceParam& sliceParam, const OpParam &param,
         const std::vector<EndpointAttrBwCoeff>& endpointAttrBwNew,
-        const std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap, u64 maxCountPerLoop) const;
+        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap, u64 maxCountPerLoop) const;
 
     HcclResult CalcResLevel(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
         const std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest& resourceRequest, bool addChannel) const;
