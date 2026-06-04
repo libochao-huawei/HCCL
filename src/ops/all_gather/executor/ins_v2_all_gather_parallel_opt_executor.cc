@@ -431,7 +431,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
         tempAlgParamsAll0.buffInfo.inBuffBaseOff = dataSizeAxis0 + dataSizeAxis1;
         tempAlgParamsAll0.inputSliceStride = dataSize_;
 
-        tempAlgParamsAll0.repeatNum = 5; // 先发4份
+        tempAlgParamsAll0.repeatNum = 4; // 先发4份
 
         tempAlgParamsAll0.buffInfo.hcclBuff = resCtx.cclMem;
         tempAlgParamsAll0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
@@ -527,7 +527,7 @@ HcclResult InsV2AllGatherParallelOptExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
         tempAlgParamsAll1.buffInfo.inBuffBaseOff = dataSizeAxis0 + dataSizeAxis1;
         tempAlgParamsAll1.inputSliceStride = dataSize_;
 
-        tempAlgParamsAll1.repeatNum = rankSizeLevel1_ - 5; // 先发4份
+        tempAlgParamsAll1.repeatNum = rankSizeLevel1_ - 4; // 先发4份
 
         tempAlgParamsAll1.buffInfo.hcclBuff = resCtx.cclMem;
         tempAlgParamsAll1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
