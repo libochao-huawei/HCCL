@@ -130,12 +130,12 @@ namespace ops_hccl
         tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;    // 本端的ccl
         // template资源
         TemplateResource templateResource;
-        templateResource.channels = remoteRankToChannelInfo_[0];
         templateResource.threads = resCtx.threads;
+        templateResource.channels = remoteRankToChannelInfo_[0];
         templateResource.npu2DpuShmemPtr = resCtx.npu2DpuShmemPtr;
         templateResource.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
-        u64 resDataSize = dataSize_;
         maxTmpMemSize_ = std::min<u64>(UB_MAX_DATA_SIZE, resCtx.cclMem.size); // maxTmpMemSize_取ub和ccl的最小值
+        u64 resDataSize = dataSize_;
         u64 maxRoundTransferSize = (maxTmpMemSize_ / dataTypeSize_) * dataTypeSize_;
         while (resDataSize > 0)
         {
@@ -149,7 +149,7 @@ namespace ops_hccl
         return HCCL_SUCCESS;
     }
 
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
     REGISTER_EXECUTOR_IMPL_NO_TOPOMATCH(HcclCMDType::HCCL_CMD_RECEIVE, InsRecvDPU, InsV2RecvSoleExecutor, InsTempRecvDpu);
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 } // namespace ops_hccl

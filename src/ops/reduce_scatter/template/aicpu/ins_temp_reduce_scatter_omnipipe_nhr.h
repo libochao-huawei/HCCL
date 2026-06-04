@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_REDUCE_SCATTER_OMNIPIPE_NHR_H
 #define INS_TEMP_REDUCE_SCATTER_OMNIPIPE_NHR_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_v2_base.h"
 #include "alg_data_trans_wrapper.h"

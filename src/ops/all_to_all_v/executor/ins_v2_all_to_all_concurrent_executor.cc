@@ -481,7 +481,6 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
                                          static_cast<u32>(templateAlgRes1.submitInfos.size())};
     std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgRes0.submitInfos, templateAlgRes1.submitInfos};
     return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
-    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
@@ -565,14 +564,14 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 InsTempAlltoAllVMesh1D,
                                 InsTempAlltoAllVMesh1D);
 #ifndef AICPU_COMPILE
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
                                 CcuAllToAllMesh1DConcurrent,
                                 InsV2AllToAllConcurrentExecutor,
                                 TopoMatchUBX,
                                 CcuTempAllToAllMesh1dMultiJetty,
                                 CcuTempAllToAllMesh1dMultiJetty);
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 #endif
 
 }

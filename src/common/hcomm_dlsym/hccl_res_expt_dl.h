@@ -12,7 +12,10 @@
 #define HCCL_RES_EXPT_DL_H
 
 #include "dlsym_common.h"
+/* hccl_res_expt.h 仅 9.0.0+ 提供，8.5.0 缺失；弱符号声明仅依赖 hccl_types.h 中的基础类型 */
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "hccl_res_expt.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

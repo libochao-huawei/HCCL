@@ -25,11 +25,11 @@ namespace ops_hccl {
     {
         (void) comm;
         (void) algHierarchyInfo;
-        myRank_ = topoInfo->userRank;
         rankSize_ = topoInfo->userRankSize;
         devType_ = topoInfo->deviceType;
         remoteRank_ = param.sendRecvRemoteRank;
         dataCount_ = param.DataDes.count;
+        myRank_ = topoInfo->userRank;
         dataType_ = param.DataDes.dataType;
         dataTypeSize_ = static_cast<u64>(DATATYPE_SIZE_TABLE[dataType_]);
 
@@ -143,24 +143,24 @@ namespace ops_hccl {
             aivSendArgs.input = reinterpret_cast<u64>(param.inputPtr);
             aivSendArgs.output = reinterpret_cast<u64>(param.outputPtr) + processedDataCount * dataTypeSize_;
             aivSendArgs.rank = u32(myRank_);
+            aivSendArgs.dataType = dataType_;
+            aivSendArgs.sliceId = sliceId_;
             aivSendArgs.sendRecvRemoteRank = remoteRank_;
             aivSendArgs.rankSize = resCtx.topoInfo.userRankSize;
             aivSendArgs.count = currDataCount; // 需要传输的数据量
-            aivSendArgs.dataType = dataType_;
-            aivSendArgs.sliceId = sliceId_;
             aivSendArgs.buffersIn = resCtx.aivCommInfoPtr;
             aivSendArgs.stream = param.stream;
             aivSendArgs.isOpBase = (opMode_ == OpMode::OPBASE);
-            aivSendArgs.xRankSize = resCtx.topoInfo.userRankSize;
             aivSendArgs.yRankSize = 0;
             aivSendArgs.zRankSize = 0;
+            aivSendArgs.xRankSize = resCtx.topoInfo.userRankSize;
             CHK_RET(CalNumBlocks(aivSendArgs.numBlocks, currDataCount * dataTypeSize_, param.numBlocksLimit));
 
             aivSendArgs.inputSliceStride = 0;
             aivSendArgs.outputSliceStride = 0;
-            aivSendArgs.repeatNum = 1; // 不重复
             aivSendArgs.inputRepeatStride = 0;
             aivSendArgs.outputRepeatStride = 0;
+            aivSendArgs.repeatNum = 1; // 不重复
 
             CHK_RET(ExecuteKernelLaunch(aivSendArgs));
             processedDataCount += currDataCount;

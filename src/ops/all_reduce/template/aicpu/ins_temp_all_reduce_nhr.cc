@@ -199,10 +199,10 @@ HcclResult InsTempAllReduceNHR::RunReduceScatter(const TemplateDataParams &tempA
 
         const ChannelInfo &recvChannel = channels.at(rankList_.at(stepInfo.fromRank)).at(0);
         const ChannelInfo &sendChannel = channels.at(rankList_.at(stepInfo.toRank)).at(0);
-        std::vector<DataSlice> sendSrcSlicesList;
-        std::vector<DataSlice> sendDstSlicesList;
         std::vector<DataSlice> recvSrcSlicesList;
+        std::vector<DataSlice> sendSrcSlicesList;
         std::vector<DataSlice> recvDstSlicesList;
+        std::vector<DataSlice> sendDstSlicesList;
 
         void* sendRemoteHcclBuffPtr = sendChannel.remoteCclMem.addr;
         void* recvRemoteHcclBuffPtr = recvChannel.remoteCclMem.addr;
@@ -210,16 +210,16 @@ HcclResult InsTempAllReduceNHR::RunReduceScatter(const TemplateDataParams &tempA
         // 在 nhrInBuffType_ 上进行 ReduceScatter 操作
         for (u32 idx = 0; idx < stepInfo.nSlices; ++idx) {
             u64 sendOffset = hcclBuffBaseOffset + sliceInfoList_.at(stepInfo.txSliceIdxs.at(idx)).offset;
-            u64 sendSize = sliceInfoList_.at(stepInfo.txSliceIdxs.at(idx)).size;
             u64 sendCount = sliceInfoList_.at(stepInfo.txSliceIdxs.at(idx)).count;
+            u64 sendSize = sliceInfoList_.at(stepInfo.txSliceIdxs.at(idx)).size;
             DataSlice sendSrcSlice(localHcclBuffPtr, sendOffset, sendSize, sendCount);
             DataSlice sendDstSlice(sendRemoteHcclBuffPtr, sendOffset, sendSize, sendCount);
             sendSrcSlicesList.emplace_back(sendSrcSlice);
             sendDstSlicesList.emplace_back(sendDstSlice);
 
             u64 recvOffset = hcclBuffBaseOffset + sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).offset;
-            u64 recvSize = sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).size;
             u64 recvCount = sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).count;
+            u64 recvSize = sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).size;
             DataSlice recvSrcSlice(recvRemoteHcclBuffPtr, recvOffset, recvSize, recvCount);
             DataSlice recvDstSlice(localHcclBuffPtr, recvOffset, recvSize, recvCount);
             recvSrcSlicesList.emplace_back(recvSrcSlice);
@@ -384,10 +384,10 @@ HcclResult InsTempAllReduceNHR::GetAllGatherStepInfoList(std::vector<NHRStepInfo
 
         NHRStepInfo &currStepInfo = stepInfoList[step];
         currStepInfo.step = step;
-        currStepInfo.myRank = myRankIdx_;
-        currStepInfo.nSlices = nSlices;
         currStepInfo.toRank = sendToIdx;
         currStepInfo.fromRank = recvFromIdx;
+        currStepInfo.myRank = myRankIdx_;
+        currStepInfo.nSlices = nSlices;
 
         // 计算本rank在每轮收/发中的slice编号
         currStepInfo.txSliceIdxs.reserve(nSlices);
@@ -395,8 +395,7 @@ HcclResult InsTempAllReduceNHR::GetAllGatherStepInfoList(std::vector<NHRStepInfo
         for (u32 i = 0; i < nSlices; i++) {
             currStepInfo.txSliceIdxs.push_back(txSliceIdx);
             currStepInfo.rxSliceIdxs.push_back(rxSliceIdx);
-            HCCL_DEBUG("[InsTempAllReduceNHR][GetStepInfoList] i[%u] txSliceIdx[%u] rxSliceIdx[%u]",
-                i, txSliceIdx, rxSliceIdx);
+            HCCL_DEBUG("[InsTempAllReduceNHR][GetStepInfoList] i[%u] txSliceIdx[%u] rxSliceIdx[%u]", i, txSliceIdx, rxSliceIdx);
             txSliceIdx = (txSliceIdx + templateRankSize_ - deltaSliceIndex) % templateRankSize_;
             rxSliceIdx = (rxSliceIdx + templateRankSize_ - deltaSliceIndex) % templateRankSize_;
         }

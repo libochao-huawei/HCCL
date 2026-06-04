@@ -15,13 +15,13 @@
 #include "topo_host.h"
 #include "channel.h"
 #include "alg_v2_template_base.h"
+#include "executor_v2_base.h"
+#include "coll_alg_v2_exec_registry.h"
 #include "utils.h"
 #include "log.h"
 #include "workflow.h"
 #include "sal.h"
 #include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
 #include "topo_match_base.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
@@ -34,7 +34,7 @@ template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTe
 class InsV2AllReduceOmniPipeExecutor : public InsCollAlgBase {
 public:
     explicit InsV2AllReduceOmniPipeExecutor();
-    ~InsV2AllReduceOmniPipeExecutor() = default;
+    ~InsV2AllReduceOmniPipeExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -52,21 +52,21 @@ protected:
     HcclResult InitCommInfo(
         HcclComm comm, const OpParam &param, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo);
     HcclResult InitExectorInfo(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
-    HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, StepSliceInfo &stepSliceInfo);
+    HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, StepSliceInfo &stepSliceInfo) const;
 
     HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
-        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo);
+        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
     HcclResult InitOmniPipeScratchParam(OmniPipeScratchParam& scratchParam, const OpParam &param,
         const std::vector<double>& endpointAttrBwNew,
-        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap);
+        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap) const;
 
     HcclResult InitOmniPipeSliceParam(OmniPipeSliceParam& scratchParam, const OpParam &param,
         const std::vector<double>& endpointAttrBwNew,
-        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap, u64 maxCountPerLoop);
+        std::map<u32, std::shared_ptr<InsAlgTemplateBase>>& tempMap, u64 maxCountPerLoop) const;
 
     HcclResult CalcResLevel(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-        std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest& resourceRequest, bool addChannel);
+        std::shared_ptr<InsAlgTemplateBase> tempAlg, AlgResourceRequest& resourceRequest, bool addChannel) const;
 
     HcclResult PrepareResForTemplateLevelRS(u32 level, std::shared_ptr<InsAlgTemplateBase>& tempBase);
     HcclResult PrepareResForTemplateLevelAG(u32 level, std::shared_ptr<InsAlgTemplateBase>& tempBase);
@@ -86,8 +86,8 @@ protected:
         std::map<u32, TemplateResource>& tempResMap,
         std::map<u32, TemplateDataParams>& tempAlgParamMap);
 
-    HcclResult DoLocalCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &threads,
-        const std::vector<u64>& allRankSplitData, const std::vector<u64>& curLoopAllRankSplitData);
+    HcclResult DoLocalCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
+        const std::vector<u64>& allRankSplitData, const std::vector<u64>& curLoopAllRankSplitData) const;
 
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
@@ -101,7 +101,7 @@ protected:
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;  // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
 
-    ThreadHandle controlThread_;
+    ThreadHandle controlThread_ = 0;
 
     std::vector<ThreadHandle> tempMainThreadsLevel01RS_;
     std::vector<u32> ntfIdxCtrlToTempLevel01RS_;
