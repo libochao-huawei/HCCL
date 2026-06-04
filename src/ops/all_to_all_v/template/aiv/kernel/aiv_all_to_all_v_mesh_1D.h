@@ -56,7 +56,7 @@ public:
         if (sendCurCount == 0) {
             return;
         }
-        uint64_t flag_offset = block_idx;
+        uint64_t flag_offset = blockIdx_;
         uint32_t tagTemp = loop;
         if (loop == 0) {
             tagTemp = curTag_;
@@ -75,7 +75,7 @@ public:
         if (recvCurCount == 0) {
             return;
         }
-        uint64_t flag_offset = block_idx + coreCount;
+        uint64_t flag_offset = blockIdx_ + coreCount;
         WaitFlag(rank_, flag_offset, loop);
 
         CpGM2GM((__gm__ T *)recvOutputOffset, (__gm__ T *)recvInputOffset, recvCurCount);
@@ -94,15 +94,15 @@ public:
         }
  
         coreCount = coreNumPerRank * rankSize_;
-        if (block_idx >= coreCount) { // 负责每个rank的核数相同，方便读写都能并行
+        if (blockIdx_ >= coreCount) { // 负责每个rank的核数相同，方便读写都能并行
             return;
         }
  
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         cclBufferCountPerRank = len;
 
-        targetRank = block_idx / coreNumPerRank; // 每个核负责哪个rank的数据
-        coreIndex = (block_idx - (targetRank * coreNumPerRank)) % coreNumPerRank;  // 每个核在当前coreNumPerRank里面的排序
+        targetRank = blockIdx_ / coreNumPerRank; // 每个核负责哪个rank的数据
+        coreIndex = (blockIdx_ - (targetRank * coreNumPerRank)) % coreNumPerRank;  // 每个核在当前coreNumPerRank里面的排序
 
         uint64_t dataPerCore = cclBufferCountPerRank / coreNumPerRank;
         uint64_t remainder = cclBufferCountPerRank % coreNumPerRank;
@@ -118,7 +118,7 @@ public:
         Record(targetRank, flag_offset, curTag_);
 
         // 然后wait到Consumer位置的flag之后，写个flag 到对端Producer的位置，后续正常循环
-        flag_offset = block_idx + coreCount;
+        flag_offset = blockIdx_ + coreCount;
         WaitFlag(rank_, flag_offset, curTag_);
 
         flag_offset = rank_ * coreNumPerRank + coreIndex;

@@ -52,6 +52,15 @@ HcclResult AivTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, co
     return HCCL_SUCCESS;
 }
 
+HcclResult AivTempScatterMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit)
+{
+    (void) dataSize;
+    (void) numBlocksLimit;
+    numBlocks = MAX_NUM_BLOCKS;
+    HCCL_INFO("[AivTempScatterMesh1D] Actually use core num[%u]", numBlocks);
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult AivTempScatterMesh1D::KernelRun(const OpParam& param,
                                                  const TemplateDataParams& tempAlgParams,
                                                  const TemplateResource& templateResource)
@@ -92,6 +101,9 @@ HcclResult AivTempScatterMesh1D::KernelRun(const OpParam& param,
             aivScatterArgs.topo_[TOPO_LEN_Z_OFFSET + i] = subCommRanks_[MAX_DIM_NUM - 1][i];
         }
     }
+
+    u64 dataSize = tempAlgParams.inputSliceStride;
+    CHK_RET(CalNumBlocks(aivScatterArgs.numBlocks, dataSize, param.numBlocksLimit));
 
     aivScatterArgs.inputSliceStride = tempAlgParams.inputSliceStride;
     aivScatterArgs.outputSliceStride = tempAlgParams.outputSliceStride;
