@@ -80,5 +80,24 @@ TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_multilevel_2pod_6rank_fp16_equal
     RunAllGatherVMultilevel(topoMeta, vDataDes);
 }
 
-// 3-pod topologies unsupported: simulator has only 2 net layers (no inter-superpod links at layer 2).
-// Unequal AllGatherV unsupported: mesh1D slave streams end with WAIT not LOCAL_POST_TO (pre-existing bug).
+TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_3layer_2pod_2server_4rank_fp16_equal_test)
+{
+    TopoMeta topoMeta{{{0, 1}, {2, 3}}, {{0, 1}, {2, 3}}};
+    VDataDesTag vDataDes;
+    vDataDes.counts = {200, 200, 200, 200};
+    vDataDes.displs = {0, 200, 400, 600};
+    vDataDes.dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
+
+    RunAllGatherVMultilevel(topoMeta, vDataDes);
+}
+
+TEST_F(ST_ALL_GATHER_V_TEST, st_all_gather_v_a5_3layer_2pod_1server_4rank_int32_equal_test)
+{
+    TopoMeta topoMeta{{{0, 1}}, {{0, 1}}};
+    VDataDesTag vDataDes;
+    vDataDes.counts = {100, 100, 100, 100};
+    vDataDes.displs = {0, 100, 200, 300};
+    vDataDes.dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
+
+    RunAllGatherVMultilevel(topoMeta, vDataDes);
+}
