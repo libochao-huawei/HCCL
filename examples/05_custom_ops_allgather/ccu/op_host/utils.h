@@ -14,6 +14,7 @@
 #include <hccl/hccl_res.h>
 #include <hccl/hccl_rank_graph.h>
 #include "common.h"
+#include "ccu_kernel.h"
 
 namespace ops_hccl_ag {
 

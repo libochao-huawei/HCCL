@@ -9,6 +9,7 @@
  */
 
 #include "ccu_kernel.h"
+#include "utils.h"
 
 namespace ops_hccl_ag {
 
@@ -21,9 +22,9 @@ static CcuResult GroupCopy(AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr ds
                             GroupOpSizeVars goSize)
 {
     if (!ctx.resourceAllocated) {
-        ctx.moConfig.msInterleave = GC_MS_INTERLEAVE;
-        ctx.moConfig.loopCount = GC_MS_LOCAL_COPY_LOOP_COUNT;
-        ctx.moConfig.memSlice = GC_LOCAL_COPY_MS_PER_LOOP * GC_MS_SIZE;
+        ctx.moConfig.msInterleave = MS_INTERLEAVE;
+        ctx.moConfig.loopCount = MS_LOCAL_COPY_LOOP_COUNT;
+        ctx.moConfig.memSlice = LOCAL_COPY_MS_PER_LOOP * MS_SIZE;
 
         ctx.moRes.eventCount = ctx.moConfig.loopCount;
         ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moRes.eventCount);

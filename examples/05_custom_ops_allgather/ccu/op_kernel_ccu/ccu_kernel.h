@@ -14,11 +14,41 @@
 #include <ios>
 #include "common.h"
 #include "log.h"
-#include "utils.h"
 
 namespace ccu = ::AscendC::ccu;
 
 namespace ops_hccl_ag {
+
+constexpr uint64_t MS_INTERLEAVE = 8;
+constexpr uint64_t MS_SIZE = 4096;
+constexpr uint32_t LOCAL_COPY_MS_PER_LOOP = 8;
+constexpr uint32_t MS_LOCAL_COPY_LOOP_COUNT = 8;
+
+struct LoopGroupConfig {
+    uint32_t msInterleave;
+    uint32_t loopCount;
+    uint64_t memSlice;
+};
+
+struct LoopGroupResource {
+    ccu::Array<ccu::Event>     completedEvent{0};
+    ccu::Array<ccu::CcuBuffer> ccuBuf{0};
+    uint32_t  eventCount;
+    uint32_t  bufCount;
+};
+
+struct GroupOpSizeVars {
+    ccu::Variable addrOffset;
+    ccu::Variable loopParam;
+    ccu::Variable parallelParam;
+    ccu::Variable residual;
+};
+
+struct CcuLoopEntity {
+    std::unique_ptr<ccu::Func> body[2];
+    std::unique_ptr<ccu::Loop> loops[2];
+    ccu::Variable              loopParam[2];
+};
 
 struct CcuKernelArgAllGatherMesh1DMem2Mem : public CcuKernelArgBase {
     uint64_t rankSize;

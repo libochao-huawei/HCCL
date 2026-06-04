@@ -41,12 +41,6 @@ constexpr uint32_t ALG_TAG_LENGTH = TAG_LENGTH + 128;
 constexpr uint32_t OP_ALG_LENGTH = 128;
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
-// loop相关变量
-constexpr uint64_t GC_MS_INTERLEAVE = 8;
-constexpr uint64_t GC_MS_SIZE = 4096;
-constexpr uint32_t GC_LOCAL_COPY_MS_PER_LOOP = 8;
-constexpr uint32_t GC_MS_LOCAL_COPY_LOOP_COUNT = 8;
-
 // 算子执行模式
 enum class OpMode {
     OPBASE = 0,
@@ -182,31 +176,5 @@ inline HcclResult ConvertCcuToHccl(CcuResult ccuResult) {
             return HCCL_E_INTERNAL;
     }
 }
-
-struct LoopGroupConfig {
-    uint32_t msInterleave;
-    uint32_t loopCount;
-    uint64_t memSlice;
-};
-
-struct LoopGroupResource {
-    ccu::Array<ccu::Event>     completedEvent{0};
-    ccu::Array<ccu::CcuBuffer> ccuBuf{0};
-    uint32_t  eventCount;
-    uint32_t  bufCount;
-};
-
-struct GroupOpSizeVars {
-    ccu::Variable addrOffset;
-    ccu::Variable loopParam;
-    ccu::Variable parallelParam;
-    ccu::Variable residual;
-};
-
-struct CcuLoopEntity {
-    std::unique_ptr<ccu::Func> body[2];
-    std::unique_ptr<ccu::Loop> loops[2];
-    ccu::Variable              loopParam[2];
-};
 
 #endif // OPS_HCCL_P2P_COMMON_H
