@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <memory>
+#include <map>
 
 #include <acl/acl_rt.h>
 #include <hccl/hccl_types.h>
@@ -40,13 +41,11 @@ constexpr uint32_t ALG_TAG_LENGTH = TAG_LENGTH + 128;
 constexpr uint32_t OP_ALG_LENGTH = 128;
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
-// token相关变量
-constexpr uint16_t tokenValidBitNum   = 1;
-constexpr uint16_t tokenValidShiftBit = 52;
-constexpr uint16_t tokenIdBitNum      = 20;
-constexpr uint16_t tokenIdShiftBit    = 32;
-constexpr uint16_t tokenValueBitNum   = 32;
-constexpr uint16_t tokenValueShiftBit = 0;
+// loop相关变量
+constexpr uint64_t GC_MS_INTERLEAVE = 8;
+constexpr uint64_t GC_MS_SIZE = 4096;
+constexpr uint32_t GC_LOCAL_COPY_MS_PER_LOOP = 8;
+constexpr uint32_t GC_MS_LOCAL_COPY_LOOP_COUNT = 8;
 
 // 算子执行模式
 enum class OpMode {
@@ -184,11 +183,30 @@ inline HcclResult ConvertCcuToHccl(CcuResult ccuResult) {
     }
 }
 
-typedef struct {
-    uint64_t va;
-    uint64_t size;
-    uint32_t tokenId;
-    uint32_t tokenValue;
-} rtMemUbTokenInfo;
+struct LoopGroupConfig {
+    uint32_t msInterleave;
+    uint32_t loopCount;
+    uint64_t memSlice;
+};
+
+struct LoopGroupResource {
+    ccu::Array<ccu::Event>     completedEvent{0};
+    ccu::Array<ccu::CcuBuffer> ccuBuf{0};
+    uint32_t  eventCount;
+    uint32_t  bufCount;
+};
+
+struct GroupOpSizeVars {
+    ccu::Variable addrOffset;
+    ccu::Variable loopParam;
+    ccu::Variable parallelParam;
+    ccu::Variable residual;
+};
+
+struct CcuLoopEntity {
+    std::unique_ptr<ccu::Func> body[2];
+    std::unique_ptr<ccu::Loop> loops[2];
+    ccu::Variable              loopParam[2];
+};
 
 #endif // OPS_HCCL_P2P_COMMON_H

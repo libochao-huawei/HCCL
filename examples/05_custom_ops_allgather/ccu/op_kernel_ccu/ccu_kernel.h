@@ -11,10 +11,10 @@
 #ifndef HCCL_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_H
 #define HCCL_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_H
 
-#include <vector>
 #include <ios>
 #include "common.h"
 #include "log.h"
+#include "utils.h"
 
 namespace ccu = ::AscendC::ccu;
 
@@ -35,6 +35,21 @@ struct AllGatherMesh1DMem2MemContext {
     ccu::Variable currentRankSliceOutputOffset;
     ccu::Variable sliceSize;
     ccu::Event event;
+
+    GroupOpSizeVars goSize;
+    LoopGroupConfig   moConfig;
+    LoopGroupResource moRes;
+    bool resourceAllocated = false;
+
+    std::map<std::string, CcuLoopEntity> loopMap;
+
+    void CreateLoopEntity(std::string loopStr) {
+        loopMap.emplace(loopStr, CcuLoopEntity());
+    }
+
+    bool IsLoopEntityRegistered(std::string loopStr) {
+        return loopMap.count(loopStr) != 0;
+    }
 };
 
 CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg);

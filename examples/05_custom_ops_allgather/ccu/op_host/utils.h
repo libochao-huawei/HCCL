@@ -23,14 +23,24 @@ HcclResult GetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSe
 
 HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, std::vector<ChannelHandle> &kernelChannels);
 
-HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, 
+HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost,
     const std::vector<ChannelHandle> &kernelChannels, CcuKernelInfo &kernelInfo);
 
 HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost);
 
-uint64_t GetTokenInfo(uint64_t va, uint64_t size);
+constexpr uint64_t SetBits(uint16_t start, uint16_t end);
 
 constexpr uint64_t SetBits(uint16_t end);
+
+uint64_t GetMaxLoopIterNum();
+
+uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t loopIterNum);
+
+uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum);
+
+uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset);
+
+std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig &config);
 
 } // namespace ops_hccl_ag
 

@@ -19,11 +19,6 @@
 namespace ops_hccl_ag {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
-constexpr uint64_t SetBits(uint16_t end)
-{
-    return ((uint64_t(1) << (end + 1)) - uint64_t(1));
-}
-
 HcclResult GetDeviceType(DeviceType *deviceType) {
     const char *socNamePtr = aclrtGetSocName();
     if (socNamePtr == nullptr) {
@@ -181,6 +176,98 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxS
 
     HCCL_INFO("End to execute AllocAlgResourceCCU success.");
     return HCCL_SUCCESS;
+}
+
+constexpr uint64_t SetBits(uint16_t start, uint16_t end)
+{
+    return ((uint64_t(1) << (end - start + 1)) - uint64_t(1)) << start;
+}
+
+constexpr uint64_t SetBits(uint16_t end)
+{
+    return ((uint64_t(1) << (end + 1)) - uint64_t(1));
+}
+
+uint64_t GetMaxLoopIterNum()
+{
+    constexpr uint16_t loopNumBitNum = 12;
+    return SetBits(loopNumBitNum);
+}
+
+uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t loopIterNum)
+{
+    constexpr uint16_t ctxIdBitNum     = 8;
+    constexpr uint16_t ctxIdShiftBit   = 45;
+    constexpr uint16_t gsaBitNum       = 32;
+    constexpr uint16_t gsaShiftBit     = 13;
+    constexpr uint16_t loopNumBitNum   = 13;
+    constexpr uint16_t loopNumShiftBit = 0;
+    return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit) | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
+           | ((loopIterNum & SetBits(loopNumBitNum)) << loopNumShiftBit);
+}
+
+uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
+{
+    constexpr uint16_t repeatBitNum       = 7;
+    constexpr uint16_t repeatNumShiftBit  = 55;
+    constexpr uint16_t repeatLoopBitNum   = 7;
+    constexpr uint16_t repeatLoopShiftBit = 48;
+    constexpr uint16_t totalLoopBitNum    = 7;
+    constexpr uint16_t totalLoopShiftBit  = 41;
+    return ((repeatNum & SetBits(repeatBitNum)) << repeatNumShiftBit)
+           | ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit)
+           | ((totalLoopNum & SetBits(totalLoopBitNum)) << totalLoopShiftBit);
+}
+
+uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset)
+{
+    constexpr uint16_t gsaBitNum   = 32;
+    constexpr uint16_t gsaShiftBit = 21;
+    constexpr uint16_t msBitNum    = 11;
+    constexpr uint16_t msShiftBit  = 10;
+    constexpr uint16_t ckeBitNum   = 10;
+    constexpr uint16_t ckeShiftBit = 0;
+    return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) | ((msOffset & SetBits(msBitNum)) << msShiftBit)
+           | ((ckeOffset & SetBits(ckeBitNum)) << ckeShiftBit);
+}
+
+std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig &config)
+{
+    uint64_t loopSize = config.loopCount * config.memSlice;
+    uint64_t maxSize  = loopSize * (GetMaxLoopIterNum() + 1);
+
+    uint64_t m = size / loopSize;
+    uint64_t n = (size - m * loopSize) / config.memSlice;
+    uint64_t p = size - m * loopSize - n * config.memSlice;
+
+    if (size == maxSize) {
+        m = GetMaxLoopIterNum();
+        n = config.loopCount - 1;
+        p = config.memSlice;
+    }
+
+    uint64_t offset      = config.memSlice * config.loopCount * m;
+    uint64_t loopIterNum = m;
+
+    uint64_t loopExtendNum = 0;
+    uint64_t tailSize      = 0;
+    uint64_t LoopNumTwo    = 2;
+
+    if (n == 0 && p == 0) {
+        loopExtendNum = 0;
+        tailSize      = 0;
+    } else if (n != 0 && p == 0) {
+        loopExtendNum = GetParallelParam(n - 1, 0, 1);
+        tailSize      = config.memSlice;
+    } else if (n == 0 && p != 0) {
+        loopExtendNum = GetParallelParam(0, 0, 1);
+        tailSize      = p;
+    } else {
+        loopExtendNum = GetParallelParam(n - 1, 1, LoopNumTwo);
+        tailSize      = p;
+    }
+    
+    return {offset, loopIterNum, loopExtendNum, tailSize};
 }
 
 } // namespace ops_hccl_ag

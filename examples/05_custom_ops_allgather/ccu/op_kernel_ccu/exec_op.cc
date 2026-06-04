@@ -67,13 +67,23 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtxSerializable &resCtx
         uint64_t currentRankSliceInputOffset = 0; // 卡间输入地址偏移量
         uint64_t currentRankSliceOutputOffset = dataSize * param.myRank; // 卡间目标地址偏移量
 
+        LoopGroupConfig  config{};
+        config.msInterleave = CCU_MS_INTERLEAVE;
+        config.loopCount    = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+        config.memSlice     = CCU_MS_SIZE * LOCAL_COPY_MS_PER_LOOP;
+        auto  goSize        = CalGoSize(sliceSize, config);
+
         std::vector<uint64_t> taskArgs = {
             inputAddr,
             outputAddr,
             token,
             currentRankSliceInputOffset,
             currentRankSliceOutputOffset,
-            sliceSize
+            sliceSize,
+            goSize[0],
+            goSize[1],
+            goSize[2],
+            goSize[3],
         };
 
         CcuResult launchRet = HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0],

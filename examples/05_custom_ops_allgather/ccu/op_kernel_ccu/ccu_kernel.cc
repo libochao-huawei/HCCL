@@ -17,6 +17,117 @@ constexpr int TOKEN_XN_ID = 2;
 constexpr int CKE_IDX_0 = 0;
 constexpr int POST_SYNC_ID = 3;
 
+static CcuResult GroupCopy(AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr dst, ccu::LocalAddr src,
+                            GroupOpSizeVars goSize)
+{
+    if (!ctx.resourceAllocated) {
+        ctx.moConfig.msInterleave = GC_MS_INTERLEAVE;
+        ctx.moConfig.loopCount = GC_MS_LOCAL_COPY_LOOP_COUNT;
+        ctx.moConfig.memSlice = GC_LOCAL_COPY_MS_PER_LOOP * GC_MS_SIZE;
+
+        ctx.moRes.eventCount = ctx.moConfig.loopCount;
+        ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moRes.eventCount);
+
+        ctx.moRes.bufCount = ctx.moConfig.loopCount * ctx.moConfig.msInterleave;
+        ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(ctx.moRes.bufCount);
+
+        ctx.resourceAllocated = true;
+    }
+
+    std::string loopType = "localcopy";
+    if (!ctx.IsLoopEntityRegistered(loopType)) {
+        ctx.CreateLoopEntity(loopType);
+    }
+    auto &loops = ctx.loopMap[loopType];
+
+    ccu::LocalAddr loopSrc[2];
+    ccu::LocalAddr loopDst[2];
+    ccu::Variable loopLen[2];
+
+    uint32_t loopNum = 2;
+    for (uint32_t index = 0; index < loopNum; index++) {
+        uint32_t bufBase = index * ctx.moConfig.msInterleave;
+        ccu::Event loopEvt = ctx.moRes.completedEvent[index];
+
+        if (loops.body[index] == nullptr) {
+            loops.body[index].reset(new ccu::Func(
+                [&ctx, index, bufBase, loopEvt, &loopSrc, &loopDst, &loopLen]() {
+                    ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
+                    ccu::EventWait(loopEvt, 1);
+                    ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
+                    ccu::EventWait(loopEvt, 1);
+                }));
+
+            loops.loops[index].reset(
+                new ccu::Loop(loops.loopParam[index], *loops.body[index]));
+        }
+    }
+
+    CCU_IF(goSize.addrOffset != 0)
+    {
+        ccu::Variable loopParam;
+        loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
+        loopParam += goSize.loopParam;
+
+        ccu::Variable sliceSize;
+        sliceSize = ctx.moConfig.memSlice;
+
+        loopSrc[0].addr = src.addr;
+        loopSrc[0].token = src.token;
+        loopDst[0].addr = dst.addr;
+        loopDst[0].token = dst.token;
+        loopLen[0] = sliceSize;
+
+        loops.loopParam[0] = loopParam;
+        ccu::Variable paraCfg;
+        paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
+
+        ccu::Variable offsetCfg;
+        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0] };
+        ccu::LoopGroup group(paraCfg, offsetCfg, 1, grpLoops);
+    }
+
+    CCU_IF(goSize.parallelParam != 0)
+    {
+        src.addr += goSize.addrOffset;
+        dst.addr += goSize.addrOffset;
+
+        loopSrc[0].addr = src.addr;
+        loopSrc[0].token = src.token;
+        loopDst[0].addr = dst.addr;
+        loopDst[0].token = dst.token;
+        loopLen[0] = goSize.residual;
+
+        src.addr += goSize.residual;
+        dst.addr += goSize.residual;
+
+        ccu::Variable sliceSize;
+        sliceSize = ctx.moConfig.memSlice;
+
+        loopSrc[1].addr = src.addr;
+        loopSrc[1].token = src.token;
+        loopDst[1].addr = dst.addr;
+        loopDst[1].token = dst.token;
+        loopLen[1] = sliceSize;
+
+        ccu::Variable loopCfg0;
+        loopCfg0 = GetLoopParam(0, 0, 1);
+        ccu::Variable loopCfg1;
+        loopCfg1 = GetLoopParam(0, 0, 1);
+        ccu::Variable offsetCfg;
+        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+
+        loops.loopParam[0] = loopCfg0;
+        loops.loopParam[1] = loopCfg1;
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
+        uint32_t grpLoopNum = 2;
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, grpLoopNum, grpLoops);
+    }
+
+    return CCU_SUCCESS;
+}
+
 CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
 {
     auto *kernelArg = static_cast<CcuKernelArgAllGatherMesh1DMem2Mem *>(arg);
@@ -50,6 +161,10 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset, argId++));
     CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset, argId++));
     CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, argId++));
 
     // 3.前同步
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
@@ -94,6 +209,8 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
             const uint16_t mask = 1 << rankIdx;
             if (rankIdx == ctx.arg->rankId) {
                 CCU_CHK_RET(ccu::LocalCopy(localDst, src, ctx.sliceSize, ctx.event, mask)); // 本地拷贝
+                // CCU_CHK_RET(ccu::EventRecord(ctx.event, mask));
+                // CCU_CHK_RET(GroupCopy(ctx, ctx.localDst, ctx.src, ctx.goSize));
             } else {
                 CCU_CHK_RET(ccu::Write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask)); // 本卡数据写入远端地址
                 channelId++;
@@ -102,14 +219,14 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     }
 
     const uint16_t totalMask = (1 << ctx.arg->rankSize) - 1;
-    CCU_CHK_RET(ccu::EventWait(ctx.event, totalMask));
+    CCU_CHK_RET(ccu::EventWait(ctx.event, totalMask)); // 等待本卡的数据搬运完成
 
     // 5.后同步
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
         CCU_CHK_RET(ccu::NotifyRecord(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
+        CCU_CHK_RET(ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID)); // 等待远端卡数据搬运完成
     }
 
     return CcuResult::CCU_SUCCESS;
