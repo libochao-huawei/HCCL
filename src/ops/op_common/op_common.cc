@@ -53,7 +53,6 @@
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
-thread_local std::set<std::string> g_inconsistentCheckedList;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 constexpr u32 HOST_NOTIFY_TIMEOUT_OFFSET = 27;  // host等待Device通知的超时时间偏移量
 constexpr u32 KERNEL_TIMEOUT_OFFSET = 25;       // kernel启动超时时间偏移量
@@ -884,24 +883,6 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     AlgResourceRequest resRequest;
     CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
 
-    // 参数一致性校验准备工作：HCCL_DFS_CONFIG 为 off 以及 HCCL_DFS_CONFIG 为 first 或空但非首算子时不校验，其他场景均校验
-    OpExchangeInfo exchangeInfo{};
-    std::string tagStr = param.algTag;
-    bool isChecked = GetInconsistentCheckSwitch() == 0 &&
-        (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
-    if (HcommIsSupportHcclCommAddExchangeInfo()) {
-        if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
-            isChecked = true; // isChecked 为 false 时做参数比较
-        } else {
-            CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
-            CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
-            g_inconsistentCheckedList.insert(tagStr);
-            isChecked = false;
-        }
-    } else {
-        isChecked = true; // 符号不存在，不校验
-    }
-
     auto ret = GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
         size, increCreateChannelFlag, resPack);
     if (ret == HCCL_E_UNAVAIL) {
@@ -922,8 +903,10 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     }
 
     // 参数一致性校验
-    if (!isChecked) {
-        CHK_RET(CompareOpExchangeInfos(comm, param.engine, resRequest, exchangeInfo));
+    if (NeedInconsistentCheck(param))
+        OpExcahngeInfo exchangeInfo{};
+        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
+        CHK_RET(CompareOpExchangeInfos(comm, param, resRequest, exchangeInfo));
     }
 
     return HCCL_SUCCESS;
@@ -986,6 +969,18 @@ HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &e
             exchangeInfo.count = param.DataDes.count;
             break;
     }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AddExchangeInfo(HcclComm comm, const OpParam &param)
+{
+    CHK_PTR_NULL(comm);
+    if (NeedInconsistentCheck(param)) {
+        OpExchangeInfo exchangeInfo{};
+        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
+        CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
+    }
+    HCCL_INFO("[%s] success.", __func__);
     return HCCL_SUCCESS;
 }
 
@@ -1056,9 +1051,6 @@ HcclResult ReuseCachedDeviceCtx(HcclComm comm, const OpParam &param, void **resC
     if (ret == HCCL_SUCCESS) {
         *resCtxSequence = ctx;
         ctxSize = size;
-        if (HcommIsSupportHcclCommResetExchangeInfo()) {
-            CHK_RET(HcclCommResetExchangeInfo(comm));
-        }
         return HCCL_SUCCESS;
     }
     HCCL_ERROR("failed to get device ctx.");
@@ -1382,6 +1374,7 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         }
     }
     if (channelNum > 0) {
+        CHK_RET(AddExchangeInfo(comm, param));
         CHK_RET(HcclChannelAcquire(comm, commEngine, channelRequest.data(),
             channelNum, levelNChannels.data()));
     }
@@ -1538,6 +1531,7 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
 
         if (channelNum > 0) {
             // 需要资源回退。返回资源不够
+            CHK_RET(AddExchangeInfo(comm, param));
             auto ret = HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
                 channelNum, kernelChannels.data());
             if (ret == HCCL_E_UNAVAIL) {
@@ -1666,6 +1660,7 @@ HcclResult HcclAllocAlgResourceAiv(
         HCCL_INFO("[%s]level[%u] validChannelNum[%u]", __func__, level, validChannelNum);
 
         if (validChannelNum > 0) {
+            CHK_RET(AddExchangeInfo(comm, param));
             CHK_RET(HcclChannelAcquire(comm, param.engine, levelNChannelRequest.data(),
                 validChannelNum, levelNChannels.data()));
         }
