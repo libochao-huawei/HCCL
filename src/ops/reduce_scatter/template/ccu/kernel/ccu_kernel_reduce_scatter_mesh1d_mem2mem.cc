@@ -246,7 +246,7 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoRepeatReduceScatter()
 
         scratchMem_[rankIdx].addr = scratch_[rankId_];
         scratchMem_[rankIdx].addr += scratchOffset;
-        scratchOffset += normalSliceSize_;
+        scratchOffset += (rankId_ == (rankSize_ - 1)) ? lastSliceSize_ : normalSliceSize_;
         scratchMem_[rankIdx].token = token_[rankId_];
     }
 
