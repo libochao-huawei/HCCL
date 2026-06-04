@@ -229,7 +229,6 @@ __aicore__ inline void AivAllGatherV2Mesh1D(KERNEL_ARGS_DEF)
     }
  
     op.Process(len, sliceId, outputSliceStride);
-    // 执行barrier全同步
 }
 
 template<typename T>
