@@ -979,8 +979,8 @@ HcclResult AddExchangeInfo(HcclComm comm, const OpParam &param)
         OpExchangeInfo exchangeInfo{};
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
+        HCCL_INFO("[%s] success.", __func__);
     }
-    HCCL_INFO("[%s] success.", __func__);
     return HCCL_SUCCESS;
 }
 
@@ -1374,6 +1374,7 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         }
     }
     if (channelNum > 0) {
+        // 参数一致性校验信息注册到通信域，HcclChannelAcquire内部存在读清动作，每次调用前均需注册
         CHK_RET(AddExchangeInfo(comm, param));
         CHK_RET(HcclChannelAcquire(comm, commEngine, channelRequest.data(),
             channelNum, levelNChannels.data()));
@@ -1530,10 +1531,11 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
         kernelChannels.resize(channelNum);
 
         if (channelNum > 0) {
-            // 需要资源回退。返回资源不够
+            // 参数一致性校验信息注册到通信域，HcclChannelAcquire内部存在读清动作，每次调用前均需注册
             CHK_RET(AddExchangeInfo(comm, param));
             auto ret = HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
                 channelNum, kernelChannels.data());
+            // 需要资源回退。返回资源不够
             if (ret == HCCL_E_UNAVAIL) {
                 HCCL_WARNING("[HcclChannelAcquire] channel unavailable, channel num[%u].", channelNum);
                 return HCCL_E_UNAVAIL;
@@ -1660,6 +1662,7 @@ HcclResult HcclAllocAlgResourceAiv(
         HCCL_INFO("[%s]level[%u] validChannelNum[%u]", __func__, level, validChannelNum);
 
         if (validChannelNum > 0) {
+            // 参数一致性校验信息注册到通信域，HcclChannelAcquire内部存在读清动作，每次调用前均需注册
             CHK_RET(AddExchangeInfo(comm, param));
             CHK_RET(HcclChannelAcquire(comm, param.engine, levelNChannelRequest.data(),
                 validChannelNum, levelNChannels.data()));
