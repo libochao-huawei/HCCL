@@ -47,6 +47,7 @@ protected:
     uint32_t rankSizeLevel0_{0};
     uint32_t rankSizeLevel1_{0};
     uint32_t rankSizeLevel2_{0};
+    bool skipLevel1_{false};
 
     uint32_t rankIdxLevel0_{0};
     uint32_t rankIdxLevel1_{0};

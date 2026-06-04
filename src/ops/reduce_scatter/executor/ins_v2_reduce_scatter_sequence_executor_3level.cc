@@ -64,6 +64,7 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
             myRank_, SEQUENCE_EXECUTOR_LEVEL_NUM);
         return HCCL_E_INTERNAL;
     }
+    skipLevel1_ = (algHierarchyInfo.infos[1][0].size() == 1);
     std::shared_ptr<InsAlgTemplate0> tempAlgLevel0 = std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo.infos[0]);
     std::shared_ptr<InsAlgTemplate1> tempAlgLevel1 = std::make_shared<InsAlgTemplate1>(param, myRank_, algHierarchyInfo.infos[1]);
     std::shared_ptr<InsAlgTemplate2> tempAlgLevel2 = std::make_shared<InsAlgTemplate2>(param, myRank_, algHierarchyInfo.infos[2]);
@@ -72,33 +73,53 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     AlgResourceRequest resReq1;
     AlgResourceRequest resReq2;
     CHK_RET(tempAlgLevel0->CalcRes(comm, param, topoInfo, resReq0));
-    CHK_RET(tempAlgLevel1->CalcRes(comm, param, topoInfo, resReq1));
+    if (skipLevel1_) {
+        HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level][CalcRes] myRank[%u] level1 rankSize is 1, skip level1 CalcRes",
+            myRank_);
+    } else {
+        CHK_RET(tempAlgLevel1->CalcRes(comm, param, topoInfo, resReq1));
+    }
     CHK_RET(tempAlgLevel2->CalcRes(comm, param, topoInfo, resReq2));
 
-    resourceRequest.slaveThreadNum = std::max({resReq0.slaveThreadNum, resReq1.slaveThreadNum, resReq2.slaveThreadNum});
+    if (skipLevel1_) {
+        resourceRequest.slaveThreadNum = std::max(resReq0.slaveThreadNum, resReq2.slaveThreadNum);
+    } else {
+        resourceRequest.slaveThreadNum = std::max({resReq0.slaveThreadNum, resReq1.slaveThreadNum, resReq2.slaveThreadNum});
+    }
     resourceRequest.notifyNumPerThread.clear();
     resourceRequest.notifyNumPerThread.resize(resourceRequest.slaveThreadNum);
     for (u32 i = 0; i < resourceRequest.slaveThreadNum; ++i) {
         if (i < resReq0.notifyNumPerThread.size()) {
             resourceRequest.notifyNumPerThread[i] = std::max(resourceRequest.notifyNumPerThread[i], resReq0.notifyNumPerThread[i]);
         }
-        if (i < resReq1.notifyNumPerThread.size()) {
+        if (!skipLevel1_ && i < resReq1.notifyNumPerThread.size()) {
             resourceRequest.notifyNumPerThread[i] = std::max(resourceRequest.notifyNumPerThread[i], resReq1.notifyNumPerThread[i]);
         }
         if (i < resReq2.notifyNumPerThread.size()) {
             resourceRequest.notifyNumPerThread[i] = std::max(resourceRequest.notifyNumPerThread[i], resReq2.notifyNumPerThread[i]);
         }
     }
-    resourceRequest.notifyNumOnMainThread = std::max({resReq0.notifyNumOnMainThread, resReq1.notifyNumOnMainThread, resReq2.notifyNumOnMainThread});
+    if (skipLevel1_) {
+        resourceRequest.notifyNumOnMainThread = std::max(resReq0.notifyNumOnMainThread, resReq2.notifyNumOnMainThread);
+    } else {
+        resourceRequest.notifyNumOnMainThread = std::max({resReq0.notifyNumOnMainThread, resReq1.notifyNumOnMainThread, resReq2.notifyNumOnMainThread});
+    }
     HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] notifyNumOnMainThread is %u", myRank_, resourceRequest.notifyNumOnMainThread);
     resourceRequest.channels.resize(SEQUENCE_EXECUTOR_LEVEL_NUM);
-    if (resReq0.channels.empty() || resReq1.channels.empty() || resReq2.channels.empty()) {
-        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] channels empty, level0[%u] level1[%u] level2[%u]",
-            myRank_, resReq0.channels.size(), resReq1.channels.size(), resReq2.channels.size());
+    if (resReq0.channels.empty() || resReq2.channels.empty()) {
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] channels empty, level0[%u] level2[%u]",
+            myRank_, resReq0.channels.size(), resReq2.channels.size());
+        return HCCL_E_INTERNAL;
+    }
+    if (!skipLevel1_ && resReq1.channels.empty()) {
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] channels empty, level1[%u]",
+            myRank_, resReq1.channels.size());
         return HCCL_E_INTERNAL;
     }
     resourceRequest.channels[0] = resReq0.channels[0];
-    resourceRequest.channels[1] = resReq1.channels[0];
+    if (!skipLevel1_) {
+        resourceRequest.channels[1] = resReq1.channels[0];
+    }
     resourceRequest.channels[2] = resReq2.channels[0];
     HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] myRank[%u] slaveThreadNum is [%u], notifyNumOnMainThread is [%u], "
         "level0 chanel size [%u], level1 channel size [%u], level2 channel size [%u]",
@@ -129,6 +150,11 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     rankSizeLevel0_ = algHierarchyInfo_.infos[0][0].size();
     rankSizeLevel1_ = algHierarchyInfo_.infos[1][0].size();
     rankSizeLevel2_ = algHierarchyInfo_.infos[2][0].size();
+    skipLevel1_ = (rankSizeLevel1_ == 1);
+    if (skipLevel1_) {
+        HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] [Orchestrate] myRank[%u] level1 rankSize is 1, skip level1",
+            myRank_);
+    }
     CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
     HCCL_INFO("[InsV2ReduceScatterSequenceExecutor3Level] [Orchestrate] myRank_[%llu] rankIdxLevel0_[%llu] "
         "rankIdxLevel1_[%llu] rankIdxLevel2_[%llu] rankSizeLevel0_[%llu] rankSizeLevel1_[%llu] "
@@ -174,7 +200,7 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
 {
     tempAlgParamsInter.count = currDataCount;
     tempAlgParamsInter.buffInfo.inBuffBaseOff = rankIdxLevel0_ * currDataCount * dataTypeSize_;
-    tempAlgParamsInter.buffInfo.outBuffBaseOff = rankIdxLevel0_ * currDataCount * dataTypeSize_;
+    tempAlgParamsInter.buffInfo.outBuffBaseOff = (rankIdxLevel0_ + (rankIdxLevel1_ *  rankSizeLevel0_)) * currDataCount * dataTypeSize_;
     tempAlgParamsInter.buffInfo.hcclBuffBaseOff = rankIdxLevel0_ * currDataCount * dataTypeSize_;
 
     tempAlgParamsInter.sliceSize = currDataCount * dataTypeSize_;
@@ -264,7 +290,9 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     tempAlgParamsLevel1.buffInfo.hcclBuff = resCtx.cclMem;
 
     std::shared_ptr<InsAlgTemplate1> algTemplateLevel1 = std::make_shared<InsAlgTemplate1>(param, myRank_, algHierarchyInfo_.infos[1]);
-    algTemplateLevel1->SetchannelsPerRank(remoteRankToChannelInfo_[1]);
+    if (!skipLevel1_) {
+        algTemplateLevel1->SetchannelsPerRank(remoteRankToChannelInfo_[1]);
+    }
 
     TemplateDataParams tempAlgParamsLevel2;
     tempAlgParamsLevel2.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
@@ -278,14 +306,16 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
     algTemplateLevel2->SetchannelsPerRank(remoteRankToChannelInfo_[2]);
 
     u32 templateScratchMultiplier0 = algTemplateLevel0->CalcScratchMultiple(BufferType::INPUT, BufferType::HCCL_BUFFER);
-    u32 templateScratchMultiplier1 = algTemplateLevel1->CalcScratchMultiple(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER);
+    u32 templateScratchMultiplier1 = skipLevel1_ ? 1 : algTemplateLevel1->CalcScratchMultiple(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER);
     u32 templateScratchMultiplier2 = algTemplateLevel2->CalcScratchMultiple(BufferType::HCCL_BUFFER, BufferType::OUTPUT);
     u32 templateScratchMultiplier = templateScratchMultiplier0 * templateScratchMultiplier1 * templateScratchMultiplier2;
 
     TemplateResource templateResource0;
     CHK_RET(GenTempResource(resCtx, 0, algTemplateLevel0, templateResource0));
     TemplateResource templateResource1;
-    CHK_RET(GenTempResource(resCtx, 1, algTemplateLevel1, templateResource1));
+    if (!skipLevel1_) {
+        CHK_RET(GenTempResource(resCtx, 1, algTemplateLevel1, templateResource1));
+    }
     TemplateResource templateResource2;
     CHK_RET(GenTempResource(resCtx, 2, algTemplateLevel2, templateResource2));
 
@@ -305,8 +335,10 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
         GenIntraTemplateParams(tempAlgParamsLevel0, processedDataCount, currDataCount, loop);
         CHK_RET(algTemplateLevel0->KernelRun(param, tempAlgParamsLevel0, templateResource0));
 
-        GenInterTemplateParams1(tempAlgParamsLevel1, processedDataCount, currDataCount, loop);
-        CHK_RET(algTemplateLevel1->KernelRun(param, tempAlgParamsLevel1, templateResource1));
+        if (!skipLevel1_) {
+            GenInterTemplateParams1(tempAlgParamsLevel1, processedDataCount, currDataCount, loop);
+            CHK_RET(algTemplateLevel1->KernelRun(param, tempAlgParamsLevel1, templateResource1));
+        }
 
         GenInterTemplateParams2(tempAlgParamsLevel2, processedDataCount, currDataCount, loop);
         CHK_RET(algTemplateLevel2->KernelRun(param, tempAlgParamsLevel2, templateResource2));
