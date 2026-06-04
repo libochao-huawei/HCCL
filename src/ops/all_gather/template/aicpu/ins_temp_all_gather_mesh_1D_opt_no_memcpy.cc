@@ -196,41 +196,41 @@ HcclResult InsTempAllGatherMesh1DOptNoMemcpy::RunAllGatherMesh(const std::vector
                         HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy] RunAllGather SendRecvWrite failed"), HcclResult::HCCL_E_INTERNAL);
 
         } else {
-            // 阶段 2 远端读， 从远端的 hccl buffer 到 本地的 output buffer
-            for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
-                std::vector<DataSlice> txSrcSlicesAll;
-                std::vector<DataSlice> txDstSlicesAll;
-                std::vector<DataSlice> rxDstSlicesAll;
-                std::vector<DataSlice> rxSrcSlicesAll;
+            // 阶段 2 远端写， 将本地 output 中对端需要的数据直写到对端 output
+            std::vector<DataSlice> txSrcSlicesAll;
+            std::vector<DataSlice> txDstSlicesAll;
+            std::vector<DataSlice> rxDstSlicesAll;
+            std::vector<DataSlice> rxSrcSlicesAll;
 
-                // tx 远端写, 不应该启动
-                void *txSrcPtr = tempAlgParams_.buffInfo.inputPtr;
-                u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
+            for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
+                u32 txRank = (myRank_ + rpt * meshSize_) % rankSize_;
+                void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
+                u64 txSrcOffset = tempAlgParams_.buffInfo.outBuffBaseOff + txRank * outputSliceStride;
                 txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, sliceSize, sliceCount);
 
                 void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
-                u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + myRank_ * outputSliceStride;
+                u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + txRank * outputSliceStride;
                 CHK_RET(CheckRemoteOutputRange("InsTempAllGatherMesh1DOptNoMemcpy", myRank_, connectedRank,
                                                linkRemote, txDstOffset, sliceSize));
                 txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
 
 
-                // rx 远端读
+                // rx slice用于描述对端会写回本端的数据槽。
+                u32 rxRank = (connectedRank + rpt * meshSize_) % rankSize_;
                 void *rxSrcPtr = linkRemote.remoteOutputGraphMode.addr;
-                u64 rxSrcOffset = tempAlgParams_.buffInfo.outBuffBaseOff +
-                                  ((connectedRank + rpt * meshSize_) % rankSize_) * outputSliceStride;
+                u64 rxSrcOffset = tempAlgParams_.buffInfo.outBuffBaseOff + rxRank * outputSliceStride;
                 rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, sliceSize, sliceCount);
                 
                 void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
-                u64 rxOutOffset = tempAlgParams_.buffInfo.outBuffBaseOff + ((connectedRank + rpt * meshSize_) % rankSize_) * outputSliceStride;
+                u64 rxOutOffset = tempAlgParams_.buffInfo.outBuffBaseOff + rxRank * outputSliceStride;
                 rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, sliceSize, sliceCount);
-
-                TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
-                TxRxChannels sendRecvChannels(linkRemote, linkRemote);
-                SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
-                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threadIdx]),
-                            HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy] RunAllGather SendRecvRead failed"), HcclResult::HCCL_E_INTERNAL);
             }
+            TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
+            TxRxChannels sendRecvChannels(linkRemote, linkRemote);
+            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
+                        HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy] RunAllGather SendRecvWrite failed"),
+                        HcclResult::HCCL_E_INTERNAL);
         }
     }    
     return HcclResult::HCCL_SUCCESS;

@@ -49,7 +49,7 @@ private:
 
     HcclResult RunAllGatherToAllRanks(const std::vector<ThreadHandle> &threads,
                                       const std::map<u32, std::vector<ChannelInfo>> &channels,
-                                      u32 step);
+                                      u32 startStep, u32 endStep);
 
 };
 
