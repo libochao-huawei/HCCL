@@ -14,7 +14,6 @@
 #include <vector>
 #include <ios>
 #include "utils.h"
-// #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
@@ -31,12 +30,9 @@ struct CcuKernelArgAlltoAllMesh1D: CcuKernelArgBase{
 struct AlltoAllMesh1DContext: CcuKernelCtxBase {
     const CcuKernelArgAlltoAllMesh1D *arg;
     
-    // uint64_t rankSize{0};
-    // uint32_t rankId{0};
     HcclDataType dataType;
     HcclDataType outputDataType;
     ccu::Variable repeatNum;
-    // std::vector<ChannelHandle> channels;
     std::vector<ccu::Variable> input;
     std::vector<ccu::Variable> output;
     std::vector<ccu::Variable> token;

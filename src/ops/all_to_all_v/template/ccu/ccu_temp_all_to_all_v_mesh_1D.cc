@@ -292,8 +292,8 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 
     LoopGroupConfig  config{};
     config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = 8;
-    config.memSlice     = 8 * CCU_MS_SIZE;
+    config.loopCount    = CCU_MS_INTERLEAVE;
+    config.memSlice     = CCU_MS_INTERLEAVE * CCU_MS_SIZE;
 
     if (loadFromMem_) {
         taskArgs.push_back(0);  // 空地址占位，保证参数个数与load个数一致
