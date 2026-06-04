@@ -12,6 +12,7 @@
 #include "topo_match_multilevel.h"
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_mesh_clos_v2.h"
 #ifndef AICPU_COMPILE
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
@@ -202,7 +203,7 @@ void InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     intraTempDataParams.outputRepeatStride = dataSize_ * rankSizeLevel0_;
 
     if (engine_ == CommEngine::COMM_ENGINE_CCU) {
-        intraTempDataParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_; 
+        intraTempDataParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
         intraTempDataParams.inputSliceStride = dataSize_;
         intraTempDataParams.inputRepeatStride = dataSize_ * rankSizeLevel0_;
     }
@@ -302,7 +303,7 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
         CHK_RET(GenTempResource(resCtx, 1, interTempAlg, templateResourceInter));
         CHK_RET(GenTempResource(resCtx, 0, intraTempAlg, templateResourceIntra));
     }
-    
+
     u64 maxCountPerLoop = 0;
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
         maxCountPerLoop = UB_MAX_DATA_SIZE / dataTypeSize_;
@@ -407,6 +408,13 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                TopoMatchMultilevel,
                                InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
+                               InsAllGatherSequenceMeshClosV2Mesh1D,
+                               InsV2AllGatherSequenceExecutorAicpu,
+                               TopoMatchMultilevel,
+                               InsTempAllGatherMesh1D1DZAxisDetour,
+                               InsTempAllGatherMeshClosV2);
 #endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
