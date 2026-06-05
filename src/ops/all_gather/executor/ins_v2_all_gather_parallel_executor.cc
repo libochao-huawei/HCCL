@@ -13,6 +13,7 @@
 #include "alg_data_trans_wrapper.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_nhr_dpu.h"
 #ifndef AICPU_COMPILE
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
@@ -25,6 +26,7 @@
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
 #include "topo_match_pcie_mix.h"
+#include "topo_match_squeeze_2d.h"
 
 namespace ops_hccl {
 
@@ -608,7 +610,12 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherPara
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRPcie,
                                InsV2AllGatherParallelExecutor, TopoMatchPcieMix, InsTempAllGatherMesh1D,
                                InsTempAllGatherNHR);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRTest,
+                            InsV2AllGatherParallelExecutor, TopoMatchSqueeze2D, InsTempAllGatherNHR,
+                            InsTempAllGatherNHR);
 #endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+
 #ifndef AICPU_COMPILE
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherParallelMesh1DNHR,
