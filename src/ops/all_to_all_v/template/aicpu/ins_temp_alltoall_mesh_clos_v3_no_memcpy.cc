@@ -214,7 +214,8 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::CalcClosNoMemcpyRoundPlan(
                     HcclResult::HCCL_E_INTERNAL);
         u32 txRank = static_cast<u32>(txRank64);
         u32 rxRank = static_cast<u32>(rxRank64);
-        slotPlans.push_back({txRank, rxRank, rowOffset, rowOffset});
+        u32 channelIdx = (myRow + peerRow) % rowNum;
+        slotPlans.push_back({txRank, rxRank, channelIdx, channelIdx});
     }
     HCCL_INFO("[ALLTOALL_NO_MEMCPY][MeshClos][CalcRoundPlan] myRank=%d round=%u myRow=%u myCol=%u "
               "txCol=%u rxCol=%u slotNum=%zu",
