@@ -162,9 +162,6 @@ HcclResult TopoMatch3Level::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerD
     if (layerNum >= 2) {
         uint32_t netLayerL1 = 1;
         bool hostDPUOnly = false;
-        if ((CheckHostDPUOnly(comm, topoInfo, hostDPUOnly) == HcclResult::HCCL_SUCCESS) && hostDPUOnly) {
-            netLayerL1 = topoInfo->netLayerDetails.netLayers[topoInfo->netLayerDetails.netLayerNum - 1];
-        }
         CHK_RET(TopoForLayerGeneric(comm, netLayerL1, baseModSizeL1, myRank, algHierarchyInfo, netLayerL1));
     }
     if (layerNum >= 3) {
