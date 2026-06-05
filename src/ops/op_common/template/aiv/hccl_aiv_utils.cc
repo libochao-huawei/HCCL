@@ -354,13 +354,13 @@ static HcclResult GetCurrentDeviceId(s32 &deviceId)
 }
 
 static HcclResult RegisterBinaryKernel(AivDeviceRegistry &registry, const char* funcName,
-    const aclrtBinHandle binHandle, const s8* funcKey)
+    const aclrtBinHandle binHandle, const s8* funcKey, bool overwrite = false)
 {
     if (funcKey == nullptr) {
         return HCCL_E_PARA;
     }
 
-    if (registry.kernels.find(const_cast<s8*>(funcKey)) != registry.kernels.end()) {
+    if (!overwrite && registry.kernels.find(const_cast<s8*>(funcKey)) != registry.kernels.end()) {
         return HCCL_SUCCESS;
     }
 
@@ -384,7 +384,7 @@ static HcclResult GetKernelEntry(AivKernelLookupResult &lookupResult, const s8* 
     CHK_RET(GetCurrentDeviceId(deviceId));
     lock_guard<mutex> guard(g_mut);
     auto registryIt = g_aivRegistryByDevice.find(deviceId);
-    if (registryIt == g_aivRegistryByDevice.end() || !registryIt->second.initialized) {
+    if (registryIt == g_aivRegistryByDevice.end()) {
         return HCCL_E_PARA;
     }
 
@@ -438,7 +438,7 @@ static HcclResult ClearDeviceRegistry(AivDeviceRegistry &registry)
 }
 
 static HcclResult RegisterKernelList(AivDeviceRegistry &registry, HcclCMDType cmdType,
-    const std::string &aivBinaryName, const std::vector<AivKernelInfo> &aivKernelInfoList)
+    const std::string &aivBinaryName, const std::vector<AivKernelInfo> &aivKernelInfoList, bool overwrite = false)
 {
     HcclResult ret;
     aclrtBinHandle binHandle = nullptr;
@@ -470,7 +470,7 @@ static HcclResult RegisterKernelList(AivDeviceRegistry &registry, HcclCMDType cm
 
     for (auto &aivKernelInfo: aivKernelInfoList) {
         ret = RegisterBinaryKernel(registry, aivKernelInfo.kernelName, binHandle,
-            GetFuncKey(cmdType, aivKernelInfo.dataType, aivKernelInfo.argsType));
+            GetFuncKey(cmdType, aivKernelInfo.dataType, aivKernelInfo.argsType), overwrite);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("[AIV][RegisterKernel] register binary kernel for kernelName[%s] cmdType[%d] "
                 "dataType[%s] argsType[%d] failed", aivKernelInfo.kernelName, cmdType,
@@ -520,7 +520,7 @@ HcclResult RegisterKernel(HcclCMDType cmdType, const std::string &aivBinaryName,
         return HCCL_E_RUNTIME;
     }
     AivDeviceRegistry &registry = g_aivRegistryByDevice[deviceId];
-    CHK_RET(RegisterKernelList(registry, cmdType, aivBinaryName, aivKernelInfoList));
+    CHK_RET(RegisterKernelList(registry, cmdType, aivBinaryName, aivKernelInfoList, true));
     return HCCL_SUCCESS;
 }
 

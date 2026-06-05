@@ -374,6 +374,10 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
         tempAlgParams.repeatNum = 1;
         tempAlgParams.inputRepeatStride = 0;
         tempAlgParams.outputRepeatStride = 0;
+        if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER) {
+            tempAlgParams.inputSliceStride = dataCount_ * dataTypeSize_;
+            tempAlgParams.outputSliceStride = dataCount_ * dataTypeSize_;
+        }
         tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
         tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
 

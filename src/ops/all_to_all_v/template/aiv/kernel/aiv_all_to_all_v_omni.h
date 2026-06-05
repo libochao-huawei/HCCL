@@ -132,19 +132,26 @@ private:
     {
         uint64_t baseAddr = 0;
         uint64_t effectiveSliceIdx = slice.sliceIdx;
+        uint64_t sliceStride = curSliceCount_ * sizeof(T);
         if (slice.sliceType == AIV_OMNI_BUFFER_HCCL) {
             baseAddr = reinterpret_cast<uint64_t>(GM_IN[slice.remoteRank]);
             effectiveSliceIdx = 0;
         } else if (slice.sliceType == AIV_OMNI_BUFFER_INPUT) {
             baseAddr = input_;
+            if (inputSliceStride_ != 0) {
+                sliceStride = inputSliceStride_;
+            }
         } else if (slice.sliceType == AIV_OMNI_BUFFER_OUTPUT) {
             baseAddr = output_;
+            if (outputSliceStride_ != 0) {
+                sliceStride = outputSliceStride_;
+            }
         } else {
             const uint64_t remoteRank = (slice.remoteRank < rankSize_) ? slice.remoteRank : rank_;
             baseAddr = reinterpret_cast<uint64_t>(GM_IN[remoteRank]);
             effectiveSliceIdx = 0;
         }
-        return reinterpret_cast<__gm__ T *>(baseAddr + effectiveSliceIdx * curSliceCount_ * sizeof(T));
+        return reinterpret_cast<__gm__ T *>(baseAddr + effectiveSliceIdx * sliceStride);
     }
 
     __aicore__ inline bool ShouldHandleSlice(const AivOmniSliceInfo &dstSlice) const
