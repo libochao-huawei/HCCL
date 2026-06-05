@@ -115,6 +115,39 @@ void CcuTempAlltoAllVMesh2Die::SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRec
     localSendRecvInfo_ = sendRecvInfo;
 }
 
+void CcuTempAlltoAllVMesh2Die::FillRankGroupInfo()
+{
+    uint32_t rankSize = subCommRanks_[0].size();
+    rankGroup_.insert({0, RankGroup()});
+    rankGroup_.insert({1, RankGroup()});
+    for (uint32_t i = 0; i < rankSize / 2; i++) {
+        if(i == myRank_) {
+            continue;
+        }
+        if (myRank_ < rankSize / 2) {
+            rankGroup_[1].push_back(subCommRanks_[0][i]);
+        } else {
+            rankGroup_[0].push_back(subCommRanks_[0][i]);
+        }
+    }
+    for (uint32_t i = rankSize / 2; i < rankSize; i++) {
+         if(i == myRank_) {
+            continue;
+        }
+        if (myRank_ < rankSize / 2) {
+            rankGroup_[0].push_back(subCommRanks_[0][i]);
+        } else {
+            rankGroup_[1].push_back(subCommRanks_[0][i]);
+        }
+    }
+    if (rankGroup_[0].size() > rankGroup_[1].size()) {
+        rankGroup_[1].push_back(myRank_);
+    } else {
+        rankGroup_[0].push_back(myRank_);
+    }
+    return;
+}
+
 void CcuTempAlltoAllVMesh2Die::FillRankGroupTaskArgs(uint32_t dieId, const LoopGroupConfig &config, std::vector<uint64_t> &taskArgs)
 {
     for (auto peerId : rankGroup_[dieId]) {
@@ -161,7 +194,7 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
     std::vector<u32> notifyIdxMainToSub(1, 0);
     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
-
+    FillRankGroupInfo();
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
         std::vector<uint64_t> taskArgs;
         taskArgs.push_back(inputAddr);

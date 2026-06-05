@@ -74,9 +74,10 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
     }
 
     // 构建template
-    algTemplate_ = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
+    std::shared_ptr<InsAlgTemplate> algTemplate = 
+        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
     // 调用计算资源的函数
-    CHK_RET(algTemplate_->CalcRes(comm, param, topoInfo, resourceRequest));
+    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
 
     return HCCL_SUCCESS;
 }
@@ -171,8 +172,10 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     } else {
         tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
     }
+    std::shared_ptr<InsAlgTemplate> algTemplate =
+ 	    std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, tempAlgHierachyInfo);
     // 构建template
-    algTemplate_->SetA2ASendRecvInfo(localSendRecvInfo_);
+    algTemplate->SetA2ASendRecvInfo(localSendRecvInfo_);
 
     // 准备资源
     TemplateResource templateAlgRes;
@@ -201,7 +204,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.inputRepeatStride = 0;
     tempAlgParams.outputRepeatStride = 0;
 
-    CHK_RET(algTemplate_->KernelRun(param, tempAlgParams, templateAlgRes));
+    CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
 
 #ifndef AICPU_COMPILE
     if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opType != HcclCMDType::HCCL_CMD_ALLTOALLVC && param.opMode != OpMode::OFFLOAD) {
