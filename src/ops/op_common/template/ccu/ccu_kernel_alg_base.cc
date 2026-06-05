@@ -139,7 +139,7 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
                         std::vector<ccu::RemoteAddr> src, ccu::LocalAddr localSrc, GroupOpSizeVars goSize, HcclDataType dataType,
                         HcclDataType outputDataType, HcclReduceOp opType)
 {
-    GroupReduceVar var;
+    auto &var = ctx.grVar;
     CCU_CHK_RET(CreateMultiOpReduce(ctx, var, channels, channelCount, dataType, outputDataType, opType));
     auto &loops = ctx.loopMap["reduce"];
 
@@ -294,7 +294,7 @@ CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
 CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
                         ccu::LocalAddr localDst, std::vector<ccu::RemoteAddr> dst, ccu::LocalAddr src, GroupOpSizeVars goSize)
 {
-    GroupBroadcastVar var;
+    auto &var = ctx.gbVar;
     CCU_CHK_RET(CreateMultiOpBroadcast(ctx, var, channels, channelCount));
     auto &loops = ctx.loopMap["broadcast"];
 
@@ -425,7 +425,7 @@ CcuResult CreateMultiOpBroadcastWithoutMyRank(CcuKernelCtxBase &ctx, GroupBroadc
 CcuResult GroupBroadcastWithoutMyRank(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
                         std::vector<ccu::RemoteAddr> dst, ccu::LocalAddr src, GroupOpSizeVars goSize)
 {
-    GroupBroadcastVar var;
+    auto &var = ctx.gbWmrVar;
     CCU_CHK_RET(CreateMultiOpBroadcastWithoutMyRank(ctx, var, channels, channelCount));
     auto &loops = ctx.loopMap["broadcast_without_my_rank"];
 
@@ -557,7 +557,7 @@ CcuResult GroupReduceWithoutMyRank(CcuKernelCtxBase &ctx, const size_t channels[
                         ccu::LocalAddr dst, std::vector<ccu::RemoteAddr> src, GroupOpSizeVars goSize,
                         HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
 {
-    GroupReduceVar var;
+    auto &var = ctx.grWmrVar;
     CCU_CHK_RET(CreateMultiOpReduceWithoutMyRank(ctx, var, channels, channelCount, dataType, outputDataType, opType));
     auto &loops = ctx.loopMap["reduce_without_my_rank"];
 
@@ -816,7 +816,7 @@ CcuResult GroupLocalReduce(CcuKernelCtxBase &ctx, ccu::LocalAddr outDstOrg, std:
 {
     const uint32_t size = scratchOrg.size();
 
-    GroupLocalReduceVar var;
+    auto &var = ctx.glrVar;
     CCU_CHK_RET(CreateReduceLoop(ctx, var, size, dataType, outputDataType, opType));
     auto &loops = ctx.loopMap["local_reduce"];
 
