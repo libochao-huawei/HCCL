@@ -82,6 +82,10 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, con
 
     uint64_t argSize = args[0];
     void *taskArgs = reinterpret_cast<void*>(args + 1); // 跳过args[0]
+    uint32_t inputIdx = 1;
+    uint32_t outputIdx = 2;
+    args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputIdx];
+    args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputIdx];
     CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
                                                tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
                                                taskArgs, argSize);
@@ -159,8 +163,8 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     uint32_t idx = 0;
     submitInfo.cachedArgs[idx++] = argSize;      // 第一位放参数数量
-    submitInfo.cachedArgs[idx++] = inputAddr;
-    submitInfo.cachedArgs[idx++] = outputAddr;
+    submitInfo.cachedArgs[idx++] = buffInfo_.inBuffBaseOff;
+    submitInfo.cachedArgs[idx++] = buffInfo_.outBuffBaseOff;
     submitInfo.cachedArgs[idx++] = token;
     submitInfo.cachedArgs[idx++] = sliceSize;
     submitInfo.cachedArgs[idx++] = srcStride;

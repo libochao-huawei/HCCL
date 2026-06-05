@@ -100,16 +100,16 @@ HcclResult CcuTempReduceMesh1DMem2Mem::FastLaunch(const OpParam& param, const Te
     }
     HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::FastLaunch] start");
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
-    constexpr u32 inputIdx = 0;
-    constexpr u32 outputIdx = 1;
-    constexpr u32 inputOffsetIdx = 14;
-    constexpr u32 outputOffsetIdx = 15;
-    uint64_t argSize = 14;
+    uint64_t argSize = args[0];
+    constexpr u32 inputIdx = 1;
+    constexpr u32 outputIdx = 2;
+    const u32 inputOffsetIdx = argSize + 1;
+    const u32 outputOffsetIdx = argSize + 2;
 
     args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
     args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
 
-    void *taskArgs = reinterpret_cast<void*>(args);
+    void *taskArgs = reinterpret_cast<void*>(args + 1);
     CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
                                                tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
                                                taskArgs, argSize);
@@ -191,17 +191,18 @@ HcclResult CcuTempReduceMesh1DMem2Mem::SubmitKernelInfo(TemplateResource& templa
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
 
-    size_t argNum = taskArgs.size() + 2;
+    size_t argNum = taskArgs.size() + 3;
     if (UNLIKELY(argNum > CCU_MAX_TASK_ARG_NUM)) {
         HCCL_ERROR("[CcuTempReduceMesh1DMem2Mem::KernelRun] argNum is bigger than CCU_MAX_TASK_ARG_NUM[%d]", CCU_MAX_TASK_ARG_NUM);
         return HcclResult::HCCL_E_INTERNAL;
     }
 
+    submitInfo.cachedArgs[0] = taskArgs.size();
     for (size_t i = 0; i < taskArgs.size(); i++) {
-        submitInfo.cachedArgs[i] = taskArgs[i];
+        submitInfo.cachedArgs[i + 1] = taskArgs[i];
     }
-    submitInfo.cachedArgs[taskArgs.size()] = buffInfo_.inBuffBaseOff;
-    submitInfo.cachedArgs[taskArgs.size() + 1] = buffInfo_.outBuffBaseOff;
+    submitInfo.cachedArgs[taskArgs.size() + 1] = buffInfo_.inBuffBaseOff;
+    submitInfo.cachedArgs[taskArgs.size() + 2] = buffInfo_.outBuffBaseOff;
     templateResource.submitInfos.push_back(submitInfo);
     return HcclResult::HCCL_SUCCESS;
 }
