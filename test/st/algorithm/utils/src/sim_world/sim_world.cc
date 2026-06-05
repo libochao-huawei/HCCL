@@ -27,6 +27,7 @@ void SimWorld::Init(const TopoMeta& topoMeta, DevType devType)
 {
     topoMeta_ = topoMeta;
     commDomain_.Init(topoMeta);
+    memAddrGen = SIM_MEM_BLOCK_SIZE;
     InitSimNpuRes(topoMeta, devType);
 }
 
