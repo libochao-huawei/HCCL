@@ -270,6 +270,9 @@ HcclResult InsTempAllReduceAicpuReduceNHR::GetStepInfo(u32 step, u32 nSteps, Aic
 
 u32 InsTempAllReduceAicpuReduceNHR::GetAlgRank(u32 rank) const
 {
+    if (subCommRanks_.empty() || subCommRanks_[0].empty()) {
+        throw std::runtime_error("subCommRanks_ is empty or subCommRanks_[0] is empty");
+    }
     auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), rank);
     if (iter == subCommRanks_[0].end()) {
         throw std::runtime_error("Cannot find Rank = " + std::to_string(rank) + " in subCommRanks_[0]");
