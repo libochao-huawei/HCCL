@@ -319,6 +319,7 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
             } else {
                 selectAlgName = "InsAllReduceNHR";
             }
+            selectAlgName = "InsAllReduceParallelRSAG";
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "InsAllReduceNHR";
         } else {

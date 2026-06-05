@@ -240,6 +240,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             } else {
                 selectAlgName = "InsAllGatherNHR";
             }
+            selectAlgName = "InsAllGatherParallelMesh1DNHR";
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "InsAllGatherNHR";
         } else {
