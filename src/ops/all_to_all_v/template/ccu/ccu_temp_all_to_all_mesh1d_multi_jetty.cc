@@ -163,8 +163,8 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     uint32_t idx = 0;
     submitInfo.cachedArgs[idx++] = argSize;      // 第一位放参数数量
-    submitInfo.cachedArgs[idx++] = inputAddr;
-    submitInfo.cachedArgs[idx++] = outputAddr;
+    submitInfo.cachedArgs[idx++] = buffInfo_.inBuffBaseOff;
+    submitInfo.cachedArgs[idx++] = buffInfo_.outBuffBaseOff;
     submitInfo.cachedArgs[idx++] = token;
     submitInfo.cachedArgs[idx++] = sliceSize;
     submitInfo.cachedArgs[idx++] = srcStride;
