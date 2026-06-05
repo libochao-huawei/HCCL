@@ -45,8 +45,6 @@ public:
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
 
         PublishLocalShardRange();
-        SyncAll<true>();
-
         FetchPeerShardRange();
         SyncAll<true>();
 
@@ -54,6 +52,7 @@ public:
         SyncAll<true>();
 
         StoreResult();
+        WaitAllFetchDone();
     }
 
 private:
@@ -76,6 +75,11 @@ private:
     __aicore__ inline uint64_t LocalStageOffset(uint32_t peerRank)
     {
         return static_cast<uint64_t>(rankSizeU32_ + peerRank) * lenPerRank_ * sizeof(T);
+    }
+
+    __aicore__ inline uint64_t FetchDoneFlagOffset(uint32_t peerRank)
+    {
+        return static_cast<uint64_t>(rankSizeU32_ + peerRank);
     }
 
     __aicore__ inline void SplitLogicalRange(uint32_t total, uint32_t &begin, uint32_t &end)
@@ -137,6 +141,7 @@ private:
         const uint64_t stageOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalStageOffset(peerRank);
         CpGM2GM(reinterpret_cast<__gm__ T *>(stageOffset), reinterpret_cast<__gm__ T *>(peerOffset), lenPerRank_);
         pipe_barrier(PIPE_ALL);
+        Record(peerRank, FetchDoneFlagOffset(rank_), curTag_);
     }
 
     __aicore__ inline void FetchPeerShardRange()
@@ -144,6 +149,15 @@ private:
         for (uint32_t peerRank = fetchBegin_; peerRank < fetchEnd_; ++peerRank) {
             FetchOne(peerRank);
         }
+    }
+
+    __aicore__ inline void WaitAllFetchDone()
+    {
+        SyncAll<true>();
+        for (uint32_t peerRank = fetchBegin_; peerRank < fetchEnd_; ++peerRank) {
+            WaitFlag(rank_, FetchDoneFlagOffset(peerRank), curTag_);
+        }
+        SyncAll<true>();
     }
 
     __aicore__ inline void LocalTreeReduceCoreCtrl()
@@ -168,7 +182,9 @@ private:
             }
 
             curBlocks = powerOf2;
-            SyncAll<true>();
+            if (round + 1 < totalRounds) {
+                SyncAll<true>();
+            }
         }
     }
 
@@ -196,7 +212,6 @@ __aicore__ inline void AivReduceScatterV2LocalTreeCoreCtrl(KERNEL_ARGS_DEF)
     }
     SyncAll<true>();
     op.Process(sliceId);
-    op.BarrierAll();
 }
 
 #endif // AIV_REDUCE_SCATTER_LOCAL_TREE_CORECTRL_H

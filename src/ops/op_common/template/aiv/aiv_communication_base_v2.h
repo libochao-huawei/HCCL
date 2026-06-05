@@ -200,8 +200,6 @@ public:
         outputRepeatStride_ = outputRepeatStride;
         cclBufferSize_ = hcclBuffSize;
 
-        InitBuffArray(buffIn);
-
         localOffset = (rankSize_ * NUM_BLOCKS_FOUR_PER_RANK_A3 * FLAG_BUF_NUM) * FLAG_SIZE;
         multiOffset = MAX_NUM_BLOCKS * DOUBLE * FLAG_SIZE+ localOffset;
         pingpongOffset = multiOffset + DOUBLE * DOUBLE * NUM_BLOCKS_FOUR_PER_RANK_A3 * ATOMIC_FLAG_SIZE * DOUBLE;
@@ -222,6 +220,7 @@ public:
         pipe.InitBuffer(outQueueZ, 1, chunkSize);
 
         GetTag(buffIn);
+        InitBuffArray(buffIn);
     }
 
     __aicore__ inline void Init(GM_ADDR hiddenInput, GM_ADDR input, GM_ADDR output)
@@ -279,7 +278,7 @@ public:
         GlobalTensor<uint64_t> ipcBufferGlobal;
         ipcBufferGlobal.SetGlobalBuffer((__gm__ uint64_t*)(buffIn));
         for(int i=0; i<rankSize_;i++){
-            GM_IN[i] = tag_ % 2 == 0 ? (GM_ADDR)ipcBufferGlobal.GetValue(i) + cclBufferSize_ / 2 : (GM_ADDR)ipcBufferGlobal.GetValue(i);
+            GM_IN[i] = (GM_ADDR)ipcBufferGlobal.GetValue(i);
             GM_OUT[i] = tag_ % 2 == 0 ? (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG_ADDR_OFFSET + GM_OUT_PINGPONG_OFFSET: 
                                         (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG_ADDR_OFFSET;
         }
@@ -511,6 +510,8 @@ __aicore__ inline void AivCommBase::ClearGM()
     uint32_t blockCount = BASE_FLAG_OFFSET / numBlocks_;
     uint32_t blockOffset = blockCount * block_idx;
     CpGM2GM(GM_OUT[rank_] + blockOffset, GM_OUT[rank_] + blockOffset + emptyOffset, blockCount);
+    CpGM2GM(GM_OUT[rank_] + GM_OUT_PINGPONG_OFFSET + blockOffset,
+            GM_OUT[rank_] + GM_OUT_PINGPONG_OFFSET + blockOffset + emptyOffset, blockCount);
 }
 
 __aicore__ inline void AivCommBase::BarrierForFirstOP()
