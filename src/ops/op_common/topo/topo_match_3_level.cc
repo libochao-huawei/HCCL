@@ -165,13 +165,14 @@ HcclResult TopoMatch3Level::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerD
         if ((CheckHostDPUOnly(comm, topoInfo, hostDPUOnly) == HcclResult::HCCL_SUCCESS) && hostDPUOnly) {
             netLayerL1 = topoInfo->netLayerDetails.netLayers[topoInfo->netLayerDetails.netLayerNum - 1];
         }
-        CHK_RET(TopoForLayerGeneric(comm, netLayerL1, baseModSizeL1, myRank, algHierarchyInfo, 1));
+        CHK_RET(TopoForLayerGeneric(comm, netLayerL1, baseModSizeL1, myRank, algHierarchyInfo, netLayerL1));
     }
     if (layerNum >= 3) {
         uint32_t netLayerL2 = 2;
         // 应该除以超节点数量
-        uint32_t baseModSizeL2 = layer0Size * layer1Size / 2;
-        CHK_RET(TopoForLayerGeneric(comm, netLayerL2, baseModSizeL2, myRank, algHierarchyInfo, 2));
+        uint32_t superPodNum = topoInfo->netLayerDetails.localNetInsSizeOfLayer[2] / topoInfo->netLayerDetails.localNetInsSizeOfLayer[1];
+        uint32_t baseModSizeL2 = layer0Size * layer1Size / superPodNum;
+        CHK_RET(TopoForLayerGeneric(comm, netLayerL2, baseModSizeL2, myRank, algHierarchyInfo, netLayerL2));
     }
 
 #endif
