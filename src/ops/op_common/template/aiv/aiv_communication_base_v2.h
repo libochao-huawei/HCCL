@@ -54,6 +54,7 @@ using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     uint64_t repeatNum;
     uint64_t inputRepeatStride;
     uint64_t outputRepeatStride;
+    uint64_t hcclBuffSize;
     uint64_t input;
     uint64_t output;
     uint64_t cclBufferSize;
@@ -76,7 +77,7 @@ enum class CommPattern {
 GM_ADDR buffIn, \
 uint64_t input, uint64_t output, uint32_t rank, uint32_t sendRecvRemoteRank, uint32_t rankSize, uint64_t xRankSize,  uint64_t yRankSize, uint64_t zRankSize, uint64_t len, \
 uint32_t dataType, uint32_t reduceOp, uint32_t root, uint32_t sliceId, \
-uint64_t inputSliceStride, uint64_t outputSliceStride, uint64_t repeatNum, uint64_t inputRepeatStride, uint64_t outputRepeatStride, \
+uint64_t inputSliceStride, uint64_t outputSliceStride, uint64_t repeatNum, uint64_t inputRepeatStride, uint64_t outputRepeatStride, uint64_t hcclBuffSize, \
 bool isOpBase, \
 GM_ADDR headCountMem, \
 GM_ADDR tailCountMem, GM_ADDR addOneMem, uint32_t counterMemSize, bool isEnableCounter
@@ -87,7 +88,7 @@ KERNEL_ARGS_DEF, ExtraArgs extraArgs
 #define KERNEL_ARGS_CALL \
 buffIn, \
 input, output, rank, sendRecvRemoteRank, rankSize, xRankSize, yRankSize, zRankSize, len, dataType, reduceOp, root, sliceId, \
-inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, \
+inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, hcclBuffSize, \
 isOpBase, \
 headCountMem, tailCountMem, addOneMem, counterMemSize, isEnableCounter
 
@@ -97,7 +98,7 @@ KERNEL_ARGS_CALL, extraArgs
 #define KERNEL_CLASS_INIT \
 buffIn, input, output,\
 rank, sendRecvRemoteRank, rankSize, xRankSize, yRankSize, zRankSize, len, dataType, reduceOp, root, \
-inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, \
+inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, hcclBuffSize, \
 headCountMem, tailCountMem, addOneMem, counterMemSize, isEnableCounter
 
 #define SUPERKERNEL_LITE_ARGS_DEF \
@@ -152,10 +153,11 @@ constexpr int32_t TAG_INIT_VALUE = 1;
 constexpr int32_t TAG_RESET_COUNT = 1000;
 constexpr uint32_t AIV_FLAG_CLEAR_OFFSET = 16 * 1024 * 1024;
 constexpr uint32_t AIV_FLAG_EMPTY_OFFSET = 17 * 1024 * 1024;
+constexpr uint32_t GM_OUT_PINGPONG_OFFSET = 33 * 1024 * 1024;
 
 /**
  *     GM_OUT                  BarrierBase(大小n*FLAG_SIZE)             Tag(大小4)                    Clear
- * 0 | 40K(FLAG_ADDR_OFFSET) | 16M(AIV_FLAG_CLEAR_OFFSET)-n*FLAG_SIZE | 16M(AIV_FLAG_CLEAR_OFFSET) | 17M(AIV_FLAG_EMPTY_OFFSET)
+ * 0 | 40K(FLAG_ADDR_OFFSET) | 16M(AIV_FLAG_CLEAR_OFFSET)-n*FLAG_SIZE | 16M(AIV_FLAG_CLEAR_OFFSET) | 17M(AIV_FLAG_EMPTY_OFFSET) | 33M->
  */ 
 // 相对于GM_OUT，前同步、尾同步使用的同步标记区的偏移，也是普通标记区的大小
 constexpr uint32_t BASE_FLAG_OFFSET = (AIV_FLAG_CLEAR_OFFSET - FLAG_ADDR_OFFSET) - MAX_RANK_SIZE * FLAG_SIZE;
@@ -169,6 +171,7 @@ public:
                                 uint64_t len,
                                 uint32_t dataType, uint32_t reduceOp, uint32_t root,
                                 uint64_t inputSliceStride, uint64_t outputSliceStride, uint64_t repeatNum, uint64_t inputRepeatStride, uint64_t outputRepeatStride,
+                                uint64_t hcclBuffSize,
                                 GM_ADDR headCountMem,
                                 GM_ADDR tailCountMem, GM_ADDR addOneMem, uint32_t counterMemSize, bool isEnableCounter,
                                 bool useDoubleBuffer)
@@ -193,6 +196,7 @@ public:
         repeatNum_ = repeatNum;
         inputRepeatStride_ = inputRepeatStride;
         outputRepeatStride_ = outputRepeatStride;
+        cclBufferSize_ = hcclBuffSize;
 
         InitBuffArray(buffIn);
 
@@ -273,8 +277,9 @@ public:
         GlobalTensor<uint64_t> ipcBufferGlobal;
         ipcBufferGlobal.SetGlobalBuffer((__gm__ uint64_t*)(buffIn));
         for(int i=0; i<rankSize_;i++){
-            GM_IN[i] = (GM_ADDR)ipcBufferGlobal.GetValue(i);
-            GM_OUT[i] = (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG_ADDR_OFFSET;
+            GM_IN[i] = tag_ % 2 == 0 ? (GM_ADDR)ipcBufferGlobal.GetValue(i) + cclBufferSize_ / 2 : (GM_ADDR)ipcBufferGlobal.GetValue(i);
+            GM_OUT[i] = tag_ % 2 == 0 ? (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG_ADDR_OFFSET + GM_OUT_PINGPONG_OFFSET: 
+                                        (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG_ADDR_OFFSET;
         }
         pipe_barrier(PIPE_ALL);
     }
