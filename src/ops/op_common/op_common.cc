@@ -949,7 +949,9 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     }
     CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
     exchangeInfo.group[MAX_LENGTH - 1] = '\0';
-    s32 sRet = strncpy_s(exchangeInfo.tag, TAG_LENGTH, param.tag, TAG_LENGTH);
+    const char *pos = std::strstr(param.tag, "_looptime");
+    size_t len = (pos != nullptr) && ((pos - param.tag) <= TAG_LENGTH) ? pos - param.tag : TAG_LENGTH;
+    s32 sRet = strncpy_s(exchangeInfo.tag, TAG_LENGTH, param.tag, len);
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
         __func__, param.tag, sRet), HCCL_E_MEMORY);
 
