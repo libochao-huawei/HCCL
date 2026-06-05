@@ -555,6 +555,8 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(resRet);
     }
 
+    param.cacheValid = isResourceReused;
+
     // Op注册
     HcclDfxOpInfoCompat hcclDfxOpInfo{};
     CHK_RET(ConstructHcclDfxOpInfo(param, param.algTag, ALG_TAG_LENGTH, hcclDfxOpInfo, cpuTsThread));
