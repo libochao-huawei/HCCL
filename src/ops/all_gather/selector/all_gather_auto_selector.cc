@@ -233,8 +233,20 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
               topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo);
     if (topoInfo->topoLevelNums > 1) {
+        HCCL_ERROR("202606041452");
+        HCCL_ERROR("server ranks:%d", topoInfo->netLayerDetails.localNetInsSizeOfLayer[0]);
+        HCCL_ERROR("superPod ranks:%d", topoInfo->netLayerDetails.localNetInsSizeOfLayer[1]);
+        if (topoInfo->topoLevelNums == 3) {
+            selectAlgName = "InsTestUboeAlgorithm";
+            // if (topoInfo->deviceNumPerModule == 8) {
+            //     selectAlgName = "InsTestUboeAlgorithm";
+            // } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[1] == 1) {
+            //     selectAlgName = "InsAllGatherNHR";
+            // } else {
+            //     selectAlgName = "InsAllGatherParallelMesh1DNHRTest";
+            // }
         // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
-        if (topoInfo->Level1Nhr) {
+        } else if (topoInfo->Level1Nhr) {
             selectAlgName = "InsAllGatherNHR";
             HCCL_INFO("[AllGatherAutoSelector] Level1Nhr=true, select [%s]", selectAlgName.c_str());
         } else if (topoInfo->Level0Nhr) {
