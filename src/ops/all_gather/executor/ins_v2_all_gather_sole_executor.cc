@@ -130,8 +130,8 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     u32 templateScratchMultiplier =
         algTemplate.CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType, tempAlgParams.buffInfo.outBuffType);
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
-    if (param.engine == COMM_ENGINE_AICPU_TS && std::string(param.algName) != "InsAllGatherNHR") {
-        algTemplate.SetchannelsPerRank(templateAlgRes.channels);
+    if (param.engine == COMM_ENGINE_AICPU_TS) {
+        CHK_RET(algTemplate.SetchannelsPerRank(templateAlgRes.channels));
     }
     // 中转内存单次最多能够接受的output count，注意是count不是size
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
