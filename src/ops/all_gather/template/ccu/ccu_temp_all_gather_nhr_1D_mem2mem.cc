@@ -200,6 +200,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
     u8 die1PortGroupSize = 2;
 
     die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * typeSize;
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMem2Mem::SplitDataFor2Dies] die0Size = %llu, die1Size = %llu", die0Size , die1Size);
     die1Size = templateDataParams.sliceSize - die0Size;
     return HcclResult::HCCL_SUCCESS;
 }
