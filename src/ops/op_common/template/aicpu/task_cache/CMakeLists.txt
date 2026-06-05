@@ -7,10 +7,9 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-add_subdirectory(task_cache)
-
 set(src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/load_kernel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/aicpu_task_cache_key.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/aicpu_task_cache_utils.cc
 )
 
 target_sources(hccl PRIVATE
