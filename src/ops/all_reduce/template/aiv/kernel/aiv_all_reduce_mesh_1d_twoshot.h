@@ -178,8 +178,10 @@ public:
                 pipe_barrier(PIPE_ALL);
             }
         }
-        // 单核全部Reduce完成再Record
-        Record(rank_, localReduceFlagOffset + idxInGroup, curTag_);
+        // 单核做完全部Reduce，再使用Record通知其他rank
+        for (uint32_t remoteRank = 0; remoteRank < rankSize_; ++remoteRank) {
+            Record(remoteRank, localReduceFlagOffset + rank_ * groupSize + idxInGroup, curTag_);
+        }
     }
 
     __aicore__ inline void AllGather()
@@ -208,7 +210,8 @@ public:
         }
         uint64_t srcOffset = reduceBuffOffset + sliceIdx * chunkSize;
 
-        WaitFlag(rmtRank, localReduceFlagOffset + idxInGroup, curTag_);
+        // 等待上一步reduce结束后，其他rank写到本端rank的flag通知信息
+        WaitFlag(rank_, localReduceFlagOffset + rmtRank * groupSize + idxInGroup, curTag_);
 
         if (processCount > 0) {
             uint64_t src = reinterpret_cast<uint64_t>(GM_IN[rmtRank]) + srcOffset;
