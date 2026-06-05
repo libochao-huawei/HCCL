@@ -28,7 +28,7 @@ constexpr u32 AIV_TOPO_ADDR_OFFSET = 32 * 1024;
 constexpr u32 AIV_TOPO_BUFF_LEN = 8 * 1024;
 constexpr u32 AIV_FLAG_ADDR_OFFSET = 40 * 1024;
 constexpr u32 AIV_FLAG_AREA_SIZE = 1000 * 1024;
-constexpr u32 AIV_TAG_BUFF_LEN = 33 * 1024 * 1024;
+constexpr u32 AIV_TAG_BUFF_LEN = 65 * 1024 * 1024;
 
 constexpr u32 AIV_MAX_CCL_LOOP_NUM = 16;
 
@@ -103,6 +103,7 @@ struct AivOpArgs {
     u64 repeatNum = 0;
     u64 inputRepeatStride = 0;
     u64 outputRepeatStride = 0;
+    u64 hcclBuffSize = 0;
     bool isOpBase = false;
     ExtraArgs extraArgs = {}; 
     uint64_t topo_[TOPO_LEN] = {0}; 
@@ -165,6 +166,7 @@ extern thread_local std::shared_ptr<InsQueue> g_recordingQueue;
 extern thread_local bool g_recordOnlyMode;
 extern thread_local u64 g_baseInputAddr;
 extern thread_local u64 g_baseOutputAddr;
+extern thread_local u64 g_aivCurrentCclBufferSize;
 
 using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     const void* buffersIn = nullptr; // 注册的CCLIN地址，所有卡可访问
