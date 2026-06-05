@@ -49,8 +49,6 @@ public:
         SyncAll<true>();
 
         LocalTreeReduceCoreCtrl();
-        SyncAll<true>();
-
         StoreResult();
         WaitAllFetchDone();
     }
@@ -80,6 +78,11 @@ private:
     __aicore__ inline uint64_t FetchDoneFlagOffset(uint32_t peerRank)
     {
         return static_cast<uint64_t>(rankSizeU32_ + peerRank);
+    }
+
+    __aicore__ inline uint64_t ReduceReadyFlagOffset(uint32_t offset)
+    {
+        return static_cast<uint64_t>(DOUBLE * rankSizeU32_ + offset);
     }
 
     __aicore__ inline void SplitLogicalRange(uint32_t total, uint32_t &begin, uint32_t &end)
@@ -153,11 +156,9 @@ private:
 
     __aicore__ inline void WaitAllFetchDone()
     {
-        SyncAll<true>();
         for (uint32_t peerRank = fetchBegin_; peerRank < fetchEnd_; ++peerRank) {
             WaitFlag(rank_, FetchDoneFlagOffset(peerRank), curTag_);
         }
-        SyncAll<true>();
     }
 
     __aicore__ inline void LocalTreeReduceCoreCtrl()
@@ -173,18 +174,20 @@ private:
             for (uint32_t offset = blockIdx_; offset < powerOf2; offset += blockNum_) {
                 const uint32_t backIdx = powerOf2 + offset;
                 if (backIdx < curBlocks) {
+                    if (round > 0) {
+                        WaitFlag(rank_, ReduceReadyFlagOffset(offset), static_cast<int32_t>(curTag_ + round));
+                        WaitFlag(rank_, ReduceReadyFlagOffset(backIdx), static_cast<int32_t>(curTag_ + round));
+                    }
                     const uint64_t frontOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalStageOffset(offset);
                     const uint64_t backOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalStageOffset(backIdx);
                     CpGM2GM(reinterpret_cast<__gm__ T *>(frontOffset), reinterpret_cast<__gm__ T *>(backOffset),
                             lenPerRank_, reduceOp_);
                     pipe_barrier(PIPE_ALL);
                 }
+                Record(rank_, ReduceReadyFlagOffset(offset), static_cast<int32_t>(curTag_ + round + 1));
             }
 
             curBlocks = powerOf2;
-            if (round + 1 < totalRounds) {
-                SyncAll<true>();
-            }
         }
     }
 
@@ -206,11 +209,9 @@ __aicore__ inline void AivReduceScatterV2LocalTreeCoreCtrl(KERNEL_ARGS_DEF)
     AivReduceScatterLocalTreeCoreCtrl<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     op.Process(sliceId);
 }
 
