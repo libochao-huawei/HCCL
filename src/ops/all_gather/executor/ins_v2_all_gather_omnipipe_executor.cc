@@ -364,7 +364,16 @@ HcclResult InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     dataType_ = param.DataDes.dataType;
     reduceOp_ = param.reduceType;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
-    
+    if (algHierarchyInfo_.infos.size() == 3 &&
+        !algHierarchyInfo_.infos[2].empty() && !algHierarchyInfo_.infos[2][0].empty()) {
+            topoType_ = TopoType::THREE_LEVEL;
+            // ✅ 新增维测日志：拓扑类型判断
+            HCCL_INFO("[InsV2AllGatherOmniPipeExecutor][CalcRes][rank:%u] 检测到三层拓扑", myRank_);
+ 	    } else {
+            topoType_ = TopoType::UBX_2LEVEL;
+            // ✅ 新增维测日志：拓扑类型判断
+            HCCL_INFO("[InsV2AllGatherOmniPipeExecutor][CalcRes][rank:%u] 检测到UBX两层拓扑", myRank_);
+        }
     // ✅ 新增维测日志：编排入口
     HCCL_INFO("[InsV2AllGatherOmniPipeExecutor][Orchestrate][rank:%u] 开始算法编排, 总数据量:%lu字节(%lu个元素)",
               myRank_, dataSize_, dataCount_);
