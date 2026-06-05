@@ -35,34 +35,29 @@ static CcuResult GroupCopy(AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr ds
         ctx.resourceAllocated = true;
     }
 
-    std::string loopType = "localcopy";
-    if (!ctx.IsLoopEntityRegistered(loopType)) {
-        ctx.CreateLoopEntity(loopType);
-    }
-    auto &loops = ctx.loopMap[loopType];
-
     ccu::LocalAddr loopSrc[2];
     ccu::LocalAddr loopDst[2];
     ccu::Variable loopLen[2];
 
-    uint32_t loopNum = 2;
-    for (uint32_t index = 0; index < loopNum; index++) {
-        uint32_t bufBase = index * ctx.moConfig.msInterleave;
-        ccu::Event loopEvt = ctx.moRes.completedEvent[index];
-
-        if (loops.body[index] == nullptr) {
-            loops.body[index].reset(new ccu::Func(
+    std::string loopType = "localcopy";
+    if (!ctx.IsLoopEntityRegistered(loopType)) {
+        ctx.CreateLoopEntity(loopType);
+        auto &entity = ctx.loopMap[loopType];
+        for (uint32_t index = 0; index < 2; index++) {
+            uint32_t bufBase = index * ctx.moConfig.msInterleave;
+            ccu::Event loopEvt = ctx.moRes.completedEvent[index];
+            entity.body[index].reset(new ccu::Func(
                 [&ctx, index, bufBase, loopEvt, &loopSrc, &loopDst, &loopLen]() {
                     ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
                     ccu::EventWait(loopEvt, 1);
                     ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
                     ccu::EventWait(loopEvt, 1);
                 }));
-
-            loops.loops[index].reset(
-                new ccu::Loop(loops.loopParam[index], *loops.body[index]));
+            entity.loops[index].reset(
+                new ccu::Loop(entity.loopParam[index], *entity.body[index]));
         }
     }
+    auto &loops = ctx.loopMap[loopType];
 
     CCU_IF(goSize.addrOffset != 0)
     {
@@ -210,7 +205,7 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
             const uint16_t mask = 1 << rankIdx;
             if (rankIdx == ctx.arg->rankId) {
                 CCU_CHK_RET(ccu::EventRecord(ctx.event, mask));
-                CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.goSize)); // 本地拷贝
+                CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.goSize)); // 用loop资源做本地拷贝
             } else {
                 CCU_CHK_RET(ccu::Write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask)); // 本卡数据写入远端地址
                 channelId++;
