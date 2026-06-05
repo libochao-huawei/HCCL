@@ -47,10 +47,12 @@ private:
     struct ClosNoMemcpySlot {
         u32 txRank = 0;
         u32 rxRank = 0;
-        u32 channelIdx = 0;
+        u32 txChannelIdx = 0;
+        u32 rxChannelIdx = 0;
 
         ClosNoMemcpySlot() = default;
-        ClosNoMemcpySlot(u32 tx, u32 rx, u32 channel) : txRank(tx), rxRank(rx), channelIdx(channel)
+        ClosNoMemcpySlot(u32 tx, u32 rx, u32 txChannel, u32 rxChannel)
+            : txRank(tx), rxRank(rx), txChannelIdx(txChannel), rxChannelIdx(rxChannel)
         {
         }
     };

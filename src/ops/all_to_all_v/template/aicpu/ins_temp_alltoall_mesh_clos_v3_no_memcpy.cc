@@ -214,7 +214,7 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::CalcClosNoMemcpyRoundPlan(
                     HcclResult::HCCL_E_INTERNAL);
         u32 txRank = static_cast<u32>(txRank64);
         u32 rxRank = static_cast<u32>(rxRank64);
-        slotPlans.push_back({txRank, rxRank, rowOffset});
+        slotPlans.push_back({txRank, rxRank, peerRow, myRow});
     }
     HCCL_INFO("[ALLTOALL_NO_MEMCPY][MeshClos][CalcRoundPlan] myRank=%d round=%u myRow=%u myCol=%u "
               "txCol=%u rxCol=%u slotNum=%zu",
@@ -242,14 +242,6 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::SelectClosNoMemcpyChannel(
                 HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] channelIdx[%u] invalid or channelNum[%zu] < rowNum[%u]. "
                            "remoteRank=%u myRank=%d channelIdx=%u rowNum=%u",
                            channelIdx, remoteChannels.size(), rowNum, remoteRank, myRank_, channelIdx, rowNum),
-                HcclResult::HCCL_E_PARA);
-    u32 remoteRow = remoteRank % rowNum;
-    u32 myRow = myRank_ % rowNum;
-    u32 expectedChannelIdx = (remoteRow + rowNum - myRow) % rowNum;
-    CHK_PRT_RET(channelIdx != expectedChannelIdx,
-                HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] invalid clos channelIdx. "
-                           "remoteRank=%u remoteRow=%u myRow=%u channelIdx=%u expected=%u myRank=%d",
-                           remoteRank, remoteRow, myRow, channelIdx, expectedChannelIdx, myRank_),
                 HcclResult::HCCL_E_PARA);
     u32 resolvedIdx = channelIdx;
     CHK_PRT_RET(resolvedIdx >= remoteChannels.size(),
@@ -283,23 +275,25 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunClosNoMemcpySlot(
                 HcclResult::HCCL_E_NOT_SUPPORT);
     CHK_PRT_RET(!enableRemoteMemAccess_,
                 HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] remote output access is disabled. "
-                           "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u",
-                           myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx),
+                           "myRank=%d txRank=%u rxRank=%u round=%u txChannelIdx=%u rxChannelIdx=%u",
+                           myRank_, slotPlan.txRank, slotPlan.rxRank, round,
+                           slotPlan.txChannelIdx, slotPlan.rxChannelIdx),
                 HcclResult::HCCL_E_INTERNAL);
 
     ChannelInfo txChannel;
     ChannelInfo rxChannel;
-    CHK_RET(SelectClosNoMemcpyChannel(channels, slotPlan.txRank, slotPlan.channelIdx, txChannel));
-    CHK_RET(SelectClosNoMemcpyChannel(channels, slotPlan.rxRank, slotPlan.channelIdx, rxChannel));
+    CHK_RET(SelectClosNoMemcpyChannel(channels, slotPlan.txRank, slotPlan.txChannelIdx, txChannel));
+    CHK_RET(SelectClosNoMemcpyChannel(channels, slotPlan.rxRank, slotPlan.rxChannelIdx, rxChannel));
 
     u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff + static_cast<u64>(slotPlan.txRank) * actualChunkSize;
     u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + static_cast<u64>(myRank_) * actualChunkSize;
     CHK_PRT_RET(txSrcOffset + actualChunkSize > tempAlgParams_.buffInfo.inputSize ||
                     txDstOffset + actualChunkSize > txChannel.remoteOutputGraphMode.size,
                 HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] tx slice out of registered range. "
-                           "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u "
+                           "myRank=%d txRank=%u rxRank=%u round=%u txChannelIdx=%u rxChannelIdx=%u "
                            "txSrcOff=%llu txDstOff=%llu chunk=%llu inputSize=%llu remoteOutputSize=%llu",
-                           myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx,
+                           myRank_, slotPlan.txRank, slotPlan.rxRank, round,
+                           slotPlan.txChannelIdx, slotPlan.rxChannelIdx,
                            txSrcOffset, txDstOffset, actualChunkSize,
                            tempAlgParams_.buffInfo.inputSize, txChannel.remoteOutputGraphMode.size),
                 HcclResult::HCCL_E_INTERNAL);
@@ -309,9 +303,10 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunClosNoMemcpySlot(
     CHK_PRT_RET(rxSrcOffset + actualChunkSize > rxChannel.remoteOutputGraphMode.size ||
                     rxDstOffset + actualChunkSize > tempAlgParams_.buffInfo.outputSize,
                 HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] rx slice out of registered range. "
-                           "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u "
+                           "myRank=%d txRank=%u rxRank=%u round=%u txChannelIdx=%u rxChannelIdx=%u "
                            "rxSrcOff=%llu rxDstOff=%llu chunk=%llu remoteOutputSize=%llu outputSize=%llu",
-                           myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx,
+                           myRank_, slotPlan.txRank, slotPlan.rxRank, round,
+                           slotPlan.txChannelIdx, slotPlan.rxChannelIdx,
                            rxSrcOffset, rxDstOffset, actualChunkSize,
                            rxChannel.remoteOutputGraphMode.size, tempAlgParams_.buffInfo.outputSize),
                 HcclResult::HCCL_E_INTERNAL);
@@ -330,9 +325,10 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunClosNoMemcpySlot(
     TxRxChannels sendRecvChannels(txChannel, rxChannel);
     SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
 
-    HCCL_WARNING("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] myRank=%d round=%u channelIdx=%u "
+    HCCL_WARNING("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] myRank=%d round=%u txChannelIdx=%u rxChannelIdx=%u "
                  "txRank=%u rxRank=%u txSrcOff=%llu txDstOff=%llu rxSrcOff=%llu rxDstOff=%llu chunk=%llu",
-                 myRank_, round, slotPlan.channelIdx, slotPlan.txRank, slotPlan.rxRank,
+                 myRank_, round, slotPlan.txChannelIdx, slotPlan.rxChannelIdx,
+                 slotPlan.txRank, slotPlan.rxRank,
                  txSrcOffset, txDstOffset, rxSrcOffset, rxDstOffset, actualChunkSize);
 
     HcclResult dmaResult = SendRecvWrite(sendRecvInfo, thread);
@@ -347,14 +343,16 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunClosNoMemcpySlot(
             failedRanks_[failedAlgRank] = 1;
         }
         HCCL_WARNING("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] peer timed out. "
-                     "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u",
-                     myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx);
+                     "myRank=%d txRank=%u rxRank=%u round=%u txChannelIdx=%u rxChannelIdx=%u",
+                     myRank_, slotPlan.txRank, slotPlan.rxRank, round,
+                     slotPlan.txChannelIdx, slotPlan.rxChannelIdx);
         return HCCL_SUCCESS;
     }
     CHK_PRT_RET(dmaResult != HCCL_SUCCESS,
                 HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunSlot] SendRecvWrite failed. "
-                           "myRank=%d txRank=%u rxRank=%u round=%u channelIdx=%u err=0x%x",
-                           myRank_, slotPlan.txRank, slotPlan.rxRank, round, slotPlan.channelIdx, dmaResult),
+                           "myRank=%d txRank=%u rxRank=%u round=%u txChannelIdx=%u rxChannelIdx=%u err=0x%x",
+                           myRank_, slotPlan.txRank, slotPlan.rxRank, round,
+                           slotPlan.txChannelIdx, slotPlan.rxChannelIdx, dmaResult),
                 dmaResult);
     return HCCL_SUCCESS;
 }
