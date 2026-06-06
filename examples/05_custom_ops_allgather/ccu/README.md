@@ -48,15 +48,13 @@
 
 ### 3. 配置环境变量
 
-设置CANN环境变量：
-
+按需选择合适的命令使环境变量生效。
+    
 ```bash
-# 默认路径安装，以root用户为例
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
 source /usr/local/Ascend/cann/set_env.sh
-# 默认路径安装，以非root用户为例
-source $HOME/Ascend/cann/set_env.sh
-# 指定路径安装
-source ${install_path}/cann/set_env.sh
+# 指定路径安装，${ascend_cann_path}表示CANN-Toolkit包实际安装路径
+# source ${ascend_cann_path}/cann/set_env.sh
 ```
 
 ## 二、编译自定义算子包
@@ -103,7 +101,7 @@ bash build.sh --vendor=cust --ops=allgather_ccu --custom_ops_path=./examples/05_
 > 其中：
 > 
 > - `<arch>` 是当前编译环境的系统架构
-> - `<ascend_cann_path>` 是可选参数，表示 CANN 软件包安装目录。默认为 `ASCEND_CUSTOM_OPP_PATH` 或 `ASCEND_OPP_PATH` 环境变量设置的路径
+> - `<ascend_cann_path>` 是可选参数，表示 CANN 软件包安装目录。默认为 `ASCEND_CUSTOM_OPP_PATH` 或 `ASCEND_OPP_PATH` 环境变量所在的CANN软件包路径
 
 自定义算子包安装信息如下：
 
@@ -123,8 +121,11 @@ make
 
 ### 2. 执行样例
 
+在 `examples/05_custom_ops_allgather/accu/testcase` 代码目录下执行如下命令：
+ 	 
 ```bash
 # 运行样例
+export LD_LIBRARY_PATH=${ascend_cann_path}/cann/opp/vendors/cust/lib64:${LD_LIBRARY_PATH}
 make test
 
 # 或直接执行样例二进制
@@ -140,6 +141,7 @@ export LD_LIBRARY_PATH=${ascend_cann_path}/cann/opp/vendors/cust/lib64:${LD_LIBR
 Found 2 NPU device(s) available
 rankId: 0, output: [ 0 1 ]
 rankId: 1, output: [ 0 1 ]
+HcclAllGatherCustom test completed successfully
 ```
 
 ## 五、技术说明
@@ -159,15 +161,15 @@ rankId: 1, output: [ 0 1 ]
 ```
 HcclAllGatherCustom
     ↓
-HcclAllocAlgResource (资源分配)
+AllocAlgResource (资源分配)
     ↓
-HcclGetThreadForCcu (获取线程)
+GetThreadForCcu (获取线程)
     ↓
-HcclGetChannelForCcu (获取通道)
+GetChannelForCcu (获取通道)
     ↓
-HcclGetCcuKernel (注册Kernel)
+GetCcuKernel (注册Kernel)
     ↓
-HcclLaunchKernel (下发Kernel)
+ExecOp (下发Kernel)
 ```
 
 ### 3. 关键数据结构
@@ -175,6 +177,5 @@ HcclLaunchKernel (下发Kernel)
 | 结构名 | 作用 |
 |--------|------|
 | `OpParam` | 算子参数（输入/输出指针、数据类型、rank信息等） |
-| `AlgResourceCtx` | 算法资源上下文（线程、通道、Kernel句柄等） |
-| `KernelResourceRequest` | Kernel资源请求（Kernel信息列表） |
-| `CcuKernelInfo` | CCU Kernel信息（函数名、函数指针、参数等） |
+| `AlgResourceCtxSerializable` | 算法资源上下文（线程、通道、Kernel句柄等，支持序列化） |
+| `CcuKernelInfo` | CCU Kernel信息（函数名、函数指针、参数等）
