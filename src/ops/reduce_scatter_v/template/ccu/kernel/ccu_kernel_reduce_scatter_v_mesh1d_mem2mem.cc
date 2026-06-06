@@ -8,7 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "ccu_kernel_reduce_scatter_v_mesh1d_mem2mem.h"
-// #include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -181,15 +180,15 @@ CcuResult CcuReduceScatterVMesh1DMem2MemKernel(CcuKernelArg arg)
     ReduceScatterVMesh1DMem2MemContext ctx;
     ctx.arg = kernelArg;
     LoopGroupConfig  config{};
-    config.msInterleave = 8;
-    config.loopCount    = 16;
-    config.memSlice     = 4096;
+    config.msInterleave = CCU_MS_INTERLEAVE;
+    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
+    config.memSlice     = CCU_MS_SIZE;
     HCCL_INFO("[CcuKernelReduceScatterVMesh1DMem2Mem] ReduceScatterVMesh1DMem2Mem run");
     CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
     CCU_CHK_RET(InitResource(ctx));
     CCU_CHK_RET(LoadArgs(ctx));
     PreSync(ctx);
-    DoReduceScatterV(ctx); // fix
+    DoReduceScatterV(ctx);
     PostSync(ctx);
     HCCL_INFO("[CcuKernelReduceScatterVMesh1DMem2Mem] ReduceScatterVMesh1DMem2Mem end");
 
