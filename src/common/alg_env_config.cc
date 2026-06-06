@@ -75,7 +75,8 @@ HcclResult ParseExecTimeout()
         return HCCL_SUCCESS;
     }
 
-    if (!IsValidNumberFormat(execTimeOutEnv, 2)) {
+    u32 timeoutSize = 2;
+ 	if (!IsValidNumberFormat(execTimeOutEnv, timeoutSize)) {
         HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
             execTimeOutEnv.c_str());
         g_algEnvConfig.execTimeOutSet = false;
@@ -778,7 +779,7 @@ HcclResult ParseOpExpansion()
         return HCCL_SUCCESS;
     }
 
-    if (opExpansionModeEnv == "AI_CPU") {
+    if (opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "AICPU_TS") {
         if (deviceType == DevType::DEV_TYPE_910) {
             HCCL_WARNING("910 do not support AICPU unfold.");
         } else {
@@ -978,19 +979,15 @@ HcclResult ParseDfsConfig()
     }
     dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
     std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
-
-    constexpr std::size_t DFS_CONFIG_ITEM_NUM = 2;
-    const std::array<std::string, DFS_CONFIG_ITEM_NUM> dfsConfigItems = {"task_exception", "inconsistent_check"};
     auto items = SplitDfsConfig(dfsConfigEnv, ',');
     for (const auto &item : items) {
         auto itemPair = SplitDfsConfig(item, ':');
         constexpr std::size_t ITEM_SIZE = 2;
-        if (itemPair.size() != ITEM_SIZE
-            || std::find(dfsConfigItems.begin(), dfsConfigItems.end(), itemPair[0]) == dfsConfigItems.end()) {
+        if (itemPair.size() != ITEM_SIZE) {
             HCCL_ERROR("[ParseDfsConfig] failed. invalid item[%s]", item.c_str());
             return HCCL_E_PARA;
         }
-        if (itemPair[0] == dfsConfigItems[1]) {
+        if (itemPair[0] == "inconsistent_check") {
             CHK_RET(ParseInconsistentCheckSwitch(itemPair[1]));
         }
     }
@@ -1107,7 +1104,8 @@ bool RunIndependentOpExpansion(DevType deviceType)
     #else
     if (deviceType == DevType::DEV_TYPE_910_95) {
     #endif
-        return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" ||
+        return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "AICPU_TS" ||
+               opExpansionModeEnv == "HOST_TS" ||
                opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV" ||
                opExpansionModeEnv == "CCU_SCHED" ||
                opExpansionModeEnv == "CCU_MS";

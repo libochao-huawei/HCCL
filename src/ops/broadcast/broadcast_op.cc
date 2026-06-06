@@ -23,7 +23,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclBroadcast");
-    if (GetHcommVersion() < 90000000) { // compat handle
+    if (GetHcommVersion() < CANN_VERSION(9, 0, 0)) { // compat handle
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
 
@@ -95,8 +95,10 @@ HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataTy
 }
 
 namespace ops_hccl {
-HcclResult BroadcastInitAndCheck(HcclComm comm, void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, OpParam &param)
+HcclResult BroadcastInitAndCheck(HcclComm comm, void *buf, uint64_t count, HcclDataType dataType, uint32_t root, const aclrtStream stream, OpParam &param)
 {
+    (void) root;
+    (void) stream;
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
 
@@ -248,7 +250,8 @@ HcclResult BroadcastOutPlace(OpParam &param, void *buf, uint64_t count, HcclData
     return HCCL_SUCCESS;
 }
 
-HcclResult BroadcastEntryLog(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, const char *tag, const std::string &opName)
+HcclResult BroadcastEntryLog(const void *buf, uint64_t count, HcclDataType dataType, uint32_t root,
+                             aclrtStream stream, const char *tag, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
