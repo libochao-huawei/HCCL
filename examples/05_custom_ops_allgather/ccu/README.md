@@ -53,8 +53,8 @@
 ```bash
 # 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
 source /usr/local/Ascend/cann/set_env.sh
-# 指定路径安装，${ascend_cann_path}表示CANN-Toolkit包实际安装路径
-# source ${ascend_cann_path}/cann/set_env.sh
+# 指定路径安装，${install_path}表示CANN-Toolkit包实际安装路径
+# source ${install_path}/cann/set_env.sh
 ```
 
 ## 二、编译自定义算子包
@@ -105,8 +105,8 @@ bash build.sh --vendor=cust --ops=allgather_ccu --custom_ops_path=./examples/05_
 
 自定义算子包安装信息如下：
 
-- 头文件：`${ascend_cann_path}/cann/opp/vendors/cust/include/hccl_custom_allgather.h`
-- 动态库：`${ascend_cann_path}/cann/opp/vendors/cust/lib64/libhccl_custom_allgather.so`
+- 头文件：`${ASCEND_HOME_PATH}/opp/vendors/cust/include/hccl_custom_allgather.h`
+- 动态库：`${ASCEND_HOME_PATH}/opp/vendors/cust/lib64/libhccl_custom_allgather.so`
 
 ## 四、执行自定义算子
 
@@ -121,15 +121,15 @@ make
 
 ### 2. 执行样例
 
-在 `examples/05_custom_ops_allgather/accu/testcase` 代码目录下执行如下命令：
+在 `examples/05_custom_ops_allgather/ccu/testcase` 代码目录下执行如下命令：
  	 
 ```bash
 # 运行样例
-export LD_LIBRARY_PATH=${ascend_cann_path}/cann/opp/vendors/cust/lib64:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/cust/lib64:${LD_LIBRARY_PATH}
 make test
 
 # 或直接执行样例二进制
-export LD_LIBRARY_PATH=${ascend_cann_path}/cann/opp/vendors/cust/lib64:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/cust/lib64:${LD_LIBRARY_PATH}
 ./allgather
 ```
 
@@ -139,43 +139,9 @@ export LD_LIBRARY_PATH=${ascend_cann_path}/cann/opp/vendors/cust/lib64:${LD_LIBR
 
 ```text
 Found 2 NPU device(s) available
+rankId: 0, input: [ 0 ]
+rankId: 1, input: [ 1 ]
 rankId: 0, output: [ 0 1 ]
 rankId: 1, output: [ 0 1 ]
 HcclAllGatherCustom test completed successfully
 ```
-
-## 五、技术说明
-
-### 1. CCU_SCHED 模式
-
-本样例使用 CCU_SCHED 通信引擎，相比 AICPU 模式具有以下特点：
-
-| 特性 | CCU_SCHED | AICPU |
-|------|-----------|-------|
-| 调度方式 | 硬件调度 | CPU 调度 |
-| 延迟 | 低 | 较高 |
-| 适用场景 | 高频通信场景 | 通用场景 |
-
-### 2. 核心流程
-
-```
-HcclAllGatherCustom
-    ↓
-AllocAlgResource (资源分配)
-    ↓
-GetThreadForCcu (获取线程)
-    ↓
-GetChannelForCcu (获取通道)
-    ↓
-GetCcuKernel (注册Kernel)
-    ↓
-ExecOp (下发Kernel)
-```
-
-### 3. 关键数据结构
-
-| 结构名 | 作用 |
-|--------|------|
-| `OpParam` | 算子参数（输入/输出指针、数据类型、rank信息等） |
-| `AlgResourceCtxSerializable` | 算法资源上下文（线程、通道、Kernel句柄等，支持序列化） |
-| `CcuKernelInfo` | CCU Kernel信息（函数名、函数指针、参数等）

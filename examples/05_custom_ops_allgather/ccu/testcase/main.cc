@@ -53,9 +53,16 @@ int Sample(void *arg)
     uint64_t recvCount = ctx->devCount;
     size_t sendSize = sendCount * sizeof(float);
     size_t recvSize = recvCount * sizeof(float);
-
     // 设置当前线程操作的设备
     ACLCHECK(aclrtSetDevice(static_cast<int32_t>(device)));
+
+    // 初始化集合通信域
+    HcclComm hcclComm;
+    HCCLCHECK(HcclCommInitRootInfo(ctx->devCount, ctx->rootInfo, device, &hcclComm));
+
+    // 创建任务流
+    aclrtStream stream;
+    ACLCHECK(aclrtCreateStream(&stream));
 
     // 申请集合通信操作的 Device 内存
     ACLCHECK(aclrtMalloc(&sendBuf, sendSize, ACL_MEM_MALLOC_HUGE_ONLY));
@@ -68,18 +75,16 @@ int Sample(void *arg)
     for (uint64_t i = 0; i < sendCount; ++i) {
         tmpHostBuff[i] = static_cast<float>(device);
     }
+    std::cout << "rankId: " << device << ", input: [";
+    for (uint64_t i = 0; i < count; ++i) {
+        std::cout << " " << tmpHostBuf[i];
+    }
+    std::cout << " ]" << std::endl;
+
     // 将 Host 侧输入数据拷贝到 Device 侧
     ACLCHECK(aclrtMemcpy(sendBuf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
     // 释放 Host 侧内存
     ACLCHECK(aclrtFreeHost(hostBuf));
-
-    // 初始化集合通信域
-    HcclComm hcclComm;
-    HCCLCHECK(HcclCommInitRootInfo(ctx->devCount, ctx->rootInfo, device, &hcclComm));
-
-    // 创建任务流
-    aclrtStream stream;
-    ACLCHECK(aclrtCreateStream(&stream));
 
     // 执行 AllGather，将通信域内所有 rank 的 sendBuf 按照 rank_id 顺序拼接起来，再将结果发送到所有 rank 的 recvBuf
     HCCLCHECK(HcclAllGatherCustom(sendBuf, recvBuf, sendCount, HCCL_DATA_TYPE_FP32, hcclComm, stream));
@@ -101,9 +106,14 @@ int Sample(void *arg)
 
     // 释放资源
     HCCLCHECK(HcclCommDestroy(hcclComm));  // 销毁通信域
-    ACLCHECK(aclrtFree(sendBuf));          // 释放 Device 侧内存
-    ACLCHECK(aclrtFree(recvBuf));          // 释放 Device 侧内存
+    if (sendBuf) {
+        ACLCHECK(aclrtFree(sendBuf));      // 释放 Device 侧内存
+    }
+    if (recvBuf) {
+        ACLCHECK(aclrtFree(recvBuf));      // 释放 Device 侧内存
+    }
     ACLCHECK(aclrtDestroyStream(stream));  // 销毁任务流
+    ACLCHECK(aclrtResetDevice(device));    // 重置设备
     return 0;
 }
 
