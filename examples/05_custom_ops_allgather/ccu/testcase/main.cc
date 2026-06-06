@@ -76,7 +76,7 @@ int Sample(void *arg)
         tmpHostBuff[i] = static_cast<float>(device);
     }
     std::cout << "rankId: " << device << ", input: [";
-    for (uint64_t i = 0; i < count; ++i) {
+    for (uint64_t i = 0; i < sendCount; ++i) {
         std::cout << " " << tmpHostBuff[i];
     }
     std::cout << " ]" << std::endl;
