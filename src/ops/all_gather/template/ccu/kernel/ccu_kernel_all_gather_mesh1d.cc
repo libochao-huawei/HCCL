@@ -140,7 +140,6 @@ CcuResult CcuAllGatherMesh1DKernel(CcuKernelArg arg)
     ctx.moConfig.memSlice = 0;
     ctx.moRes.eventCount = 0;
     ctx.moRes.bufCount = 0;
-    ctx.enginePool = 0;
 
     HCCL_INFO("[CcuKernelAllGatherMesh1D] AllGatherMesh1D run");
     CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));

@@ -217,7 +217,6 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     ctx.moConfig.memSlice = 0;
     ctx.moRes.eventCount = 0;
     ctx.moRes.bufCount = 0;
-    ctx.enginePool = 0;
 
     HCCL_INFO("[CcuKernelAllGatherMesh1DMem2Mem] AllGatherMesh1DMem2Mem run");
     CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));

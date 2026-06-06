@@ -54,7 +54,6 @@ static CcuResult InitResource(AllGather2DiesMeshMem2Mem1DContext &ctx)
     ctx.offSet = ccu::Variable();
     ctx.sliceSize = ccu::Variable();
     ctx.event = ccu::Event();
-    ctx.localCopyEvent = ccu::Event();
 
     ctx.resourceAllocated = false;
     return CCU_SUCCESS;
@@ -76,28 +75,30 @@ static CcuResult LoadArgs(AllGather2DiesMeshMem2Mem1DContext &ctx)
     return CCU_SUCCESS;
 }
 
-static void PreSync(AllGather2DiesMeshMem2Mem1DContext &ctx)
+static CcuResult PreSync(AllGather2DiesMeshMem2Mem1DContext &ctx)
 {
     const auto *arg = ctx.arg;
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::WriteVariableWithNotify(arg->channels[i], ctx.output[arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID);
-        ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID);
+        CCU_CHK_RET(ccu::WriteVariableWithNotify(arg->channels[i], ctx.output[arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID));
+        CCU_CHK_RET(ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
     }
     uint32_t allBit = ((1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID));
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, allBit);
+        CCU_CHK_RET(ccu::NotifyWait(arg->channels[i], CKE_IDX_0, allBit));
     }
+    return CCU_SUCCESS;
 }
 
-static void PostSync(AllGather2DiesMeshMem2Mem1DContext &ctx)
+static CcuResult PostSync(AllGather2DiesMeshMem2Mem1DContext &ctx)
 {
     const auto *arg = ctx.arg;
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::NotifyRecord(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+        CCU_CHK_RET(ccu::NotifyRecord(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+        CCU_CHK_RET(ccu::NotifyWait(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
+    return CCU_SUCCESS;
 }
 
 static CcuResult DoAllGather(AllGather2DiesMeshMem2Mem1DContext &ctx)
@@ -116,10 +117,10 @@ static CcuResult DoAllGather(AllGather2DiesMeshMem2Mem1DContext &ctx)
         remoteDst[rankIdx].token = ctx.token[ctx.rankIdGroup[rankIdx]]; 
     
         CCU_IF(ctx.sliceSize != 0) {
-            ccu::Write(arg->channels[rankIdx], remoteDst[rankIdx], src, ctx.sliceSize, ctx.event, 1 << ctx.rankIdGroup[rankIdx]);
+            CCU_CHK_RET(ccu::Write(arg->channels[rankIdx], remoteDst[rankIdx], src, ctx.sliceSize, ctx.event, 1 << ctx.rankIdGroup[rankIdx]));
         }
         CCU_IF(ctx.sliceSize == 0) {
-            ccu::EventRecord(ctx.event, 1 << ctx.rankIdGroup[rankIdx]);
+            CCU_CHK_RET(ccu::EventRecord(ctx.event, 1 << ctx.rankIdGroup[rankIdx]));
         }
     }
 
@@ -130,13 +131,12 @@ static CcuResult DoAllGather(AllGather2DiesMeshMem2Mem1DContext &ctx)
         localDst.addr += ctx.offSet;
         CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.localGoSize));
     }
-    ccu::EventRecord(ctx.localCopyEvent, 1 << arg->rankId);
 
     uint16_t rankMask = 0x0000;
     for (uint64_t rankIdx = 0; rankIdx < ctx.rankIdGroup.size(); rankIdx++) {
         rankMask |= (1 << ctx.rankIdGroup[rankIdx]);
     }
-    ccu::EventWait(ctx.event, rankMask);
+    CCU_CHK_RET(ccu::EventWait(ctx.event, rankMask));
 
     return CCU_SUCCESS;
 }
@@ -152,7 +152,6 @@ CcuResult CcuAllGather2DiesMeshMem2Mem1DKernel(CcuKernelArg arg)
     ctx.moConfig.memSlice = 0;
     ctx.moRes.eventCount = 0;
     ctx.moRes.bufCount = 0;
-    ctx.enginePool = 0;
 
     HCCL_INFO("[CcuKernelAllGather2DiesMeshMem2Mem1D] CcuKernelAllGather2DiesMeshMem2Mem1D run");
 
@@ -165,11 +164,11 @@ CcuResult CcuAllGather2DiesMeshMem2Mem1DKernel(CcuKernelArg arg)
     CCU_CHK_RET(InitResource(ctx));
     CCU_CHK_RET(LoadArgs(ctx));
 
-    PreSync(ctx);
+    CCU_CHK_RET(PreSync(ctx));
 
     CCU_CHK_RET(DoAllGather(ctx));
 
-    PostSync(ctx);
+    CCU_CHK_RET(PostSync(ctx));
     HCCL_INFO("[CcuKernelAllGather2DiesMeshMem2Mem1D] CcuKernelAllGather2DiesMeshMem2Mem1D end");
 
     return CCU_SUCCESS;

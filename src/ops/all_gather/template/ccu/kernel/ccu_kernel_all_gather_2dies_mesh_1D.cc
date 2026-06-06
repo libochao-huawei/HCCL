@@ -101,10 +101,10 @@ static CcuResult PostSync(AllGather2DiesMesh1DContext &ctx)
     const auto *arg = ctx.arg;
 
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::NotifyRecord(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+        CCU_CHK_RET(ccu::NotifyRecord(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+        CCU_CHK_RET(ccu::NotifyWait(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
     return CCU_SUCCESS;
 }
@@ -163,7 +163,6 @@ CcuResult CcuAllGather2DiesMesh1DKernel(CcuKernelArg arg)
     ctx.moConfig.memSlice = 0;
     ctx.moRes.eventCount = 0;
     ctx.moRes.bufCount = 0;
-    ctx.enginePool = 0;
 
     HCCL_INFO("[CcuKernelAllGather2DiesMesh1D] CcuKernelAllGather2DiesMesh1D run");
 
