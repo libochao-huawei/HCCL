@@ -1,6 +1,6 @@
 # RFC 文档目录
 
-本目录存放HCOMM仓的技术方案设计文档（RFC - Request for Comments）。
+本目录存放HCCL仓的技术方案设计文档（RFC - Request for Comments）。
 
 ## RFC 生命周期
 
