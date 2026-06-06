@@ -77,7 +77,7 @@ int Sample(void *arg)
     }
     std::cout << "rankId: " << device << ", input: [";
     for (uint64_t i = 0; i < count; ++i) {
-        std::cout << " " << tmpHostBuf[i];
+        std::cout << " " << tmpHostBuff[i];
     }
     std::cout << " ]" << std::endl;
 
