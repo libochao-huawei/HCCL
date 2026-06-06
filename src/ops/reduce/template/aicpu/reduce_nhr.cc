@@ -37,7 +37,7 @@ HcclResult ReduceNHR::CalcRes(
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
-    HCCL_INFO("[ReduceMeshNHR][CalcRes]slaveThreadNum[%u] notifyNumPerThread[%u] notifyNumOnMainThread[%u]"
+    HCCL_INFO("[ReduceNHR][CalcRes]slaveThreadNum[%u] notifyNumPerThread[%u] notifyNumOnMainThread[%u]"
               " level1Channels[%u] .",
         resourceRequest.slaveThreadNum,
         resourceRequest.notifyNumPerThread.size(),
@@ -332,19 +332,19 @@ HcclResult ReduceNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepIn
 //  计算每轮收发的对端以及slice编号
 HcclResult ReduceNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoList) const
 {
-    // 将本 rank 号转换成算法使用的索引号
+    // ReduceNHR 将本 rank 号转换成算法使用的索引号
     u32 rankIdx = myIdx_;
     stepInfoList.clear();
 
     u32 nSteps = GetNHRStepNum(templateRankSize_);
     stepInfoList.resize(nSteps);
     for (u32 step = 0; step < nSteps; step++) {
-        // 计算通信对象
+        // ReduceNHR 计算通信对象
         u32 deltaRank = 1 << step;
         u32 sendTo = (rankIdx + templateRankSize_ - deltaRank) % templateRankSize_;
         u32 recvFrom = (rankIdx + deltaRank) % templateRankSize_;
 
-        // 数据份数和数据编号增量
+        // ReduceNHR 数据份数和数据编号增量
         u32 nSlices = (templateRankSize_ - 1 + (1 << step)) / (1 << (step + 1));
         u32 deltaSliceIndex = 1 << (step + 1);
         u32 txSliceIdx = sendTo;
@@ -357,7 +357,7 @@ HcclResult ReduceNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoLis
         currStepInfo.toRank = sendTo;
         currStepInfo.fromRank = recvFrom;
 
-        // 计算本rank在每轮收/发中的slice编号
+        // ReduceNHR 计算本rank在每轮收/发中的slice编号
         currStepInfo.txSliceIdxs.reserve(nSlices);
         currStepInfo.rxSliceIdxs.reserve(nSlices);
         for (u32 i = 0; i < nSlices; i++) {

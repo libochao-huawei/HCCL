@@ -15,12 +15,12 @@
 #include "hcomm_diag.h"   // 原始头文件，包含所有声明和类型定义
 #include "hccl_res.h"     // CommAbiHeader, CommEngine for HcclDfxOpInfo stub
 
-#if CANN_VERSION_NUM >= 90000000
-#include "hccl_diag.h"    // 9.0.0 提供 HcclDfxOpInfo, HCOMM_ALG_TAG_LENGTH
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 1, 0)
+#include "hccl_diag.h"    // 9.1.0 提供 HcclDfxOpInfo, HCOMM_ALG_TAG_LENGTH
 #endif
 
-/* 8.5.0 桩: hccl_diag.h 中 9.0.0 新增类型 */
-#if CANN_VERSION_NUM < 90000000
+/* 9.1.0 之前提供桩类型，兼容 9.0.0 和 8.5.0 环境 */
+#if CANN_VERSION_NUM < CANN_VERSION(9, 1, 0)
 #define HCOMM_ALG_TAG_LENGTH 288
 
 struct HcclDfxOpInfo {
@@ -41,7 +41,7 @@ struct HcclDfxOpInfo {
     uint32_t cpuWaitAicpuNotifyId;
     int8_t reserve[128];
 };
-#endif /* CANN_VERSION_NUM < 90000000 */
+#endif /* CANN_VERSION_NUM < CANN_VERSION(9, 1, 0) */
 
 #ifdef __cplusplus
 extern "C" {

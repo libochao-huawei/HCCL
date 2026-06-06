@@ -896,6 +896,7 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
 HcclResult CalAllLevelEndpointAttrBwCoeff(
     HcclComm comm, uint32_t rankId, uint32_t levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw)
 {
+    (void) levelSize;
     uint32_t *netLayers = nullptr; // 网络层次list
     uint32_t netLayerNum = 0;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum)); // 获取layer总数和layerlist
@@ -910,7 +911,7 @@ HcclResult CalAllLevelEndpointAttrBwCoeff(
             uint32_t endPointNums = 0;
             CHK_RET(HcclRankGraphGetEndpointNum(
                 comm, netLayerId, topoInstId, &endPointNums)); // 获取endPointNums，计算同层有多少节点
-            EndpointDesc *endPointDescs;
+            EndpointDesc *endPointDescs = nullptr;
             CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayerId, topoInstId, &endPointNums,
                 endPointDescs)); // 根据Layer和topoInstId，拿到所有的Endpoint信息；返回vector(获取EndpointDesc)
             uint32_t infoLen = sizeof(EndpointAttrBwCoeff);

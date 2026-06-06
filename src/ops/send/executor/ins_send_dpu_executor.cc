@@ -23,6 +23,8 @@ namespace ops_hccl {
     HcclResult InsSendDpuExecutor<InsAlgTemplate>::InitCommInfo(HcclComm comm, const OpParam &param,
         const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
     {
+        (void) comm;
+        (void) algHierarchyInfo;
         myRank_ = topoInfo->userRank;
         rankSize_ = topoInfo->userRankSize;
         devType_ = topoInfo->deviceType;

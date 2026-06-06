@@ -252,6 +252,7 @@ void CcuKernelAllReduceMeshMem2Mem1D::ReduceLoopGroup(CcuRep::LocalAddr outDstOr
 void CcuKernelAllReduceMeshMem2Mem1D::PairwiseLocalReduce(CcuRep::LocalAddr myOutput, std::vector<CcuRep::LocalAddr> &inputVec,
     CcuRep::Variable sliceSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
 {
+    (void) outputDataType;
     CcuRep::Variable len = CreateVariable();
 
     uint32_t remainPieces = rankSize_;
