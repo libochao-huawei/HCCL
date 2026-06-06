@@ -315,7 +315,7 @@ static CcuResult DoWriteReduceSlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx,
     CCU_IF(ctx.dataSizePerPort == 0)
     {
         for (uint32_t i = 0; i < ctx.portNum - 1; ++i) {
-            ccu::EventRecord(ctx.events[i]);
+            ccu::EventRecord(ctx.events[i], mask);
         }
     }
     CCU_IF(lastSliceSize != 0)
@@ -325,7 +325,7 @@ static CcuResult DoWriteReduceSlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx,
     }
     CCU_IF(lastSliceSize == 0)
     {
-        ccu::EventRecord(ctx.events[ctx.portNum - 1]);
+        ccu::EventRecord(ctx.events[ctx.portNum - 1], mask);
     }
     return CCU_SUCCESS;
 }
@@ -414,7 +414,7 @@ static CcuResult DoSendRecvSlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx, co
     CCU_IF(ctx.dataSizePerPort == 0)
     {
         for (uint32_t i = 0; i < ctx.portNum - 1; ++i) {
-            ccu::EventRecord(ctx.events[i]);
+            ccu::EventRecord(ctx.events[i], mask);
         }
     }
     CCU_IF(lastSliceSize != 0)
@@ -423,7 +423,7 @@ static CcuResult DoSendRecvSlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx, co
     }
     CCU_IF(lastSliceSize == 0)
     {
-        ccu::EventRecord(ctx.events[ctx.portNum - 1]);
+        ccu::EventRecord(ctx.events[ctx.portNum - 1], mask);
     }
     return CCU_SUCCESS;
 }

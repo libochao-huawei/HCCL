@@ -152,6 +152,9 @@ set(INSTALL_INCLUDE_DIR ${CMAKE_SYSTEM_PROCESSOR}-linux/include)
 set(INSTALL_AICPU_KERNEL_JSON_DIR opp/built-in/op_impl/aicpu)
 set(INSTALL_DEVICE_TAR_DIR compat)
 
+set(INSTALL_OPGRAPH_LIBRARY_DIR opp/built-in/op_graph/lib/linux/${CMAKE_SYSTEM_PROCESSOR})
+set(INSTALL_OPGRAPH_INCLUDE_DIR opp/built-in/op_graph/inc)
+
 if (ENABLE_TEST)
     set(CMAKE_SKIP_RPATH FALSE)
 else ()

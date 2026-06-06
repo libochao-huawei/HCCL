@@ -145,7 +145,8 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
     config.msInterleave = REDUCE_MS_CNT;
     config.loopCount    = 16;
     config.memSlice     = CCU_MS_SIZE;
-    auto goSize = CalGoSize(normalSliceSize, config);
+    auto goSize = (mySubCommRank_ == (templateRankSize_ - 1)) ? CalGoSize(lastSliceSize, config) : 
+                   CalGoSize(normalSliceSize, config);
 
     HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
               "scratchAddr[%llu], inputOffset[%llu], outputOffset[%llu], inputRepeatStride[%llu], "

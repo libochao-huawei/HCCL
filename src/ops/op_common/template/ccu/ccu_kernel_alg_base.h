@@ -24,7 +24,7 @@ namespace ccu = ::AscendC::ccu;
 namespace ops_hccl {
 
 constexpr uint64_t CCU_MS_INTERLEAVE         = 8;
-constexpr uint64_t CCU_MS_DEFAULT_LOOP_COUNT = 64;
+constexpr uint64_t CCU_MS_DEFAULT_LOOP_COUNT = 128;
 constexpr uint64_t CCU_MS_SIZE               = 4096;
 constexpr uint64_t NUM_TWO                   = 2;
 constexpr uint32_t LOCAL_COPY_MS_PER_LOOP = 8;

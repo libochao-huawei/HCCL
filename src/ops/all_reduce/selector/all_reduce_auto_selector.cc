@@ -430,11 +430,8 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
                 if (isDataTypeOrReduceTypeSpecial) {
                     selectAlgName = "InsAllReduceAicpuReduceNHR";
                 } else {
-                    if (dataSize < OMNI_PCIE_AR_DATA_SIZE) {
-                        selectAlgName = "InsAllReduceParallelMesh1DNHRPcie";
-                    } else {
-                        selectAlgName = "InsV2AllReduceOmniPipePcie";
-                    }
+                    selectAlgName = (dataSize < OMNI_PCIE_AR_DATA_SIZE) ? "InsAllReduceParallelMesh1DNHRPcie" :
+                                                                          "InsV2AllReduceOmniPipePcie";
                 }
             }
         } else { 
