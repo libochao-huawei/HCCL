@@ -245,6 +245,13 @@ struct TemplateDataParams {
     std::vector<u64> sdispls;
     std::vector<u64> rdispls;
     StepSliceInfo stepSliceInfo;
+    u64 localCopyFlag = 0;
+    bool isSameXAxis = false;
+    bool isSameYAxis = false;
+    u64 subRoot;
+    bool isStepOne_ = false;
+    bool isLastStep_ = false;
+    bool isloopOne_ = false;
 
     std::vector<char> Serialize() const
     {

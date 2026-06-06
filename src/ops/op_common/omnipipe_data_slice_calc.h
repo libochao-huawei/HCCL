@@ -210,6 +210,7 @@ u64 CalAllgatherDataSizeRatio2D(double* xStepP2pDataSize, double* yStepP2pDataSi
 u64 CalAllgatherDataSize2D(u64* xStepP2pDataSize, u64* yStepP2pDataSize, double xB, double yB, u64 xRankSize,
                            u64 yRankSize, u64 dataSizeEachRank, u64 maxStep);
 OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam& omniPipeSliceParam);
+OmniPipeSliceInfo CalcGatherOmniPipeSliceInfo(OmniPipeSliceParam& omniPipeSliceParam);
 
 std::vector<u64> CalScratchSize(u64* xRSDataSize, u64* yRSDataSize, u64* zRSDataSize, std::vector<u64> levelRankSize,
                                 u64 cornerStep, u64 outerStepNum, u64 innerStepNum, u64 maxStepNum,
