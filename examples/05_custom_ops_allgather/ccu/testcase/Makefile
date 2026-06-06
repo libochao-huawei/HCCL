@@ -31,7 +31,7 @@ CUSTOM_ALLGATHER_INC_DIR = ${ASCEND_HOME_PATH}/opp/vendors/cust/include
 CUSTOM_ALLGATHER_LIB_DIR = ${ASCEND_HOME_PATH}/opp/vendors/cust/lib64
 LIBS = -L$(ASCEND_LIB_DIR) -lacl_rt -L${CUSTOM_ALLGATHER_LIB_DIR} -lhccl_custom_allgather
 INCS = -I$(ASCEND_INC_DIR) -I${CUSTOM_ALLGATHER_INC_DIR}
-TARGET = allgather
+TARGET = custom_allgather_ccu
 
 # Default target
 all:
