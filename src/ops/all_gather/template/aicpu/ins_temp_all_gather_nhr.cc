@@ -106,8 +106,12 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
     }
     for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
-        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));   // input buffer拷贝到scratch buffer上
+        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
+    }
+    for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         CHK_RET(RunAllGatherNHR(templateResource.threads, templateResource.channels, channelIdx));
+    }
+    for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
     }
     if (threadNum_ > 1) {
@@ -130,8 +134,15 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
         AicpuNHRStepInfo stepInfo;
         CHK_RET(GetStepInfo(step, nSteps, stepInfo));  // 计算当前step要通信的卡，数据
 
-        const ChannelInfo &channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[channelIdx];
-        const ChannelInfo &channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[channelIdx];
+        const u32 recvRank = GetRankFromMap(stepInfo.fromRank);
+        const u32 sendRank = GetRankFromMap(stepInfo.toRank);
+        CHK_PRT_RET(channels.count(recvRank) == 0 || channels.count(sendRank) == 0 ||
+                    channelIdx >= channels.at(recvRank).size() || channelIdx >= channels.at(sendRank).size(),
+                    HCCL_ERROR("[InsTempAllGatherNHR] link missing: recvFrom=%u sendTo=%u channelIdx=%u",
+                               recvRank, sendRank, channelIdx),
+                    HcclResult::HCCL_E_INTERNAL);
+        const ChannelInfo &channelRecv = channels.at(recvRank)[channelIdx];
+        const ChannelInfo &channelSend = channels.at(sendRank)[channelIdx];
         // 构造SendRecv， 都是Scratch到Scratch的传输，没有DMA消减
         std::vector<DataSlice> txSrcSlicesAll;
         std::vector<DataSlice> txDstSlicesAll;

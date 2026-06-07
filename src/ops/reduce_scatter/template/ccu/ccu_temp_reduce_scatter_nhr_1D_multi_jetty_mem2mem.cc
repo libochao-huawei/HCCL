@@ -61,7 +61,7 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, co
         }
     }
     CHK_RET(RestoreChannelMap(myChannelDescs, rankIdToChannelDesc_)); // 让rankId变成索引查询channel
-    uint16_t portNum = 3;
+    uint16_t portNum = 4;
     std::vector<NHRStepInfo> stepInfoVector;
     std::map<u32, std::vector<u32>> rank2ChannelIdx;
     std::vector<HcclChannelDesc> channelResort; // 重排channel
@@ -137,7 +137,7 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun(const OpParam& 
     dimSize.push_back(templateRankSize_);
     constexpr uint64_t hcclMinSliceAlign = 128;
     const uint64_t sliceAlignCount = hcclMinSliceAlign / DataTypeSizeGet(dataType_);
-    constexpr uint16_t portNum  = 3;
+    constexpr uint16_t portNum  = 4;
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
