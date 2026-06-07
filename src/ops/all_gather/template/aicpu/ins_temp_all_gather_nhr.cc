@@ -111,9 +111,13 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
     }
     for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         bool postLocalCopyLaunched = false;
-        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));   // input buffer拷贝到scratch buffer上
+        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
+    }
+    for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         CHK_RET(RunAllGatherNHR(templateResource.threads, templateResource.channels, channelIdx,
             postLocalCopyLaunched));
+    }
+    for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         if (!postLocalCopyLaunched) {
             CHK_RET(PostLocalCopy(templateResource.threads[channelIdx], channelIdx));
         }
@@ -177,8 +181,27 @@ HcclResult InsTempAllGatherNHR::BuildStepSlices(const ChannelInfo &channelSend,
     std::vector<DataSlice> &rxSrcSlices, std::vector<DataSlice> &rxDstSlices)
 {
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
-    void *sendCclBuffAddr = channelSend.remoteCclMem.addr;
-    void *recvCclBuffAddr = channelRecv.remoteCclMem.addr;
+
+    for (u32 step = 0; step < nSteps; ++step) {
+        AicpuNHRStepInfo stepInfo;
+        CHK_RET(GetStepInfo(step, nSteps, stepInfo));  // 计算当前step要通信的卡，数据
+
+        const u32 recvRank = GetRankFromMap(stepInfo.fromRank);
+        const u32 sendRank = GetRankFromMap(stepInfo.toRank);
+        CHK_PRT_RET(channels.count(recvRank) == 0 || channels.count(sendRank) == 0 ||
+                    channelIdx >= channels.at(recvRank).size() || channelIdx >= channels.at(sendRank).size(),
+                    HCCL_ERROR("[InsTempAllGatherNHR] link missing: recvFrom=%u sendTo=%u channelIdx=%u",
+                               recvRank, sendRank, channelIdx),
+                    HcclResult::HCCL_E_INTERNAL);
+        const ChannelInfo &channelRecv = channels.at(recvRank)[channelIdx];
+        const ChannelInfo &channelSend = channels.at(sendRank)[channelIdx];
+        // 构造SendRecv， 都是Scratch到Scratch的传输，没有DMA消减
+        // std::vector<DataSlice> txSrcSlicesAll;
+        // std::vector<DataSlice> txDstSlicesAll;
+        // std::vector<DataSlice> rxSrcSlicesAll;
+        // std::vector<DataSlice> rxDstSlicesAll;
+        void *sendCclBuffAddr = channelSend.remoteCclMem.addr;
+        void *recvCclBuffAddr = channelRecv.remoteCclMem.addr;
 
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         for (u32 i = 0; i < stepInfo.nSlices; ++i) {
