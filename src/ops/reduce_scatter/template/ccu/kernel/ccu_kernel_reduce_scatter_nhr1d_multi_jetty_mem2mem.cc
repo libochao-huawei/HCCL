@@ -35,9 +35,14 @@ CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::CcuKernelReduceScatterNhrMutilJett
     outputDataType_  = kernelArg->opParam_.DataDes.outputType;
     stepInfoVector_  = kernelArg->stepInfoVector_;
     rank2ChannelIdx_ = kernelArg->rank2ChannelIdx_;
-    localSize_       = rank2ChannelIdx_.size(); // 有多少个对端rank
-    myRankIdx_       = rank2ChannelIdx_.size(); // 本rank的id写成最后一个
+    localSize_       = rank2ChannelIdx_.size();
+    myRankIdx_       = rank2ChannelIdx_.size();
     portNum_         = kernelArg->portNum_;
+    u32 rankIdx = 0;
+    for (const auto &entry : rank2ChannelIdx_) {
+        rank2RankIdx_[entry.first] = rankIdx;
+        rankIdx++;
+    }
     if (outputDataType_ == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
         outputDataType_ = dataType_;
         HCCL_DEBUG(
@@ -68,12 +73,25 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::InitResource()
     repeatNumVar_       = CreateVariable();//8
     repeatNumVarTemp_   = CreateVariable();//9
 
-    for (uint32_t channelIdx = 0; channelIdx < localSize_; channelIdx++) {
-        CcuRep::Variable inputVar, tokenVar;
-        CHK_RET(CreateVariable(channels_[channelIdx], INPUT_XN_ID, &inputVar));
-        input_.push_back(inputVar); // 获取channel中id=0的Var来传递output
-        CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
-        token_.push_back(tokenVar);
+    for (uint32_t rankIdx = 0; rankIdx < localSize_; rankIdx++) {
+        std::vector<CcuRep::Variable> inputVarsPerRank;
+        std::vector<CcuRep::Variable> tokenVarsPerRank;
+        for (uint32_t chIdx = 0; chIdx < portNum_; chIdx++) {
+            CcuRep::Variable inputVar, tokenVar;
+            uint32_t channelFlatIdx = chIdx;
+            for (u32 i = 0 ;i< chIdx; i++) {
+                channelFlatIdx += portNum_;
+            }
+            
+            CHK_RET(CreateVariable(channels_[channelFlatIdx], INPUT_XN_ID, &inputVar));
+            inputVarsPerRank.push_back(inputVar);
+            CHK_RET(CreateVariable(channels_[channelFlatIdx], TOKEN_XN_ID, &tokenVar));
+            tokenVarsPerRank.push_back(tokenVar);
+        }
+        inputPerChannel_.push_back(inputVarsPerRank);
+        tokenPerChannel_.push_back(tokenVarsPerRank);
+        input_.push_back(inputVarsPerRank[0]);
+        token_.push_back(tokenVarsPerRank[0]);
     }
     input_.push_back(CreateVariable()); // 自己的放在最后
     token_.push_back(CreateVariable());
@@ -212,28 +230,25 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatReduceScatter()
 HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatReduceScatterNHRSingleStep(const NHRStepInfo &nhrStepInfo,
     const std::vector<CcuRep::Variable> &inputSliceOffset)
 {
-    u32& toRankIdx = rank2ChannelIdx_[nhrStepInfo.toRank]; // 和channel形成映射
-    u32& fromRankIdx = rank2ChannelIdx_[nhrStepInfo.fromRank];
-    ChannelHandle &sendChannel = channels_[toRankIdx];
-    ChannelHandle &recvChannel = channels_[fromRankIdx];
-    const std::vector<u32> &sendSliceIdxList  = nhrStepInfo.txSliceIdxs; // 发送到那张卡
+    std::vector<u32> &toRankIdxs = rank2ChannelIdx_[nhrStepInfo.toRank];
+    std::vector<u32> &fromRankIdxs = rank2ChannelIdx_[nhrStepInfo.fromRank];
+    u32 toRankIdx = rank2RankIdx_[nhrStepInfo.toRank];
+    ChannelHandle &sendChannel = channels_[toRankIdxs[0]];
+    ChannelHandle &recvChannel = channels_[fromRankIdxs[0]];
+    const std::vector<u32> &sendSliceIdxList  = nhrStepInfo.txSliceIdxs;
     remoteDst_.token = token_[toRankIdx];
     localSrc_.token = token_[myRankIdx_];
 
-    const uint32_t signalIdxReady = GetSignalIndex(CKE_IDX_READY); // 0
-    const uint32_t signalIdxDone = GetSignalIndex(CKE_IDX_DONE); // 0
-    const uint16_t signalBitReady = GetSignalMask(CKE_IDX_READY); // 准备好的信号
-    const uint16_t signalBitDone = GetSignalMask(CKE_IDX_DONE); // 写完的信号
+    const uint32_t signalIdxReady = GetSignalIndex(CKE_IDX_READY);
+    const uint32_t signalIdxDone = GetSignalIndex(CKE_IDX_DONE);
+    const uint16_t signalBitReady = GetSignalMask(CKE_IDX_READY);
+    const uint16_t signalBitDone = GetSignalMask(CKE_IDX_DONE);
 
-    // // 被写之前告诉fromRank自己准备好了-前同步 第一步时可以跳过
     if (nhrStepInfo.step != 0) {
         CHK_RET(NotifyRecord(recvChannel, signalIdxReady, signalBitReady));
-        // 等待toRank准备好写入数据
         CHK_RET(NotifyWait(sendChannel, signalIdxReady, signalBitReady));
     }
     
-    u32 sendSliceIdx = 0;
-    // do srs
     for (const u32 &sendSliceIdx : sendSliceIdxList) {
         remoteDst_.addr = input_[toRankIdx];
         remoteDst_.addr += inputSliceOffset[sendSliceIdx];
@@ -242,8 +257,6 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatReduceScatterNH
         CHK_RET(DoRepeatSendRecvSlices(nhrStepInfo.toRank, localSrc_, remoteDst_));
         HCCL_INFO("[CcuKernelReduceScatterNhrMutilJettyMem2Mem1D] DoRepeatSendRecvSlices success");
     }
-    // 写完后告知对端，做尾同步
-    // 告诉toRank数据写完了
     CHK_RET(NotifyRecord(sendChannel, signalIdxDone, signalBitDone));
     // 等待fromRank写完数据
     CHK_RET(NotifyWait(recvChannel, signalIdxDone, signalBitDone));
@@ -273,19 +286,26 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatSendRecvSlices(
         tempDst.addr = dst.addr;
         tempDst.token = dst.token;
         CCU_IF(sliceOneJettySize_ == 0) {
-            for (u32 jettyId = 0; jettyId < portNum_ - 1; jettyId++) {
-                jettyEvent_[jettyId].SetMask(1);
-                CHK_RET(RecordEvent(jettyEvent_[jettyId]));
+            for (u32 chId = 0; chId < portNum_ - 1; chId++) {
+                jettyEvent_[chId].SetMask(1);
+                CHK_RET(RecordEvent(jettyEvent_[chId]));
             }
         }
         CCU_IF(sliceOneJettySize_ != 0) {
-            for (u32 jettyId = 0; jettyId < portNum_ - 1; jettyId++) {
-                // 用一个tempdst和src
-                jettyEvent_[jettyId].SetMask(1);
-                CHK_RET(WriteReduceNb(channels_[rank2ChannelIdx_[toRank]], tempDst, tempSrc, sliceOneJettySize_,
-                    dataType_, reduceOp_, jettyEvent_[jettyId]));
-                tempDst.addr += sliceOneJettySize_;
-                tempSrc.addr += sliceOneJettySize_;
+            for (u32 chId = 0; chId < portNum_ - 1; chId++) {
+                jettyEvent_[chId].SetMask(1);
+                CcuRep::LocalAddr chSrc = CreateLocalAddr();
+                CcuRep::RemoteAddr chDst = CreateRemoteAddr();
+                for (u32 i = 0; i < chId; i++) {
+                    chSrc.addr += sliceOneJettySize_;
+                    chDst.addr += sliceOneJettySize_;
+                }
+               // chSrc.addr = tempSrc.addr + sliceOneJettySize_ * chId;
+                chSrc.token = tempSrc.token;
+              //  chDst.addr = tempDst.addr + sliceOneJettySize_ * chId;
+                chDst.token = tempDst.token;
+                CHK_RET(WriteReduceNb(channels_[rank2ChannelIdx_[toRank][chId]], chDst, chSrc, sliceOneJettySize_,
+                    dataType_, reduceOp_, jettyEvent_[chId]));
             }
         }
         CCU_IF(sliceLastJettySize_ == 0) {
@@ -293,10 +313,19 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatSendRecvSlices(
             CHK_RET(RecordEvent(jettyEvent_[portNum_ - 1]));
         }
         CCU_IF(sliceLastJettySize_ != 0) {
-            u32 jettyId = portNum_ - 1;
-            jettyEvent_[jettyId].SetMask(1);
-            CHK_RET(WriteReduceNb(channels_[rank2ChannelIdx_[toRank]], tempDst, tempSrc, sliceLastJettySize_,
-                    dataType_, reduceOp_, jettyEvent_[jettyId]));
+            u32 chId = portNum_ - 1;
+            jettyEvent_[chId].SetMask(1);
+            CcuRep::LocalAddr chSrc = CreateLocalAddr();
+            CcuRep::RemoteAddr chDst = CreateRemoteAddr();
+            for (u32 i = 0; i < chId; i++) {
+                chSrc.addr += sliceOneJettySize_;
+                chDst.addr += sliceOneJettySize_;
+            }
+            chSrc.token = tempSrc.token;
+           // chDst.addr = tempDst.addr + sliceOneJettySize_ * chId;
+            chDst.token = tempDst.token;
+            CHK_RET(WriteReduceNb(channels_[rank2ChannelIdx_[toRank][chId]], chDst, chSrc, sliceLastJettySize_,
+                    dataType_, reduceOp_, jettyEvent_[chId]));
         }
         for (u32 jettyId = 0; jettyId < portNum_; jettyId++) {
             CHK_RET(WaitEvent(jettyEvent_[jettyId]));

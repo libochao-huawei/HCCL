@@ -696,7 +696,7 @@ HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, C
 *   获取link对应的channel。对于2个rank之间，存在多条link的场景，会优先获取指定TopoType的1条channel。
 *   如果多条link都没有指定的TopoType，则返回第一条link对应的channel。
 */
-HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo)
+HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo, u32 myTimes)
 {
 #ifndef AICPU_COMPILE
     uint32_t *netLayers;
@@ -726,6 +726,12 @@ HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vect
                 break;
             }
         }
+        u32 linkPos = 0;
+        if (myTimes !=0) {
+            linkPos = myTimes * 10;
+        }
+        priorityLink = linkPos;
+        HCCL_INFO("zjychoose priorityLink=%u", priorityLink);
         HcclChannelDesc channelDesc;
         HcclChannelDescInit(&channelDesc, 1);
         channelDesc.remoteRank = rank;
@@ -793,7 +799,10 @@ HcclResult CalcChannelRequestNHRWithPriorityTopo(HcclComm comm, const OpParam& p
 
     for (u32 rank : connectRanks) {
         if (rank != localRank) {
-            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo));
+            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo,0));
+            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo,1));
+            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo,2));
+            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo,3));
         }
     }
     HCCL_INFO("[%s] success.", __func__);

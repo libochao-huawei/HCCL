@@ -40,6 +40,7 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     }
     resourceRequest.channels.push_back(channels);
     u32 channelsPerRank = CalcChannelsPerRank(channels);
+    channelsPerRank = std::min(channelsPerRank, static_cast<u32>(4));
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] channelsPerRank: [%u].", channelsPerRank);
     channelsPerRank_ = channelsPerRank;
     GetRes(resourceRequest);
@@ -128,11 +129,22 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         CHK_PRT_RET(channelIdx >= sizeOut.size() || channelIdx >= elemOffset.size(),
                     HCCL_ERROR("[InsTempReduceScatterNHR] channelIdx[%u] out of bounds", channelIdx), HCCL_E_INTERNAL);
         CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
-        if (templateRankSize_ <= 1) {
+    }
+    if (templateRankSize_ <= 1) {
+        for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
             CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
-            return HcclResult::HCCL_SUCCESS;
         }
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.begin() + threadNum_);
+            GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+            CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+        }
+        return HcclResult::HCCL_SUCCESS;
+    }
+    for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         CHK_RET(RunNHR(templateResource.threads, channelIdx));
+    }
+    for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
     }
 
@@ -258,8 +270,8 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
             HcclResult::HCCL_E_INTERNAL);
 
         CHK_PRT_RET(channels_.count(recvFromRank) == 0 || channels_.count(sendToRank) == 0 ||
-                    channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
-                    HCCL_ERROR("[RS-NHR][RunNHR] link missing: recvFrom=%d sendTo=%d", recvFromRank, sendToRank),
+                    channelIdx >= channels_[recvFromRank].size() || channelIdx >= channels_[sendToRank].size(),
+                    HCCL_ERROR("[RS-NHR][RunNHR] link missing: recvFrom=%d sendTo=%d channelIdx=%u", recvFromRank, sendToRank, channelIdx),
             HcclResult::HCCL_E_INTERNAL);
         ChannelInfo linkRecv = channels_[recvFromRank].at(channelIdx);
         ChannelInfo linkSend = channels_[sendToRank].at(channelIdx);

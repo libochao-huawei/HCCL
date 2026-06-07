@@ -38,7 +38,7 @@ namespace ops_hccl {
 class CcuKernelArgReduceScatterNhrMutilJettyMem2Mem1D : public hcomm::CcuKernelArg {
 public:
     explicit CcuKernelArgReduceScatterNhrMutilJettyMem2Mem1D(uint64_t dimSize, uint32_t rankId, uint16_t portNum,
-                                const std::vector<NHRStepInfo> stepInfoVector, const std::map<u32, u32> rank2ChannelIdx,
+                                const std::vector<NHRStepInfo> stepInfoVector, const std::map<u32, std::vector<u32>> rank2ChannelIdx,
                                 const OpParam& opParam, const std::vector<std::vector<uint32_t>>& subCommRanks)
         : dimSize_(dimSize),
           rankId_(rankId),
@@ -59,10 +59,10 @@ public:
     }
     uint64_t  dimSize_{0};
     uint32_t rankId_{0};
-    uint16_t portNum_{0}; // 一个channel使用的端口数
+    uint16_t portNum_{0};
     OpParam opParam_;
-    std::vector<NHRStepInfo> stepInfoVector_;   // nhr算法执行过程中的参数
-    std::map<u32, u32> rank2ChannelIdx_; // 将rankId和channel对应起来<rankId,channelId>
+    std::vector<NHRStepInfo> stepInfoVector_;
+    std::map<u32, std::vector<u32>> rank2ChannelIdx_;
     std::vector<std::vector<uint32_t>> subCommRanks_;
 };
 
@@ -127,9 +127,13 @@ private:
     HcclDataType dataType_;
     HcclDataType outputDataType_;
     std::vector<NHRStepInfo> stepInfoVector_;   // nhr算法执行过程中的参数
-    std::map<u32, u32> rank2ChannelIdx_;
+    std::map<u32, std::vector<u32>> rank2ChannelIdx_;
+    std::map<u32, u32> rank2RankIdx_;
     hcomm::CcuRep::Variable repeatNum_;
     std::vector<ChannelHandle> channels_;
+    
+    std::vector<std::vector<hcomm::CcuRep::Variable>> inputPerChannel_;
+    std::vector<std::vector<hcomm::CcuRep::Variable>> tokenPerChannel_;
     
     // load 
     std::vector<hcomm::CcuRep::Variable> input_;
