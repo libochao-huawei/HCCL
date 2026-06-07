@@ -61,9 +61,9 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, co
         }
     }
     CHK_RET(RestoreChannelMap(myChannelDescs, rankIdToChannelDesc_)); // 让rankId变成索引查询channel
-    uint16_t portNum = 1;
+    uint16_t portNum = 4;
     std::vector<NHRStepInfo> stepInfoVector;
-    std::map<u32, u32> rank2ChannelIdx; // rankId和channel匹配
+    std::map<u32, std::vector<u32>> rank2ChannelIdx;
     std::vector<HcclChannelDesc> channelResort; // 重排channel
     GetNhrStepInfo(channelResort, stepInfoVector, rank2ChannelIdx);
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterNhrMutilJettyMem2Mem1D>(subCommRanks_[0].size(),
@@ -75,7 +75,8 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, co
                                                                                     subCommRanks_);
     kernelInfo.channels = channelResort;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
-
+    channelsPerRank_ = CalcChannelsPerRank(channelResort);
+    HCCL_INFO("zjytest channelsPerRank_ is %zu", channelsPerRank_);
     HCCL_DEBUG("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes] myChannelDescs.size()=%llu, dimsize=%llu, "
                "ccuKernelInfos.size()=%llu",
                myChannelDescs.size(), subCommRanks_[0].size(), resourceRequest.ccuKernelInfos.size());
@@ -136,7 +137,7 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun(const OpParam& 
     dimSize.push_back(templateRankSize_);
     constexpr uint64_t hcclMinSliceAlign = 128;
     const uint64_t sliceAlignCount = hcclMinSliceAlign / DataTypeSizeGet(dataType_);
-    constexpr uint16_t portNum  = 1;
+    constexpr uint16_t portNum  = 4;
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
@@ -195,7 +196,7 @@ u32 CcuTempReduceScatterNhrMultiJettyMem2Mem1D::GetNhrStepNum(u32 rankSize) cons
 
 HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::GetNhrStepInfo(std::vector<HcclChannelDesc>& channelResort,
                                                             std::vector<NHRStepInfo>& stepInfoVector,
-                                                            std::map<u32, u32>& rank2ChannelIdx)
+                                                            std::map<u32, std::vector<u32>>& rank2ChannelIdx)
 {
     u32 nSteps = GetNhrStepNum(templateRankSize_);
     for (u32 step = 0; step < nSteps; step++) {
@@ -203,23 +204,22 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::GetNhrStepInfo(std::vecto
         CHK_RET(GetStepInfo(step, stepInfo));
         stepInfoVector.push_back(stepInfo);
         if (rank2ChannelIdx.count(stepInfo.fromRank) == 0) {
-            // 存储 rankid → channelIdx 的索引
-            u32 curChannelIdx = channelResort.size();
-            rank2ChannelIdx[stepInfo.fromRank] = curChannelIdx;
+            std::vector<u32> channelIdxs;
             for (HcclChannelDesc channel: rankIdToChannelDesc_.at(stepInfo.fromRank)) {
-                if (channelResort.size() == curChannelIdx) {
-                    channelResort.push_back(channel);
-                }
+                u32 curChannelIdx = channelResort.size();
+                channelIdxs.push_back(curChannelIdx);
+                channelResort.push_back(channel);
             }
+            rank2ChannelIdx[stepInfo.fromRank] = channelIdxs;
         }
         if (rank2ChannelIdx.count(stepInfo.toRank) == 0) {
-            u32 curChannelIdx = channelResort.size();
-            rank2ChannelIdx[stepInfo.toRank] = curChannelIdx;
+            std::vector<u32> channelIdxs;
             for (HcclChannelDesc channel: rankIdToChannelDesc_.at(stepInfo.toRank)) {
-                if (channelResort.size() == curChannelIdx) {
-                    channelResort.push_back(channel);
-                }
+                u32 curChannelIdx = channelResort.size();
+                channelIdxs.push_back(curChannelIdx);
+                channelResort.push_back(channel);
             }
+            rank2ChannelIdx[stepInfo.toRank] = channelIdxs;
         }
         HCCL_DEBUG("[%s] step[%u], myRank[%u], nSlices[%u], toRank[%u], fromRank[%u].", __func__, stepInfo.step,
                    stepInfo.myRank, stepInfo.nSlices, stepInfo.toRank, stepInfo.fromRank);
