@@ -78,7 +78,11 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::InitResource()
         std::vector<CcuRep::Variable> tokenVarsPerRank;
         for (uint32_t chIdx = 0; chIdx < portNum_; chIdx++) {
             CcuRep::Variable inputVar, tokenVar;
-            uint32_t channelFlatIdx = rankIdx * portNum_ + chIdx;
+            uint32_t channelFlatIdx = chIdx;
+            for (u32 i = 0 ;i< chIdx; i++) {
+                channelFlatIdx += portNum_;
+            }
+            
             CHK_RET(CreateVariable(channels_[channelFlatIdx], INPUT_XN_ID, &inputVar));
             inputVarsPerRank.push_back(inputVar);
             CHK_RET(CreateVariable(channels_[channelFlatIdx], TOKEN_XN_ID, &tokenVar));
@@ -292,9 +296,13 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatSendRecvSlices(
                 jettyEvent_[chId].SetMask(1);
                 CcuRep::LocalAddr chSrc = CreateLocalAddr();
                 CcuRep::RemoteAddr chDst = CreateRemoteAddr();
-                chSrc.addr = tempSrc.addr + sliceOneJettySize_ * chId;
+                for (u32 i = 0; i < chId; i++) {
+                    chSrc.addr += sliceOneJettySize_;
+                    chDst.addr += sliceOneJettySize_;
+                }
+               // chSrc.addr = tempSrc.addr + sliceOneJettySize_ * chId;
                 chSrc.token = tempSrc.token;
-                chDst.addr = tempDst.addr + sliceOneJettySize_ * chId;
+              //  chDst.addr = tempDst.addr + sliceOneJettySize_ * chId;
                 chDst.token = tempDst.token;
                 CHK_RET(WriteReduceNb(channels_[rank2ChannelIdx_[toRank][chId]], chDst, chSrc, sliceOneJettySize_,
                     dataType_, reduceOp_, jettyEvent_[chId]));
@@ -309,9 +317,12 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatSendRecvSlices(
             jettyEvent_[chId].SetMask(1);
             CcuRep::LocalAddr chSrc = CreateLocalAddr();
             CcuRep::RemoteAddr chDst = CreateRemoteAddr();
-            chSrc.addr = tempSrc.addr + sliceOneJettySize_ * chId;
+            for (u32 i = 0; i < chId; i++) {
+                chSrc.addr += sliceOneJettySize_;
+                chDst.addr += sliceOneJettySize_;
+            }
             chSrc.token = tempSrc.token;
-            chDst.addr = tempDst.addr + sliceOneJettySize_ * chId;
+           // chDst.addr = tempDst.addr + sliceOneJettySize_ * chId;
             chDst.token = tempDst.token;
             CHK_RET(WriteReduceNb(channels_[rank2ChannelIdx_[toRank][chId]], chDst, chSrc, sliceLastJettySize_,
                     dataType_, reduceOp_, jettyEvent_[chId]));
