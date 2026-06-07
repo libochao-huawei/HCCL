@@ -94,7 +94,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
         }
     }
     HCCL_INFO("Start to execute Selector.");
-    HCCL_INFO("202606071406.\n");
+    HCCL_INFO("202606071516.\n");
     param.hcclComm = comm;
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
