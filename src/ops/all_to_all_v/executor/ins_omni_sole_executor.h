@@ -16,6 +16,7 @@
 #include "topo_match_base.h"
 #include "topo_match_ubx.h"
 #include "ccu_temp_omni.h"
+#include "aiv_temp_omni.h"
 
 namespace ops_hccl {
 struct ResRequest {
@@ -95,7 +96,7 @@ protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
-    HcclResult ParseXmlInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo); // 解析xml bin文件
+    HcclResult ParseXmlInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
 
     std::vector<std::vector<std::vector<u32>>> algHierarchyInfo_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
