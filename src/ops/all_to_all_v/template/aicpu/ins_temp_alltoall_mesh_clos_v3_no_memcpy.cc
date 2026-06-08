@@ -151,16 +151,7 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllMesh(
                  myRank_, rowNum, colNum, meshSize_, closSize_, rankSize_, closSlotNum,
                  actualChunkSize, chunkCount);
 
-    const ThreadHandle &mainThread = threads[0];
     std::vector<ThreadHandle> commThreads(threads.begin() + 1, threads.begin() + 1 + closSlotNum);
-    std::vector<u32> roundNotifyIdx;
-    std::vector<u32> roundStartNotifyIdx;
-    if (commThreads.size() > 1) {
-        for (u32 notifyIdx = 0; notifyIdx < commThreads.size(); notifyIdx++) {
-            roundNotifyIdx.push_back(notifyIdx);
-            roundStartNotifyIdx.push_back(0);
-        }
-    }
     for (u32 round = 1; round < colNum; round++) {
         std::vector<ClosNoMemcpySlot> slotPlans;
         CHK_RET(CalcClosNoMemcpyRoundPlan(round, slotPlans));
@@ -178,10 +169,6 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllMesh(
                         HcclResult::HCCL_E_INTERNAL);
             CHK_RET(RunClosNoMemcpySlot(channels, slotPlans[slotIdx], commThreads[threadIdx], round,
                                         actualChunkSize, chunkCount, isPcie));
-        }
-        if (!commThreads.empty() && round + 1 < colNum) {
-            CHK_RET(PostSyncInterThreads(mainThread, commThreads, roundNotifyIdx));
-            CHK_RET(PreSyncInterThreads(mainThread, commThreads, roundStartNotifyIdx));
         }
     }
 
