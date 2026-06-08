@@ -20,7 +20,7 @@
 
 namespace ops_hccl_allgather {
 
-constexpr uint32_t CUSTOM_TIMEOUT = 1800;
+constexpr uint32_t CUSTOM_TIMEOUT = 1836;
 
 constexpr uint32_t COMM_INDENTIFIER_MAX_LENGTH = 128;
 constexpr uint32_t OP_NAME_LENGTH = 32;

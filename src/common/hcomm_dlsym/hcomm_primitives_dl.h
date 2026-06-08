@@ -86,9 +86,27 @@ DECL_WEAK_FUNC(int32_t, HcommThreadSynchronize, ThreadHandle thread);
 DECL_WEAK_FUNC(int32_t, HcommSendRequest, uint64_t handle, const char* msgTag, const void* src, size_t sizeByte, uint32_t* msgId);
 DECL_WEAK_FUNC(int32_t, HcommWaitResponse, uint64_t handle, void* dst, size_t sizeByte, uint32_t* msgId);
 DECL_WEAK_FUNC(HcclResult, HcommThreadJoin, ThreadHandle thread, uint32_t timeout);
+DECL_WEAK_FUNC(int32_t, HcommThreadResAcquireTimeOut, uint32_t timeOut);
+DECL_WEAK_FUNC(int32_t, HcommSetNotifyWaitTimeOut, uint32_t timeOut);
+DECL_WEAK_FUNC(int32_t, HcommThreadNotifyWaitOnThreadWithDefaultTimeout, ThreadHandle thread, uint32_t notifyIdx);
+DECL_WEAK_FUNC(int32_t, HcommChannelNotifyWaitOnThreadWithDefaultTimeout, ThreadHandle thread,
+    ChannelHandle channel, uint32_t localNotifyIdx);
+DECL_WEAK_FUNC(int32_t, HcommChannelNotifyWaitWithDefaultTimeout, ChannelHandle channel, uint32_t localNotifyIdx);
 DECL_SUPPORT_FLAG(HcommBatchTransferOnThread);
+DECL_SUPPORT_FLAG(HcommThreadResAcquireTimeOut);
+DECL_SUPPORT_FLAG(HcommSetNotifyWaitTimeOut);
+DECL_SUPPORT_FLAG(HcommThreadNotifyWaitOnThreadWithDefaultTimeout);
+DECL_SUPPORT_FLAG(HcommChannelNotifyWaitOnThreadWithDefaultTimeout);
+DECL_SUPPORT_FLAG(HcommChannelNotifyWaitWithDefaultTimeout);
 int32_t HcclHcommBatchTransferOnThread(ThreadHandle thread, ChannelHandle channel,
     const HcclHcommBatchTransferDesc *transferDescs, uint32_t transferDescNum);
+bool IsHcommDefaultTimeoutSupported();
+HcclResult HcclSetNotifyWaitTimeOut(uint32_t timeout);
+HcclResult HcclThreadResAcquireTimeOut(uint32_t timeout);
+HcclResult HcclThreadNotifyWaitOnThreadDefault(ThreadHandle thread, uint32_t notifyIdx, uint32_t fallbackTimeout);
+HcclResult HcclChannelNotifyWaitOnThreadDefault(ThreadHandle thread, ChannelHandle channel,
+    uint32_t localNotifyIdx, uint32_t fallbackTimeout);
+HcclResult HcclChannelNotifyWaitDefault(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t fallbackTimeout);
 
 void HcommPrimitivesDlInit(void* libHcommHandle);  // 本模块独立初始化
 
