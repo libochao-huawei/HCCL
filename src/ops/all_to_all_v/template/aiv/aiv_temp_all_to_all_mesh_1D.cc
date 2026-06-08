@@ -46,6 +46,8 @@ HcclResult AivTempAlltoAllMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u32
     (void) dataSize;
     HCCL_INFO("[AivTempAlltoAllMesh1D] Limit core num[%u]", numBlocksLimit);
 
+    HCCL_DEBUG("[CX_DEBUG] Original Code");
+
     // 小于1的场景
     if (numBlocksLimit < 1) {
         numBlocks = numBlocksLimit;
