@@ -488,6 +488,13 @@ HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, OpParamGraph
     if (resResponse == nullptr || paramPtr == nullptr || paramPtr->aivCoreLimit == 0) {
         return HCCL_E_PARA;
     }
+    constexpr u64 AIV_WORKSPACE_MEM_SIZE = 512;
+    constexpr u32 AIV_STREAM_NUM = 0;
+    constexpr u32 AIV_TASK_NUM = 3;
+
+    resResponse->opMemSize = std::max(resResponse->opMemSize, AIV_WORKSPACE_MEM_SIZE);
+    resResponse->streamNum = std::max(resResponse->streamNum, AIV_STREAM_NUM);
+    resResponse->taskNum = std::max(resResponse->taskNum, AIV_TASK_NUM);
     resResponse->aivCoreNum = paramPtr->aivCoreLimit;
     return HCCL_SUCCESS;
 }
