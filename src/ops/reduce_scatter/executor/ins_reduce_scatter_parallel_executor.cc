@@ -368,43 +368,14 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     u64 inter1ScratchOffset = inter0ScratchOffset + scratchMultipleInter0 * scratchMemBlockSize;
     std::vector<u64> scratchOffVec = {intra0ScratchOffset, intra1ScratchOffset, inter0ScratchOffset, inter1ScratchOffset};
 
-    // dataSplitSize为分数，这里maxCountPerLoop对10取整
-    u64 maxCountPerLoop = (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_ / 10) * 10; 
+    u64 maxCountPerLoop =
+        std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_;
+    CHK_PRT_RET(maxCountPerLoop == 0,
+                HCCL_ERROR("[InsReduceScatterParallelExecutor][OrchestrateLoop] maxCountPerLoop is 0"),
+                HcclResult::HCCL_E_INTERNAL);
 
-    // ============ 循环前的数据对齐操作 ============
-    u64 alignSizeData = AICPU_ALIGN_SIZE; // 用于4k对齐
-    
-    // 根据 dataSplitSize 计算两块数据的大小
-    u64 dataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * maxCountPerLoop);
-    u64 dataCountPerLoopAixs1 = maxCountPerLoop - dataCountPerLoopAixs0;
-    
-    // 对两块数据分别进行4K对齐（向下取整）
-    if (dataCountPerLoopAixs0 * dataTypeSize_ >= alignSizeData) {
-        dataCountPerLoopAixs0 = dataCountPerLoopAixs0 * dataTypeSize_ / alignSizeData * alignSizeData / dataTypeSize_;
-    }
-    if (dataCountPerLoopAixs1 * dataTypeSize_ >= alignSizeData) {
-        dataCountPerLoopAixs1 = dataCountPerLoopAixs1 * dataTypeSize_ / alignSizeData * alignSizeData / dataTypeSize_;
-    }
-    
-    // 用对齐后的数据量之和重新刷新 maxCountPerLoop
-    maxCountPerLoop = dataCountPerLoopAixs0 + dataCountPerLoopAixs1;
-    // ====================================================
-
+    u64 alignSize = AICPU_ALIGN_SIZE;
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
-
-    // ============ 计算尾块数据量 ============
-    u64 finalDataCountPerLoopAixs0 = dataCountPerLoopAixs0;
-    u64 finalDataCountPerLoopAixs1 = dataCountPerLoopAixs1;
-    
-    if (loopTimes > 1) {
-        u64 finalCount = dataCount_ - (loopTimes - 1) * maxCountPerLoop;
-        finalDataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * finalCount);
-        finalDataCountPerLoopAixs1 = finalCount - finalDataCountPerLoopAixs0;
-    } else {
-        finalDataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * dataCount_);
-        finalDataCountPerLoopAixs1 = dataCount_ - finalDataCountPerLoopAixs0;
-    }
-    // ====================================================
 
     TemplateDataParams tempAlgParamsIntra0;
     TemplateDataParams tempAlgParamsInter0;
@@ -427,12 +398,30 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     templateAlgResIntra.threads = intraThreads_;
     templateAlgResInter.threads = interThreads_;
 
-    for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
-        // 使用预计算的对齐后数据量
-        u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs0 : dataCountPerLoopAixs0;
-        u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs1 : dataCountPerLoopAixs1;
-        
-        u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
+    u64 processedCount = 0;
+    u32 loopIndex = 0;
+    while (processedCount < dataCount_) {
+        u64 remainingCount = dataCount_ - processedCount;
+        u32 remainingLoopTimes = (loopIndex < loopTimes) ? (loopTimes - loopIndex) : 1;
+        u64 currCount = (remainingCount + remainingLoopTimes - 1) / remainingLoopTimes;
+        currCount = std::min(currCount, maxCountPerLoop);
+        u64 currCountPart0 = static_cast<u64>(dataSplitSize[0] * currCount);
+        u64 currCountPart1 = currCount - currCountPart0;
+        if (remainingLoopTimes > 1) {
+            u64 alignedCountPart0 = currCountPart0;
+            u64 alignedCountPart1 = currCountPart1;
+            alignedCountPart0 = alignedCountPart0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+            alignedCountPart1 = alignedCountPart1 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+            if (alignedCountPart0 + alignedCountPart1 > 0) {
+                currCountPart0 = alignedCountPart0;
+                currCountPart1 = alignedCountPart1;
+            }
+        }
+        CHK_PRT_RET(currCountPart0 + currCountPart1 == 0,
+                    HCCL_ERROR("[InsReduceScatterParallelExecutor][OrchestrateLoop] currCount is 0"),
+                    HcclResult::HCCL_E_INTERNAL);
+
+        u64 dataOffset0 = processedCount * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
 
         //第一步开始前同步
@@ -464,6 +453,9 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, templateAlgResIntra));
         //尾同步
         CHK_RET(PostSyncInterThreads(controlThread_, templateMainThreads_, notifyIdxTemplatesToControl_));
+
+        processedCount += currCountPart0 + currCountPart1;
+        loopIndex++;
     }
     
 #ifndef AICPU_COMPILE
