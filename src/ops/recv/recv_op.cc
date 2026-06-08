@@ -74,6 +74,11 @@ HcclResult HcclRecvGraphMode(
     const char* tag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("[HcclRecvGraphMode] Start.");
+    // 校验scratch内存参数
+    CHK_PRT_RET(scratchMemAddr == nullptr, 
+                HCCL_ERROR("[HcclRecvGraphMode]scratchMemAddr is nullptr"), HCCL_E_PARA);
+    CHK_PRT_RET(scratchMemSize == 0, 
+                HCCL_ERROR("[HcclRecvGraphMode]scratchMemSize is 0"), HCCL_E_PARA);
     // 根据group获取通信域
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclRecvGraphMode] get group name: %s", group);

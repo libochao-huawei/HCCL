@@ -257,6 +257,11 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclAlltoAllVGraphMode");
+    // 校验scratch内存参数
+    CHK_PRT_RET(scratchMemAddr == nullptr, 
+                HCCL_ERROR("[HcclAlltoAllVGraphMode]scratchMemAddr is nullptr"), HCCL_E_PARA);
+    CHK_PRT_RET(scratchMemSize == 0, 
+                HCCL_ERROR("[HcclAlltoAllVGraphMode]scratchMemSize is 0"), HCCL_E_PARA);
     // 根据group获取通信域
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAlltoAllVGraphMode] get group name: %s", group);
@@ -309,6 +314,11 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclAlltoAllVCGraphMode");
+    // 校验scratch内存参数
+    CHK_PRT_RET(scratchMemAddr == nullptr, 
+                HCCL_ERROR("[HcclAlltoAllVCGraphMode]scratchMemAddr is nullptr"), HCCL_E_PARA);
+    CHK_PRT_RET(scratchMemSize == 0, 
+                HCCL_ERROR("[HcclAlltoAllVCGraphMode]scratchMemSize is 0"), HCCL_E_PARA);
     // 根据group获取通信域
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAlltoAllVCGraphMode] get group name: %s", group);

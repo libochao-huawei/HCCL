@@ -468,12 +468,14 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
 }
 
 namespace ops_hccl {
+constexpr u64 GRAPH_MODE_OP_MEM_SIZE = 400ULL * 1024 * 1024;
+
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
 {
     if (resResponse == nullptr) {
         return HCCL_E_PARA;
     }
-    u64 aicpuOpMemSize = 0;
+    u64 aicpuOpMemSize = GRAPH_MODE_OP_MEM_SIZE;
     u32 aicpuStreamNum = 0;
     u32 aicpuTaskNum = 3;
 

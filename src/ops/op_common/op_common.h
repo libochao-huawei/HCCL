@@ -71,11 +71,11 @@ HcclResult GeReuseResource(HcclComm comm, OpParam &param, std::unique_ptr<InsCol
         std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo, const ResPackGraphMode &resPack);
 
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-                          AlgResourceCtxSerializable* resCtxHost);
+                          AlgResourceCtxSerializable* resCtxHost, const ResPackGraphMode &resPack);
 HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest,
                               const CommEngine commEngine, AlgResourceCtxSerializable* resCtxHost, MemRegInfo &memRegInfo);
-HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles);
-HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const char* inputBuffTag, const char* outputBuffTag, ChannelInfo& channel);
+HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, MemRegInfo& memRegInfo, const ResPackGraphMode &resPack);
+HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const MemRegInfo& memRegInfo, ChannelInfo& channel);
 HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 

@@ -54,6 +54,11 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
 HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclBroadcastGraphMode");
+    // 校验scratch内存参数
+    CHK_PRT_RET(scratchMemAddr == nullptr, 
+                HCCL_ERROR("[HcclBroadcastGraphMode]scratchMemAddr is nullptr"), HCCL_E_PARA);
+    CHK_PRT_RET(scratchMemSize == 0, 
+                HCCL_ERROR("[HcclBroadcastGraphMode]scratchMemSize is 0"), HCCL_E_PARA);
     // 根据group获取通信域
     OpParam param;
     HcclComm comm = nullptr;
