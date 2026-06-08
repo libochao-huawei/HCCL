@@ -116,24 +116,22 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
     HCCL_INFO("[CcuTempReduceScatterMesh2Die] Run");
     buffInfo_ = templateDataParams.buffInfo;
 
-    uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
+    uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t scratchAddr = PointerToAddr(buffInfo_.hcclBuff.addr) + buffInfo_.hcclBuffBaseOff;
     uint64_t sliceSize = templateDataParams.sliceSize;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
-    uint64_t inputSliceStride = templateDataParams.inputSliceStride;
-    uint64_t offsetSliceSize = templateDataParams.sliceSize;
-    uint64_t rmtReduceSliceOffset = inputSliceStride * mySubCommRank_;
-    uint64_t myScratch = scratchAddr + offsetSliceSize;
+    uint64_t rmtReduceSliceOffset = templateDataParams.inputSliceStride * mySubCommRank_;
+    uint64_t myScratch = scratchAddr + sliceSize;
 
     u32 dataTypeSize = DataTypeSizeGet(param.DataDes.dataType);
     uint64_t localRedcueSize0 = (sliceSize / dataTypeSize) / MISSION_NUM * dataTypeSize;
     uint64_t localRedcueSize1 = sliceSize - localRedcueSize0;
 
     HCCL_INFO("[CcuTempReduceScatterMesh2Die] inputAddr[%llu], outputAddr[%llu], myScratch[%llu], "
-              "rmtReduceSliceOffset[%llu], sliceSize[%llu], localRedcueSize0[%llu], localRedcueSize1[%llu], offsetSliceSize[%llu]",
-              inputAddr, outputAddr, myScratch, rmtReduceSliceOffset, sliceSize, localRedcueSize0, localRedcueSize1, offsetSliceSize);
+              "rmtReduceSliceOffset[%llu], sliceSize[%llu], localRedcueSize0[%llu], localRedcueSize1[%llu]",
+              inputAddr, outputAddr, myScratch, rmtReduceSliceOffset, sliceSize, localRedcueSize0, localRedcueSize1);
 
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -149,22 +147,15 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
     auto localReduceGoSize0 = CalGoSize(localRedcueSize0, config);
     auto localReduceGoSize1 = CalGoSize(localRedcueSize1, config);
 
-    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, myScratch, sliceSize, rmtReduceSliceOffset};
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, myScratch, sliceSize, rmtReduceSliceOffset,
+                                      rmtReduceGoSize[0], rmtReduceGoSize[1], rmtReduceGoSize[2], rmtReduceGoSize[3]};
 
-    for (auto &goSize : {rmtReduceGoSize}) {
-        for (auto &element : goSize) {
-            taskArgs.push_back(element);
-        }
-    }
-    uint64_t argSize = taskArgs.size();
-
-    for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
+    for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {
         CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[dieId], templateResource.ccuKernels[dieId],
-            taskArgs.data(), argSize);
-        if (launchRet != CCU_SUCCESS) {
-            HCCL_ERROR("[CcuTempReduceScatterMesh2Die::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
-            return ConvertCcuToHccl(launchRet);
-        }
+            taskArgs.data(), taskArgs.size());
+        CHK_PRT_RET(launchRet != CCU_SUCCESS,
+            HCCL_ERROR("[CcuTempReduceScatterMesh2Die::KernelRun] kernel launch failed, ccuRet -> %d", launchRet),
+            ConvertCcuToHccl(launchRet));
     }
 
     // 后流同步
