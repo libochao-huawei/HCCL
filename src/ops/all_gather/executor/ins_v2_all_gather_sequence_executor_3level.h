@@ -65,7 +65,7 @@ protected:
             , threads() {}
     };
 
-    LevelInfo levels_[SEQUENCE_EXECUTOR_3_LEVEL_NUM];
+    std::vector<LevelInfo> levels_;
 };
 }
 
