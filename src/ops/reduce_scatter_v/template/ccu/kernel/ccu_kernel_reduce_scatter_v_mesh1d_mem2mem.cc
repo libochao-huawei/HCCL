@@ -181,7 +181,7 @@ CcuResult CcuReduceScatterVMesh1DMem2MemKernel(CcuKernelArg arg)
     ctx.arg = kernelArg;
     LoopGroupConfig  config{};
     config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
+    config.loopCount    = 16;
     config.memSlice     = CCU_MS_SIZE;
     HCCL_INFO("[CcuKernelReduceScatterVMesh1DMem2Mem] ReduceScatterVMesh1DMem2Mem run");
     CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
