@@ -11,7 +11,7 @@
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/reduce_sole_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/reduce_parallel_executor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_v2_all_gather_omnipipe_2d_executor.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_v2_reduce_omnipipe_executor.cc
 )
 if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list
