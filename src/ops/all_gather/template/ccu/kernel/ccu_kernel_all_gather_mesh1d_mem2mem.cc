@@ -260,10 +260,7 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
     CCU_IF(tmpRepeatNum_ != UINT64_MAX)
     {
         tmpRepeatNum_ += constVar1_;
-        CCU_IF(normalSliceSize_ != 0)
-        {
-            DoAllGatherWrite(src, dst, normalSliceSize_, 0);
-        }
+        DoAllGatherWrite(src, dst, normalSliceSize_, 0);
     }
 
     for (uint32_t i = 1; i < UNROLL_NUM; i++) {
@@ -276,10 +273,7 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
                     dst[rankIdx].addr += outputRepeatStride_;
                 }
             }
-            CCU_IF(normalSliceSize_ != 0)
-            {
-                DoAllGatherWrite(src, dst, normalSliceSize_, i);
-            }
+            DoAllGatherWrite(src, dst, normalSliceSize_, i);
         }
     }
 
@@ -302,7 +296,13 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::Algorithm()
     InitResource();
     LoadArgs();
     PreSync();
-    DoRepeatAllGather();
+
+    CcuRep::Variable sliceSize = CreateVariable();
+    sliceSize = (rankId_ == (rankSize_ - 1)) ? lastSliceSize_ : normalSliceSize_; 
+    CCU_IF(sliceSize != 0) {
+        DoRepeatAllGather();
+    }
+    
     PostSync();
     HCCL_INFO("[CcuKernelAllGatherMesh1DMem2Mem] AllgatherMesh1D end.");
     return HcclResult::HCCL_SUCCESS;
@@ -325,7 +325,8 @@ std::vector<uint64_t> CcuKernelAllGatherMesh1DMem2Mem::GeneArgs(const CcuTaskArg
     uint64_t lastSliceSize                = taskArg->lastSliceSize_;
     uint64_t isInputOutputEqual           = taskArg->isInputOutputEqual_;
 
-    auto goSize                           = CalGoSize(normalSliceSize);
+    auto goSize                           = (rankId_ == (rankSize_ - 1)) ?
+                                            CalGoSize(lastSliceSize) : CalGoSize(normalSliceSize);
 
     std::vector<uint64_t> taskArgs = {inputAddr,
                                       outputAddr,
