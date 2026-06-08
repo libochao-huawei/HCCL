@@ -762,8 +762,8 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHRPcie, ReduceParallelExecutor,
     TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 
-REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHRTest, ReduceParallelExecutor,
-    TopoMatchSqueeze2D, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelNHRNHRUboe, ReduceParallelExecutor,
+    TopoMatchSqueeze2D, InsTempReduceScatterNHR, InsTempReduceScatterNHR, InsTempAllGatherNHR, InsTempAllGatherNHR);
 #endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 
 #ifndef AICPU_COMPILE
