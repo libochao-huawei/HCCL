@@ -12,10 +12,56 @@
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
 #include "channel.h"
+#include <algorithm>
+#include <vector>
 namespace ops_hccl {
 namespace {
 constexpr u32 COPY_THREAD_NUM = 1;
 constexpr u32 COPY_NOTIFY_BASE_IDX = 1;
+constexpr u32 INVALID_GROUP_ID = static_cast<u32>(-1);
+
+u32 GetPairwiseRoundNum(u32 groupNum)
+{
+    if (groupNum <= 1) {
+        return 0;
+    }
+    return (groupNum % 2 == 0) ? groupNum - 1 : groupNum;
+}
+
+u32 GetPairGroupInRound(u32 groupNum, u32 myGroup, u32 round)
+{
+    if (groupNum <= 1 || myGroup >= groupNum) {
+        return INVALID_GROUP_ID;
+    }
+
+    const u32 scheduleGroupNum = (groupNum % 2 == 0) ? groupNum : groupNum + 1;
+    const u32 roundNum = scheduleGroupNum - 1;
+    const u32 dummyGroup = groupNum;
+    std::vector<u32> groups(scheduleGroupNum);
+    for (u32 idx = 0; idx < scheduleGroupNum; ++idx) {
+        groups[idx] = idx;
+    }
+
+    for (u32 rotate = 0; rotate < round % roundNum; ++rotate) {
+        u32 last = groups.back();
+        for (u32 idx = scheduleGroupNum - 1; idx > 1; --idx) {
+            groups[idx] = groups[idx - 1];
+        }
+        groups[1] = last;
+    }
+
+    for (u32 idx = 0; idx < scheduleGroupNum / 2; ++idx) {
+        u32 left = groups[idx];
+        u32 right = groups[scheduleGroupNum - 1 - idx];
+        if (left == myGroup) {
+            return right == dummyGroup ? INVALID_GROUP_ID : right;
+        }
+        if (right == myGroup) {
+            return left == dummyGroup ? INVALID_GROUP_ID : left;
+        }
+    }
+    return INVALID_GROUP_ID;
+}
 }
 
 InsTempAlltoAllMeshClosV3::InsTempAlltoAllMeshClosV3(const OpParam &param, const u32 rankId,
@@ -41,12 +87,17 @@ u64 InsTempAlltoAllMeshClosV3::GetThreadNum() const
 u32 InsTempAlltoAllMeshClosV3::GetCopyNotifySlotCount() const
 {
     u32 commThreadNum = channelsPerRank_ == 0 ? 1 : channelsPerRank_;
+    if (rankSize_ > 0 && meshSize_ > 0 && rankSize_ % meshSize_ == 0) {
+        u32 stepNum = GetPairwiseRoundNum(rankSize_ / meshSize_);
+        return std::max(1u, stepNum * commThreadNum);
+    }
     u32 peerNum = templateRankSize_ > 0 ? templateRankSize_ - 1 : 0;
     if (peerNum == 0) {
         return 1;
     }
-    u32 stepNum = (peerNum + commThreadNum - 1) / commThreadNum;
-    return stepNum * commThreadNum;
+    u32 groupNum = peerNum / commThreadNum + 1;
+    u32 stepNum = GetPairwiseRoundNum(groupNum);
+    return std::max(1u, stepNum * commThreadNum);
 }
 
 HcclResult InsTempAlltoAllMeshClosV3::GetRes(AlgResourceRequest &resourceRequest) const
@@ -100,10 +151,24 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllMesh(
     std::vector<ThreadHandle> commThreads(threads.begin(), threads.begin() + channelsPerRank_);
     std::vector<ThreadHandle> copyThreads(threads.begin() + channelsPerRank_,
                                           threads.begin() + channelsPerRank_ + COPY_THREAD_NUM);
-    u32 numSteps = (subCommRanks_[0].size() - 1 + commThreads.size() - 1) / commThreads.size();
+    CHK_PRT_RET(meshSize_ == 0 || rankSize_ == 0 || rankSize_ % meshSize_ != 0,
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] invalid mesh dimensions. "
+                           "myRank=%d rankSize=%u meshSize=%u closSize=%u",
+                           myRank_, rankSize_, meshSize_, closSize_),
+                HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(commThreads.size() < meshSize_,
+                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] commThreads[%zu] < meshSize[%u]. "
+                           "myRank=%d",
+                           commThreads.size(), meshSize_, myRank_),
+                HcclResult::HCCL_E_INTERNAL);
+    u32 groupNum = rankSize_ / meshSize_;
+    u32 numSteps = GetPairwiseRoundNum(groupNum);
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] schedule by mesh-group pairwise. "
+                 "myRank=%d groupNum=%u meshSize=%u commThreads=%zu numSteps=%u",
+                 myRank_, groupNum, meshSize_, commThreads.size(), numSteps);
     for (u32 step = 0; step < numSteps; step++) {
         for (u32 linkIdx = 0; linkIdx < commThreads.size(); linkIdx++) {
-            CHK_RET(RunAlltoAllOnLink(commThreads, copyThreads, channels, linkIdx, step, numSteps));
+            CHK_RET(RunAlltoAllOnLink(commThreads, copyThreads, channels, linkIdx, step));
         }
     }
 
@@ -122,7 +187,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
     const std::vector<ThreadHandle> &commThreads,
     const std::vector<ThreadHandle> &copyThreads,
     const std::map<u32, std::vector<ChannelInfo>> &channels,
-    u32 linkIdx, u32 step, u32 numSteps)
+    u32 linkIdx, u32 step)
 {
     CHK_PRT_RET(linkIdx >= commThreads.size(),
                 HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] >= commThreads.size()[%zu] "
@@ -134,9 +199,6 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
                            "myRank=%d templateRank=%u",
                            myRank_, templateRankSize_),
                 HcclResult::HCCL_E_INTERNAL);
-
-    u32 myAlgRank = 0;
-    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
 
     bool isPcie = IsPcieProtocol(channels);
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
@@ -168,12 +230,21 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
         }
     }
 
-    for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
-        u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
-
-        if ((myRank_ ^ connectedRank) % numSteps != step) {
-            continue;
-        }
+    u32 groupNum = rankSize_ / meshSize_;
+    u32 myGroup = myRank_ / meshSize_;
+    u32 myLocalRank = myRank_ % meshSize_;
+    u32 peerGroup = GetPairGroupInRound(groupNum, myGroup, step);
+    if (peerGroup == INVALID_GROUP_ID) {
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] dummy round. "
+                     "myRank=%d step=%u groupNum=%u myGroup=%u linkIdx=%u",
+                     myRank_, step, groupNum, myGroup, linkIdx);
+        return HCCL_SUCCESS;
+    }
+    if (linkIdx >= meshSize_) {
+        return HCCL_SUCCESS;
+    }
+    u32 connectedLocalRank = (linkIdx + meshSize_ - myLocalRank) % meshSize_;
+    u32 connectedRank = peerGroup * meshSize_ + connectedLocalRank;
 
         u32 connectedAlgRank = 0;
         CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
@@ -181,7 +252,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
         if (failedRanks_[connectedAlgRank]) {
             HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos] linkIdx[%u] rank[%d] peer[%u] already failed, skipping.",
                       linkIdx, myRank_, connectedRank);
-            continue;
+            return HCCL_SUCCESS;
         }
 
         auto it = channels.find(connectedRank);
@@ -192,32 +263,36 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
             return HcclResult::HCCL_E_INTERNAL;
         }
 
-        u32 totalLinksToNeighbor = it->second.size();
-        u32 selectedLinkIdx = (myRank_ ^ connectedRank) % commThreads.size();
+        u32 totalLinksToNeighbor = static_cast<u32>(it->second.size());
+        CHK_PRT_RET(totalLinksToNeighbor == 0,
+                    HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] no effective link. "
+                               "myRank=%d connectedRank=%u peerLinks=%u",
+                               myRank_, connectedRank, totalLinksToNeighbor),
+                    HcclResult::HCCL_E_INTERNAL);
+        u32 selectedLinkIdx = linkIdx;
 
         if (selectedLinkIdx >= it->second.size()) {
             HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] selectedLinkIdx OOB: "
-                       "selectedLinkIdx=%u >= channels[%u].size()=%zu. myRank=%d connectedRank=%u",
-                       selectedLinkIdx, connectedRank, it->second.size(), myRank_, connectedRank);
-            continue;
+                       "selectedLinkIdx=%u >= channels[%u].size()=%zu. myRank=%d connectedRank=%u "
+                       "commThreads=%zu",
+                       selectedLinkIdx, connectedRank, it->second.size(), myRank_, connectedRank,
+                       commThreads.size());
+            return HcclResult::HCCL_E_INTERNAL;
         }
 
         if (!it->second[selectedLinkIdx].remoteCclMem.addr) {
             HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] remoteCclMem.addr is NULL at selectedLinkIdx: "
-                       "selectedLinkIdx=%u connectedRank=%u myRank=%d",
-                       selectedLinkIdx, connectedRank, myRank_);
-            continue;
-        }
-
-        if (selectedLinkIdx != linkIdx) {
-            continue;
+                       "selectedLinkIdx=%u connectedRank=%u myRank=%d peerLinks=%u",
+                       selectedLinkIdx, connectedRank, myRank_, totalLinksToNeighbor);
+            return HcclResult::HCCL_E_INTERNAL;
         }
 
         HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] matched: "
-                  "myRank=%d connectedRank=%u selectedLinkIdx=%u/%u threads=%zu "
+                  "myRank=%d connectedRank=%u step=%u myGroup=%u peerGroup=%u myLocal=%u peerLocal=%u "
+                  "selectedLinkIdx=%u/%u threads=%zu "
                   "enableRemoteMemAccess=%d isPcie=%d",
-                  linkIdx, myRank_, connectedRank, selectedLinkIdx,
-                  totalLinksToNeighbor, commThreads.size(),
+                  linkIdx, myRank_, connectedRank, step, myGroup, peerGroup, myLocalRank, connectedLocalRank,
+                  selectedLinkIdx, totalLinksToNeighbor, commThreads.size(),
                   enableRemoteMemAccess_, isPcie);
 
         if (linkIdx >= channels.at(connectedRank).size()) {
@@ -311,7 +386,6 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
             return dmaResult;
         }
 
-    }
     return HCCL_SUCCESS;
 }
 
