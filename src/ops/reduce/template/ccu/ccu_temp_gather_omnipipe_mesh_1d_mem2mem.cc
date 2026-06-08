@@ -77,7 +77,7 @@ HcclResult CcuTempGatherOmniPipeMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
 
     std::vector<HcclChannelDesc> channelDescs;
 
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs)); //TODO:条件判断，函数
 
     HCCL_DEBUG("[CcuTempGatherOmniPipeMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
 
