@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE  // 为 dlsym 的 RTLD_NEXT 提供声明
+#endif
+#include <dlfcn.h>
+
 #include "barrier_op.h"
 #include "op_common_ops.h"
 #include <string>
@@ -16,12 +21,40 @@
 using namespace std;
 using namespace ops_hccl;
 
+// 旧 hcomm 未导出 HcclBarrierInner（该符号在本次改名时才新增）。
+// 用弱引用，使其在旧 hcomm 上缺失时解析为空指针，而不是链接/加载期未定义符号报错，
+// 从而支持「旧 hcomm + 新 hccl」组合。
+#pragma weak HcclBarrierInner
+
+namespace {
+// 回退到老 barrier 流程，兼容「旧 hcomm + 新 hccl」：
+//   1) 新/配套 hcomm：HcclBarrierInner 存在，直接调用；
+//   2) 旧 hcomm：HcclBarrierInner 弱引用为空，用 dlsym(RTLD_NEXT) 委派到旧 hcomm
+//      导出的老 HcclBarrier（oldBarrier != &HcclBarrier 防止自递归）；
+//   3) 两者都拿不到：返回明确错误，提示升级 hcomm。
+HcclResult BarrierFallbackToOldFlow(HcclComm comm, aclrtStream stream)
+{
+    using BarrierFn = HcclResult (*)(HcclComm, aclrtStream);
+    BarrierFn innerFn = HcclBarrierInner;  // 弱引用：旧 hcomm 上为空
+    if (innerFn != nullptr) {
+        return innerFn(comm, stream);
+    }
+    HCCL_WARNING("[Barrier] HcclBarrierInner not found (old hcomm?), delegate to legacy HcclBarrier via dlsym");
+    BarrierFn oldBarrier = reinterpret_cast<BarrierFn>(dlsym(RTLD_NEXT, "HcclBarrier"));
+    if (oldBarrier != nullptr && oldBarrier != &HcclBarrier) {
+        return oldBarrier(comm, stream);
+    }
+    HCCL_ERROR("[Barrier] cannot fallback: hcomm too old (missing HcclBarrierInner), please upgrade hcomm");
+    return HCCL_E_NOT_SUPPORT;
+}
+}  // namespace
+
 HcclResult HcclBarrier(HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclBarrier");
 
     if (GetHcommVersion() < 90000000) { // compat handle
-        return HcclBarrierInner(comm, stream);
+        return BarrierFallbackToOldFlow(comm, stream);
     }
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -31,7 +64,7 @@ HcclResult HcclBarrier(HcclComm comm, aclrtStream stream)
     #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
     #endif
-        return HcclBarrierInner(comm, stream);
+        return BarrierFallbackToOldFlow(comm, stream);
     }
 
     HcclUs startut = TIME_NOW();
@@ -120,14 +153,14 @@ HcclResult BarrierOutPlace(HcclComm comm, aclrtStream stream, const std::string 
     // 其余场景（普通 AICPU、单框、框间 device 链路等）回退到老的 HcclBarrierInner。
     if (!IsBarrierHostDpu(comm)) {
         HCCL_INFO("[BarrierOutPlace] not host-dpu scene, fallback to HcclBarrierInner");
-        return HcclBarrierInner(comm, stream);
+        return BarrierFallbackToOldFlow(comm, stream);
     }
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
     if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
-        return HcclBarrierInner(comm, stream);
+        return BarrierFallbackToOldFlow(comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, ResPackGraphMode()));
     HCCL_INFO("Execute BarrierOutPlace success.");
