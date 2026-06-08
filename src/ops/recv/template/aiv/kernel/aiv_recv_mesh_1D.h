@@ -21,7 +21,7 @@ public:
 
     __aicore__ inline void InitCoreInfo(uint64_t currDataCount)
     {
-        coreIndex = block_idx;  // 每个核在当前coreNumPerRank里面的排序
+        coreIndex = blockIdx_;  // 每个核在当前coreNumPerRank里面的排序
 
         // 发送数据的编排
         uint64_t dataPerCore = currDataCount / coreNumPerRank; // 数据量很少的时候，dataPerCore为0
@@ -44,7 +44,7 @@ public:
         if (recvCurCount == 0) {
             return;
         }
-        uint64_t flag_offset = block_idx;
+        uint64_t flag_offset = blockIdx_;
         WaitFlag(targetRank, flag_offset, curTag);
 
         CpGM2GM((__gm__ T *)recvOutputOffset, (__gm__ T *)recvInputOffset, recvCurCount);
@@ -60,7 +60,7 @@ public:
         }
 
         coreCount = coreNumPerRank;
-        if (block_idx >= coreCount) { // 负责每个rank的核数相同，方便读写都能并行,这个校验好像有点鸡肋
+        if (blockIdx_ >= coreCount) { // 负责每个rank的核数相同，方便读写都能并行,这个校验好像有点鸡肋
             return;
         }
 

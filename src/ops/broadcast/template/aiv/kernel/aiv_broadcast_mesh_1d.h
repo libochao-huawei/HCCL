@@ -34,27 +34,27 @@ private:
             CpGM2GM(rootCclGM, inputGM, countPerCore);
             PipeBarrier<PIPE_ALL>();
             if (isMidData16p) {
-                Record(root_, block_idx, tag);
+                Record(root_, blockIdx_, tag);
                 for (uint32_t i = 0; i < rankSize_; i++) {
-                    Record(root_, usedCoreNumAll + block_idx * rankSize_ + i, tag);
+                    Record(root_, usedCoreNumAll + blockIdx_ * rankSize_ + i, tag);
                 }
             } else {
                 for (uint32_t i = 0; i < rankSize_; i++) {
-                    Record(i, block_idx, tag);
-                    Record(i, usedCoreNumAll + block_idx, tag);
+                    Record(i, blockIdx_, tag);
+                    Record(i, usedCoreNumAll + blockIdx_, tag);
                 }
             }
-        } else if (block_idx / (numBlocks_ / rankSize_) == rank_) {
-            WaitFlag(isMidData16p ? root_ : rank_, block_idx, tag);
+        } else if (blockIdx_ / (numBlocks_ / rankSize_) == rank_) {
+            WaitFlag(isMidData16p ? root_ : rank_, blockIdx_, tag);
             CpGM2GM(cclGM, rootCclGM, countPerCore);
             PipeBarrier<PIPE_ALL>();
             if (isMidData16p) {
                 for (uint32_t i = 0; i < rankSize_; i++) {
-                    Record(rank_, usedCoreNumAll + block_idx * rankSize_ + i, tag);
+                    Record(rank_, usedCoreNumAll + blockIdx_ * rankSize_ + i, tag);
                 }
             } else {
                 for (uint32_t i = 0; i < rankSize_; i++) {
-                    Record(i, usedCoreNumAll + block_idx, tag);
+                    Record(i, usedCoreNumAll + blockIdx_, tag);
                 }
             }
         }
@@ -64,8 +64,8 @@ private:
     __aicore__ inline void AllgatherPhase(bool isMidData16p, uint64_t usedCoreNumAll,
                                           uint64_t countPerCore, __gm__ T *inputGM, __gm__ T *cclGM, uint32_t tag) {
         if (rank_ != root_) {
-            uint64_t peerRank = block_idx / (numBlocks_ / rankSize_);
-            uint64_t waitFlag = isMidData16p ? usedCoreNumAll + block_idx * rankSize_ + rank_ : usedCoreNumAll + block_idx;
+            uint64_t peerRank = blockIdx_ / (numBlocks_ / rankSize_);
+            uint64_t waitFlag = isMidData16p ? usedCoreNumAll + blockIdx_ * rankSize_ + rank_ : usedCoreNumAll + blockIdx_;
             uint32_t waitRank = isMidData16p ? peerRank : rank_;
             WaitFlag(waitRank, waitFlag, tag);
             CpGM2GM(inputGM, cclGM, countPerCore);
@@ -81,16 +81,16 @@ __aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t s
     uint64_t dataTypeSize = sizeof(T);
     uint64_t coreNumPerRank = 1;
     uint64_t curStageCoreNum = coreNumPerRank * rankSize_;
-    if (block_idx >= curStageCoreNum) {
+    if (blockIdx_ >= curStageCoreNum) {
         return;
     }
 
-    uint64_t peerRank = block_idx / coreNumPerRank;
+    uint64_t peerRank = blockIdx_ / coreNumPerRank;
     uint64_t offsetPerCore = curCount / curStageCoreNum * dataTypeSize;
-    uint64_t dataOffset = offsetPerCore * block_idx;
-    uint64_t countPerCore = block_idx == curStageCoreNum - 1 ? curCount - (curStageCoreNum - 1) * (curCount / curStageCoreNum)
+    uint64_t dataOffset = offsetPerCore * blockIdx_;
+    uint64_t countPerCore = blockIdx_ == curStageCoreNum - 1 ? curCount - (curStageCoreNum - 1) * (curCount / curStageCoreNum)
                                     : curCount / curStageCoreNum;
-    uint64_t flag_offset = block_idx;
+    uint64_t flag_offset = blockIdx_;
     __gm__ T *inputGM = (__gm__ T *)(input_ + dataOffset);
     __gm__ T *cclGM = (__gm__ T *)(GM_IN[peerRank] + dataOffset);
     // scatter
@@ -118,15 +118,15 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     uint64_t usedCoreNumAll = numBlocks_ / rankSize_ * rankSize_;
     bool isMidData16p = rankSize_ == 16 && curCount * dataTypeSize >= 8 * 1024 * 1024 &&
                         curCount * dataTypeSize <= 16 * 1024 * 1024;
-    if (block_idx >= usedCoreNumAll) {
+    if (blockIdx_ >= usedCoreNumAll) {
         return;
     }
     uint64_t offsetPerCore = curCount / usedCoreNumAll * dataTypeSize;
-    uint64_t dataOffset = offsetPerCore * block_idx;
-    uint64_t countPerCore = block_idx == usedCoreNumAll - 1 ? curCount - (usedCoreNumAll - 1) * (curCount / usedCoreNumAll)
+    uint64_t dataOffset = offsetPerCore * blockIdx_;
+    uint64_t countPerCore = blockIdx_ == usedCoreNumAll - 1 ? curCount - (usedCoreNumAll - 1) * (curCount / usedCoreNumAll)
                                     : curCount / usedCoreNumAll;
     __gm__ T *inputGM = (__gm__ T *)(input_ + dataOffset);
-    __gm__ T *cclGM = (__gm__ T *)(GM_IN[block_idx / coreNumPerRank] + dataOffset);
+    __gm__ T *cclGM = (__gm__ T *)(GM_IN[blockIdx_ / coreNumPerRank] + dataOffset);
     __gm__ T *rootCclGM = (__gm__ T *)(GM_IN[root_] + dataOffset);
 
     ScatterPhase<T>(isMidData16p, usedCoreNumAll, countPerCore, rootCclGM, inputGM, cclGM, curTag_);

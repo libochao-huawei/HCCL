@@ -22,7 +22,7 @@ public:
     __aicore__ inline void Prepare(uint32_t sliceId)
     {
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
-        coreIdx = block_idx;
+        coreIdx = blockIdx_;
         coreNum = numBlocks_;
         count = len_;
 
@@ -231,8 +231,8 @@ public:
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
 
         // scatter
-        for (uint32_t i = 0; block_idx + i * numBlocks_ < rankSize_; i++) {
-            targetRank = block_idx + i * numBlocks_;
+        for (uint32_t i = 0; blockIdx_ + i * numBlocks_ < rankSize_; i++) {
+            targetRank = blockIdx_ + i * numBlocks_;
             rankChunkSize
                 = ((targetRank + 1) * rankChunkStride <= dataCount)
                     ? rankChunkStride
@@ -249,7 +249,7 @@ public:
             Record(targetRank, rank_, curTag_);
         }
         // reduce
-        if (block_idx == numBlocks_ - 1) {
+        if (blockIdx_ == numBlocks_ - 1) {
             uint64_t myRankChuckSize
                 = ((rank_ + 1) * rankChunkStride <= dataCount)
                     ? rankChunkStride
@@ -276,8 +276,8 @@ public:
     __aicore__ inline void SmallCoreAllgather()
     {
         uint64_t dataCount = len_;
-        for (uint32_t i = 0; block_idx + i * numBlocks_ < rankSize_; i++) {
-            targetRank = block_idx + i * numBlocks_;
+        for (uint32_t i = 0; blockIdx_ + i * numBlocks_ < rankSize_; i++) {
+            targetRank = blockIdx_ + i * numBlocks_;
             rankChunkSize
                 = ((targetRank + 1) * rankChunkStride <= dataCount)
                     ? rankChunkStride
@@ -338,7 +338,7 @@ __aicore__ inline void AivAllReduceV2Mesh1DTwoShot(KERNEL_ARGS_DEF)
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    if (block_num >= rankSize * 2) {
+    if (op.numBlocks_ >= rankSize * 2) {
         op.Prepare(sliceId);
         op.Process();
     } else {
