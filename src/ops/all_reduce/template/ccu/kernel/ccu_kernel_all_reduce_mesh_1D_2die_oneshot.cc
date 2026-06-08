@@ -11,6 +11,7 @@
 #include "ccu_kernel_all_reduce_mesh_1D_2die_oneshot.h"
 
 namespace ops_hccl {
+#define MAX_LOOP_NUM 2
 
 constexpr int INPUT_XN_ID    = 0;
 constexpr int TOKEN_XN_ID    = 1;
@@ -24,10 +25,10 @@ constexpr int CKE_IDX_1     = 1;
 constexpr int DIE_WORK = 2;
 
 struct LocalReduceVar {
-    ccu::LocalAddr loopDst[2];
-    std::array<std::vector<ccu::LocalAddr>, 2> loopSrc;
-    ccu::Variable loopLen[2];
-    ccu::Variable loopLenExp[2];
+    ccu::LocalAddr loopDst[MAX_LOOP_NUM];
+    std::array<std::vector<ccu::LocalAddr>, MAX_LOOP_NUM> loopSrc;
+    ccu::Variable loopLen[MAX_LOOP_NUM];
+    ccu::Variable loopLenExp[MAX_LOOP_NUM];
 };
 
 static CcuResult ParseKernelArg(AllreduceMesh1D2DieOneShotContext &ctx)
@@ -164,7 +165,7 @@ static CcuResult CreateReduceLoop(AllreduceMesh1D2DieOneShotContext &ctx,
     uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
     uint32_t usedBufNum = size > expansionNum ? size : expansionNum;
 
-    for (int32_t index = 0; index < 2; index++) {
+    for (int32_t index = 0; index < MAX_LOOP_NUM; index++) {
         var.loopSrc[index].resize(size);
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
         ccu::Event e = ctx.moRes.completedEvent[index];
@@ -304,7 +305,7 @@ static CcuResult ReduceLoopGroup(AllreduceMesh1D2DieOneShotContext &ctx,
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
-        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, MAX_LOOP_NUM, grpLoops);
     }
 
     return CCU_SUCCESS;
