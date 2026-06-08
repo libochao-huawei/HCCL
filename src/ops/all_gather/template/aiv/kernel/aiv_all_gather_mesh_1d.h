@@ -195,14 +195,14 @@ public:
                            : perCoreRankNum * block_idx + remainRankNum;
 
         for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
-            auto gmOthers = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank]) +  rank_ * (count * sizeof(T) + 64 - 1) / 64 * 64);
+            auto gmOthers = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank_]) +  rank * (count * sizeof(T) + 64 - 1) / 64 * 64);
             CpGM2GM(gmOthers, input, count);
             PipeBarrier<PIPE_ALL>();
             Record(rank, rank_, curTag_);
         }
 
         for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
-            auto gmOthers = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank_]) +  rank * (count * sizeof(T) + 64 - 1) / 64 * 64);
+            auto gmOthers = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank]) +  rank_ * (count * sizeof(T) + 64 - 1) / 64 * 64);
             auto output = reinterpret_cast<__gm__ T *>(output_ + rank * stride);
             WaitFlag(rank_, rank, curTag_);
             CpGM2GM(output, gmOthers, count);
