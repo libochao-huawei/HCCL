@@ -39,6 +39,7 @@ public:
                           TemplateResource& templateResource) override;
     u64 GetThreadNum() const override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
+    uint32_t RemoteRankId2RankId(const uint32_t remoteRankId) const;
     
     uint32_t mySubCommRank_ = 0;
     uint32_t rankId_ = 0;
@@ -48,8 +49,11 @@ public:
     bool isLastStep_ = false;
     bool ifNewRoot = false;
 
+    u64 localCopyFlag = 0;
     bool isSameXAxis = false;
     bool isSameYAxis = false;
+    // u64 currentStep_ = 0;
+    // u64 totalStep_ = 0;
     u64 subRoot;
     bool isloopOne_ = false;
 };
