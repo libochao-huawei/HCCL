@@ -223,19 +223,29 @@ template<typename T>
 __aicore__ inline void AivAllGatherV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivAllGatherMesh1D<T> op;
-    op.Init(KERNEL_CLASS_INIT, true);
+    uint32_t pingpong = 0;
+    if (len * sizeof(T) <= DATA_LIMIT) {
+        pingpong = 1;
+    }
+    op.Init(KERNEL_CLASS_INIT, true, pingpong);
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
- 
     op.Process(len, sliceId, outputSliceStride);
+    if (pingpong == 0) {
+        op.BarrierAll();
+    }
 }
 
 template<typename T>
 __aicore__ inline void AivAllGatherV2Mesh1DSuperKernel(SUPERKERNEL_ARGS_DEF)
 {
     AivAllGatherMesh1D<T> op;
-    op.Init(SUPERKERNEL_CLASS_INIT);
+    uint32_t pingpong = 0;
+    if (len * sizeof(T) <= DATA_LIMIT) {
+        pingpong = 1;
+    }
+    op.Init(SUPERKERNEL_CLASS_INIT, pingpong);
     uint64_t maxCountPerLoop = op.cclBufferSize_ / UB_ALIGN_SIZE * UB_ALIGN_SIZE / op.rankSize_ / sizeof(T);
     uint64_t countLeft = op.len_;
 
@@ -246,8 +256,9 @@ __aicore__ inline void AivAllGatherV2Mesh1DSuperKernel(SUPERKERNEL_ARGS_DEF)
         uint64_t curSize = curCount * sizeof(T);
 
         op.Process(curCount, loopTag, op.outputSliceStride_);
-        op.BarrierAll();
-
+        if (pingpong == 0) {
+            op.BarrierAll();
+        }
         countLeft -= curCount;
         op.input_ += curSize;
         op.output_ += curSize;
