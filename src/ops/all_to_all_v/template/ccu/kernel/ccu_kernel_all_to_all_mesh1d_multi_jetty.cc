@@ -101,15 +101,11 @@ static CcuResult PreSync(AllToAllMesh1DMultiJettyContext &ctx)
     return CCU_SUCCESS;
 }
 
-static CcuResult DoAllToAll(AllToAllMesh1DMultiJettyContext &ctx)
+static void CalcAddresses(AllToAllMesh1DMultiJettyContext &ctx,
+    std::vector<ccu::LocalAddr> &remoteSrc, std::vector<ccu::RemoteAddr> &remoteDst,
+    ccu::LocalAddr &localSrc, ccu::LocalAddr &localDst)
 {
     const auto *arg = ctx.arg;
-    ctx.srcOffset += ctx.peerInput[arg->rankId];
-    std::vector<ccu::LocalAddr> remoteSrc(arg->rankSize);
-    std::vector<ccu::RemoteAddr> remoteDst(arg->rankSize);
-    ccu::LocalAddr localSrc;
-    ccu::LocalAddr localDst;
-
     for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
         if (rankIdx == arg->rankId) {
             localSrc.addr = ctx.srcOffset;
@@ -131,7 +127,12 @@ static CcuResult DoAllToAll(AllToAllMesh1DMultiJettyContext &ctx)
             remoteDst[rankIdx].addr += ctx.dstOffset;
         }
     }
+}
 
+static CcuResult RemoteWrite(AllToAllMesh1DMultiJettyContext &ctx,
+    std::vector<ccu::LocalAddr> &remoteSrc, std::vector<ccu::RemoteAddr> &remoteDst)
+{
+    const auto *arg = ctx.arg;
     uint32_t channelId = 0;
     for (uint64_t r = 0; r < arg->rankSize; r++) {
         if (r == arg->rankId) {
@@ -164,14 +165,33 @@ static CcuResult DoAllToAll(AllToAllMesh1DMultiJettyContext &ctx)
         }
         channelId++;
     }
+    return CCU_SUCCESS;
+}
 
-    CCU_CHK_RET(GroupCopy(ctx, localDst, localSrc, ctx.goSize));
-    CCU_CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId], 1));
-
+static CcuResult WaitEvents(AllToAllMesh1DMultiJettyContext &ctx)
+{
+    const auto *arg = ctx.arg;
     for (uint64_t r = 0; r < arg->rankSize; r++) {
         uint16_t waitMask = (r == arg->rankId) ? 1 : ((1 << arg->jettyNums[r]) - 1);
         CCU_CHK_RET(ccu::EventWait(ctx.eventList[r], waitMask));
     }
+    return CCU_SUCCESS;
+}
+
+static CcuResult DoAllToAll(AllToAllMesh1DMultiJettyContext &ctx)
+{
+    const auto *arg = ctx.arg;
+    ctx.srcOffset += ctx.peerInput[arg->rankId];
+    std::vector<ccu::LocalAddr> remoteSrc(arg->rankSize);
+    std::vector<ccu::RemoteAddr> remoteDst(arg->rankSize);
+    ccu::LocalAddr localSrc;
+    ccu::LocalAddr localDst;
+
+    CalcAddresses(ctx, remoteSrc, remoteDst, localSrc, localDst);
+    CCU_CHK_RET(RemoteWrite(ctx, remoteSrc, remoteDst));
+    CCU_CHK_RET(GroupCopy(ctx, localDst, localSrc, ctx.goSize));
+    CCU_CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId], 1));
+    CCU_CHK_RET(WaitEvents(ctx));
 
     HCCL_INFO("[CcuKernelAllToAllMesh1DMultiJetty] DoAllToAll success!");
     return CCU_SUCCESS;

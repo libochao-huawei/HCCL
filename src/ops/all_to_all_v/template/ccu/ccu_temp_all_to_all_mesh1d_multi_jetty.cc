@@ -100,6 +100,51 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, con
     return HcclResult::HCCL_SUCCESS;
 }
 
+void CcuTempAllToAllMesh1dMultiJetty::CalcJettySlices(uint64_t sliceSize,
+    std::vector<uint64_t>& jettySlice, std::vector<uint64_t>& jettySliceTail)
+{
+    for (uint32_t rank = 0; rank < templateRankSize_; rank++) {
+        uint64_t quotient = sliceSize / jettyNums_[rank] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
+        uint64_t tailSlice = sliceSize - quotient * (jettyNums_[rank] - 1);
+        jettySlice.push_back(quotient);
+        jettySliceTail.push_back(tailSlice);
+    }
+}
+
+std::vector<uint64_t> CcuTempAllToAllMesh1dMultiJetty::BuildTaskArgs(
+    uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
+    uint64_t sliceSize, uint64_t srcStride, uint64_t srcOffset, uint64_t dstOffset,
+    const std::vector<uint64_t>& goSize, const std::vector<uint64_t>& jettySlice,
+    const std::vector<uint64_t>& jettySliceTail)
+{
+    std::vector<uint64_t> taskArgs = {
+        inputAddr, outputAddr, token, sliceSize, srcStride, srcOffset, dstOffset,
+        goSize[0], goSize[1], goSize[2], goSize[3]
+    };
+    for (uint32_t i = 0; i < templateRankSize_; i++) {
+        taskArgs.push_back(jettySlice[i]);
+    }
+    for (uint32_t i = 0; i < templateRankSize_; i++) {
+        taskArgs.push_back(jettySliceTail[i]);
+    }
+    return taskArgs;
+}
+
+void CcuTempAllToAllMesh1dMultiJetty::BuildSubmitInfo(TemplateResource& templateResource,
+    const std::vector<uint64_t>& taskArgs, uint64_t argSize)
+{
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    uint32_t idx = 0;
+    submitInfo.cachedArgs[idx++] = argSize;
+    for (const auto& arg : taskArgs) {
+        submitInfo.cachedArgs[idx++] = arg;
+    }
+    submitInfo.cachedArgs[idx++] = buffInfo_.inBuffBaseOff;
+    submitInfo.cachedArgs[idx++] = buffInfo_.outBuffBaseOff;
+    templateResource.submitInfos.push_back(submitInfo);
+}
+
 HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
                                                         TemplateResource& templateResource)
 {
@@ -111,27 +156,21 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     dataType_ = param.all2AllVDataDes.sendType;
     uint32_t dataTypeSize = SIZE_TABLE[dataType_];
 
-    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
-    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
+    uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
-    uint64_t sliceSize    = templateDataParams.sliceSize;
+    uint64_t sliceSize     = templateDataParams.sliceSize;
     uint64_t totalSliceSize = (sdispls_[1] - sdispls_[0]) * dataTypeSize;
     uint64_t srcStride = totalSliceSize;
     uint64_t srcOffset = 0;
     uint64_t dstOffset = myRank_ * srcStride;
     HCCL_INFO("sliceSize=%llu, totalSliceSize=%llu, srcStride=%llu, srcOffset=%llu, dstOffset=%llu,"
-              " dataType_=%lu, dataTypeSize=%lu",
-            sliceSize, totalSliceSize, srcStride, srcOffset, dstOffset, dataType_,
-            dataTypeSize);
+              " dataType_=%lu, dataTypeSize=%lu", sliceSize, totalSliceSize, srcStride, srcOffset,
+              dstOffset, dataType_, dataTypeSize);
 
     std::vector<uint64_t> jettySlice, jettySliceTail;
-    for (uint32_t rank = 0; rank < templateRankSize_; rank++) {
-        uint64_t quotient = sliceSize / jettyNums_[rank] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
-        uint64_t tailSlice = sliceSize - quotient * (jettyNums_[rank] - 1);
-        jettySlice.push_back(quotient);
-        jettySliceTail.push_back(tailSlice);
-    }
+    CalcJettySlices(sliceSize, jettySlice, jettySliceTail);
 
     LoopGroupConfig config{};
     config.msInterleave = CCU_MS_INTERLEAVE;
@@ -139,17 +178,9 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     config.memSlice     = CCU_MS_SIZE * LOCAL_COPY_MS_PER_LOOP;
     auto goSize = CalGoSize(sliceSize, config);
 
-    std::vector<uint64_t> taskArgs = {
-        inputAddr, outputAddr, token, sliceSize, srcStride, srcOffset, dstOffset,
-        goSize[0], goSize[1], goSize[2], goSize[3]
-    };
-    for (uint32_t i = 0; i < templateRankSize_; i++) {
-        taskArgs.push_back(jettySlice[i]);
-    }
-    for (uint32_t i = 0; i < templateRankSize_; i++) {
-        taskArgs.push_back(jettySliceTail[i]);
-    }
     uint64_t argSize = 11 + 2 * templateRankSize_;
+    std::vector<uint64_t> taskArgs = BuildTaskArgs(inputAddr, outputAddr, token, sliceSize,
+        srcStride, srcOffset, dstOffset, goSize, jettySlice, jettySliceTail);
 
     HCCL_INFO("[CcuTempAllToAllMesh1dMultiJetty::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
               "sliceSize[%llu], srcStride[%llu], srcOffset[%llu], dstOffset[%llu]",
@@ -161,33 +192,8 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
         return ConvertCcuToHccl(launchRet);
     }
 
-    CcuKernelSubmitInfo submitInfo;
-    submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    uint32_t idx = 0;
-    submitInfo.cachedArgs[idx++] = argSize;
-    submitInfo.cachedArgs[idx++] = inputAddr;
-    submitInfo.cachedArgs[idx++] = outputAddr;
-    submitInfo.cachedArgs[idx++] = token;
-    submitInfo.cachedArgs[idx++] = sliceSize;
-    submitInfo.cachedArgs[idx++] = srcStride;
-    submitInfo.cachedArgs[idx++] = srcOffset;
-    submitInfo.cachedArgs[idx++] = dstOffset;
-    submitInfo.cachedArgs[idx++] = goSize[0];
-    submitInfo.cachedArgs[idx++] = goSize[1];
-    submitInfo.cachedArgs[idx++] = goSize[2];
-    submitInfo.cachedArgs[idx++] = goSize[3];
-    for (uint32_t i = 0; i < templateRankSize_; i++) {
-        submitInfo.cachedArgs[idx++] = jettySlice[i];
-    }
-    for (uint32_t i = 0; i < templateRankSize_; i++) {
-        submitInfo.cachedArgs[idx++] = jettySliceTail[i];
-    }
-    submitInfo.cachedArgs[idx++] = buffInfo_.inBuffBaseOff;
-    submitInfo.cachedArgs[idx++] = buffInfo_.outBuffBaseOff;
-    templateResource.submitInfos.push_back(submitInfo);
-
+    BuildSubmitInfo(templateResource, taskArgs, argSize);
     HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::KernelRun] end");
-
     return HcclResult::HCCL_SUCCESS;
 }
 
