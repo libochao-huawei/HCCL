@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 DECL_WEAK_FUNC(CcuResult, HcommCcuKernelRegisterStart, CcuInsHandle insHandle);
-DECL_WEAK_FUNC(CcuResult, HcommCcuKernelRegister, CcuInsHandle insHandle, const char *kernelFuncName, const void *kernelFunc, const void *kernelArg, CcuKernelHandle *kernelHandle);
+DECL_WEAK_FUNC(CcuResult, HcommCcuKernelRegister, CcuInsHandle insHandle,  uint32_t dieId, const char *kernelFuncName, const void *kernelFunc, const void **kernelArgs, uint32_t argNum, CcuKernelHandle *kernelHandle);
 DECL_WEAK_FUNC(CcuResult, HcommCcuKernelRegisterEnd, CcuInsHandle insHandle);
 DECL_WEAK_FUNC(CcuResult, HcommCcuKernelLaunch, ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void *taskArgs, uint32_t argSize);
 
