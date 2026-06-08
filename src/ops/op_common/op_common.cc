@@ -50,6 +50,7 @@
 #include "hcomm_diag_dl.h"
 #include "hcom.h"
 #include "hccl_res_expt_dl.h"
+#include <hccl/hccl_launch.h>
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
@@ -572,8 +573,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
+        ThreadHandle unfoldThread1;
         ThreadHandle unfoldThread;
-        CHK_RET(GetUnfoldThreadInfo(comm, param, unfoldThread));
+        CHK_RET(GetUnfoldThreadInfo(comm, param, unfoldThread1));
+        CHK_RET(HcclDedicatedThreadAcquire(comm, 1, 0, &unfoldThread));
+        HCCL_INFO("GetUnfoldThreadInfo[%x], HcclDedicatedThreadAcquire[%x]", unfoldThread1, unfoldThread);
+
         // 根据主流的捕获状态决定展开流的状态
         CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, unfoldThread}));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
@@ -646,6 +651,30 @@ HcclResult GeReuseResource(HcclComm comm, OpParam &param, std::unique_ptr<InsCol
     return HCCL_SUCCESS;
 }
 
+static HcclResult GetUnfoldStream(HcclComm comm, OpParam &param, ThreadHandle unfoldThread, aclrtStream &resolvedStream)
+{
+    void *unfoldStream = nullptr;
+    auto &HcclThreadResGetInfoFunc = ops_hccl::DlHcommFunction::GetInstance();
+    HcclResult ret;
+    if (!HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo || param.opMode == OpMode::OFFLOAD) { // 不走提前展开
+        resolvedStream = param.stream;
+    } else {
+        ret = HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo(comm, unfoldThread, 0, sizeof(void *), &unfoldStream);
+        if (ret == HCCL_E_NOT_SUPPORT) {
+            resolvedStream = param.stream;
+        } else if (ret != HCCL_SUCCESS) {
+            return ret;
+        } else {
+            resolvedStream = unfoldStream;
+        }
+    }
+    CHK_PRT_RET(ret != ACL_SUCCESS,
+        HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]"
+                   "errNo[0x%016llx] launch kernel failed",
+            ret),
+        HCCL_E_OPEN_FILE_FAILURE);
+}
+
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
     ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName, ThreadHandle unfoldThread)
 {
@@ -654,6 +683,12 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     param.resCtx = resCtxSequence;
     param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
 
+    int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
+    if (result <= 0) {
+        HCCL_ERROR("failed to fill param.algName");
+        return HCCL_E_INTERNAL;
+    }
+    
     if (param.engine == COMM_ENGINE_CPU) {
         // 注册dpu回调函数
         CHK_RET(static_cast<HcclResult>(HcclTaskRegister(comm, param.algTag, HcclLaunchDPUKernel)));
