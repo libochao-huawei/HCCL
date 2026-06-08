@@ -119,9 +119,8 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
-                                                        const TemplateDataParams& templateDataParams,
-                                                        TemplateResource& templateResource)
+HcclResult CcuTempAllGatherMesh1DMem2Mem::PrepareLaunchArgs(const OpParam& param,
+    const TemplateDataParams& templateDataParams, std::vector<uint64_t>& taskArgs, uint64_t& argSize)
 {
     buffInfo_ = templateDataParams.buffInfo;
 
@@ -162,17 +161,35 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     config.memSlice     = CCU_MS_SIZE * LOCAL_COPY_MS_PER_LOOP;
     auto  goSize        = CalGoSize(normalSliceSize, config);
 
-    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, currentRankSliceInputOffset,
-                                       currentRankSliceOutputOffset, tmpRepeatNum, inputRepeatStride,
-                                       outputRepeatStride, normalSliceSize, lastSliceSize,
-                                       isInputOutputEqual, goSize[0], goSize[1], goSize[2], goSize[3]};
-    uint64_t argSize = 15;
+    taskArgs = {inputAddr, outputAddr, token, currentRankSliceInputOffset,
+                currentRankSliceOutputOffset, tmpRepeatNum, inputRepeatStride,
+                outputRepeatStride, normalSliceSize, lastSliceSize,
+                isInputOutputEqual, goSize[0], goSize[1], goSize[2], goSize[3]};
+    argSize = 15;
 
     HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
                "currentRankSliceInputOffset[%llu], currentRankSliceOutputOffset[%llu], "
                "repeatNum[%llu],inputRepeatStride[%llu], outputRepeatStride[%llu], normalSliceSize[%llu], lastSliceSize[%llu]",
                inputAddr, outputAddr, currentRankSliceInputOffset, currentRankSliceOutputOffset, tmpRepeatNum,
                inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize);
+
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
+                                                        const TemplateDataParams& templateDataParams,
+                                                        TemplateResource& templateResource)
+{
+    std::vector<uint64_t> taskArgs;
+    uint64_t argSize = 0;
+    HcclResult ret = PrepareLaunchArgs(param, templateDataParams, taskArgs, argSize);
+    if (ret != HcclResult::HCCL_SUCCESS) {
+        return ret;
+    }
+    if (taskArgs.empty()) {
+        return HcclResult::HCCL_SUCCESS;
+    }
+
     CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0],
                                                 taskArgs.data(), argSize);
     if (launchRet != CCU_SUCCESS) {
@@ -182,10 +199,9 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
 
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, currentRankSliceInputOffset,
-                           currentRankSliceOutputOffset, tmpRepeatNum, inputRepeatStride,
-                           outputRepeatStride, normalSliceSize, lastSliceSize, isInputOutputEqual,
-                           goSize[0], goSize[1], goSize[2], goSize[3],
+    CHK_RET(FillCachedArgs(submitInfo, taskArgs[0], taskArgs[1], taskArgs[2], taskArgs[3], taskArgs[4],
+                           taskArgs[5], taskArgs[6], taskArgs[7], taskArgs[8], taskArgs[9],
+                           taskArgs[10], taskArgs[11], taskArgs[12], taskArgs[13], taskArgs[14],
                            buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
     templateResource.submitInfos.push_back(submitInfo);
 

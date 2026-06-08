@@ -155,11 +155,9 @@ uint32_t CcuTempAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(const uint3
     return subCommRankId;
 }
 
-HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param,
-                                                        const TemplateDataParams& templateDataParams,
-                                                        TemplateResource& templateResource)
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::PrepareLaunchArgs(const OpParam& param,
+    const TemplateDataParams& templateDataParams, std::vector<uint64_t>& taskArgs, uint64_t& argSize)
 {
-    HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] Template Run start.");
     buffInfo_ = templateDataParams.buffInfo;
 
     uint64_t inputAddr             = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
@@ -199,17 +197,36 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
     config.memSlice     = CCU_MS_SIZE * LOCAL_COPY_MS_PER_LOOP;
     auto   goSize       = CalGoSize(sliceSize, config);
 
-    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, sliceSize, sliceSizePerJetty,
-                                       lastSliceSizePerJetty, repeatNumInv, inputSliceStride,
-                                       outputSliceStride, inputRepeatStride, outputRepeatStride,
-                                       isInputOutputEqual, goSize[0], goSize[1], goSize[2], goSize[3]};
-    uint64_t argSize = 16;
+    taskArgs = {inputAddr, outputAddr, token, sliceSize, sliceSizePerJetty,
+                lastSliceSizePerJetty, repeatNumInv, inputSliceStride,
+                outputSliceStride, inputRepeatStride, outputRepeatStride,
+                isInputOutputEqual, goSize[0], goSize[1], goSize[2], goSize[3]};
+    argSize = 16;
 
     HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] inputAddr[%llu], outputAddr[%llu],"
     "sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu], inputSliceStride[%llu], "
     "outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], isInputOutputEqual[%llu]",
-    inputAddr, outputAddr, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv, inputSliceStride, 
+    inputAddr, outputAddr, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv, inputSliceStride,
     outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual);
+
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param,
+                                                        const TemplateDataParams& templateDataParams,
+                                                        TemplateResource& templateResource)
+{
+    HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] Template Run start.");
+
+    std::vector<uint64_t> taskArgs;
+    uint64_t argSize = 0;
+    HcclResult ret = PrepareLaunchArgs(param, templateDataParams, taskArgs, argSize);
+    if (ret != HcclResult::HCCL_SUCCESS) {
+        return ret;
+    }
+    if (taskArgs.empty()) {
+        return HcclResult::HCCL_SUCCESS;
+    }
 
     CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0],
                                                 taskArgs.data(), argSize);
@@ -220,10 +237,9 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
 
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, sliceSize, sliceSizePerJetty,
-                           lastSliceSizePerJetty, repeatNumInv, inputSliceStride, outputSliceStride,
-                           inputRepeatStride, outputRepeatStride, isInputOutputEqual,
-                           goSize[0], goSize[1], goSize[2], goSize[3],
+    CHK_RET(FillCachedArgs(submitInfo, taskArgs[0], taskArgs[1], taskArgs[2], taskArgs[3], taskArgs[4],
+                           taskArgs[5], taskArgs[6], taskArgs[7], taskArgs[8], taskArgs[9],
+                           taskArgs[10], taskArgs[11], taskArgs[12], taskArgs[13], taskArgs[14], taskArgs[15],
                            buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, mySubCommRank_));
     templateResource.submitInfos.push_back(submitInfo);
 

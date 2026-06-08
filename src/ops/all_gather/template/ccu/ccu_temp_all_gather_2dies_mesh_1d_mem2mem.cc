@@ -31,21 +31,14 @@ CcuTempAllGather2DiesMeshMem2Mem1D::~CcuTempAllGather2DiesMeshMem2Mem1D()
 {
 }
  
-HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                                                      AlgResourceRequest& resourceRequest)
-{   
-    resourceRequest.notifyNumOnMainThread = 1;
-    resourceRequest.slaveThreadNum = 1;
-    resourceRequest.ccuKernelNum.push_back(ALL_GATHER_2DIES_M2M_THREAD_NUM);
-    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::ClassifyChannelByDieId(HcclComm comm, const OpParam& param,
+    const TopoInfoWithNetLayerDetails* topoInfo, std::vector<HcclChannelDesc>& channelDescs,
+    std::vector<uint32_t>& rankIdGroup0, std::vector<uint32_t>& rankIdGroup1, bool& if0HandleSelfRank)
+{
     uint32_t rankId = mySubCommRank_;
     EndpointAttrDieId tmpDieId {};
-    HCCL_DEBUG("[CcuTempAllGather2DiesMeshMem2Mem1D::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
-               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
-    std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
-    std::vector<uint32_t> rankIdGroup0, rankIdGroup1;
-    bool if0HandleSelfRank = true;
+    if0HandleSelfRank = true;
 
     for (u32 j = 0; j < channelDescs.size(); j++) {
         CHK_RET(GetChannelDieId(comm, rankId, channelDescs[j], tmpDieId));
@@ -58,7 +51,25 @@ HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::CalcRes(HcclComm comm, const OpPa
     if ((rankIdGroup0.size() > rankIdGroup1.size() && rankIdGroup1.size() != 0) || rankIdGroup0.size() == 0) {
         if0HandleSelfRank = false;
     }
+    return HcclResult::HCCL_SUCCESS;
+}
 
+HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      AlgResourceRequest& resourceRequest)
+{   
+    resourceRequest.notifyNumOnMainThread = 1;
+    resourceRequest.slaveThreadNum = 1;
+    resourceRequest.ccuKernelNum.push_back(ALL_GATHER_2DIES_M2M_THREAD_NUM);
+    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+    HCCL_DEBUG("[CcuTempAllGather2DiesMeshMem2Mem1D::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
+               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
+
+    std::vector<HcclChannelDesc> channelDescs;
+    std::vector<uint32_t> rankIdGroup0, rankIdGroup1;
+    bool if0HandleSelfRank = true;
+    CHK_RET(ClassifyChannelByDieId(comm, param, topoInfo, channelDescs, rankIdGroup0, rankIdGroup1, if0HandleSelfRank));
+
+    uint32_t rankId = mySubCommRank_;
     CcuKernelInfo kernelInfo0, kernelInfo1;
     strcpy_s(kernelInfo0.kernelFuncName, sizeof(kernelInfo0.kernelFuncName), "CcuAllGather2DiesMeshMem2Mem1DKernel");
     kernelInfo0.kernelFunc = reinterpret_cast<void *>(CcuAllGather2DiesMeshMem2Mem1DKernel);

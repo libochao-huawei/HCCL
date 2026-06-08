@@ -34,33 +34,16 @@ CcuTempAllGather2DiesMesh1D::~CcuTempAllGather2DiesMesh1D()
 {
 }
 
-HcclResult CcuTempAllGather2DiesMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                                                      AlgResourceRequest& resourceRequest)
-{   
-    //双die，声明一个从流
-    resourceRequest.notifyNumOnMainThread = 1;
-    resourceRequest.slaveThreadNum = 1;
-    resourceRequest.ccuKernelNum.push_back(ALL_GATHER_2DIES_THREAD_NUM);
-    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+HcclResult CcuTempAllGather2DiesMesh1D::ClassifyChannelByDieId(HcclComm comm, const OpParam& param,
+    const TopoInfoWithNetLayerDetails* topoInfo, std::vector<HcclChannelDesc>& channelDescs,
+    std::vector<HcclChannelDesc>& channels0, std::vector<HcclChannelDesc>& channels1,
+    std::vector<uint32_t>& rankIdGroup0, std::vector<uint32_t>& rankIdGroup1, bool& if0HandleSelfRank)
+{
     uint32_t rankId = mySubCommRank_;
     EndpointAttrDieId tmpDieId {};
-
-    HCCL_DEBUG("[CcuTempAllGather2DiesMesh1D::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
-               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
-
-    std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    if0HandleSelfRank = true;
 
-    std::vector<uint32_t> rankIdGroup0, rankIdGroup1;
-    bool if0HandleSelfRank = true;
-
-    CcuKernelInfo kernelInfo0, kernelInfo1;
-    strcpy_s(kernelInfo0.kernelFuncName, sizeof(kernelInfo0.kernelFuncName), "CcuAllGather2DiesMesh1DKernel");
-    kernelInfo0.kernelFunc = reinterpret_cast<void *>(CcuAllGather2DiesMesh1DKernel);
-    strcpy_s(kernelInfo1.kernelFuncName, sizeof(kernelInfo1.kernelFuncName), "CcuAllGather2DiesMesh1DKernel");
-    kernelInfo1.kernelFunc = reinterpret_cast<void *>(CcuAllGather2DiesMesh1DKernel);
-
-    std::vector<HcclChannelDesc> channels0, channels1;
     for (u32 j = 0; j < channelDescs.size(); j++) {
         CHK_RET(GetChannelDieId(comm, rankId, channelDescs[j], tmpDieId));
         if (tmpDieId == 0) {
@@ -71,10 +54,37 @@ HcclResult CcuTempAllGather2DiesMesh1D::CalcRes(HcclComm comm, const OpParam& pa
             rankIdGroup1.push_back(channelDescs[j].remoteRank);
         }
     }
- 
+
     if ((rankIdGroup0.size() > rankIdGroup1.size() && rankIdGroup1.size() != 0) || rankIdGroup0.size() == 0) {
         if0HandleSelfRank = false;
     }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllGather2DiesMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      AlgResourceRequest& resourceRequest)
+{   
+    resourceRequest.notifyNumOnMainThread = 1;
+    resourceRequest.slaveThreadNum = 1;
+    resourceRequest.ccuKernelNum.push_back(ALL_GATHER_2DIES_THREAD_NUM);
+    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+
+    HCCL_DEBUG("[CcuTempAllGather2DiesMesh1D::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
+               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
+
+    std::vector<HcclChannelDesc> channelDescs;
+    std::vector<HcclChannelDesc> channels0, channels1;
+    std::vector<uint32_t> rankIdGroup0, rankIdGroup1;
+    bool if0HandleSelfRank = true;
+    CHK_RET(ClassifyChannelByDieId(comm, param, topoInfo, channelDescs, channels0, channels1,
+                                   rankIdGroup0, rankIdGroup1, if0HandleSelfRank));
+
+    uint32_t rankId = mySubCommRank_;
+    CcuKernelInfo kernelInfo0, kernelInfo1;
+    strcpy_s(kernelInfo0.kernelFuncName, sizeof(kernelInfo0.kernelFuncName), "CcuAllGather2DiesMesh1DKernel");
+    kernelInfo0.kernelFunc = reinterpret_cast<void *>(CcuAllGather2DiesMesh1DKernel);
+    strcpy_s(kernelInfo1.kernelFuncName, sizeof(kernelInfo1.kernelFuncName), "CcuAllGather2DiesMesh1DKernel");
+    kernelInfo1.kernelFunc = reinterpret_cast<void *>(CcuAllGather2DiesMesh1DKernel);
 
     if (rankIdGroup0.size() != 0) {
         auto kernelArg0 = std::make_shared<CcuKernelArgAllGather2DiesMesh1D>();

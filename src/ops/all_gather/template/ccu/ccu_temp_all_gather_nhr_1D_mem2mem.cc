@@ -161,19 +161,11 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
-                                                       const TemplateDataParams& templateDataParams,
-                                                       TemplateResource& templateResource)
+HcclResult CcuTempAllGatherNHR1DMem2Mem::PrepareLaunchArgs(const OpParam& param,
+    const TemplateDataParams& templateDataParams, u32 kernelNum,
+    std::vector<uint64_t>& taskArgs, uint64_t& argSize)
 {
-    HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem] Template KernelRun start.");
-    opMode_ = param.opMode;
     buffInfo_ = templateDataParams.buffInfo;
-    u32 kernelNum = templateResource.ccuKernels.size();
-
-    if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
-        HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem] sliceSize is 0, no need do, just success.");
-        return HCCL_SUCCESS;
-    }
     uint64_t die0Size = 0;
     uint64_t die1Size = 0;
     constexpr uint32_t MAX_DIE_NUM_2 = 2;
@@ -203,18 +195,39 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
         templateRankSize_, die0Size, die1Size, inputAddr, outputAddr, repeatNum, inputSliceStride,
         outputSliceStride, inputRepeatStride, outputRepeatStride);
 
-    // 前流同步
+    taskArgs = {inputAddr, outputAddr, token, die0Size, die1Size, repeatNum,
+                inputSliceStride, outputSliceStride, inputRepeatStride,
+                outputRepeatStride, isInputOutputEqual, die0LastSize, die1LastSize};
+    argSize = 13;
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
+                                                       const TemplateDataParams& templateDataParams,
+                                                       TemplateResource& templateResource)
+{
+    HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem] Template KernelRun start.");
+    opMode_ = param.opMode;
+    u32 kernelNum = templateResource.ccuKernels.size();
+
+    if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
+        HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem] sliceSize is 0, no need do, just success.");
+        return HCCL_SUCCESS;
+    }
+
+    std::vector<uint64_t> taskArgs;
+    uint64_t argSize = 0;
+    CHK_RET(PrepareLaunchArgs(param, templateDataParams, kernelNum, taskArgs, argSize));
+
+    uint64_t die0Size = taskArgs[3];
+    uint64_t die1Size = taskArgs[4];
+
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         std::vector<u32> notifyIdxMainToSub(1, 0);
 
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
     }
-
-    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, die0Size, die1Size, repeatNum,
-                                       inputSliceStride, outputSliceStride, inputRepeatStride,
-                                       outputRepeatStride, isInputOutputEqual, die0LastSize, die1LastSize};
-    uint64_t argSize = 13;
 
     for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {
         if ((templateDataParams.tailSize == 0) && ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0))) {
@@ -241,9 +254,8 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
 
     // 所有task下发完后再保存参数信息
     CcuKernelSubmitInfo submitInfo;
-    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, die0Size, die1Size, repeatNum,
-                           inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
-                           isInputOutputEqual, die0LastSize, die1LastSize,
+    CHK_RET(FillCachedArgs(submitInfo, taskArgs[0], taskArgs[1], taskArgs[2], taskArgs[3], taskArgs[4], taskArgs[5],
+                           taskArgs[6], taskArgs[7], taskArgs[8], taskArgs[9], taskArgs[10], taskArgs[11], taskArgs[12],
                            buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, mySubCommRank_));
     for (u32 i = 0; i < kernelNum; i++) {
         // 2个kernel的TaskArg相同
