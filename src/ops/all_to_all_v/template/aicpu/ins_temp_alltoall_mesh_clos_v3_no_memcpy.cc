@@ -351,7 +351,7 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunClosNoMemcpySlot(
                  slotPlan.txRank, slotPlan.rxRank,
                  txSrcOffset, txDstOffset, rxSrcOffset, rxDstOffset, actualChunkSize);
 
-    HcclResult dmaResult = SendRecvWrite(sendRecvInfo, thread);
+    HcclResult dmaResult = SendRecvBatchWrite(sendRecvInfo, thread);
     if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
         u32 failedAlgRank = 0;
         if (GetAlgRank(slotPlan.txRank, subCommRanks_[0], failedAlgRank) == HCCL_SUCCESS &&
@@ -542,7 +542,7 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllOnLink(
         CHK_PRT_RET(isPcie,
                     HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos] pcie/read protocol is not supported."),
                     HcclResult::HCCL_E_NOT_SUPPORT);
-        HcclResult dmaResult = SendRecvWrite(sendRecvInfo, commThreads[linkIdx]);
+        HcclResult dmaResult = SendRecvBatchWrite(sendRecvInfo, commThreads[linkIdx]);
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
             failedRanks_[connectedAlgRank] = 1;
