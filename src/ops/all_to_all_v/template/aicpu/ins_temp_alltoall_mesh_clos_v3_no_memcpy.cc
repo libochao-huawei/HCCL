@@ -264,6 +264,14 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::SelectClosNoMemcpyChannel(
                            channelIdx, remoteChannels.size(), rowNum, remoteRank, myRank_, channelIdx, rowNum),
                 HcclResult::HCCL_E_PARA);
     u32 resolvedIdx = channelIdx;
+    // Experimental physical channel permutation: swap adjacent channel entries to check whether
+    // low bandwidth follows the logical channel id or the physical ChannelInfo index.
+    if (rowNum > 1) {
+        u32 permutedIdx = channelIdx ^ 1;
+        if (permutedIdx < rowNum) {
+            resolvedIdx = permutedIdx;
+        }
+    }
     CHK_PRT_RET(resolvedIdx >= remoteChannels.size(),
                 HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] resolvedIdx[%u] out of range. "
                            "remoteRank=%u channelNum=%zu channelIdx=%u myRank=%d",
