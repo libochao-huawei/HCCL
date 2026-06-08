@@ -133,7 +133,7 @@ static void PostSync(ReduceScatterMesh1DMem2MemContext &ctx)
     }
 }
 
-static CcuResult DoReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
+static CcuResult DoReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx, ccu::Variable &sliceSize)
 {
     const auto *arg = ctx.arg;
     uint32_t channelId = 0;
@@ -142,9 +142,6 @@ static CcuResult DoReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
     myOutput.addr   = ctx.output;
     myOutput.addr  += ctx.currentRankSliceOutputOffset;
     myOutput.token  = ctx.token[arg->rankId];
-
-    ccu::Variable sliceSize;
-    sliceSize = (arg->rankId == (arg->rankSize - 1)) ? ctx.lastSliceSize : ctx.normalSliceSize;
 
     CCU_IF(sliceSize != 0)
     {
@@ -227,6 +224,8 @@ static CcuResult DoRepeatReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
     // 初始化scratchOffset、myInput、remoteInput、scratchMem - 只在最开始执行一次
     ccu::Variable scratchOffset;
     scratchOffset = 0;
+    ccu::Variable sliceSize;
+    sliceSize = (arg->rankId == (arg->rankSize - 1)) ? ctx.lastSliceSize : ctx.normalSliceSize;
     
     for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
         if (rankIdx == arg->rankId) {
@@ -241,7 +240,7 @@ static CcuResult DoRepeatReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
 
         ctx.scratchMem[rankIdx].addr = ctx.scratch[arg->rankId];
         ctx.scratchMem[rankIdx].addr += scratchOffset;
-        scratchOffset += ctx.normalSliceSize;
+        scratchOffset += sliceSize;
         ctx.scratchMem[rankIdx].token = ctx.token[arg->rankId];
     }
     
@@ -262,7 +261,7 @@ static CcuResult DoRepeatReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
             }
             ctx.output += ctx.outputRepeatStride;
         }
-        CCU_CHK_RET(DoReduceScatter(ctx));
+        CCU_CHK_RET(DoReduceScatter(ctx, sliceSize));
         ctx.flag = 1;
     }
     
