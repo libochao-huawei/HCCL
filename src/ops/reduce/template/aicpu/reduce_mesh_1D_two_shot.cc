@@ -328,7 +328,6 @@ HcclResult ReduceMesh1DTwoShot::SendToRoot(const TemplateDataParams &tempAlgPara
     }
     void* localBufferPtr = (!enableRemoteMemAccess_) ? info.localHcclBuffPtr : info.localInBuffPtr;
     u64 localBuffBaseOffset = (!enableRemoteMemAccess_) ? info.hcclBuffBaseOffset : info.inBuffBaseOffset;
-
     
     DataSlice sendSrcSlice(localBufferPtr, localBuffBaseOffset + info.sliceSize * static_cast<u64>(myIdx_), info.sliceSize, info.sliceCount);
     DataSlice sendDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount); // SendRead tx 信息不使用
