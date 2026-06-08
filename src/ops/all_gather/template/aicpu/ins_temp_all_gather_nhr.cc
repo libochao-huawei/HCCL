@@ -46,6 +46,7 @@ HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, con
 HcclResult InsTempAllGatherNHR::GetRes(AlgResourceRequest &resourceRequest) const
 {
     u32 threadNum = channelsPerRank_;
+    HCCL_INFO("[InsTempAllGatherNHR][GetRes] threadNum[%u]", threadNum);
     resourceRequest.slaveThreadNum = threadNum - 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
