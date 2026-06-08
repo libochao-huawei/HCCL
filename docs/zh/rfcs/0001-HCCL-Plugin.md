@@ -1,7 +1,7 @@
 # RFC：HCCL Plugin —— HCCL自定义算法扩展框架
 
 - 起始日期：2026-05-29
-- RFC PR编号：(待填写)
+- RFC PR编号：1285
 - 相关Issue：126
 
 ---
