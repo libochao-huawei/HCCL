@@ -64,7 +64,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoCcums(
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (IsInputOutputOverlap(opParam) == true) { // 不支持 inplace 场景
-            HCCL_WARNING("[ReduceScatterAutoSelector] ccu_ms mode not support inplace.");
+            HCCL_WARNING("[ReduceAutoSelector] ccu_ms mode not support inplace.");
             return SelectorStatus::NOT_MATCH;
         }
         if (topoInfo->is2DieFullMesh) {
@@ -131,7 +131,7 @@ SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLa
                 return SelectorStatus::NOT_MATCH;
             } else {
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
-                HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet"
+                HCCL_DEBUG("[ReduceAutoSelector] dataType[%d] is not supported yet"
                 " for ccu schedule mode with ms reduce. levelNum[%u]", opParam.DataDes.dataType, topoInfo->topoLevelNums), SelectorStatus::NOT_MATCH);
                 selectAlgName = "CcuReduceParallelMesh1DNHR";
             }
