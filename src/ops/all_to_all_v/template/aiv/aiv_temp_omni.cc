@@ -23,7 +23,6 @@
 #include "all_to_all_v/template/aiv/kernel/aiv_kernel_omni.h"
 
 namespace ops_hccl {
-constexpr u64 OMNI_MULTI_BLOCK_THRESHOLD = UB_MAX_DATA_SIZE;
 
 AivTempOmni::AivTempOmni(const OpParam& param, const u32 rankId, const std::vector<std::vector<u32>> &subCommRanks)
     : AivAlgTemplateBase(param, rankId, subCommRanks)
@@ -203,9 +202,9 @@ HcclResult AivTempOmni::CalcRes(HcclComm comm, const OpParam& param, const TopoI
 
 HcclResult AivTempOmni::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit)
 {
-    u32 blockLimit = std::max<u32>(1, std::min<u32>(numBlocksLimit, MAX_NUM_BLOCKS));
-    u32 heuristicBlocks = (dataSize > OMNI_MULTI_BLOCK_THRESHOLD) ? std::min<u32>(tempRankSize_, blockLimit) : 1;
-    numBlocks_ = std::min<u32>(std::max(numBlocks_, heuristicBlocks), blockLimit);
+    (void)dataSize;
+    (void)numBlocksLimit;
+    numBlocks_ = 1;
     numBlocks = numBlocks_;
     return HCCL_SUCCESS;
 }
