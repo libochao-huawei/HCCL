@@ -19,7 +19,6 @@
 #include <sstream>
 #include <algorithm>
 #include "rt_external.h"
-#include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
