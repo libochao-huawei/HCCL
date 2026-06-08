@@ -553,6 +553,8 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(resRet);
     }
 
+    param.cacheValid = isResourceReused;
+
     // Op注册
     HcclDfxOpInfoCompat hcclDfxOpInfo{};
     CHK_RET(ConstructHcclDfxOpInfo(param, param.algTag, ALG_TAG_LENGTH, hcclDfxOpInfo, cpuTsThread));
@@ -856,7 +858,7 @@ static HcclResult TryReuseResource(HcclComm comm, OpParam& param, bool& increCre
         ctxEngine = COMM_ENGINE_AICPU_TS;
     }
     if (HcclEngineCtxGet(comm, param.algTag, ctxEngine, &ctx, &size) == HCCL_SUCCESS) {
-        HCCL_DEBUG("Already have context, skip create, ctxSize is %u", param.ctxSize);
+        HCCL_DEBUG("Already have context, skip create, ctxSize is %llu", size);
         isResourceReused = true;
         *resCtxSequence = ctx;
         param.ctxSize = size;
