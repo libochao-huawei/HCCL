@@ -118,6 +118,46 @@ namespace ops_hccl {
         return HcclResult::HCCL_SUCCESS;
     }
 
+    HcclResult InsSendExecutor::OrchestrateP2p(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
+        ThreadHandle sendRecvStream) {
+        opMode_ = param.opMode;
+        myRank_ = resCtx.topoInfo.userRank;
+        remoteRank_ = param.sendRecvRemoteRank;
+        // maxTmpMemSize_设定为ccl buffer的大小
+        maxTmpMemSize_ = resCtx.cclMem.size;
+        dataCount_ = param.DataDes.count;
+        dataType_ = param.DataDes.dataType;
+        dataTypeSize_ = static_cast<u64>(DATATYPE_SIZE_TABLE[dataType_]);
+        dataSize_ = dataCount_ * dataTypeSize_;
+ 
+        HCCL_DEBUG("[InsSendExecutor][Orchestrate][%d]->[%d] Start.", myRank_, remoteRank_);
+        // 给channels_赋值
+        auto channelIt = std::find_if(
+            resCtx.channels.at(0).begin(), resCtx.channels.at(0).end(),
+            [this](const ChannelInfo &channel_) {
+                return channel_.remoteRank == remoteRank_;
+            });
+        CHK_PRT_RET(
+            channelIt == resCtx.channels.at(0).end(),
+            HCCL_ERROR("[InsSendExecutor][Orchestrate] Channel[%d]-[%d] not found.", myRank_, remoteRank_),
+            HcclResult::HCCL_E_NOT_FOUND);
+        const ChannelInfo &channel = *channelIt;
+        
+        // 判断是否为PCIE链路，如果是则使用read
+        if (channel.protocol == CommProtocol::COMM_PROTOCOL_PCIE) {
+            isDmaRead_ = true;
+        }
+ 
+        if (opMode_ == OpMode::OFFLOAD) {
+            CHK_RET(OrchestrateOffload(param, resCtx, sendRecvStream, channel));
+        } else {
+            CHK_RET(OrchestrateOpbase(param, resCtx, sendRecvStream, channel));
+        }
+        HCCL_DEBUG("[InsSendExecutor][Orchestrate][%d]->[%d] Success.", myRank_, remoteRank_);
+ 
+        return HcclResult::HCCL_SUCCESS;
+    }
+
     HcclResult InsSendExecutor::OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel) {
         (void) resCtx;
         // 图模式本端可拿到对端output buffer地址，所以直接从本端input buffer到对端output buffer
