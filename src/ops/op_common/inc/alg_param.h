@@ -624,6 +624,7 @@ struct ResPackGraphMode {
 struct MemRegInfo {
     char inputBuffTag[MAX_MEM_TAG_LENGTH];    // 输入缓冲区标签
     char outputBuffTag[MAX_MEM_TAG_LENGTH];   // 输出缓冲区标签
+    char scratchBuffTag[MAX_MEM_TAG_LENGTH];  // scratch缓冲区标签
     std::vector<HcclMemHandle> memHandles;    // 内存句柄列表
 };
 
