@@ -128,6 +128,87 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult InsTempAllGatherNHR::PrepareStepRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
+                                               TemplateResource &templateResource)
+{
+    if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
+        HCCL_INFO("[InsTempAllGatherNHR] Rank [%d], get slicesize zero.", myRank_);
+        return HCCL_SUCCESS;
+    }
+    threadNum_ = GetThreadNum();
+    if (templateResource.threads.size() < threadNum_) {
+        HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], thread num[%u] is not as expected[%u].", myRank_,
+                   templateResource.threads.size(), threadNum_);
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+    tempAlgParams_ = tempAlgParams;
+    dataType_ = param.DataDes.dataType;
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
+
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);
+    isDmaRead_ = isPcieProtocal;
+    HCCL_DEBUG("[InsTempAllGatherNHR] Use Dma Read[%d]", isDmaRead_);
+    CHK_RET(PreprareDataSplitForMultiChannel(templateResource));
+    readLastStepToOutput_ = false;
+    lastStepReadSliceIdxs_.clear();
+
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    }
+    for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
+        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult InsTempAllGatherNHR::FinalizeStepRun(const std::vector<ThreadHandle> &threads, const u32 channelIdx,
+                                                bool copyToOutput)
+{
+    if (copyToOutput) {
+        CHK_RET(PostLocalCopy(threads[channelIdx], channelIdx));
+    }
+    if (threadNum_ > 1 && channelIdx == channelsPerRank_ - 1) {
+        std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
+        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_));
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult InsTempAllGatherNHR::RunNHRStep(const std::vector<ThreadHandle> &threads,
+                                           const std::map<u32, std::vector<ChannelInfo>> &channels,
+                                           const u32 channelIdx, const u32 step, AicpuNHRStepInfo &stepInfo)
+{
+    const u32 nSteps = GetNHRStepNum(templateRankSize_);
+    CHK_RET(GetStepInfo(step, nSteps, stepInfo));
+    const ChannelInfo &channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[channelIdx];
+    const ChannelInfo &channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[channelIdx];
+    HCCL_DEBUG("[InsTempAllGatherNHR] rank[%d] rankSize[%u] recvFrom[%u] sendTo[%u] step[%u] nSteps[%u] nSlices[%u]",
+               myRank_, templateRankSize_, stepInfo.fromRank, stepInfo.toRank, step, nSteps, stepInfo.nSlices);
+
+    std::vector<DataSlice> txSrcSlices;
+    std::vector<DataSlice> txDstSlices;
+    std::vector<DataSlice> rxSrcSlices;
+    std::vector<DataSlice> rxDstSlices;
+    CHK_RET(BuildNormalStepSlices(channelSend, channelRecv, stepInfo, channelIdx,
+        txSrcSlices, txDstSlices, rxSrcSlices, rxDstSlices));
+
+    TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
+    TxRxChannels sendRecvChannels(channelSend, channelRecv);
+    SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
+
+    if (isDmaRead_) {
+        CHK_PRT_RET(SendRecvBatchRead(sendRecvInfo, threads[channelIdx]),
+            HCCL_ERROR("[InsTempAllGatherNHR] sendrecv batch failed (step=%u)", step), HcclResult::HCCL_E_INTERNAL);
+    } else {
+        CHK_PRT_RET(SendRecvBatchWrite(sendRecvInfo, threads[channelIdx]),
+            HCCL_ERROR("[InsTempAllGatherNHR] sendrecv batch failed (step=%u)", step), HcclResult::HCCL_E_INTERNAL);
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
 bool InsTempAllGatherNHR::CanReadLastStepToOutput() const
 {
     return !isDmaRead_ && !enableRemoteMemAccess_ &&
