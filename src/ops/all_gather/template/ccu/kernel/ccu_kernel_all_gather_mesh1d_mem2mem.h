@@ -93,6 +93,13 @@ private:
     void DoAllGather(const hcomm::CcuRep::LocalAddr              &src,
                                                              const std::vector<hcomm::CcuRep::RemoteAddr> &dst,
                                                              const CcuRep::Variable            &sliceSize);
+    void DoAllGatherWrite(const hcomm::CcuRep::LocalAddr              &src,
+                          const std::vector<hcomm::CcuRep::RemoteAddr> &dst,
+                          const CcuRep::Variable            &sliceSize,
+                          uint32_t unrollIdx);
+    void DoAllGatherWait(uint32_t unrollIdx);
+    void InitAllGatherAddr();
+    void DoAllGatherGroupCopy();
 
     // CcuKernelAlgDataWrapper algWrapper;
     uint64_t rankSize_{0};
@@ -110,13 +117,15 @@ private:
     CcuRep::Variable              isInputOutputEqual_;
     CcuRep::Variable              repeatTimeflag_;
     CcuRep::Variable              tmpRepeatNum_;
+    CcuRep::Variable              waitRepeatNum_;
+    CcuRep::Variable              groupCopyRepeatNum_;
     CcuRep::Variable              constVar1_;
     std::vector<CcuRep::CompletedEvent> event_;
 
     GroupOpSize localGoSize_;
 
     hcomm::CcuRep::LocalAddr src;
-    hcomm::CcuRep::LocalAddr remote_src;
+    hcomm::CcuRep::LocalAddr localCopyDst_;
     std::vector<hcomm::CcuRep::RemoteAddr> dst;
     hcomm::CcuRep::LocalAddr src_loccopy;
 

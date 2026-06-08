@@ -12,6 +12,11 @@
 #include "topo_match_multilevel.h"
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
+#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
+#include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
+#endif
 #include "coll_alg_v2_exec_registry.h"
 
 namespace ops_hccl {
@@ -83,7 +88,19 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     }
     resourceRequest.notifyNumOnMainThread = std::max(resReqIntra.notifyNumOnMainThread, resReqInter.notifyNumOnMainThread);
 
-    resourceRequest.channels = {resReqIntra.channels[0], resReqInter.channels[0]};
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
+        // ccu: 合并两个template的ccuKernelInfos
+        HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][CalcRes] intraTemplate has [%d] kernels, interTemplate has [%d] kernels.",
+                  resReqIntra.ccuKernelNum[0], resReqInter.ccuKernelNum[0]);
+        resourceRequest.ccuKernelNum.emplace_back(resReqInter.ccuKernelNum[0]);
+        resourceRequest.ccuKernelNum.emplace_back(resReqIntra.ccuKernelNum[0]);
+        resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
+                                              resReqInter.ccuKernelInfos.begin(), resReqInter.ccuKernelInfos.end());
+        resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
+                                              resReqIntra.ccuKernelInfos.begin(), resReqIntra.ccuKernelInfos.end());
+    } else {
+        resourceRequest.channels = {resReqIntra.channels[0], resReqInter.channels[0]};
+    }
     return HCCL_SUCCESS;
 }
 
@@ -103,10 +120,27 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     threads_ = resCtx.threads;
     rankSizeLevel0_ = algHierarchyInfo_.infos[0][0].size();
     rankSizeLevel1_ = algHierarchyInfo_.infos[1][0].size();
-    CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+    rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
+    rankIdxLevel1_ = myRank_ / rankSizeLevel0_;
+    engine_ = param.engine;
+    // ccu路径无channel数据，跳过RestoreChannelMap
+    if (param.engine != CommEngine::COMM_ENGINE_CCU) {
+        CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+    }
+
+    // 构建template
+    InsAlgTemplate1 interTempAlg(param, myRank_, algHierarchyInfo_.infos[1]);
+    InsAlgTemplate0 intraTempAlg(param, myRank_, algHierarchyInfo_.infos[0]);
+
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
+        // ccu: 分配ccuKernels，线程与aicpu一致（共用）
+        interCcuKernels_.assign(resCtx.ccuKernels.begin(), resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0]);
+        intraCcuKernels_.assign(resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0],
+                               resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0] + resCtx.ccuKernelNum[1]);
+    }
 
     // 算法展开
-    HcclResult ret = OrchestrateLoop(param, resCtx);
+    HcclResult ret = OrchestrateLoop(param, resCtx, intraTempAlg, interTempAlg);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InsV2AllGatherSequenceExecutorAicpu][Orchestrate]errNo[0x%016llx] Orchestrate failed",
             HCCL_ERROR_CODE(ret)), ret);
@@ -131,6 +165,11 @@ void InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     interTempDataParams.repeatNum = 1;
     interTempDataParams.inputRepeatStride = 0;
     interTempDataParams.outputRepeatStride = 0;
+
+    if (engine_ == CommEngine::COMM_ENGINE_CCU) {
+        interTempDataParams.buffInfo.outBuffBaseOff = rankIdxLevel0_ * dataSize_ + processedDataCount * dataTypeSize_;
+        interTempDataParams.outputSliceStride = dataSize_ * rankSizeLevel0_;
+    }
 
     HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu] loop[%llu] interTempDataParams.inputSliceStride[%llu] "
         "interTempDataParams.outputSliceStride[%llu] interTempDataParams.sliceSize[%llu] "
@@ -162,6 +201,12 @@ void InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     intraTempDataParams.inputRepeatStride = currDataCount * dataTypeSize_;
     intraTempDataParams.outputRepeatStride = dataSize_ * rankSizeLevel0_;
 
+    if (engine_ == CommEngine::COMM_ENGINE_CCU) {
+        intraTempDataParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_; 
+        intraTempDataParams.inputSliceStride = dataSize_;
+        intraTempDataParams.inputRepeatStride = dataSize_ * rankSizeLevel0_;
+    }
+
     HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu] loop[%llu] intraTempDataParams.inputSliceStride[%llu] "
         "intraTempDataParams.outputSliceStride[%llu] intraTempDataParams.sliceSize[%llu] "
         "intraTempDataParams.buffInfo.inBuffBaseOff[%llu] intraTempDataParams.buffInfo.outBuffBaseOff[%llu] "
@@ -191,52 +236,84 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     return HCCL_SUCCESS;
 }
 
+
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::OrchestrateLoop(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx)
+    const OpParam &param, const AlgResourceCtxSerializable &resCtx,
+    InsAlgTemplate0 &intraTempAlg, InsAlgTemplate1 &interTempAlg)
 {
     HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][OrchestrateLoop] Start");
 
     // 框间template
     TemplateDataParams interTempDataParams;
     interTempDataParams.buffInfo.inputPtr = param.inputPtr;
-    interTempDataParams.buffInfo.outputPtr = resCtx.cclMem.addr;
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
+        // ccu: 用output作为中转，减少一次拷贝
+        interTempDataParams.buffInfo.outputPtr = param.outputPtr;
+        interTempDataParams.buffInfo.outBuffType = BufferType::OUTPUT;
+    } else {
+        interTempDataParams.buffInfo.outputPtr = resCtx.cclMem.addr;
+        interTempDataParams.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
+    }
     interTempDataParams.buffInfo.hcclBuff = resCtx.cclMem;
     interTempDataParams.buffInfo.inBuffType = BufferType::INPUT;
-    interTempDataParams.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
     interTempDataParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
 
-    // 构建框间template
-    InsAlgTemplate1 interTempAlg(param, myRank_, algHierarchyInfo_.infos[1]);
-    interTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[1]);
+    // 构建框间template（aicpu路径需要SetchannelsPerRank）
+    if (param.engine != CommEngine::COMM_ENGINE_CCU) {
+        interTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[1]);
+    }
 
     // 框内template
     TemplateDataParams intraTempDataParams;
-    intraTempDataParams.buffInfo.inputPtr = resCtx.cclMem.addr;
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
+        // ccu: 用output作为中转，input=output，isInputOutputEqual=1，跳过GroupCopy
+        intraTempDataParams.buffInfo.inputPtr = param.outputPtr;
+        intraTempDataParams.buffInfo.inBuffType = BufferType::OUTPUT;
+    } else {
+        intraTempDataParams.buffInfo.inputPtr = resCtx.cclMem.addr;
+        intraTempDataParams.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
+    }
     intraTempDataParams.buffInfo.outputPtr = param.outputPtr;
     intraTempDataParams.buffInfo.hcclBuff = resCtx.cclMem;
-    intraTempDataParams.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
     intraTempDataParams.buffInfo.outBuffType = BufferType::OUTPUT;
     intraTempDataParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
 
-    // 构建框内template
-    InsAlgTemplate0 intraTempAlg(param, myRank_, algHierarchyInfo_.infos[0]);
-    intraTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[0]);
+    // 构建框内template（aicpu路径需要SetchannelsPerRank）
+    if (param.engine != CommEngine::COMM_ENGINE_CCU) {
+        intraTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[0]);
+    }
+
     // ccl buffer按框数切分
     u32 templateScratchMultiplier = interTempAlg.CalcScratchMultiple(BufferType::INPUT, BufferType::HCCL_BUFFER);
 
     // 构造框间template资源
     TemplateResource templateResourceInter;
-    CHK_RET(GenTempResource(resCtx, 1, interTempAlg, templateResourceInter));
     // 构造框内template资源
     TemplateResource templateResourceIntra;
-    CHK_RET(GenTempResource(resCtx, 0, intraTempAlg, templateResourceIntra));
 
-    u64 maxCountPerLoop = interTempDataParams.buffInfo.hcclBuff.size / templateScratchMultiplier /
-        HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
+        // ccu: ccuKernels按template分，线程与aicpu一致共用threads_
+        templateResourceInter.ccuKernels = interCcuKernels_;
+        templateResourceInter.threads = threads_;
+        templateResourceIntra.ccuKernels = intraCcuKernels_;
+        templateResourceIntra.threads = threads_;
+    } else {
+        CHK_RET(GenTempResource(resCtx, 1, interTempAlg, templateResourceInter));
+        CHK_RET(GenTempResource(resCtx, 0, intraTempAlg, templateResourceIntra));
+    }
+    
+    u64 maxCountPerLoop = 0;
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
+        maxCountPerLoop = UB_MAX_DATA_SIZE / dataTypeSize_;
+    } else {
+        maxCountPerLoop = interTempDataParams.buffInfo.hcclBuff.size / templateScratchMultiplier /
+            HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
+    }
     // 计算loopTimes
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
     u64 processedDataCount = 0;
+
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxCountPerLoop;
 
@@ -250,9 +327,77 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
 
         processedDataCount += currDataCount;
     }
+
+#ifndef AICPU_COMPILE
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+        ccuKernelLaunchNumInter_ = templateResourceInter.submitInfos.size();
+        ccuKernelLaunchNumIntra_ = templateResourceIntra.submitInfos.size();
+        CHK_RET(FastLaunchSaveCtx(param, templateResourceInter, templateResourceIntra, resCtx.notifyNumOnMainThread));
+    }
+#endif
     HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
+
+#ifndef AICPU_COMPILE
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
+    const OpParam &param, const TemplateResource &templateAlgResInter, const TemplateResource &templateAlgResIntra, u32 notifyNumOnMainThread)
+{
+    HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][FastLaunchSaveCtx] loopTimes==1, save fast launch ctx.");
+    u32 threadNum = threads_.size();
+    u32 ccuKernelNum = ccuKernelLaunchNumInter_ + ccuKernelLaunchNumIntra_;
+    if (ccuKernelNum < 1) {
+        HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][FastLaunchSaveCtx] ccu kernel num is 0, no need to save.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][FastLaunchSaveCtx] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
+
+    // sequence执行: 先inter再intra, ccuKernelNumList = {inter, intra}
+    std::vector<u32> ccuKernelNumList = {ccuKernelLaunchNumInter_, ccuKernelLaunchNumIntra_};
+    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResInter.submitInfos, templateAlgResIntra.submitInfos};
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
+        const OpParam &param, const CcuFastLaunchCtx *ctx)
+{
+    HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][FastLaunch] Start");
+    InsAlgTemplate1 interTempAlg{};
+    InsAlgTemplate0 intraTempAlg{};
+
+    TemplateFastLaunchCtx tempFastLaunchCtxInter;
+    TemplateFastLaunchCtx tempFastLaunchCtxIntra;
+
+    ThreadHandle *threads = ctx->GetThreadHandlePtr();
+    threads_.assign(threads, threads + ctx->threadNum);
+
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+
+    // 第一步: 框间NHR（ccu模式下用output作为中转）
+    HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][FastLaunch] inter ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtxInter.threads = threads_;
+    tempFastLaunchCtxInter.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
+    if (ctx->ccuKernelNum[0] > 0) {
+        CHK_RET(interTempAlg.FastLaunch(param, tempFastLaunchCtxInter));
+    }
+
+    // 第二步: 框内Mesh（ccu模式下input=output，isInputOutputEqual=1）
+    HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][FastLaunch] intra ccuKernelNum[%llu]", ctx->ccuKernelNum[1]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra, param.outputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtxIntra.threads = threads_;
+    tempFastLaunchCtxIntra.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
+    if (ctx->ccuKernelNum[1] > 0) {
+        CHK_RET(intraTempAlg.FastLaunch(param, tempFastLaunchCtxIntra));
+    }
+
+    HCCL_INFO("[InsV2AllGatherSequenceExecutorAicpu][FastLaunch] End.");
+    return HCCL_SUCCESS;
+}
+#endif
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                InsAllGatherSequenceNHRMesh1D,
@@ -260,4 +405,12 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                TopoMatchMultilevel,
                                InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
+
+#if !defined(HCCL_CANN_COMPAT_850)
+#ifndef AICPU_COMPILE
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherSequenceMeshMesh,
+    InsV2AllGatherSequenceExecutorAicpu, TopoMatchMultilevel,
+    CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem);
+#endif
+#endif /* !defined(HCCL_CANN_COMPAT_850) */
 }
