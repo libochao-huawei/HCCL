@@ -24,12 +24,13 @@ class CcuKernelArgGatherOmniPipeMesh1DMem2MemY : public hcomm::CcuKernelArg {
 public:
     explicit CcuKernelArgGatherOmniPipeMesh1DMem2MemY(uint64_t dimSize, uint32_t rankId, uint32_t rootId,
                                                       const OpParam& opParam,
-                                                      const std::vector<std::vector<uint32_t>>& subCommRanks, bool ifRealRoot, uint32_t realrank)
+                                                      const std::vector<std::vector<uint32_t>>& subCommRanks, std::map<u32, u32> subRankIdx2RankIdx, bool ifRealRoot, uint32_t realrank)
         : dimSize_(dimSize),
           rankId_(rankId),
           rootId_(rootId),
           opParam_(opParam),
           subCommRanks_(subCommRanks),
+          subRankIdx2RankIdx_(subRankIdx2RankIdx),
           ifRealRoot_(ifRealRoot),
           myrealrank_(realrank)
     {
@@ -48,9 +49,11 @@ public:
     uint32_t rankId_;
     uint32_t rootId_;
     OpParam opParam_;
+    std::map<uint32_t, uint32_t> subRankIdx2RankIdx_;
+    std::vector<std::vector<uint32_t>> subCommRanks_;
     bool ifRealRoot_;
     uint32_t myrealrank_;
-    std::vector<std::vector<uint32_t>> subCommRanks_;
+    
 };
 
 class CcuTaskArgGatherOmniPipeMesh1DMem2MemY : public hcomm::CcuTaskArg {
@@ -105,6 +108,7 @@ private:
     uint32_t myrealrank_{0};
     uint32_t rankId_{0};
     uint32_t rootId_{0};
+    std::map<uint32_t, uint32_t> subRankIdx2RankIdx_;
     std::vector<std::vector<uint32_t>> subCommRanks_;
     HcclDataType dataType_;
     HcclDataType outputDataType_;

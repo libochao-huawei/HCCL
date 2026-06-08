@@ -46,7 +46,7 @@ protected:
     /* *************** 算法编排 *************** */
     HcclResult InitCommInfo(const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
     HcclResult CalcResLevel(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                std::shared_ptr<CcuAlgTemplateBase> tempAlg, AlgResourceRequest& resourceReq, const int& curLevel);
+                AlgResourceRequest& resReqlevel, AlgResourceRequest& resourceReq, const int& curLevel);
     
     HcclResult InitSubCommRanks(std::vector<std::vector<u32>>& subCommRanks0, std::vector<std::vector<u32>>& subCommRanks1,
                 const AlgHierarchyInfoForAllLevel& algHierarchyInfo);
@@ -65,13 +65,10 @@ protected:
                 std::map<u32, TemplateDataParams>& tempAlgParamMap);
     
     HcclResult InitOmniPipeScratchParam(OmniPipeScratchParam& scratchParam, const OpParam& param,
-            const std::vector<double>& endpointAttrBwAvg,
-            // std::vector<u64> allRankSplitData,
-            std::map<u32, std::shared_ptr<CcuAlgTemplateBase>>& tempMap);
+            const std::vector<double>& endpointAttrBwAvg);
 
     HcclResult InitOmniPipeSliceParam(OmniPipeSliceParam& sliceParam, const OpParam& param,
-                const std::vector<double>& endpointAttrBwAvg,
-                std::map<u32, std::shared_ptr<CcuAlgTemplateBase>>& tempMap);
+                const std::vector<double>& endpointAttrBwAvg);
     
     HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams, StepSliceInfo &stepSliceInfo, u64 processedDataCount);
 
