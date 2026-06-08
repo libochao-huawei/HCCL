@@ -11,7 +11,7 @@
 #include "ccu_kernel_all_reduce_mesh1d_mem2mem.h"
 
 namespace ops_hccl {
-
+#define MAX_LOOP_NUM 2
 constexpr int INPUT_XN_ID   = 0;
 constexpr int OUTPUT_XN_ID  = 1;
 constexpr int TOKEN_XN_ID   = 2;
@@ -21,11 +21,11 @@ constexpr uint16_t BIT_NUM_PER_CKE = 16;
 constexpr uint16_t GROUP_REDUCE_MAX_PIECE_CNT = 8;
 
 struct GroupReduceMem2MemVar {
-    ccu::LocalAddr loopDst[2];
-    ccu::LocalAddr loopSrc[2];
-    std::array<std::vector<ccu::LocalAddr>, 2> loopScratch;
-    ccu::Variable  loopLen[2];
-    ccu::Variable  loopLenExp[2];
+    ccu::LocalAddr loopDst[MAX_LOOP_NUM];
+    ccu::LocalAddr loopSrc[MAX_LOOP_NUM];
+    std::array<std::vector<ccu::LocalAddr>, MAX_LOOP_NUM> loopScratch;
+    ccu::Variable  loopLen[MAX_LOOP_NUM];
+    ccu::Variable  loopLenExp[MAX_LOOP_NUM];
 };
 
 static CcuResult ParseKernelArg(AllReduceMeshMem2Mem1DContext &ctx, CcuKernelArgAllReduceMeshMem2Mem1D *kernelArg)
@@ -115,7 +115,7 @@ static CcuResult CreateReduceLoop(AllReduceMeshMem2Mem1DContext &ctx,
     uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
     uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
 
-    for (int32_t index = 0; index < 2; index++) { // 需要实例化2个Loop
+    for (int32_t index = 0; index < MAX_LOOP_NUM; index++) { // 需要实例化2个Loop
         var.loopScratch[index].resize(size);
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
         ccu::Event             e  = ctx.moRes.completedEvent[index];
@@ -271,7 +271,7 @@ static CcuResult ReduceLoopGroup(AllReduceMeshMem2Mem1DContext &ctx, ccu::LocalA
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
         std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
-        ccu::LoopGroup group(ctx.goSize.parallelParam, offsetCfg, 2, grpLoops);
+        ccu::LoopGroup group(ctx.goSize.parallelParam, offsetCfg, MAX_LOOP_NUM, grpLoops);
     }
     return CCU_SUCCESS;
 }
