@@ -27,6 +27,7 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
         return SelectDPUAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
     }
     if (opParam.opExecuteConfig == OpExecuteConfig::CCU_MS) {
+        HCCL_DEBUG("[AutoSelectorBase::Select] : ccu_ms mode");
         ret = SelectCcuMsAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::NOT_MATCH) {
             opParam.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
@@ -35,6 +36,7 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
         }
     }
     if (opParam.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
+        HCCL_DEBUG("[AutoSelectorBase::Select] : CCU_SCHED mode");
         ret = SelectCcuScheduleAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::NOT_MATCH) {
             opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
