@@ -11,6 +11,8 @@
 #include "all_reduce_auto_selector.h"
 #include "selector_registry.h"
 #include "hccl_aiv_utils.h"
+#include "ins_v2_all_reduce_order_preserved_executor.h"
+#include "order_preserved_common.h"
 
 namespace ops_hccl {
 constexpr u64 RS_MAX_DATA_SIZE = 16 * 1024 * 1024;
@@ -35,6 +37,11 @@ SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayer
 {
     (void)configAlgMap;
     HCCL_DEBUG("[AllReduceAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+
+    // 保序模式不支持CCU_MS，需要回退到AICPU
+    CHK_PRT_RET(IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize),
+        HCCL_DEBUG("[AllReduceAutoSelector] DETERMINISTIC_STRICT mode not supported for CCU_MS, fallback to AICPU."),
+        SelectorStatus::NOT_MATCH);
 
     if (topoInfo->topoLevelNums > 1) {
         HCCL_DEBUG("[AllReduceAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
@@ -138,6 +145,12 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     (void)configAlgMap;
     u32 ccuSize = 64;
     HCCL_DEBUG("[AllReduceAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    
+    // 保序模式不支持CCU_SCHED，需要回退到AICPU
+    CHK_PRT_RET(IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize),
+        HCCL_DEBUG("[AllReduceAutoSelector] DETERMINISTIC_STRICT mode not supported for CCU_SCHED, fallback to AICPU."),
+        SelectorStatus::NOT_MATCH);
+    
     // ccu 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_DEBUG("[AllReduceAutoSelector] ReduceOp[%d] is not supported yet for ccu schedule mode.",
@@ -302,6 +315,17 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
 
+    if (IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize)) {
+        CHK_PRT_RET(topoInfo->userRankSize > MAX_RANK_NUM_FOR_ORDER_PRESERVED,
+            HCCL_ERROR("[AllReduceAutoSelector] OrderPreserved mode not supported for rankSize[%u] > %u, "
+                "too many ranks may cause resource exhaustion.", topoInfo->userRankSize, MAX_RANK_NUM_FOR_ORDER_PRESERVED),
+            SelectorStatus::NOT_MATCH);
+        
+        selectAlgName = "AllReduceOrderPreserved";
+        HCCL_INFO("[AllReduceAutoSelector] DETERMINISTIC_STRICT mode, select [%s]", selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
+
     bool isDataTypeOrReduceTypeSpecial = 
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
@@ -452,6 +476,11 @@ SelectorStatus AllReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
 {
     (void)configAlgMap;
     HCCL_DEBUG("[Algo][AllReduceAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    
+    // 保序模式不支持AIV，需要回退到AICPU
+    CHK_PRT_RET(IsNeedStrictModeForOrderPreserved(opParam, topoInfo->userRankSize),
+        HCCL_DEBUG("[Algo][AllReduceAutoSelector] DETERMINISTIC_STRICT mode not supported for AIV, fallback to AICPU."),
+        SelectorStatus::NOT_MATCH);
     
     //aiv 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
