@@ -19,6 +19,7 @@
 #include <sstream>
 #include <algorithm>
 #include "rt_external.h"
+#include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
@@ -518,10 +519,14 @@ static HcclResult GetCurrentDeviceId(s32 &deviceId)
 }
 
 static HcclResult RegisterBinaryKernel(AivDeviceRegistry &registry, const char* funcName,
-    const aclrtBinHandle binHandle, const s8* funcKey)
+    const aclrtBinHandle binHandle, const s8* funcKey, bool overwrite = false)
 {
     if (funcKey == nullptr) {
         return HCCL_E_PARA;
+    }
+
+    if (!overwrite && registry.kernels.find(const_cast<s8*>(funcKey)) != registry.kernels.end()) {
+        return HCCL_SUCCESS;
     }
 
     aclrtFuncHandle funcHandle;
@@ -544,7 +549,7 @@ static HcclResult GetKernelEntry(AivKernelLookupResult &lookupResult, const s8* 
     CHK_RET(GetCurrentDeviceId(deviceId));
     lock_guard<mutex> guard(g_mut);
     auto registryIt = g_aivRegistryByDevice.find(deviceId);
-    if (registryIt == g_aivRegistryByDevice.end() || !registryIt->second.initialized) {
+    if (registryIt == g_aivRegistryByDevice.end()) {
         return HCCL_E_PARA;
     }
 
@@ -597,6 +602,50 @@ static HcclResult ClearDeviceRegistry(AivDeviceRegistry &registry)
     return result;
 }
 
+static HcclResult RegisterKernelList(AivDeviceRegistry &registry, HcclCMDType cmdType,
+    const std::string &aivBinaryName, const std::vector<AivKernelInfo> &aivKernelInfoList, bool overwrite = false)
+{
+    HcclResult ret;
+    aclrtBinHandle binHandle = nullptr;
+    auto binHandleIt = registry.binHandles.find(aivBinaryName);
+    if (binHandleIt != registry.binHandles.end()) {
+        binHandle = binHandleIt->second;
+    } else {
+#ifdef HCCL_STATIC_MODE
+        ret = LoadAivKernelFromEmbed(aivBinaryName, binHandle);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("[AIV][RegisterKernel] load aiv kernel from embedded data failed");
+            return HCCL_E_RUNTIME;
+        }
+#else
+        string binFilePath;
+        ret = GetAivOpBinaryPath(aivBinaryName, binFilePath);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("[AIV][RegisterKernel] get aiv op binary path failed");
+            return HCCL_E_RUNTIME;
+        }
+        ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, binHandle);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("[AIV][RegisterKernel] read aiv kernel bin file failed");
+            return HCCL_E_RUNTIME;
+        }
+#endif
+        registry.binHandles[aivBinaryName] = binHandle;
+    }
+
+    for (auto &aivKernelInfo: aivKernelInfoList) {
+        ret = RegisterBinaryKernel(registry, aivKernelInfo.kernelName, binHandle,
+            GetFuncKey(cmdType, aivKernelInfo.dataType, aivKernelInfo.argsType), overwrite);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("[AIV][RegisterKernel] register binary kernel for kernelName[%s] cmdType[%d] "
+                "dataType[%s] argsType[%d] failed", aivKernelInfo.kernelName, cmdType,
+                GetDataTypeEnumStr(aivKernelInfo.dataType).c_str(), aivKernelInfo.argsType);
+            return HCCL_E_RUNTIME;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
 // Kernel注册入口，每个device只需要初始化一次
 HcclResult RegisterKernel()
 {
@@ -612,60 +661,32 @@ HcclResult RegisterKernel()
     if (registry.initialized) {
         return HCCL_SUCCESS;
     }
-
     for (const auto& item : g_aivKernelInfoMap) {
-        const HcclCMDType cmdType = item.first;
-        const std::string& aivBinaryName = item.second.first;
-        const std::vector<AivKernelInfo>& aivKernelInfoList = item.second.second;
-
-        HcclResult ret;
-        aclrtBinHandle binHandle = nullptr;
-        auto binHandleIt = registry.binHandles.find(aivBinaryName);
-        if (binHandleIt != registry.binHandles.end()) {
-            binHandle = binHandleIt->second;
-        } else {
-#ifdef HCCL_STATIC_MODE
-            ret = LoadAivKernelFromEmbed(aivBinaryName, binHandle);
-            if (ret != HCCL_SUCCESS) {
-                HCCL_ERROR("[AIV][RegisterKernel] load aiv kernel from embedded data failed");
-                ClearDeviceRegistry(registry);
-                return HCCL_E_RUNTIME;
-            }
-#else
-            string binFilePath;
-            ret = GetAivOpBinaryPath(aivBinaryName, binFilePath);
-            if (ret != HCCL_SUCCESS) {
-                HCCL_ERROR("[AIV][RegisterKernel] get aiv op binary path failed");
-                ClearDeviceRegistry(registry);
-                return HCCL_E_RUNTIME;
-            }
-            ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, binHandle);
-            if (ret != HCCL_SUCCESS) {
-                HCCL_ERROR("[AIV][RegisterKernel] read aiv kernel bin file failed");
-                ClearDeviceRegistry(registry);
-                return HCCL_E_RUNTIME;
-            }
-#endif
-            registry.binHandles[aivBinaryName] = binHandle;
-        }
-
-        for (auto &aivKernelInfo: aivKernelInfoList) {
-            ret = RegisterBinaryKernel(registry, aivKernelInfo.kernelName, binHandle,
-                GetFuncKey(cmdType, aivKernelInfo.dataType, aivKernelInfo.argsType));
-            if (ret != HCCL_SUCCESS) {
-                HCCL_ERROR("[AIV][RegisterKernel] register binary kernel for kernelName[%s] cmdType[%d] "
-                    "dataType[%s] argsType[%d] failed", aivKernelInfo.kernelName, cmdType,
-                    GetDataTypeEnumStr(aivKernelInfo.dataType).c_str(), aivKernelInfo.argsType);
-                ClearDeviceRegistry(registry);
-                return HCCL_E_RUNTIME;
-            }
+        HcclResult ret = RegisterKernelList(registry, item.first, item.second.first, item.second.second);
+        if (ret != HCCL_SUCCESS) {
+            ClearDeviceRegistry(registry);
+            return ret;
         }
     }
-
     registry.initialized = true;
+    return HCCL_SUCCESS;
+}
+
+// Kernel注册入口，允许按binary和funcKey增量注册
+HcclResult RegisterKernel(HcclCMDType cmdType, const std::string &aivBinaryName,
+    const std::vector<AivKernelInfo> &aivKernelInfoList)
+{
+    s32 deviceId = 0;
+    CHK_RET(GetCurrentDeviceId(deviceId));
 
     RegisterAivExceptionCallback();
-
+    lock_guard<mutex> guard(g_mut);
+    if (g_unregistering) {
+        HCCL_ERROR("[AIV][RegisterKernel] aiv kernel is unregistering.");
+        return HCCL_E_RUNTIME;
+    }
+    AivDeviceRegistry &registry = g_aivRegistryByDevice[deviceId];
+    CHK_RET(RegisterKernelList(registry, cmdType, aivBinaryName, aivKernelInfoList, true));
     return HCCL_SUCCESS;
 }
 
@@ -953,7 +974,7 @@ HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
         }
     }
 
-    if (opArgs.cmdType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+    if (opArgs.cmdType == HcclCMDType::HCCL_CMD_ALLTOALLV || opArgs.extraArgs.omniInfoAddr != 0) {
         AivExtraKernelArgs aivExtraKernelArgs {
             opArgs.buffersIn, opArgs.input, opArgs.output,
             opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,

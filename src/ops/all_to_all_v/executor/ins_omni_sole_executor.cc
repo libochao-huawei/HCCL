@@ -8,12 +8,31 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <algorithm>
+#include <cstdlib>
 #include <fstream>
+#include <vector>
 #include "template_utils.h"
 #include "ins_omni_sole_executor.h"
 
 
 namespace ops_hccl {
+constexpr uint16_t OMNI_RES_REQUEST_OPCODE = 0;
+constexpr uint16_t OMNI_PRESYNC_OPCODE = 1;
+constexpr uint16_t OMNI_POSTSYNC_OPCODE = 2;
+
+std::string JoinOmniPath(const std::string &basePath, const std::string &fileName)
+{
+    if (basePath.empty()) {
+        return fileName;
+    }
+    const char lastChar = basePath.back();
+    if (lastChar == '\\' || lastChar == '/') {
+        return basePath + fileName;
+    }
+    const char separator = (basePath.find('\\') != std::string::npos) ? '\\' : '/';
+    return basePath + separator + fileName;
+}
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsOmniSoleExecutor()
@@ -39,17 +58,15 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const
     myRank_ = topoInfo->userRank;
     rankSize_ = topoInfo->userRankSize;
     devType_ = topoInfo->deviceType;
-    dataType_ = param.all2AllVDataDes.sendType;
-    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
 
-    devType_ = topoInfo->deviceType;
     dataType_ = param.DataDes.dataType;
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     dataCount_ = param.DataDes.count;
 
-    // dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
-
-    const u64* data = reinterpret_cast<const u64*>(param.varData);
-    dataCount_ = data[0];
+    if (param.varMemSize > 0 && param.varData != nullptr) {
+        const u64* data = reinterpret_cast<const u64*>(param.varData);
+        dataCount_ = data[0];
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
     HCCL_INFO("[InsOmniSoleExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], dataType_ [%u], "
         "dataCount_ [%llu]", myRank_, rankSize_, devType_, dataType_, dataCount_);
@@ -62,212 +79,197 @@ template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo)
 {
-    std::string fileName;
-    if (myRank_ == 0) {
-        fileName = "rank_0.bin";
-    } else if (myRank_ == 1) {
-        fileName = "rank_1.bin";
-    } else if (myRank_ == 2) {
-        fileName = "rank_2.bin";
-    } else if (myRank_ == 3) {
-        fileName = "rank_3.bin";
+    (void)topoInfo;
+    const char *omniBinPath = std::getenv("HCCL_OMNI_BIN_PATH");
+    std::vector<std::string> candidatePaths;
+    if (omniBinPath != nullptr && omniBinPath[0] != '\0') {
+        candidatePaths.emplace_back(JoinOmniPath(omniBinPath, "rank_" + std::to_string(myRank_) + ".bin"));
     }
+    candidatePaths.emplace_back("rank_" + std::to_string(myRank_) + ".bin");
+    candidatePaths.emplace_back("example.bin");
 
-    std::ifstream file(fileName, std::ios::binary);
+    std::ifstream file;
+    std::string selectedPath;
+    for (const auto &candidatePath : candidatePaths) {
+        file.open(candidatePath, std::ios::binary);
+        if (file.is_open()) {
+            selectedPath = candidatePath;
+            break;
+        }
+        file.clear();
+    }
     if (!file) {
-        HCCL_INFO("catn not open file %s", fileName.c_str());
+        HCCL_ERROR("[InsOmniSoleExecutor][ParseXmlInfo] can not open omni bin file, env[%s], rank[%u].",
+            omniBinPath == nullptr ? "" : omniBinPath, myRank_);
         return HCCL_E_PARA;
     }
+    file.seekg(0, std::ios::end);
+    std::streamsize fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+    HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] use omni bin file [%s], fileSize[%lld], rank[%u].",
+        selectedPath.c_str(), static_cast<long long>(fileSize), myRank_);
 
     uint64_t offset = 0;
+    uint32_t instrIdx = 0;
     do {
-        // 读取64位数据
-        uint64_t data;
-        file.seekg(offset); // 定位到正确的偏移位置
-        file.read(reinterpret_cast<char*>(&data), sizeof(data));
-        if (!file) {
-            HCCL_INFO("catn not open file %s", fileName.c_str());
-            return HCCL_E_PARA;
+        file.seekg(offset);
+        uint64_t data = 0;
+        if (!file.read(reinterpret_cast<char*>(&data), sizeof(data))) {
+            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] read failed or EOF at offset[%llu], "
+                "totalInstr[%u].", offset, instrIdx);
+            break;
         }
-
-        HCCL_INFO("111 rank [%u] abb data[%x]", myRank_, data);
+        HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] instr[%u] offset[%llu] raw64[0x%016llX].",
+            instrIdx, offset, data);
 
         uint16_t op = data & 0x1F;
-        HCCL_INFO("111 rank [%u] abc op[%u]", myRank_, op);
 
-        if (op == 0) { // resRequest
-            ResRequest resRequest;
-            resRequest.opCode = op;
-            resRequest.slave = (data >> 5) & 0x1F;
-            resRequest.notifyNumOnMainThread = (data >> 10) & 0x1F;
-            resRequest.notifyNumPerThread = (data >> 15) & 0x1F;
-            resRequest.netLayerNum = (data >> 20) & 0x03; // 2 bits
-            resRequest.chanCount = (data >> 22) & 0xFF;   // 8 bits
+        if (op == OMNI_RES_REQUEST_OPCODE) {
+            uint16_t slaveThreadNum = (data >> 5) & 0x1F;
+            uint16_t notifyNumOnMainThread = (data >> 10) & 0x1F;
+            uint16_t notifyNumPerThread = (data >> 15) & 0x1F;
+            uint16_t netLayer = (data >> 20) & 0x3;
+            uint16_t chanCount = (data >> 22) & 0xFF;
 
-            xmlInfo_.resInfo.slaveThreadNum = resRequest.slave;
-            xmlInfo_.resInfo.notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
-            xmlInfo_.resInfo.notifyNumPerThread = resRequest.notifyNumPerThread;
-            xmlInfo_.resInfo.netLayerNum = resRequest.netLayerNum;
+            uint16_t blockNumAiv = 1;
 
-            HCCL_INFO("rank [%u] slave [%u] notifyNumOnMainThread [%u] notifyNumPerThread [%u] netLayer [%u]  chanCount[%u]", 
-                myRank_, resRequest.slave, resRequest.notifyNumOnMainThread, resRequest.notifyNumPerThread, resRequest.netLayerNum, resRequest.chanCount);
+            xmlInfo_.resInfo.slaveThreadNum = slaveThreadNum;
+            xmlInfo_.resInfo.notifyNumOnMainThread = notifyNumOnMainThread;
+            xmlInfo_.resInfo.notifyNumPerThread = notifyNumPerThread;
+            xmlInfo_.resInfo.netLayerNum = netLayer;
+            xmlInfo_.resInfo.blockNumAiv = blockNumAiv;
+
+            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] RES_REQUEST: slaveThreadNum[%u] "
+                "notifyNumOnMainThread[%u] notifyNumPerThread[%u] netLayer[%u] chanCount[%u] blockNumAiv[%u].",
+                slaveThreadNum, notifyNumOnMainThread, notifyNumPerThread, netLayer, chanCount, blockNumAiv);
 
             offset += sizeof(data);
-            HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
 
-            Channel channel;
             std::map<u32, OmniChannelInfo> mapChannelInfo;
-            for (uint16_t i = 0; i < resRequest.chanCount; i++) {
-                file.seekg(offset); // 定位到正确的偏移位置
-
-                uint32_t channelData;
-                file.read(reinterpret_cast<char*>(&channelData), sizeof(channelData));
-                if (!file) {
-                    HCCL_INFO("catn not open file %s", fileName.c_str());
-                    return HCCL_E_PARA;
+            for (uint16_t i = 0; i < chanCount; i++) {
+                file.seekg(offset);
+                uint32_t channelData = 0;
+                if (!file.read(reinterpret_cast<char*>(&channelData), sizeof(channelData))) {
+                    HCCL_WARNING("[InsOmniSoleExecutor][ParseXmlInfo] channel read failed at chan[%u/%u] offset[%llu].",
+                        i, chanCount, offset);
+                    break;
                 }
 
-                HCCL_INFO("111 rank [%u] channelData[%x]", myRank_, channelData);
-                
-                channel.netlayerId = (channelData >> 0) & 0x1F; // 5 bits
-                channel.localRank = (channelData >> 5) & 0x3FF; // 10 bits
-                channel.remoteRank = (channelData >> 15) & 0x3FF; // 10 bits
-                channel.linkProto = (channelData >> 25) & 0x07; // 7 bits
+                uint16_t netLayerId = (channelData >> 0) & 0x1F;
+                uint16_t localRank = (channelData >> 5) & 0x3FF;
+                uint16_t remoteRank = (channelData >> 15) & 0x3FF;
+                uint16_t linkProto = (channelData >> 25) & 0x7;
+                offset += sizeof(channelData);
 
-                if (channel.localRank != myRank_) {
-                    offset += sizeof(channelData);
-                    HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
+                HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] chan[%u] raw32[0x%08X] netLayerId[%u] "
+                    "localRank[%u] remoteRank[%u] linkProto[%u].",
+                    i, channelData, netLayerId, localRank, remoteRank, linkProto);
+
+                if (localRank != myRank_) {
                     continue;
                 }
 
                 OmniChannelInfo omniChannelInfo;
-                omniChannelInfo.netlayerId = channel.netlayerId;
-                omniChannelInfo.remoteRank = channel.remoteRank;
-                omniChannelInfo.channelProtocol = static_cast<CommProtocol>(channel.linkProto);
-
-                HCCL_INFO("rank [%u] channel [%u] netlayerId [%u] remoteRank[%u] channelProtocol[%u]", 
-                    myRank_, i, channel.netlayerId, channel.remoteRank, channel.linkProto);
-
-                mapChannelInfo[channel.remoteRank] = omniChannelInfo;
-
-                offset += sizeof(channelData);
-                HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
+                omniChannelInfo.netlayerId = netLayerId;
+                omniChannelInfo.remoteRank = remoteRank;
+                omniChannelInfo.channelProtocol = static_cast<CommProtocol>(linkProto);
+                mapChannelInfo[remoteRank] = omniChannelInfo;
             }
-
             xmlInfo_.resInfo.mapchannelInfo.push_back(mapChannelInfo);
-            HCCL_INFO("rank [%u] xmlInfo_.resInfo.mapchannelInfo size[%u]", myRank_, xmlInfo_.resInfo.mapchannelInfo.size());
-        } else if (op == 1 || op == 2) { // PreSyncInterThreads PostSyncInterThreads
-            offset += 8; // ccu用不到，所以这边不解析，跳过64位
-            HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-            HCCL_INFO("rank [%u] op [%u]", myRank_, op);
+        } else if (op == OMNI_PRESYNC_OPCODE || op == OMNI_POSTSYNC_OPCODE) {
+            uint16_t subThreadNum = (data >> 10) & 0x1F;
+            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] %s: subThreadNum[%u] offset[%llu].",
+                op == OMNI_PRESYNC_OPCODE ? "PRESYNC" : "POSTSYNC", subThreadNum, offset);
+            offset += sizeof(data);
+            offset += subThreadNum * sizeof(uint8_t);
         } else {
-            file.seekg(offset); // 定位到正确的偏移位置
+            uint16_t netlayerId = (data >> 5) & 0x3;
+            uint16_t linkProto = (data >> 7) & 0x7;
+            uint16_t sliceNum = (data >> 10) & 0x3FF;
+            uint16_t srcSliceCnt = (data >> 20) & 0xF;
+            uint16_t dstSliceCnt = (data >> 24) & 0xF;
+            uint16_t notifyFlag = (data >> 28) & 0x1;
+            uint16_t notifyThread = (data >> 29) & 0xF;
+            uint16_t waitFlag = (data >> 33) & 0x1;
+            uint16_t waitThread = (data >> 34) & 0xF;
+            uint16_t threadIdx = (data >> 38) & 0x1F;
+            uint16_t reduceType = (data >> 43) & 0x3;
+            uint16_t inputDataType = (data >> 45) & 0xF;
+            uint16_t outputDataType = (data >> 49) & 0xF;
+            uint16_t instructionId = (data >> 53) & 0x3FF;
 
-            uint64_t ctrlData;
-            file.read(reinterpret_cast<char*>(&ctrlData), sizeof(ctrlData));
-            if (!file) {
-                HCCL_INFO("catn not open file %s", fileName.c_str());
-                return HCCL_E_PARA;
-            }
+            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] DATA_INSTR: op[%u] netlayerId[%u] linkProto[%u] "
+                "sliceNum[%u] srcSliceCnt[%u] dstSliceCnt[%u] threadIdx[%u] reduceType[%u] "
+                "inputDataType[%u] outputDataType[%u] instructionId[%u] notifyFlag[%u] notifyThread[%u] "
+                "waitFlag[%u] waitThread[%u].",
+                op, netlayerId, linkProto, sliceNum, srcSliceCnt, dstSliceCnt, threadIdx, reduceType,
+                inputDataType, outputDataType, instructionId, notifyFlag, notifyThread, waitFlag, waitThread);
 
-            HCCL_INFO("111 rank [%u] ctrlData[%x]", myRank_, ctrlData);
-
-            CtrlOp ctrlOp;
-            ctrlOp.opCode = (ctrlData >> 0) & 0x1F; // 5 bits
-            ctrlOp.netlayerId = (ctrlData >> 5) & 0x03; // 2 bits
-            ctrlOp.linkProto = (ctrlData >> 7) & 0x07; // 3 bits
-            ctrlOp.sliceNum = (ctrlData >> 10) & 0x3FF; // 10 bits
-            ctrlOp.srcSliceNum = (ctrlData >> 20) & 0xF; // 4 bits
-            ctrlOp.dstSliceNum = (ctrlData >> 24) & 0xF; // 4 bits
-            ctrlOp.notifyFlag = (ctrlData >> 28) & 0x1; // 1 bits
-            ctrlOp.notifyThread = (ctrlData >> 29) & 0xF; // 4 bits
-            ctrlOp.waitFlag = (ctrlData >> 33) & 0x1; // 1 bits
-            ctrlOp.waitThread = (ctrlData >> 34) & 0xF; // 4 bits
-            ctrlOp.threadIdx = (ctrlData >> 38) & 0x1F; // 5 bits
-            ctrlOp.reduceType = (ctrlData >> 43) & 0x03; // 2 bits
-            ctrlOp.inputDataType = (ctrlData >> 45) & 0xF; // 4 bits
-            ctrlOp.outputDataType = (ctrlData >> 49) & 0xF; // 4 bits
-            ctrlOp.instructionId = (ctrlData >> 53) & 0x3FF; // 10 bits
-
-            offset += sizeof(ctrlData);
-            HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
+            (void)linkProto;
+            (void)notifyFlag;
+            (void)notifyThread;
+            (void)waitFlag;
+            (void)waitThread;
+            (void)instructionId;
 
             OmniSendRecvInfo omniSendRecvInfo;
-            omniSendRecvInfo.optype = static_cast<OpType>(ctrlOp.opCode);
-            omniSendRecvInfo.inputDataType = static_cast<HcclDataType>(ctrlOp.inputDataType);
-            omniSendRecvInfo.outputDataType = static_cast<HcclDataType>(ctrlOp.outputDataType);
-            omniSendRecvInfo.reduceType = static_cast<HcclReduceOp>(ctrlOp.reduceType);
-            omniSendRecvInfo.sliceNum = ctrlOp.sliceNum;
-            omniSendRecvInfo.threadIdx = ctrlOp.threadIdx;
-            omniSendRecvInfo.netlayerId = ctrlOp.netlayerId;
-            HCCL_INFO("rank [%u] op [%u] sliceNum [%u] netlayerId [%u] threadIdx [%u]", 
-                myRank_, omniSendRecvInfo.optype, omniSendRecvInfo.sliceNum, omniSendRecvInfo.netlayerId, omniSendRecvInfo.threadIdx);
+            omniSendRecvInfo.optype = static_cast<OpType>(op);
+            omniSendRecvInfo.inputDataType = static_cast<HcclDataType>(inputDataType);
+            omniSendRecvInfo.outputDataType = static_cast<HcclDataType>(outputDataType);
+            omniSendRecvInfo.reduceType = static_cast<HcclReduceOp>(reduceType);
+            omniSendRecvInfo.sliceNum = sliceNum;
+            omniSendRecvInfo.netlayerId = netlayerId;
+            omniSendRecvInfo.threadIdx = threadIdx;
 
-            
+            offset += sizeof(data);
 
-            for (uint16_t i = 0; i < ctrlOp.srcSliceNum; i++) {
-                OmniSliceInfo omniSliceInfo;
-                file.seekg(offset); // 定位到正确的偏移位置
-
-                uint32_t srcData;
-                file.read(reinterpret_cast<char*>(&srcData), sizeof(srcData));
-                if (!file) {
-                    HCCL_INFO("catn not open file %s", fileName.c_str());
-                    return HCCL_E_PARA;
+            for (uint16_t i = 0; i < srcSliceCnt; i++) {
+                file.seekg(offset);
+                uint32_t srcData = 0;
+                if (!file.read(reinterpret_cast<char*>(&srcData), sizeof(srcData))) {
+                    HCCL_WARNING("[InsOmniSoleExecutor][ParseXmlInfo] srcSlice read failed at [%u/%u] offset[%llu].",
+                        i, srcSliceCnt, offset);
+                    break;
                 }
-
-                HCCL_INFO("111 rank [%u] srcData[%x]", myRank_, srcData);
-
-                SrcSlice srcSlice;
-                srcSlice.bufferType = (srcData >> 0) & 0x03; // 2 bits
-                srcSlice.sliceIdx = (srcData >> 2) & 0x3FF; // 10 bits
-                srcSlice.rankId = (srcData >> 12) & 0x3FF; // 10 bits
-                
-                omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(srcSlice.bufferType);
-                omniSliceInfo.sliceIdx = srcSlice.sliceIdx;
-                omniSliceInfo.remoteRank = srcSlice.rankId;
-                omniSendRecvInfo.srcSliceInfo.push_back(omniSliceInfo);
-                HCCL_INFO("rank [%u] srcSlice srcBufferType [%u] sliceIdx [%u] rankId [%u]", 
-                    myRank_, omniSliceInfo.sliceType, omniSliceInfo.sliceIdx, omniSliceInfo.remoteRank);
-
                 offset += sizeof(srcData);
-                HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-                
+
+                OmniSliceInfo omniSliceInfo;
+                omniSliceInfo.sliceType = static_cast<BufferTypeTmp>((srcData >> 0) & 0x3);
+                omniSliceInfo.sliceIdx = (srcData >> 2) & 0x3FF;
+                omniSliceInfo.remoteRank = (srcData >> 12) & 0x3FF;
+                HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] srcSlice[%u] raw32[0x%08X] sliceType[%u] "
+                    "sliceIdx[%u] remoteRank[%u].",
+                    i, srcData, static_cast<uint32_t>(omniSliceInfo.sliceType), omniSliceInfo.sliceIdx, omniSliceInfo.remoteRank);
+                omniSendRecvInfo.srcSliceInfo.push_back(omniSliceInfo);
             }
 
-            for (uint16_t i = 0; i < ctrlOp.dstSliceNum; i++) {
-                OmniSliceInfo omniSliceInfo;
-                file.seekg(offset); // 定位到正确的偏移位置
-
-                uint32_t dstData;
-                file.read(reinterpret_cast<char*>(&dstData), sizeof(dstData));
-                if (!file) {
-                    HCCL_INFO("catn not open file %s", fileName.c_str());
-                    return HCCL_E_PARA;
+            for (uint16_t i = 0; i < dstSliceCnt; i++) {
+                file.seekg(offset);
+                uint32_t dstData = 0;
+                if (!file.read(reinterpret_cast<char*>(&dstData), sizeof(dstData))) {
+                    HCCL_WARNING("[InsOmniSoleExecutor][ParseXmlInfo] dstSlice read failed at [%u/%u] offset[%llu].",
+                        i, dstSliceCnt, offset);
+                    break;
                 }
-
-                HCCL_INFO("111 rank [%u] dstData[%x]", myRank_, dstData);
-
-                DstSlice dstSlice;
-                dstSlice.bufferType = (dstData >> 0) & 0x03; // 2 bits
-                dstSlice.sliceIdx = (dstData >> 2) & 0x3FF; // 10 bits
-                dstSlice.rankId = (dstData >> 12) & 0x3FF; // 10 bits
-                
-                omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(dstSlice.bufferType);
-                omniSliceInfo.sliceIdx = dstSlice.sliceIdx;
-                omniSliceInfo.remoteRank = dstSlice.rankId;
-                omniSendRecvInfo.dstSliceInfo.push_back(omniSliceInfo);
-                HCCL_INFO("rank [%u] dstSlice srcBufferType [%u] sliceIdx [%u] rankId [%u]", 
-                    myRank_, omniSliceInfo.sliceType, omniSliceInfo.sliceIdx, omniSliceInfo.remoteRank);
-
                 offset += sizeof(dstData);
-                HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
+
+                OmniSliceInfo omniSliceInfo;
+                omniSliceInfo.sliceType = static_cast<BufferTypeTmp>((dstData >> 0) & 0x3);
+                omniSliceInfo.sliceIdx = (dstData >> 2) & 0x3FF;
+                omniSliceInfo.remoteRank = (dstData >> 12) & 0x3FF;
+                HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] dstSlice[%u] raw32[0x%08X] sliceType[%u] "
+                    "sliceIdx[%u] remoteRank[%u].",
+                    i, dstData, static_cast<uint32_t>(omniSliceInfo.sliceType), omniSliceInfo.sliceIdx, omniSliceInfo.remoteRank);
+                omniSendRecvInfo.dstSliceInfo.push_back(omniSliceInfo);
             }
             xmlInfo_.vecSendRecvInfo.push_back(omniSendRecvInfo);
         }
-        
-        HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-    } while(file.peek() != EOF);
+        instrIdx++;
+    } while (file.peek() != EOF);
+
+    HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] parse done. totalInstr[%u] vecSendRecvInfo.size[%zu] "
+        "mapchannelInfo.size[%zu] finalOffset[%llu].",
+        instrIdx, xmlInfo_.vecSendRecvInfo.size(), xmlInfo_.resInfo.mapchannelInfo.size(), offset);
 
     return HCCL_SUCCESS;
 }
@@ -340,13 +342,22 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
     }
     if (param.engine == COMM_ENGINE_CCU) {
         templateAlgRes.ccuKernels = resCtx.ccuKernels;
+    } else if (param.engine == COMM_ENGINE_AIV) {
+        templateAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
     }
     templateAlgRes.threads = resCtx.threads;
 
-    //计算loop  ccu 不用cclbuff，根据UB_MAX_DATA_SIZE来计算
     u64 maxCountPerLoop = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
+    if (param.engine == COMM_ENGINE_AIV) {
+        maxCountPerLoop = std::max<u64>(1, resCtx.cclMem.size / dataTypeSize_);
+    }
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
     HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop]loopTimes = [%u]", loopTimes);
+
+    HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop] engine[%u] dataCount_[%llu] dataTypeSize_[%u] "
+        "maxCountPerLoop[%llu] cclMem.size[%llu] inputPtr[%p] outputPtr[%p] aivCommInfoPtr[%p].",
+        static_cast<u32>(param.engine), dataCount_, dataTypeSize_, maxCountPerLoop,
+        resCtx.cclMem.size, param.inputPtr, param.outputPtr, resCtx.aivCommInfoPtr);
 
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
@@ -356,15 +367,35 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
         tempAlgParams.buffInfo.inputPtr = param.inputPtr;
         tempAlgParams.buffInfo.outputPtr = param.outputPtr;
         tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
-        tempAlgParams.sliceSize = currDataCount * dataTypeSize_ / xmlInfo_.vecSendRecvInfo[0].sliceNum * 4;
+        tempAlgParams.sliceSize = currDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
-        tempAlgParams.repeatNum = 1;  // 不需要重复
+        tempAlgParams.repeatNum = 1;
         tempAlgParams.inputRepeatStride = 0;
         tempAlgParams.outputRepeatStride = 0;
+        if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER) {
+            tempAlgParams.inputSliceStride = dataCount_ * dataTypeSize_;
+            tempAlgParams.outputSliceStride = dataCount_ * dataTypeSize_;
+        }
         tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
         tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
+
+        u64 maxSliceNum = 1;
+        for (const auto &info : xmlInfo_.vecSendRecvInfo) {
+            if (info.sliceNum > maxSliceNum) {
+                maxSliceNum = info.sliceNum;
+            }
+        }
+        tempAlgParams.count = currDataCount * maxSliceNum;
+
+        HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop] loop[%u/%u] currDataCount[%llu] "
+            "maxSliceNum[%llu] tempAlgParams.count[%llu] sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] vecSendRecvInfo.size[%zu].",
+            static_cast<u32>(loop), loopTimes, currDataCount,
+            maxSliceNum, tempAlgParams.count, tempAlgParams.sliceSize,
+            tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff,
+            xmlInfo_.vecSendRecvInfo.size());
+
         CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
         processedDataCount += currDataCount;
     }
@@ -378,5 +409,17 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
                 InsOmniSoleExecutor,
                 TopoMatch1D,
                 CcuTempOmni);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
+                AivHcclOmni,
+                InsOmniSoleExecutor,
+                TopoMatch1D,
+                AivTempOmni);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER,
+                AivHcclOmni,
+                InsOmniSoleExecutor,
+                TopoMatch1D,
+                AivTempOmni);
 
 }
