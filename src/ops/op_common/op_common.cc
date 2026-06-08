@@ -408,13 +408,16 @@ HcclResult ExecuteAivCacheLogic(HcclComm comm, OpParam &param, const std::string
         if (cacheHit) {
             return HCCL_SUCCESS;
         }
+
         // Miss, continue start recording
         g_recordingQueue = std::make_shared<InsQueue>();
         g_baseInputAddr = reinterpret_cast<u64>(param.inputPtr);
         g_baseOutputAddr = reinterpret_cast<u64>(param.outputPtr);
     }
 
+    g_aivCurrentCclBufferSize = resCtxHost.cclMem.size;
     CHK_RET(executor->Orchestrate(param, resCtxHost));
+    g_aivCurrentCclBufferSize = 0;
 
     // 插入cache
     if (useCache && g_recordingQueue) {
