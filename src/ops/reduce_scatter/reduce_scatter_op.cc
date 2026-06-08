@@ -74,6 +74,11 @@ HcclResult HcclReduceScatterGraphMode(void *sendBuf, void *recvBuf, uint64_t rec
  	     size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclReduceScatterGraphMode");
+    // 校验scratch内存参数
+    CHK_PRT_RET(scratchMemAddr == nullptr, 
+                HCCL_ERROR("[HcclReduceScatterGraphMode]scratchMemAddr is nullptr"), HCCL_E_PARA);
+    CHK_PRT_RET(scratchMemSize == 0, 
+                HCCL_ERROR("[HcclReduceScatterGraphMode]scratchMemSize is 0"), HCCL_E_PARA);
     HcclComm comm = nullptr;
     HcomGetCommHandleByGroup(group, &comm);
     HCCL_INFO("[HcclReduceScatterGraphMode] get group name: %s", group);

@@ -1056,9 +1056,9 @@ HcclResult ReuseCachedDeviceCtx(HcclComm comm, const OpParam &param, void **resC
 
 HcclResult IncrementalCreateChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     AlgResourceCtxSerializable &hostCtxObj, const std::string &hostCacheTag, void **resCtxSequence,
-    uint64_t &ctxSize)
+    uint64_t &ctxSize, const ResPackGraphMode &resPack)
 {
-    HcclResult ret = HcclGetChannel(comm, param, resRequest, &hostCtxObj);
+    HcclResult ret = HcclGetChannel(comm, param, resRequest, &hostCtxObj, resPack);
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to incrementally create channel."), ret);
     ret = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
     if (ret != HCCL_SUCCESS) {
@@ -1132,7 +1132,7 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
             return ReuseCachedDeviceCtx(comm, param, resCtxSequence, ctxSize);
         }
         CHK_RET(IncrementalCreateChannel(comm, param, resRequest, hostCtxObj, hostCacheTag,
-            resCtxSequence, ctxSize));
+            resCtxSequence, ctxSize, resPack));
     }
 
     HCCL_INFO("Execute GetAlgResAICPU success.");
@@ -1162,15 +1162,20 @@ HcclResult HcclAllocAlgResourceAICPU(
     HCCL_INFO("Start to execute AllocAlgResource.");
     void *cclBufferAddr;
     uint64_t cclBufferSize;
-    // 从通信域获取CCL buffer
-    CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
+    // 图模式下使用resPack中的scratch内存，非图模式从通信域获取CCL buffer
+    if (param.opMode == OpMode::OFFLOAD) {
+        cclBufferAddr = resPack.scratchMemAddr;
+        cclBufferSize = resPack.scratchMemSize;
+    } else {
+        CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
+    }
     // CCL IN使用所有的CCL Buffer，这个其实就是scratch buffer
     resCtxHost->cclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, cclBufferAddr, cclBufferSize};
     resCtxHost->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost, resPack));
-    CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost.get()));
+    CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost.get(), resPack));
     return HCCL_SUCCESS;
 }
 
@@ -1325,12 +1330,12 @@ HcclResult GetMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle &
 }
 
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-                          AlgResourceCtxSerializable* resCtxHost)
+                          AlgResourceCtxSerializable* resCtxHost, const ResPackGraphMode &resPack)
 {
     MemRegInfo memRegInfo;
     if (param.opMode == OpMode::OFFLOAD) {
         HCCL_INFO("[HcclGetChannelImpl] start to RegGraphModeBuffers");
-        CHK_RET(RegGraphModeBuffers(comm, param, memRegInfo.inputBuffTag, memRegInfo.outputBuffTag, memRegInfo.memHandles));
+        CHK_RET(RegGraphModeBuffers(comm, param, memRegInfo, resPack));
     }
     resCtxHost->channels.resize(resRequest.channels.size());
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
@@ -1401,24 +1406,26 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
 #endif
         void* remoteCclBufferAddr = nullptr;
         uint64_t remoteCclBufferSize = 0;
-        CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
-        channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
-        HCCL_INFO("[%s]remoteRank[%u] protocol[%u] remoteCclBufferAddr[0x%llx] remoteCclBufferSize[%u]",
-            __func__, channelDescNew.remoteRank,channelDescNew.channelProtocol, remoteCclBufferAddr, remoteCclBufferSize);
-
         if (param.opMode == OpMode::OFFLOAD) {
-            CHK_RET(GetGraphModeBuffers(comm, levelNChannels[idx], memRegInfo.inputBuffTag, memRegInfo.outputBuffTag, channel));
+            CHK_RET(GetGraphModeBuffers(comm, levelNChannels[idx], memRegInfo, channel));
+        } else {
+            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
+            channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
         }
+        HCCL_INFO("[%s]remoteRank[%u] protocol[%u] remoteCclBufferAddr[0x%llx] remoteCclBufferSize[%u]",
+            __func__, channelDescNew.remoteRank,channelDescNew.channelProtocol, channel.remoteCclMem.addr, channel.remoteCclMem.size);
         resCtxHost->channels[level].push_back(channel);
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param,char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles) {
+HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, MemRegInfo& memRegInfo, const ResPackGraphMode &resPack) {
     HCCL_INFO("[RegGraphModeBuffers] param.tag[%s]", param.tag);
-    auto retIn = sprintf_s(inputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.tag, "InputBuffer");
-    auto retOut =  sprintf_s(outputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.tag, "OutputBuffer");
-    if (retIn <= 0 || retOut <= 0){
+
+    auto retIn = sprintf_s(memRegInfo.inputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.tag, "InputBuffer");
+    auto retOut =  sprintf_s(memRegInfo.outputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.tag, "OutputBuffer");
+    auto retScratch = sprintf_s(memRegInfo.scratchBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.tag, "ScratchBuffer");
+    if (retIn <= 0 || retOut <= 0 || retScratch <= 0){
         HCCL_ERROR("[RegGraphModeBuffers]failed to fill BuffTag");
         return HcclResult::HCCL_E_INTERNAL;
     }
@@ -1426,33 +1433,47 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param,char* inputBu
     HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buuffer");
     if (param.inputPtr != nullptr && param.inputSize != 0) {
         HcclMemHandle inputHandle = nullptr;
-        CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
+        CHK_RET(HcclRegstryBuff(comm, memRegInfo.inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
         CHK_PTR_NULL(inputHandle);
-        memHandles.emplace_back(inputHandle);
+        memRegInfo.memHandles.emplace_back(inputHandle);
     }
     if (param.outputPtr != nullptr && param.outputSize != 0) {
         HcclMemHandle outputHandle = nullptr;
-        CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
+        CHK_RET(HcclRegstryBuff(comm, memRegInfo.outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
         CHK_PTR_NULL(outputHandle);
-        memHandles.emplace_back(outputHandle);
+        memRegInfo.memHandles.emplace_back(outputHandle);
     }
-    HCCL_INFO("[RegGraphModeBuffers]memHandles size[%d]", memHandles.size());
+    // 注册scratch内存
+    if (resPack.scratchMemAddr != nullptr && resPack.scratchMemSize != 0) {
+        HcclMemHandle scratchHandle = nullptr;
+        CHK_RET(HcclRegstryBuff(comm, memRegInfo.scratchBuffTag, resPack.scratchMemAddr, resPack.scratchMemSize, &scratchHandle));
+        CHK_PTR_NULL(scratchHandle);
+        memRegInfo.memHandles.emplace_back(scratchHandle);
+    }
+    HCCL_INFO("[RegGraphModeBuffers]memHandles size[%d]", memRegInfo.memHandles.size());
     return HCCL_SUCCESS;
 }
 
-HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const char* inputBuffTag, const char* outputBuffTag, ChannelInfo& channel) {
+HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const MemRegInfo& memRegInfo, ChannelInfo& channel) {
     void* remoteInputBufferAddr = nullptr;
     uint64_t remoteInputBufferSize = 0;
-    CHK_RET(HcclGetRemoteBuff(comm, channelHandle, inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
+    CHK_RET(HcclGetRemoteBuff(comm, channelHandle, memRegInfo.inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
     if (remoteInputBufferAddr != nullptr && remoteInputBufferSize > 0) {
         channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
     }
 
     void* remoteOutputBufferAddr = nullptr;
     uint64_t remoteOutputBufferSize = 0;
-    CHK_RET(HcclGetRemoteBuff(comm, channelHandle, outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
+    CHK_RET(HcclGetRemoteBuff(comm, channelHandle, memRegInfo.outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
     if (remoteOutputBufferAddr != nullptr && remoteOutputBufferSize > 0) {
         channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
+    }
+
+    void* remoteScratchBufferAddr = nullptr;
+    uint64_t remoteScratchBufferSize = 0;
+    CHK_RET(HcclGetRemoteBuff(comm, channelHandle, memRegInfo.scratchBuffTag, &remoteScratchBufferAddr, &remoteScratchBufferSize));
+    if (remoteScratchBufferAddr != nullptr && remoteScratchBufferSize > 0) {
+        channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteScratchBufferAddr, remoteScratchBufferSize};
     }
     return HCCL_SUCCESS;
 }
