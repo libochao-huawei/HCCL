@@ -376,7 +376,7 @@ HcclResult InsTempAlltoAllMeshClosV3::RunAlltoAllOnLink(
             HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos] linkIdx[%u] peer %u timed out. "
                          "myRank=%d templateRank=%u",
                          linkIdx, connectedRank, myRank_, templateRankSize_);
-            continue;
+            return HCCL_SUCCESS;
         }
 
         if (dmaResult != HCCL_SUCCESS) {
