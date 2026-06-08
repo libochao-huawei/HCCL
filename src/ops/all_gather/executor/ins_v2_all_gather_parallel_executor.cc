@@ -396,27 +396,12 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     u64 interScratchOffset = scratchMultipleIntra * scratchMemBlockSize;
 
     u64 maxCountPerLoop =
-        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_ / 10) * 10;
+        std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_;
+    CHK_PRT_RET(maxCountPerLoop == 0,
+                HCCL_ERROR("[InsV2AllGatherParallelExecutor][OrchestrateLoop] maxCountPerLoop is 0"),
+                HcclResult::HCCL_E_INTERNAL);
 
-    // ============ 循环前的数据对齐操作 ============
-    u64 alignSize = AICPU_ALIGN_SIZE; // 用于4k对齐
-    
-    // 根据 dataSplitSize 计算两块数据的大小
-    u64 dataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * maxCountPerLoop);
-    u64 dataCountPerLoopAixs1 = maxCountPerLoop - dataCountPerLoopAixs0;
-    
-    // 对两块数据分别进行4K对齐（向下取整）
-    if (dataCountPerLoopAixs0 * dataTypeSize_ >= alignSize) {
-        dataCountPerLoopAixs0 = dataCountPerLoopAixs0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
-    }
-    if (dataCountPerLoopAixs1 * dataTypeSize_ >= alignSize) {
-        dataCountPerLoopAixs1 = dataCountPerLoopAixs1 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
-    }
-    
-    // 用对齐后的数据量之和重新刷新 maxCountPerLoop
-    maxCountPerLoop = dataCountPerLoopAixs0 + dataCountPerLoopAixs1;
-    // ====================================================
-
+    u64 alignSize = AICPU_ALIGN_SIZE;
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
 
     TemplateResource interTempAlgRes;
@@ -446,28 +431,35 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         interTempAlgRes.channels = interLinkMap_;
     }
     
-    // 新增：声明尾块变量
-    u64 finalDataCountPerLoopAixs0 = dataCountPerLoopAixs0;
-    u64 finalDataCountPerLoopAixs1 = dataCountPerLoopAixs1;
-    
-    // 如果存在尾块，单独计算尾块的对齐
-    if (loopTimes > 1) {
-        u64 finalCount = dataCount_ - (loopTimes - 1) * maxCountPerLoop;
-        finalDataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * finalCount);
-        finalDataCountPerLoopAixs1 = finalCount - finalDataCountPerLoopAixs0;
-    } else {
-        finalDataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * dataCount_);
-        finalDataCountPerLoopAixs1 = dataCount_ - finalDataCountPerLoopAixs0;
-    }
+    u64 processedCount = 0;
+    u32 loopIndex = 0;
+    while (processedCount < dataCount_) {
+        u64 remainingCount = dataCount_ - processedCount;
+        u32 remainingLoopTimes = (loopIndex < loopTimes) ? (loopTimes - loopIndex) : 1;
+        u64 currCount = (remainingCount + remainingLoopTimes - 1) / remainingLoopTimes;
+        currCount = std::min(currCount, maxCountPerLoop);
+        u64 currCountPart0 = static_cast<u64>(dataSplitSize[0] * currCount);
+        u64 currCountPart1 = currCount - currCountPart0;
 
-    for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
-        // 使用预计算的对齐后数据量
-        u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs0 : dataCountPerLoopAixs0;
-        u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs1 : dataCountPerLoopAixs1;
-        
+        if (remainingLoopTimes > 1) {
+            // 对两块数据分别进行4K对齐（向下取整）
+            if (currCountPart0 * dataTypeSize_ >= alignSize) {
+                currCountPart0 = currCountPart0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+            }
+            if (currCountPart1 * dataTypeSize_ >= alignSize) {
+                currCountPart1 = currCountPart1 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+            }
+        } else {
+            currCountPart0 = static_cast<u64>(dataSplitSize[0] * currCount);
+            currCountPart1 = currCount - currCountPart0;
+        }
+        CHK_PRT_RET(currCountPart0 + currCountPart1 == 0,
+                    HCCL_ERROR("[InsV2AllGatherParallelExecutor][OrchestrateLoop] currCount is 0"),
+                    HcclResult::HCCL_E_INTERNAL);
+
         // 第一步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
-        u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
+        u64 dataOffset0 = processedCount * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
         // 数据0的server内的mesh算法
         GenTemplateAlgParamsIntra0(param, resCtx, dataOffset0, currCountPart0, intraScratchOffset,
@@ -500,6 +492,9 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes));
         // 尾同步
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+
+        processedCount += currCountPart0 + currCountPart1;
+        loopIndex++;
     }
 #ifndef AICPU_COMPILE
     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
