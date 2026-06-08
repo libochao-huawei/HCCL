@@ -10,16 +10,12 @@
 
 #include "hccl_res_expt_dl.h"
 #include <dlfcn.h>
-#include <cstdio>
-#include <cstdlib>
 
 DEFINE_WEAK_FUNC(HcclResult, HcclCommAddExchangeInfo, HcclComm comm, const void *data, uint32_t length);
 DEFINE_WEAK_FUNC(HcclResult, HcclCommGetExchangeInfo, HcclComm comm, uint32_t remoteRank, uint32_t length, void *data,
     uint32_t *actualLength);
-DEFINE_WEAK_FUNC(HcclResult, HcclCommResetExchangeInfo, HcclComm comm);
 
 void HcclResExptDlInit(void *libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcclCommAddExchangeInfo);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclCommGetExchangeInfo);
-    INIT_SUPPORT_FLAG(libHcommHandle, HcclCommResetExchangeInfo);
 }

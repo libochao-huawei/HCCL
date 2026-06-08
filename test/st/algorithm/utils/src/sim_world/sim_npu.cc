@@ -17,6 +17,7 @@
 namespace HcclSim {
 uint32_t notifyIdGen = 0;
 uint32_t streamIdGen = 0;
+uint64_t memAddrGen = SIM_MEM_BLOCK_SIZE;
 std::map<BufferType, uint32_t> g_BufferType2Index = {
     {BufferType::INPUT, 0},
     {BufferType::OUTPUT, 1},
@@ -35,21 +36,20 @@ void SimNpu::InitSimNpuRes(const NpuPos& pos)
 void SimNpu::InitMemLayOut()
 {
     memLayout_.clear();
-    static uint64_t addr = SIM_MEM_BLOCK_SIZE;
-    uint64_t startAddr = (uint64_t)addr & SIM_MEM_MASKER;
-    MemBlock inMemBlock{BufferType::INPUT, addr, 0};
+    uint64_t startAddr = (uint64_t)memAddrGen & SIM_MEM_MASKER;
+    MemBlock inMemBlock{BufferType::INPUT, memAddrGen, 0};
     memLayout_.push_back(inMemBlock);
-    addr += SIM_MEM_BLOCK_SIZE;
+    memAddrGen += SIM_MEM_BLOCK_SIZE;
 
-    startAddr = (uint64_t)addr & SIM_MEM_MASKER;
-    MemBlock outMemBlock{BufferType::OUTPUT, addr, 0};
+    startAddr = (uint64_t)memAddrGen & SIM_MEM_MASKER;
+    MemBlock outMemBlock{BufferType::OUTPUT, memAddrGen, 0};
     memLayout_.push_back(outMemBlock);
-    addr += SIM_MEM_BLOCK_SIZE;
+    memAddrGen += SIM_MEM_BLOCK_SIZE;
 
-    startAddr = (uint64_t)addr & SIM_MEM_MASKER;
-    MemBlock cclMemBlock{BufferType::CCL, addr, (uint64_t)SIZE_200MB};
+    startAddr = (uint64_t)memAddrGen & SIM_MEM_MASKER;
+    MemBlock cclMemBlock{BufferType::CCL, memAddrGen, (uint64_t)SIZE_200MB};
     memLayout_.push_back(cclMemBlock);
-    addr += SIM_MEM_BLOCK_SIZE;
+    memAddrGen += SIM_MEM_BLOCK_SIZE;
 }
 
 void SimNpu::InitStreamRes()

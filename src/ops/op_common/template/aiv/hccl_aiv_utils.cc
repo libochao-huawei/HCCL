@@ -15,6 +15,10 @@
 #include <fstream>
 #include <limits>
 #include <unordered_map>
+#include <deque>
+#include <sstream>
+#include <algorithm>
+#include "rt_external.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
@@ -26,6 +30,9 @@
 
 using namespace std;
 using namespace ops_hccl;
+
+extern "C" rtError_t rtRegTaskFailCallbackByModule(const char_t *moduleName,
+    rtTaskFailCallback callback) __attribute__((weak));
 
 #ifdef HCCL_STATIC_MODE
 // 静态库模式下，AIV kernel `.o` 已通过 `ld -r -b binary` 内嵌进 libhccl_static.a。
@@ -113,6 +120,10 @@ constexpr u32 AIV_BUFFER_PING_PONG_FACTOR = 2;
 constexpr u32 MAX_BIN_FILE_SIZE = 100 * 1024 * 1024; // 最大读取100m的bin file到string中
 
 constexpr s32 RESET_TAIL_SYNC_TAG = 2;
+constexpr u32 AIV_TASK_CONTEXT_SIZE = 50;
+constexpr u32 AIV_TASK_QUEUE_LIMIT = 2048;
+constexpr u32 AIV_FLAG_UB_ALIGN_SIZE = 32;
+constexpr u32 AIV_FLAG_PRINT_SIZE = 4096;
 
 static mutex g_mut;
 static condition_variable g_launchCv;
@@ -143,6 +154,160 @@ struct AivDeviceRegistry {
 };
 
 static std::unordered_map<s32, AivDeviceRegistry> g_aivRegistryByDevice;
+struct TaskParamAiv {
+    u64 taskId = 0;
+    u64 streamId = 0;
+    HcclCMDType cmdType = HcclCMDType::HCCL_CMD_INVALID;
+    u32 tag = 0;
+    u64 size = 0;
+    u32 blockDim = 0;
+    u32 rankSize = 0;
+    s32 aivRdmaStep = 0;
+    void *flagMem = nullptr;
+    u32 rank = 0;
+    bool isOpbase = false;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_RESERVED;
+    uint64_t beginTime = 0;
+};
+
+static mutex g_aivTaskMutex;
+static std::unordered_map<u64, std::deque<TaskParamAiv>> g_aivTaskByStream;
+
+thread_local HcclComm g_aivCurrentComm = nullptr;
+thread_local std::string g_aivCurrentCommName;
+
+static void RegisterAivExceptionCallback()
+{
+    if (rtRegTaskFailCallbackByModule == nullptr) {
+        HCCL_INFO("[AIV][RegisterAivExceptionCallback] runtime callback registration is not supported.");
+        return;
+    }
+    rtError_t rtRet = rtRegTaskFailCallbackByModule("HCCL_OPS", ProcessAivExceptionCallBack);
+    if (rtRet != RT_ERROR_NONE) {
+        HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", rtRet);
+    } else {
+        HCCL_INFO("[AIV][RegisterAivExceptionCallback] register callback success.");
+    }
+}
+
+static HcclResult SaveAivDfxTaskInfo(const AivOpArgs &opArgs)
+{
+    u32 taskId = 0;
+    u32 streamId = 0;
+    rtError_t rtRet = rtGetTaskIdAndStreamID(&taskId, &streamId);
+    CHK_PRT_RET(rtRet != RT_ERROR_NONE,
+        HCCL_ERROR("[AIV][SaveAivDfxTaskInfo] rtGetTaskIdAndStreamID failed, ret[%d].", rtRet), HCCL_E_RUNTIME);
+
+    TaskParamAiv taskInfo;
+    taskInfo.taskId = taskId;
+    taskInfo.streamId = streamId;
+    taskInfo.cmdType = opArgs.cmdType;
+    taskInfo.tag = opArgs.sliceId;
+    taskInfo.size = opArgs.count;
+    taskInfo.blockDim = opArgs.numBlocks;
+    taskInfo.rankSize = opArgs.rankSize;
+    taskInfo.aivRdmaStep = 0;
+    taskInfo.flagMem = static_cast<void *>(opArgs.buffersIn == nullptr ? nullptr :
+        static_cast<u8 *>(opArgs.buffersIn) + AIV_FLAG_ADDR_OFFSET);
+    taskInfo.rank = opArgs.rank;
+    taskInfo.isOpbase = opArgs.isOpBase;
+    taskInfo.reduceOp = opArgs.op;
+    taskInfo.dataType = opArgs.dataType;
+    taskInfo.beginTime = opArgs.beginTime;
+
+    HCCL_INFO("Begin to SaveAivDfxTaskInfo taskType[%d]", static_cast<int32_t>(opArgs.cmdType));
+    std::lock_guard<mutex> lock(g_aivTaskMutex);
+    auto &taskQueue = g_aivTaskByStream[streamId];
+    taskQueue.push_back(taskInfo);
+    if (taskQueue.size() > AIV_TASK_QUEUE_LIMIT) {
+        taskQueue.pop_front();
+    }
+    return HCCL_SUCCESS;
+}
+
+static bool FindAivTask(u32 streamId, u32 taskId, TaskParamAiv &taskInfo, std::deque<TaskParamAiv> &taskQueue)
+{
+    std::lock_guard<mutex> lock(g_aivTaskMutex);
+    auto streamIt = g_aivTaskByStream.find(streamId);
+    if (streamIt == g_aivTaskByStream.end()) {
+        return false;
+    }
+    auto taskIt = std::find_if(streamIt->second.begin(), streamIt->second.end(),
+        [taskId](const TaskParamAiv &task) { return task.taskId == taskId; });
+    if (taskIt == streamIt->second.end()) {
+        return false;
+    }
+    taskInfo = *taskIt;
+    taskQueue.assign(streamIt->second.begin(), std::next(taskIt));
+    return true;
+}
+
+static std::string SerializeAivFlag(const TaskParamAiv &taskInfo)
+{
+    if (taskInfo.flagMem == nullptr) {
+        return "flagMem is nullptr";
+    }
+    std::vector<s32> flagMem(AIV_FLAG_PRINT_SIZE / sizeof(s32));
+    HcclResult ret = haclrtMemcpy(flagMem.data(), AIV_FLAG_PRINT_SIZE, taskInfo.flagMem, AIV_FLAG_PRINT_SIZE,
+        ACL_MEMCPY_DEVICE_TO_HOST);
+    if (ret != HCCL_SUCCESS) {
+        return "copy flagMem failed";
+    }
+
+    std::stringstream ss;
+    const u32 alignStep = AIV_FLAG_UB_ALIGN_SIZE / sizeof(s32);
+    for (u32 i = 0; i < flagMem.size(); i += alignStep) {
+        ss << flagMem[i] << " ";
+    }
+    return ss.str();
+}
+
+void ProcessAivExceptionCallBack(aclrtExceptionInfo *exceptionInfo)
+{
+    if (exceptionInfo == nullptr) {
+        HCCL_ERROR("[TaskExceptionHandler][AIV] exceptionInfo is nullptr.");
+        return;
+    }
+
+    const u32 taskId = aclrtGetTaskIdFromExceptionInfo(exceptionInfo);
+    const u32 streamId = aclrtGetStreamIdFromExceptionInfo(exceptionInfo);
+    const u32 deviceId = aclrtGetDeviceIdFromExceptionInfo(exceptionInfo);
+
+    TaskParamAiv taskInfo;
+    std::deque<TaskParamAiv> taskQueue;
+    if (!FindAivTask(streamId, taskId, taskInfo, taskQueue)) {
+        HCCL_RUN_INFO("[TaskExceptionHandler][AIV] task not found, streamId[%u], taskId[%u].",
+            streamId, taskId);
+        return;
+    }
+
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
+        "TaskId[%u], cmdType[%u], tag[%u],rank[%u],rankSize[%u], dataCount[%llu], blockDim[%u],"
+        "dataType:[%u], beginTime:[%llu], flagMem[%p]",
+        deviceId, streamId, taskId, taskInfo.cmdType, taskInfo.tag,
+        taskInfo.rank, taskInfo.rankSize, taskInfo.size, taskInfo.blockDim, taskInfo.dataType, taskInfo.beginTime,
+        taskInfo.flagMem);
+
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
+        "TaskId[%u], flag: %s", deviceId, streamId, taskId,
+        SerializeAivFlag(taskInfo).c_str());
+
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
+        "TaskId[%u], task info before failed task is:", deviceId, streamId, taskId);
+
+    u32 printed = 0;
+    for (auto it = taskQueue.rbegin(); it != taskQueue.rend() && printed < AIV_TASK_CONTEXT_SIZE; ++it) {
+        if (it->taskId == taskInfo.taskId) {
+            continue;
+        }
+        HCCL_ERROR("[TaskExceptionHandler][AIV] previous TaskId[%llu],streamId[%llu], cmdType[%u], "
+            "tag[%u],rank[%u],rankSize[%u], dataCount[%llu], blockDim[%u],dataType:[%u], beginTime:[%llu], "
+            "flagMem[%p]", it->taskId, it->streamId, it->cmdType, it->tag, it->rank, it->rankSize, it->size,
+            it->blockDim, it->dataType, it->beginTime, it->flagMem);
+        ++printed;
+    }
+}
 
 class AivLaunchGuard {
 public:
@@ -259,14 +424,14 @@ using AivKernelArgs = struct AivKernelArgsDef {
         u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride,
         bool isOpBase = true,
         const void* headCountMem = nullptr, const void* tailCountMem = nullptr, const void* addOneMem = nullptr,
-        u32 counterMemSize = 0)
+        u32 counterMemSize = 0, bool isEnableCounter = false)
         : buffersIn(buffIn),input(input), output(output), rank(rank), sendRecvRemoteRank(sendRecvRemoteRank), rankSize(rankSize), xRankSize(xRankSize), yRankSize(yRankSize), zRankSize(zRankSize),
         len(len) ,dataType(dataType),
         reduceOp(reduceOp), root(root), tag(tag),
         inputSliceStride(inputSliceStride), outputSliceStride(outputSliceStride), repeatNum(repeatNum), inputRepeatStride(inputRepeatStride), outputRepeatStride(outputRepeatStride),
         isOpBase(isOpBase),
         headCountMem(headCountMem), tailCountMem(tailCountMem), addOneMem(addOneMem),
-        counterMemSize(counterMemSize)
+        counterMemSize(counterMemSize), isEnableCounter(isEnableCounter)
     {
     }
 };
@@ -499,6 +664,8 @@ HcclResult RegisterKernel()
 
     registry.initialized = true;
 
+    RegisterAivExceptionCallback();
+
     return HCCL_SUCCESS;
 }
 
@@ -541,6 +708,162 @@ HcclResult UnRegisterAivKernel()
     g_launchCv.notify_all();
 
     return result;
+}
+
+// cache工具接口
+void HashAppend(u64 &hash, const void *data, size_t size)
+{
+    const u8 *bytes = static_cast<const u8 *>(data);
+    for (size_t i = 0; i < size; ++i) {
+        hash ^= bytes[i];
+        hash *= FNV_PRIME;
+    }
+}
+
+void HashAppendString(u64 &hash, const std::string &value)
+{
+    HashAppend(hash, value.data(), value.size());
+    const char separator = '\0';
+    HashAppend(hash, &separator, sizeof(separator));
+}
+
+template <typename T>
+void HashAppendValue(u64 &hash, const T &value)
+{
+    HashAppend(hash, &value, sizeof(T));
+}
+
+u64 CalcAivCacheKeyHash(const AivOpCacheArgs &cacheKey)
+{
+    u64 hash = FNV_OFFSET_BASIS;
+    // ctx本身是通信域粒度的，不需要commName
+    HashAppendString(hash, cacheKey.algName);
+    HashAppendValue(hash, cacheKey.count);
+    HashAppendValue(hash, cacheKey.dataType);
+    HashAppendValue(hash, cacheKey.opType);
+    HashAppendValue(hash, cacheKey.reduceOp);
+    HashAppendValue(hash, cacheKey.root);
+    HashAppendValue(hash, cacheKey.sendType);
+    HashAppendValue(hash, cacheKey.recvType);
+    HashAppendValue(hash, cacheKey.sendCount);
+    HashAppendValue(hash, cacheKey.recvCount);
+    HCCL_INFO("[%s] hashKey[%llu]", __func__, hash);
+    return hash;
+}
+
+HcclResult BuildAivCacheCtxTag(u64 keyHash, std::string &ctxTag)
+{
+    char tag[AIV_CACHE_CTX_TAG_MAX_LENGTH] = {};
+    int ret = snprintf_s(tag, sizeof(tag), sizeof(tag) - 1, "AivCache_%016llx", keyHash);
+    CHK_PRT_RET(ret <= 0, HCCL_ERROR("[%s] failed to fill aiv cache ctx tag", __func__), HCCL_E_INTERNAL);
+    ctxTag = tag;
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetOrCreateAivCacheIndexCtx(HcclComm comm, AivCacheIndexCtx **indexCtx)
+{
+    CHK_PTR_NULL(indexCtx);
+    void *ctx = nullptr;
+    uint64_t ctxSize = 0;
+    HcclResult ret = HcclEngineCtxGet(comm, AIV_CACHE_INDEX_CTX_TAG, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &ctxSize);
+    if (ret == HCCL_E_NOT_FOUND || ret == HCCL_E_PARA) {
+        HCCL_INFO("[%s] aiv cache indexCtx not created", __func__);
+        CHK_RET(HcclEngineCtxCreate(comm, AIV_CACHE_INDEX_CTX_TAG, CommEngine::COMM_ENGINE_CPU_TS,
+            sizeof(AivCacheIndexCtx), &ctx));
+        *indexCtx = static_cast<AivCacheIndexCtx *>(ctx);
+        // 初始化
+        (*indexCtx)->head = 0;
+        (*indexCtx)->tail = 0;
+        (*indexCtx)->size = 0;
+        return HCCL_SUCCESS;
+    } else if (ret == HCCL_SUCCESS) {
+        HCCL_DEBUG("[%s] aiv cache indexCtx already created", __func__);
+        *indexCtx = static_cast<AivCacheIndexCtx *>(ctx);
+        return HCCL_SUCCESS;
+    } else {
+        return ret;
+    }
+}
+
+HcclResult EvictAivCacheIfNeeded(HcclComm comm, AivCacheIndexCtx *indexCtx)
+{
+    if (indexCtx->size < AIV_CACHE_INDEX_MAX_ENTRY) {
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO("[%s] begin to clean aiv cache", __func__);
+
+    u32 clearCount = static_cast<u32>(AIV_CACHE_INDEX_MAX_ENTRY * AIV_CACHE_INDEX_CLEAR_PERCENT / 100);
+    for (u32 i = 0; i < clearCount; ++i) {
+        u32 evictIndex = indexCtx->head;
+        const char *ctxTag = indexCtx->ctxTags[evictIndex];
+        HcclResult ret = HcclEngineCtxDestroy(comm, ctxTag, CommEngine::COMM_ENGINE_CPU_TS);
+        CHK_PRT_RET(ret != HCCL_SUCCESS,
+            HCCL_ERROR("[%s] failed to destroy aiv cache ctx, tag[%s]", __func__, ctxTag), ret);
+        indexCtx->size--;
+        indexCtx->head = (evictIndex + 1) % AIV_CACHE_INDEX_MAX_ENTRY;
+        HCCL_DEBUG("[%s] cur head[%u] tail[%u] size[%u]", __func__, indexCtx->head, indexCtx->tail, indexCtx->size);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReplayAivCacheCtx(HcclComm comm, const std::string &ctxTag, u64 keyHash, OpParam &param, bool &cacheHit)
+{
+    cacheHit = false;
+    void *ctx = nullptr;
+    uint64_t ctxSize = 0;
+    HcclResult ret = HcclEngineCtxGet(comm, ctxTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, &ctx, &ctxSize);
+    if (ret == HCCL_E_NOT_FOUND || ret == HCCL_E_PARA) {
+        return HCCL_SUCCESS;
+    }
+    CHK_RET(ret);
+
+    AivCacheCtxHeader *header = static_cast<AivCacheCtxHeader *>(ctx);
+    CHK_PRT_RET(header->keyHash != keyHash,
+        HCCL_ERROR("[%s] invalid aiv cache ctx header, tag[%s], keyHash[%llu]",
+            __func__, ctxTag.c_str(), header->keyHash), HCCL_E_INTERNAL);
+    uint64_t expectedSize = sizeof(AivCacheCtxHeader) + header->insCount * sizeof(AivInstruction);
+    CHK_PRT_RET(ctxSize != expectedSize,
+        HCCL_ERROR("[%s] invalid aiv cache ctx size[%llu], expected[%llu], tag[%s]",
+            __func__, ctxSize, expectedSize, ctxTag.c_str()), HCCL_E_INTERNAL);
+
+    HCCL_INFO("[%s] aiv cache hits, ctxTag[%s], keyHash[%llu], ins size[%u]",
+        __func__, ctxTag.c_str(), header->keyHash, header->insCount);
+    AivInstruction *instructions = reinterpret_cast<AivInstruction *>(
+        static_cast<u8 *>(ctx) + sizeof(AivCacheCtxHeader));
+    for (uint64_t i = 0; i < header->insCount; ++i) {
+        AivOpArgs newArgs = instructions[i].opArgs;
+        newArgs.stream = param.stream;
+        newArgs.input = reinterpret_cast<u64>(param.inputPtr) + instructions[i].inputOffset;
+        newArgs.output = reinterpret_cast<u64>(param.outputPtr) + instructions[i].outputOffset;
+        CHK_RET(ExecuteKernelLaunch(newArgs));
+    }
+    cacheHit = true;
+    return HCCL_SUCCESS;
+}
+
+HcclResult StoreAivCacheCtx(HcclComm comm, const std::string &ctxTag, u64 keyHash, AivCacheIndexCtx *indexCtx)
+{
+    const InsQueue &queue = *g_recordingQueue;
+    uint64_t ctxSize = sizeof(AivCacheCtxHeader) + queue.size() * sizeof(AivInstruction);
+    void *ctx = nullptr;
+    CHK_RET(HcclEngineCtxCreate(comm, ctxTag.c_str(), CommEngine::COMM_ENGINE_CPU_TS, ctxSize, &ctx));
+    AivCacheCtxHeader header { keyHash, static_cast<u32>(queue.size()) };
+    CHK_SAFETY_FUNC_RET(memcpy_s(ctx, ctxSize, &header, sizeof(header)));
+    if (!queue.empty()) {
+        CHK_SAFETY_FUNC_RET(memcpy_s(static_cast<u8 *>(ctx) + sizeof(AivCacheCtxHeader),
+            ctxSize - sizeof(AivCacheCtxHeader), queue.data(), queue.size() * sizeof(AivInstruction)));
+    }
+    // 增加index中的记录
+    u32 pushIndex = indexCtx->tail;
+    char *ctxTagPtr = indexCtx->ctxTags[pushIndex];
+    s32 ret = strncpy_s(ctxTagPtr, AIV_CACHE_CTX_TAG_MAX_LENGTH, ctxTag.c_str(), AIV_CACHE_CTX_TAG_MAX_LENGTH - 1);
+    CHK_PRT_RET(ret != EOK, HCCL_ERROR("[%s] failed to copy aiv cache ctx tag, ret[%d]", __func__, ret),
+        HCCL_E_MEMORY);
+    indexCtx->tail = (pushIndex + 1) % AIV_CACHE_INDEX_MAX_ENTRY;
+    indexCtx->size++;
+    HCCL_INFO("[%s] ctxTag[%s] keyHash[%llu] cur head[%u] tail[%u] size[%u]",
+        __func__, ctxTag.c_str(), keyHash, indexCtx->head, indexCtx->tail, indexCtx->size);
+    return HCCL_SUCCESS;
 }
 
 // KernelLaunch内部接口
@@ -596,6 +919,10 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
     }
     CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[ExecuteKernelLaunchInner]errNo[0x%016llx] aclrtLaunchKernelWithHostArgs error[%d].",
         HCCL_ERROR_CODE(HCCL_E_RUNTIME), aclRet), HCCL_E_RUNTIME);
+    HcclResult dfxRet = SaveAivDfxTaskInfo(opArgs);
+    if (dfxRet != HCCL_SUCCESS) {
+        HCCL_WARNING("[ExecuteKernelLaunchInner] SaveAivDfxTaskInfo failed, ret[%d].", dfxRet);
+    }
     return HCCL_SUCCESS;
 }
 

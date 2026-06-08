@@ -27,16 +27,16 @@ public:
 
     std::string Describe() const override
     {
-        return StringFormat("Template of All to All ccu mesh 1D with tempRankSize [%u].",
+        return StringFormat("Template of All to All V ccu mesh 1D with tempRankSize [%u].",
                             tempRankSize_);
     }
-
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                       AlgResourceRequest& resourceRequest) override;
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
+
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+                       AlgResourceRequest& resourceRequest) override;
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 

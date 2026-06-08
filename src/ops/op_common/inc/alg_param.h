@@ -28,7 +28,7 @@
 #include "hccl_rank_graph_dl.h"
 #include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "hccl_ccu_res.h"
 #else
 typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
@@ -165,7 +165,6 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     Level0Shape level0Topo;
     bool Level0Nhr{false};
     bool Level1Nhr{false};
-    bool Level1Hd{false};
     bool is2DieFullMesh{false};
     bool level0PcieMix{false};
     bool level0BigClosRange{false};
@@ -198,7 +197,6 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream << level0Topo;
         binaryStream << Level0Nhr;
         binaryStream << Level1Nhr;
-        binaryStream << Level1Hd;
         binaryStream << is2DieFullMesh;
         binaryStream << level0PcieMix;
         binaryStream << level0BigClosRange;
@@ -245,7 +243,6 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream >> level0Topo;
         binaryStream >> Level0Nhr;
         binaryStream >> Level1Nhr;
-        binaryStream >> Level1Hd;
         binaryStream >> is2DieFullMesh;
         binaryStream >> level0PcieMix;
         binaryStream >> level0BigClosRange;
@@ -271,7 +268,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
@@ -641,7 +638,6 @@ struct OpExchangeInfo {
     uint64_t cclBufferSize{0};
     u32 root = INVALID_VALUE_RANKID;
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
-    CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
     OpExecuteConfig opExecuteConfig = OpExecuteConfig::DEFAULT;
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_RESERVED;

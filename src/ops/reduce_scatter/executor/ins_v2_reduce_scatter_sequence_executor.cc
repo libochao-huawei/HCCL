@@ -104,16 +104,16 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2ReduceScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::Orchestrate(const OpParam &param, const AlgResourceCtxSerializable& resCtx)
 {
     // 参数填充
-    myRank_ = resCtx.topoInfo.userRank;
+    myRank_   = resCtx.topoInfo.userRank;
     rankSize_ = resCtx.topoInfo.userRankSize;
 
-    dataCount_ = param.DataDes.count;
-    dataTypeSize_ =  SIZE_TABLE[param.DataDes.dataType];
-    dataSize_ = dataCount_ * dataTypeSize_;
-    dataType_ = param.DataDes.dataType;
-    reduceOp_ = param.reduceType;
+    dataCount_        = param.DataDes.count;
+    dataTypeSize_     =  SIZE_TABLE[param.DataDes.dataType];
+    dataSize_         = dataCount_ * dataTypeSize_;
+    dataType_         = param.DataDes.dataType;
+    reduceOp_         = param.reduceType;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
-    threads_ = resCtx.threads;
+    threads_          = resCtx.threads;
 
     rankIdxLevel0_ = myRank_ % algHierarchyInfo_.infos[0][0].size();
     rankIdxLevel1_ = myRank_ / algHierarchyInfo_.infos[0][0].size();

@@ -22,6 +22,7 @@
 #include "sal.h"
 #include "executor_base.h"
 #include "template_utils.h"
+#include "order_preserved_common.h"
 
 namespace ops_hccl {
 
@@ -51,11 +52,23 @@ public:
         std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
 #ifndef AICPU_COMPILE
-    HcclResult FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum, const u32 ccuKernelNum, 
-                                            const std::vector<ThreadHandle> &threads_, const std::vector<u32> &ccuKernelNumList, 
-                                            const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList, u32 notifyNumOnMainThread);
+    HcclResult FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum, const u32 ccuKernelNum,
+                                            const std::vector<ThreadHandle> &threads, const std::vector<u32> &ccuKernelNumList,
+                                            const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList, u32 notifyNumOnMainThread) const;
 #endif
 protected:
+    inline void SetOrderPreservedBaseParams(const OrderPreservedBaseParams& params) {
+        myRank_ = params.myRank;
+        rankSize_ = params.rankSize;
+        devType_ = params.devType;
+        dataCount_ = params.dataCount;
+        dataTypeSize_ = params.dataTypeSize;
+        dataSize_ = params.dataSize;
+        dataType_ = params.dataType;
+        reduceOp_ = params.reduceOp;
+        maxTmpMemSize_ = params.maxTmpMemSize;
+    }
+
     // CollAlg base params
     u32           myRank_   = INVALID_VALUE_RANKID;
     u32           rankSize_ = 0;

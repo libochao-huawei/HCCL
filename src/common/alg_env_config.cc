@@ -75,7 +75,8 @@ HcclResult ParseExecTimeout()
         return HCCL_SUCCESS;
     }
 
-    if (!IsValidNumberFormat(execTimeOutEnv, 2)) {
+    u32 timeoutSize = 2;
+ 	if (!IsValidNumberFormat(execTimeOutEnv, timeoutSize)) {
         HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
             execTimeOutEnv.c_str());
         g_algEnvConfig.execTimeOutSet = false;
@@ -778,7 +779,7 @@ HcclResult ParseOpExpansion()
         return HCCL_SUCCESS;
     }
 
-    if (opExpansionModeEnv == "AI_CPU") {
+    if (opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "AICPU_TS") {
         if (deviceType == DevType::DEV_TYPE_910) {
             HCCL_WARNING("910 do not support AICPU unfold.");
         } else {
@@ -948,8 +949,18 @@ HcclResult ParseDeterministic()
         // 规约保序场景（严格的确定性计算，在确定性的基础上强保证规约顺序一致）
         DevType deviceType;
         CHK_RET(hrtGetDeviceType(deviceType));
-        if (deviceType != DevType::DEV_TYPE_910B && deviceType != DevType::DEV_TYPE_910_93) {
-            // 规约保序仅支持A2 A3场景
+        // 规约保序支持A2 A3 A5场景
+        bool supportedDevice = false;
+        #ifdef MACRO_DEV_TYPE_NEW
+        supportedDevice = (deviceType == DevType::DEV_TYPE_910B || 
+                          deviceType == DevType::DEV_TYPE_910_93 || 
+                          deviceType == DevType::DEV_TYPE_950);
+        #else
+        supportedDevice = (deviceType == DevType::DEV_TYPE_910B || 
+                          deviceType == DevType::DEV_TYPE_910_93 || 
+                          deviceType == DevType::DEV_TYPE_910_95);
+        #endif
+        if (!supportedDevice) {
             HCCL_ERROR("HCCL_DETERMINISTIC is set to [%s], Reduce order preservation is not supported for "
                        "deviceType[%d], please check",
                 hcclDeterministicEnv.c_str(),
@@ -1091,6 +1102,11 @@ const bool &GetExternalInputHcclEnableEntryLog()
     return g_algEnvConfig.enableEntryLog;
 }
 
+const u8 &GetExternalInputHcclDeterministic()
+{
+    return g_algEnvConfig.hcclDeterministic;
+}
+
 bool RunIndependentOpExpansion(DevType deviceType)
 {
     std::string opExpansionModeEnv = GetEnv("HCCL_OP_EXPANSION_MODE");
@@ -1103,7 +1119,8 @@ bool RunIndependentOpExpansion(DevType deviceType)
     #else
     if (deviceType == DevType::DEV_TYPE_910_95) {
     #endif
-        return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" ||
+        return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "AICPU_TS" ||
+               opExpansionModeEnv == "HOST_TS" ||
                opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV" ||
                opExpansionModeEnv == "CCU_SCHED" ||
                opExpansionModeEnv == "CCU_MS";

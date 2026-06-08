@@ -17,7 +17,12 @@
 #include "alg_type.h"
 
 namespace ops_hccl {
-HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
+bool NeedInconsistentCheck(const OpParam& param);
+
+HcclResult CompareOpExchangeInfos(HcclComm comm, const OpParam& param, const AlgResourceRequest &resRequest,
+    const OpExchangeInfo &exchangeInfo);
+
+HcclResult InconsistentCheckParams(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels);
 
 HcclResult InconsistentCheckOpType(const OpExchangeInfo &exchangeInfo, const HcclCMDType &rmtOpType);
