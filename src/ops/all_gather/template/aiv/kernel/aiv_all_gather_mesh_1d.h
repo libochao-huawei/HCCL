@@ -241,8 +241,9 @@ template<typename T>
 __aicore__ inline void AivAllGatherV2Mesh1DSuperKernel(SUPERKERNEL_ARGS_DEF)
 {
     AivAllGatherMesh1D<T> op;
+    __gm__ AivSuperKernelArgs* args = reinterpret_cast<__gm__ AivSuperKernelArgs*>(hiddenInput);
     uint32_t pingpong = 0;
-    if (len * sizeof(T) <= DATA_LIMIT) {
+    if (args->len * sizeof(T) <= DATA_LIMIT) {
         pingpong = 1;
     }
     op.Init(SUPERKERNEL_CLASS_INIT, pingpong);
