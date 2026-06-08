@@ -333,6 +333,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_order_preserved_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_meshchunk.cc
@@ -341,7 +342,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_omnipipe_mesh_1d_dpu.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_omnipipe_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_omnipipe_nhr.cc
- 
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_order_preserved_level1.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor/ins_v2_broadcast_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor/ins_v2_broadcast_sole_executor.cc
@@ -379,6 +380,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor_aicpu.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_two_shot_sole_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_order_preserved_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_nhr.cc
@@ -652,65 +654,68 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
     endif()
 endif()
 
-set(_op_proto_link_libs
-    -Wl,--no-as-needed
-    exe_graph
-    graph
-    graph_base
-    register
-    -Wl,--as-needed
-)
+if(BUILD_OPEN_PROJECT)
+    set(_op_proto_link_libs
+        -Wl,--no-as-needed
+        exe_graph
+        graph
+        graph_base
+        register
+        -Wl,--as-needed
+    )
 
-set(OP_PROTO_INCLUDE
-    ${ASCEND_CANN_PACKAGE_PATH}/include/exe_graph
-)
+    set(OP_PROTO_INCLUDE
+        ${ASCEND_CANN_PACKAGE_PATH}/include/exe_graph
+    )
 
-add_library(opgraph_hccl SHARED
-    ${CMAKE_CURRENT_SOURCE_DIR}/common/log.cc
-)
+    add_library(opgraph_hccl SHARED
+        ${CMAKE_CURRENT_SOURCE_DIR}/common/log.cc
+    )
 
-target_include_directories(opgraph_hccl PRIVATE
-    ${INCLUDE_LIST}
-    ${OP_PROTO_INCLUDE}
-)
-target_compile_options(opgraph_hccl PRIVATE
-    -fno-common
-    -fno-strict-aliasing
-    -pipe
-    $<$<CONFIG:Release>:-O3>
-    $<$<CONFIG:Debug>:-O3 -g>
-    $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
-    -fstack-protector-all
-    -fvisibility=hidden
-)
-target_link_libraries(opgraph_hccl PRIVATE
-    ${_op_proto_link_libs}
-    -Wl,--whole-archive
-    rt2_registry
-    -Wl,--no-whole-archive
-    -Wl,-Bsymbolic
-)
+    target_include_directories(opgraph_hccl PRIVATE
+        ${INCLUDE_LIST}
+        ${OP_PROTO_INCLUDE}
+    )
+    target_compile_options(opgraph_hccl PRIVATE
+        -fno-common
+        -fno-strict-aliasing
+        -pipe
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Debug>:-O3 -g>
+        $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
+        -fstack-protector-all
+        -fvisibility=hidden
+    )
+    target_link_libraries(opgraph_hccl PRIVATE
+        ${_op_proto_link_libs}
+        -Wl,--whole-archive
+        rt2_registry
+        -Wl,--no-whole-archive
+        -Wl,-Bsymbolic
+    )
 
-target_link_directories(opgraph_hccl PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-)
+    target_link_directories(opgraph_hccl PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    )
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/common/op_graph/ops_proto_hccl.h
-    DESTINATION ${INSTALL_OPGRAPH_INCLUDE_DIR} 
-    ${INSTALL_OPTIONAL}
-    COMPONENT hccl
-)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/common/op_graph/ops_proto_hccl.h
+        DESTINATION ${INSTALL_OPGRAPH_INCLUDE_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
+    )
 
-install(TARGETS opgraph_hccl
-    LIBRARY DESTINATION ${INSTALL_OPGRAPH_LIBRARY_DIR} 
-    ${INSTALL_OPTIONAL}
-    COMPONENT hccl
-)
+    install(TARGETS opgraph_hccl
+        LIBRARY DESTINATION ${INSTALL_OPGRAPH_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
+    )
 
-add_dependencies(hccl opgraph_hccl)
+    add_dependencies(hccl opgraph_hccl)
+endif()
 
 add_subdirectory(common)
 add_subdirectory(ops)
+
 
 # 定义AIV算子聚合目标
 set(AIV_TARGETS
@@ -795,25 +800,27 @@ if(DEVICE_MODE AND KERNEL_MODE)
 endif()
 
 #生成ES API
-list(APPEND CMAKE_MODULE_PATH "${ASCEND_CANN_PACKAGE_PATH}/include/ge/cmake")
-find_package(GenerateEsPackage REQUIRED)
+if(BUILD_OPEN_PROJECT)
+    list(APPEND CMAKE_MODULE_PATH "${ASCEND_CANN_PACKAGE_PATH}/include/ge/cmake")
+    find_package(GenerateEsPackage REQUIRED)
 
-add_es_library(
-    ES_LINKABLE_AND_ALL_TARGET es_hccl
-    OPP_PROTO_TARGET opgraph_hccl
-    OUTPUT_PATH ${CMAKE_BINARY_DIR}/es_output
-)
+    add_es_library(
+        ES_LINKABLE_AND_ALL_TARGET es_hccl
+        OPP_PROTO_TARGET opgraph_hccl
+        OUTPUT_PATH ${CMAKE_BINARY_DIR}/es_output
+    )
 
-add_dependencies(hccl es_hccl)
+    add_dependencies(hccl es_hccl)
 
-install(DIRECTORY ${CMAKE_BINARY_DIR}/es_output/include/es_hccl
-    DESTINATION ${INSTALL_INCLUDE_DIR}/es/
-    ${INSTALL_OPTIONAL}
-    COMPONENT hccl
-)
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/es_output/include/es_hccl
+        DESTINATION ${INSTALL_INCLUDE_DIR}/es/
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
+    )
 
-install(FILES ${CMAKE_BINARY_DIR}/es_output/lib64/libes_hccl.so
-    DESTINATION ${INSTALL_LIBRARY_DIR}
-    ${INSTALL_OPTIONAL}
-    COMPONENT hccl
-)
+    install(FILES ${CMAKE_BINARY_DIR}/es_output/lib64/libes_hccl.so
+        DESTINATION ${INSTALL_LIBRARY_DIR}
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
+    )
+endif()

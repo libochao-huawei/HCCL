@@ -25,6 +25,7 @@ namespace HcclSim {
 // 全局流Id和NotifyId生成器
 extern uint32_t notifyIdGen;  // 多卡共同累加计数
 extern uint32_t streamIdGen;  // 每张卡都从0累加
+extern uint64_t memAddrGen;   // 每个用例内地址累加
 
 class SimNpu {
 public:
