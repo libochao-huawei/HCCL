@@ -860,7 +860,7 @@ static HcclResult TryReuseResource(HcclComm comm, OpParam& param, bool& increCre
         ctxEngine = COMM_ENGINE_AICPU_TS;
     }
     if (HcclEngineCtxGet(comm, param.algTag, ctxEngine, &ctx, &size) == HCCL_SUCCESS) {
-        HCCL_DEBUG("Already have context, skip create, ctxSize is %u", param.ctxSize);
+        HCCL_DEBUG("Already have context, skip create, ctxSize is %llu", size);
         isResourceReused = true;
         *resCtxSequence = ctx;
         param.ctxSize = size;
