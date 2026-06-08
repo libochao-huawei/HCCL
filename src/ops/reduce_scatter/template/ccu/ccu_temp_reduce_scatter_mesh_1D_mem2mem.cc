@@ -133,11 +133,8 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t normalSliceSize    = templateDataParams.sliceSize;
     uint64_t lastSliceSize      = templateDataParams.tailSize;
-    uint64_t repeatNumTmp       = templateDataParams.repeatNum;
-    uint64_t repeatNum          = UINT64_MAX - repeatNumTmp;
+    uint64_t repeatNum          = UINT64_MAX - templateDataParams.repeatNum;
 
-    // currentRankSliceInputOffset = inputSliceStride * mySubCommRank_
-    // currentRankSliceOutputOffset = outputSliceStride * mySubCommRank_
     uint64_t currentRankSliceInputOffset = inputSliceStride * mySubCommRank_;
     uint64_t currentRankSliceOutputOffset = outputSliceStride * mySubCommRank_;
     
@@ -152,20 +149,17 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
               "scratchAddr[%llu], inputOffset[%llu], outputOffset[%llu], inputRepeatStride[%llu], "
               "outputRepeatStride[%llu], normalSliceSize[%llu], lastSliceSize[%llu], repeatNum[%llu]",
               inputAddr, outputAddr, scratchAddr, currentRankSliceInputOffset, currentRankSliceOutputOffset,
-              inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, repeatNumTmp);
+              inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, UINT64_MAX - repeatNum);
 
     std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, scratchAddr,
                                       currentRankSliceInputOffset, currentRankSliceOutputOffset,
-                                      inputRepeatStride, outputRepeatStride,
-                                      normalSliceSize, lastSliceSize, repeatNum,
-                                      goSize[0], goSize[1], goSize[2], goSize[3]};
+                                      inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
+                                      repeatNum, goSize[0], goSize[1], goSize[2], goSize[3]};
     
     CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], 
                                                taskArgs.data(), taskArgs.size());
-    if (launchRet != CCU_SUCCESS) {
-        HCCL_ERROR("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
-        return ConvertCcuToHccl(launchRet);
-    }
+    CHK_PRT_RET(launchRet != CCU_SUCCESS, 
+        HCCL_ERROR("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] kernel launch failed, ccuRet -> %d", launchRet), ConvertCcuToHccl(launchRet));
 
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];

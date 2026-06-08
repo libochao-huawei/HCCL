@@ -13,7 +13,6 @@
 
 #include <vector>
 #include <ios>
-// #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
@@ -29,30 +28,14 @@ struct CcuKernelArgReduceScatterMesh1D: CcuKernelArgBase{
 struct ReduceScatterMesh1DContext: CcuKernelCtxBase {
     const CcuKernelArgReduceScatterMesh1D *arg;
     
-    // uint64_t rankSize{0};
-    // uint32_t rankId{0};
     HcclDataType dataType;
     HcclDataType outputDataType;
     HcclReduceOp reduceOp;
-    // std::vector<ChannelHandle> channels;
     std::vector<ccu::Variable> input;
     ccu::Variable output;
     std::vector<ccu::Variable> token;
     ccu::Variable offset;
     GroupOpSizeVars goSize;
-
-    // LoopGroupConfig  moConfig;
-    // LoopGroupResource moRes;
-    // bool resourceAllocated;
-
-    //CcuLoop reduceLoops[2];
-
-    // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
-    //ccu::LocalAddr loopDst[2];
-    //ccu::LocalAddr loopSrc[2];
-    //ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
-    //ccu::Variable  loopLen[2];
-    //ccu::Variable  loopLenExp[2];
 };
 
 CcuResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg);

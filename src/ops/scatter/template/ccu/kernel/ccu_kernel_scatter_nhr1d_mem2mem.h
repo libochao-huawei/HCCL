@@ -64,7 +64,6 @@ struct ScatterNHR1DContext {
     HcclDataType dataType{HcclDataType::HCCL_DATA_TYPE_RESERVED};
     std::vector<NHRStepInfo> stepInfoVector;
     std::map<u32, u32> rank2ChannelIdx;
-    //std::vector<ChannelHandle> channels;
 
     // args
     ccu::Variable input;

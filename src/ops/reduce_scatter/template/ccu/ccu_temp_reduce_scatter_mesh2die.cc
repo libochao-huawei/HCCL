@@ -149,14 +149,7 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
     auto localReduceGoSize0 = CalGoSize(localRedcueSize0, config);
     auto localReduceGoSize1 = CalGoSize(localRedcueSize1, config);
 
-    std::vector<uint64_t> taskArgs = {
-        inputAddr,
-        outputAddr,
-        token,
-        myScratch,
-        sliceSize,
-        rmtReduceSliceOffset
-    };
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, myScratch, sliceSize, rmtReduceSliceOffset};
 
     for (auto &goSize : {rmtReduceGoSize}) {
         for (auto &element : goSize) {

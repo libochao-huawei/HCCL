@@ -35,7 +35,6 @@ struct ScatterMesh1DContext {
     uint32_t rootId{0};
     HcclDataType dataType{HcclDataType::HCCL_DATA_TYPE_RESERVED};
     HcclDataType outputDataType{HcclDataType::HCCL_DATA_TYPE_RESERVED};
-    //std::vector<ChannelHandle> channels;
 
     ccu::Variable input;
     std::vector<ccu::Variable> output;

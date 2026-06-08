@@ -91,8 +91,6 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
 
     CCU_IF(ctx.localGoSize.parallelParam != 0)
     {
-        // CcuRep::Condition cond(this, localGoSize_.parallelParam != 0);
-
         src.addr += ctx.localGoSize.addrOffset;
         dst.addr += ctx.localGoSize.addrOffset;
 

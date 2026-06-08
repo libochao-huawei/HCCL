@@ -285,7 +285,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
     uint64_t sliceSize        = templateDataParams.sliceSize;
-    // uint64_t inputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
     uint64_t outputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
     uint64_t inputSliceStride = outputSliceStride;
     uint64_t outBuffBaseOff =  buffInfo_.outBuffBaseOff;

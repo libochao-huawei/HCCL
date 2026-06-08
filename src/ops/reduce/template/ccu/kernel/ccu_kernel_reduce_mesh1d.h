@@ -49,9 +49,6 @@ struct ReduceMesh1DContext: CcuKernelCtxBase {
 
     GroupOpSizeVars groupOpSize;
 
-    //ccu::LocalAddr dstAddr;
-    // std::vector<ccu::RemoteAddr> inputAddr;
-
     ccu::Event event;
 };
 

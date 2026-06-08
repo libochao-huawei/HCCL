@@ -19,9 +19,6 @@ constexpr int CKE_IDX_0    = 0;
 
 static CcuResult ParseKernelArg(ReduceScatterMesh1DContext &ctx, CcuKernelArgReduceScatterMesh1D *kernelArg)
 {
-    // ctx.rankId          = kernelArg->rankId;
-    // ctx.rankSize        = kernelArg->rankSize;
-    // ctx.channels       = kernelArg->channels;
     ctx.dataType        = kernelArg->opParam.DataDes.dataType;
     ctx.outputDataType  = kernelArg->opParam.DataDes.outputType;
     if (ctx.outputDataType == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
@@ -110,9 +107,6 @@ static CcuResult DoReduceScatter(ReduceScatterMesh1DContext &ctx)
     std::vector<ccu::RemoteAddr> src;
     ccu::LocalAddr localSrc;
     src.resize(arg->rankSize);
-    // for (uint32_t rankIdx = 0; rankIdx < arg->rankSize - 1; rankIdx++) {
-    //     CCU_CHK_RET(ccu::Alloc(&src[rankIdx]));
-    // }
     ccu::LocalAddr dst;
     dst.addr  = ctx.output;
     dst.token = ctx.token[arg->rankId];
