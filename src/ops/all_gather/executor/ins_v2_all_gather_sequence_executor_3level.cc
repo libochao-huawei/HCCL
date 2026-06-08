@@ -100,10 +100,9 @@ HcclResult InsV2AllGatherSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, I
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
-    levels_.resize(SEQUENCE_EXECUTOR_3_LEVEL_NUM);
-    levels_[0] = LevelInfo{remoteRankToChannelInfo_[0], resCtx.algHierarchyInfo.infos[0]};
-    levels_[1] = LevelInfo{remoteRankToChannelInfo_[1], resCtx.algHierarchyInfo.infos[1]};
-    levels_[2] = LevelInfo{remoteRankToChannelInfo_[2], resCtx.algHierarchyInfo.infos[2]};
+    levels_.emplace_back = LevelInfo{remoteRankToChannelInfo_[0], resCtx.algHierarchyInfo.infos[0]};
+    levels_.emplace_back = LevelInfo{remoteRankToChannelInfo_[1], resCtx.algHierarchyInfo.infos[1]};
+    levels_.emplace_back = LevelInfo{remoteRankToChannelInfo_[2], resCtx.algHierarchyInfo.infos[2]};
     // 实例化算法模板类
     // 构建template
     InsAlgTemplate0 Level0TempAlg(param, resCtx.topoInfo.userRank, levels_[0].hierarchyInfo);

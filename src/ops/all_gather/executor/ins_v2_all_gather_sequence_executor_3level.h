@@ -56,7 +56,6 @@ protected:
         std::vector<std::vector<u32>> hierarchyInfo;
         uint64_t rankSize;
         std::vector<ThreadHandle> threads;
-
         LevelInfo(decltype(remoteRankToChannelInfo_[0]) channels_,
                   std::vector<std::vector<u32>> hierarchyInfo_)
             : channels(channels_)
