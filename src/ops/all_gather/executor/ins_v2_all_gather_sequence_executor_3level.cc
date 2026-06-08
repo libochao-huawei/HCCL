@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ins_v2_all_gather_parallel_executor.h"
+#include "ins_v2_all_gather_sequence_executor_3level.h"
 #include <cmath>
 #include "alg_data_trans_wrapper.h"
 #include "ins_temp_all_gather_mesh_1D.h"
