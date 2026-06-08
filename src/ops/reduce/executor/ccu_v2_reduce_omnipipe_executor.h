@@ -8,22 +8,22 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCL_CCU_TEMP_GATHER_OMNIPIPE_MESH_1D_MEM2MEMY_H
-#define HCCL_CCU_TEMP_GATHER_OMNIPIPE_MESH_1D_MEM2MEMY_H
+#ifndef HCCL_CCU_TEMP_GATHER_OMNIPIPE_MESH_1D_MEM2MEM_H
+#define HCCL_CCU_TEMP_GATHER_OMNIPIPE_MESH_1D_MEM2MEM_H
 
 #include "utils.h"
 #include "ccu_alg_template_base.h"
 
 namespace ops_hccl {
 
-class CcuTempGatherOmniPipeMesh1DMem2MemY : public CcuAlgTemplateBase {
+class CcuTempGatherOmniPipeMesh1DMem2Mem : public CcuAlgTemplateBase {
 public:
-    CcuTempGatherOmniPipeMesh1DMem2MemY() = default;
-    explicit CcuTempGatherOmniPipeMesh1DMem2MemY(const OpParam& param,
+    CcuTempGatherOmniPipeMesh1DMem2Mem() = default;
+    explicit CcuTempGatherOmniPipeMesh1DMem2Mem(const OpParam& param,
                                                  const u32 rankId,
                                                  const std::vector<std::vector<u32>>& subCommRanks);
 
-    ~CcuTempGatherOmniPipeMesh1DMem2MemY() override;
+    ~CcuTempGatherOmniPipeMesh1DMem2Mem() override;
 
     std::string Describe() const override
     {
@@ -39,14 +39,13 @@ public:
                           TemplateResource& templateResource) override;
     u64 GetThreadNum() const override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    
+
     uint32_t mySubCommRank_ = 0;
+    uint32_t subCommRootId_ = 99999;
     uint32_t rankId_ = 0;
-    uint32_t subCommRootId_ = 0;
     bool ifRealRoot_ = false;
     bool isStepOne_ = false;
     bool isLastStep_ = false;
-    bool ifNewRoot = false;
 
     u64 localCopyFlag = 0;
     bool isSameXAxis = false;
@@ -59,4 +58,4 @@ public:
 
 } // namespace ops_hccl
 
-#endif // HCCL_CCU_TEMP_GATHER_OMNIPIPE_MESH_1D_MEM2MEMY_H
+#endif // HCCL_CCU_TEMP_GATHER_OMNIPIPE_MESH_1D_MEM2MEM_H
