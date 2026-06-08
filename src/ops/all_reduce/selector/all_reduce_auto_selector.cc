@@ -310,7 +310,13 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
 
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->topoLevelNums == 3) {
-            selectAlgName = "InsV2AllReduceOmniPipeUboe";
+            if (topoInfo->deviceNumPerModule == 8) {
+                selectAlgName = "InsV2AllReduceOmniPipeUboe";
+            } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[1] == 1) {
+                selectAlgName = "InsAllReduceNHR";
+            } else {
+                selectAlgName = "InsAllReduceParallelRSAGUboe";
+            }
         } else if (isDataTypeOrReduceTypeSpecial) {
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->Level1Nhr) {
