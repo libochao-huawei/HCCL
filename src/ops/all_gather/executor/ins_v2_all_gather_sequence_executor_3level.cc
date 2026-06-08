@@ -11,7 +11,7 @@
 #include "ins_v2_all_gather_sequence_executor_3level.h"
 #include <cmath>
 #include "alg_data_trans_wrapper.h"
-#include "ins_temp_all_gather_mesh_1D.h"
+#include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
 #include "alg_data_trans_wrapper.h"
 
@@ -42,7 +42,7 @@ HcclResult InsV2AllGatherSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, I
 {
     if (algHierarchyInfo.infos.size() != SEQUENCE_EXECUTOR_3_LEVEL_NUM) {
         HCCL_ERROR("[InsV2AllGatherSequenceExecutor3Level] algHierarchyInfo size %u should be %u", algHierarchyInfo.infos.size(), SEQUENCE_EXECUTOR_3_LEVEL_NUM);
-        return HCCL_E_Level1NAL;
+        return HCCL_E_INTERNAL;
     }
     // 构建template
     InsAlgTemplate0 Level0TempAlg(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
@@ -68,7 +68,7 @@ HcclResult InsV2AllGatherSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, I
                                               Level2TempRequest.notifyNumPerThread.end());
     CHK_PRT_RET(Level0TempRequest.channels.empty() || Level1TempRequest.channels.empty() || Level2TempRequest.channels.empty(),
                      HCCL_ERROR("[InsV2AllGatherSequenceExecutor3Level][CalcRes] Level0Template, Level1Template or Level2TempRequest has empty channels."),
-                     HcclResult::HCCL_E_Level1NAL);
+                     HcclResult::HCCL_E_INTERNAL);
     resourceRequest.channels.emplace_back(Level0TempRequest.channels[0]);
     resourceRequest.channels.emplace_back(Level1TempRequest.channels[0]);
     resourceRequest.channels.emplace_back(Level2TempRequest.channels[0]);
@@ -327,9 +327,12 @@ void InsV2AllGatherSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     return;
 }
 
-#ifndef AICPU_COMPILE
-REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherSequenceNHRNHRMesh1D,
-    InsV2AllGatherSequenceExecutor3Level, TopoMatchMultilevel, InsTempAllGatherNHR, InsTempAllGatherNHR, InsTempAllGatherMesh1D1DZAxisDetour);
-#endif
+REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, 
+    InsAllGatherSequenceNHRNHRMesh1D,
+    InsV2AllGatherSequenceExecutor3Level, 
+    TopoMatchMultilevel, 
+    InsTempAllGatherNHR, 
+    InsTempAllGatherNHR, 
+    InsTempAllGatherMesh1D1DZAxisDetour);
 }
 // 算法注册
