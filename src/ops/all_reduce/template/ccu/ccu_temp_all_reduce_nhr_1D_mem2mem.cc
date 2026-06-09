@@ -223,6 +223,61 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::FastLaunch(const OpParam& param, const 
     return HcclResult::HCCL_SUCCESS;
 }
 
+void CcuTempAllReduceNHRMem2Mem1D::BuildTaskArgs(const uint64_t inputAddr, const uint64_t outputAddr,
+    const uint64_t token, const uint64_t isInputOutputEqual, const uint64_t die0Size, const uint64_t die1Size,
+    const RankSliceInfo& die0SliceInfoVec, const RankSliceInfo& die1SliceInfoVec,
+    std::vector<uint64_t>& taskArgs) const
+{
+    taskArgs = {inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
+                die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size,
+                die0SliceInfoVec[templateRankSize_-1][0].size, die1SliceInfoVec[templateRankSize_-1][0].size};
+}
+
+HcclResult CcuTempAllReduceNHRMem2Mem1D::LaunchKernels(const std::vector<uint64_t>& taskArgs,
+    const uint64_t die0Size, const uint64_t die1Size, TemplateResource& templateResource) const
+{
+    const u32 kernelNum = templateResource.ccuKernels.size();
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        std::vector<u32> notifyIdxMainToSub(1, 0);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
+    }
+
+    for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {
+        if ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0)) {
+            continue;
+        }
+        CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[axisId],
+            templateResource.ccuKernels[axisId], taskArgs.data(), taskArgs.size());
+        if (launchRet != CCU_SUCCESS) {
+            HCCL_ERROR("[CcuTempAllReduceNHRMem2Mem1D::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+            return ConvertCcuToHccl(launchRet);
+        }
+    }
+
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        std::vector<u32> notifyIdxSubToMain(1, 0);
+        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+void CcuTempAllReduceNHRMem2Mem1D::SaveSubmitInfo(const uint64_t inputAddr, const uint64_t outputAddr,
+    const uint64_t token, const uint64_t isInputOutputEqual, const uint64_t die0Size, const uint64_t die1Size,
+    const RankSliceInfo& die0SliceInfoVec, const RankSliceInfo& die1SliceInfoVec,
+    TemplateResource& templateResource) const
+{
+    CcuKernelSubmitInfo submitInfo;
+    (void)FillCachedArgs(submitInfo, inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
+        die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size, die0SliceInfoVec[templateRankSize_-1][0].size,
+        die1SliceInfoVec[templateRankSize_-1][0].size, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff);
+    for (u32 i = 0; i < templateResource.ccuKernels.size(); i++) {
+        submitInfo.kernelHandle = templateResource.ccuKernels[i];
+        templateResource.submitInfos.push_back(submitInfo);
+    }
+}
+
 HcclResult CcuTempAllReduceNHRMem2Mem1D::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
                                                            TemplateResource& templateResource)
 {
@@ -230,74 +285,44 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::KernelRun(const OpParam& param, const T
     if (dataCount == 0) {
         HCCL_INFO("[CcuTempAllReduceNHRMem2Mem1D] dataCount == 0, Template Run Ends.");
         return HCCL_SUCCESS;
-    } 
-    u32 kernelNum = templateResource.ccuKernels.size();
-    uint64_t die0Size = 0;
-    uint64_t die1Size = 0;
+    }
+
+    const u32 kernelNum = templateResource.ccuKernels.size();
+    uint64_t die0Size = 0, die1Size = 0;
     constexpr uint32_t MAX_DIE_NUM_2 = 2;
     if (kernelNum == MAX_DIE_NUM_2) {
         SplitDataFor2Dies(dataCount, die0Size, die1Size);
     } else {
         die0Size = templateDataParams.sliceSize;
     }
+
     buffInfo_ = templateDataParams.buffInfo;
-    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
-    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    const uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
+    const uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
-    uint64_t repeatNum = templateDataParams.repeatNum;
-    uint64_t isInputOutputEqual = (inputAddr == outputAddr)? 1: 0;
-    RankSliceInfo die0SliceInfoVec;
+    const uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
+
+    RankSliceInfo die0SliceInfoVec, die1SliceInfoVec;
     CHK_RET(CalcSlice(die0Size, die0SliceInfoVec));
-    RankSliceInfo die1SliceInfoVec;
     CHK_RET(CalcSlice(die1Size, die1SliceInfoVec));
-    uint32_t axisSize = 2;
-    if (die0Size == 0 || die1Size == 0) {
-        axisSize = 1;
-    }
-    HCCL_INFO("[CcuTempAllReduceNHRMem2Mem1D] die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
-        "outputAddr[%llu], repeatNum[%llu], die0Slicesize[%llu], die1Slicesize[%llu], die0LastSlicesize[%llu],"\
-        "die1LastSlicesize[%llu]",
-        die0Size, die1Size, inputAddr, outputAddr, repeatNum,
-        die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size,
-        die0SliceInfoVec[templateRankSize_-1][0].size, die1SliceInfoVec[templateRankSize_-1][0].size);
 
-    // 准备任务参数
-    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
-                                      die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size,
-                                      die0SliceInfoVec[templateRankSize_-1][0].size, die1SliceInfoVec[templateRankSize_-1][0].size};
-    uint64_t argSize = 10;
+    HCCL_INFO("[CcuTempAllReduceNHRMem2Mem1D] die0Size[%llu], die1Size[%llu], inputAddr[%llu], "
+              "outputAddr[%llu], die0Slicesize[%llu], die1Slicesize[%llu], die0LastSlicesize[%llu], "
+              "die1LastSlicesize[%llu]",
+              die0Size, die1Size, inputAddr, outputAddr, die0SliceInfoVec[0][0].size,
+              die1SliceInfoVec[0][0].size, die0SliceInfoVec[templateRankSize_-1][0].size,
+              die1SliceInfoVec[templateRankSize_-1][0].size);
 
-    if (kernelNum > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        std::vector<u32> notifyIdxMainToSub(1, 0);    
-        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
-    }
-    for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {  // 2个die上各一个mission
-        if ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0)) {
-            continue;
-        }
-        CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[axisId], templateResource.ccuKernels[axisId], taskArgs.data(), argSize);
-        if (launchRet != CCU_SUCCESS) {
-            HCCL_ERROR("[CcuTempAllReduceNHRMem2Mem1D::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
-            return ConvertCcuToHccl(launchRet);
-        }
-    }
-    if (kernelNum > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        std::vector<u32> notifyIdxSubToMain(1, 0);
-        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
-    }
-     // 所有task下发完后再保存参数信息
-    CcuKernelSubmitInfo submitInfo;
-    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
-        die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size, die0SliceInfoVec[templateRankSize_-1][0].size, 
-        die1SliceInfoVec[templateRankSize_-1][0].size, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
-    for (u32 i = 0; i < kernelNum; i++) { 
-        // 2个kernel的TaskArg相同
-        submitInfo.kernelHandle = templateResource.ccuKernels[i];
-        templateResource.submitInfos.push_back(submitInfo);
-    }
+    std::vector<uint64_t> taskArgs;
+    BuildTaskArgs(inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
+                  die0SliceInfoVec, die1SliceInfoVec, taskArgs);
+
+    CHK_RET(LaunchKernels(taskArgs, die0Size, die1Size, templateResource));
+
+    SaveSubmitInfo(inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
+                   die0SliceInfoVec, die1SliceInfoVec, templateResource);
+
     HCCL_INFO("[CcuTempAllReduceNHRMem2Mem1D] Template Run for all steps Ends.");
     return HcclResult::HCCL_SUCCESS;
 }

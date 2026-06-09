@@ -161,6 +161,33 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::FastLaunch(const OpParam& param, const
     return HcclResult::HCCL_SUCCESS;
 }
 
+void CcuTempAllReduceMeshMem2Mem1D::BuildTaskArgs(const uint64_t inputAddr, const uint64_t outputAddr,
+    const uint64_t token, const uint64_t scratchAddr, const uint64_t currentRankSliceInputOffset,
+    const uint64_t currentRankSliceOutputOffset, const uint64_t normalSliceSize, const uint64_t lastSliceSize,
+    const uint64_t mySliceSize, const uint64_t sliceOffset, const uint64_t isInputOutputEqual,
+    const std::vector<uint64_t>& goSize, std::vector<uint64_t>& taskArgs) const
+{
+    taskArgs = {inputAddr, outputAddr, token, scratchAddr, currentRankSliceInputOffset,
+                currentRankSliceOutputOffset, normalSliceSize, lastSliceSize, mySliceSize,
+                sliceOffset, isInputOutputEqual, goSize[0], goSize[1], goSize[2], goSize[3]};
+}
+
+void CcuTempAllReduceMeshMem2Mem1D::SaveSubmitInfo(const uint64_t inputAddr, const uint64_t outputAddr,
+    const uint64_t token, const uint64_t scratchAddr, const uint64_t currentRankSliceInputOffset,
+    const uint64_t currentRankSliceOutputOffset, const uint64_t normalSliceSize, const uint64_t lastSliceSize,
+    const uint64_t mySliceSize, const uint64_t sliceOffset, const uint64_t isInputOutputEqual,
+    const std::vector<uint64_t>& goSize, TemplateResource& templateResource) const
+{
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    (void)FillCachedArgs(submitInfo, inputAddr, outputAddr, token, scratchAddr,
+        currentRankSliceInputOffset, currentRankSliceOutputOffset, normalSliceSize,
+        lastSliceSize, mySliceSize, sliceOffset, isInputOutputEqual,
+        goSize[0], goSize[1], goSize[2], goSize[3],
+        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, buffInfo_.hcclBuffBaseOff);
+    templateResource.submitInfos.push_back(submitInfo);
+}
+
 HcclResult CcuTempAllReduceMeshMem2Mem1D::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
                                                     TemplateResource& templateResource)
 {
@@ -169,70 +196,42 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::KernelRun(const OpParam& param, const 
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcSlice(templateDataParams.sliceSize, sliceInfoVec));
 
-    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
-    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    const uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
+    const uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
-    uint64_t scratchAddr        = PointerToAddr(buffInfo_.hcclBuff.addr) + buffInfo_.hcclBuffBaseOff;
-    uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
-    uint64_t outputSliceStride  = templateDataParams.outputSliceStride;
-    uint64_t inputRepeatStride  = templateDataParams.inputRepeatStride;
-    uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
-    uint64_t normalSliceSize    = sliceInfoVec[0][0].size;
-    uint64_t lastSliceSize      = sliceInfoVec[templateRankSize_ - 1][0].size;
-    uint64_t mySliceSize        = sliceInfoVec[mySubCommRank_][0].size;
-    uint64_t isInputOutputEqual = (inputAddr == outputAddr)? 1: 0;
-    uint64_t currentRankSliceInputOffset  = inputSliceStride * myRank_;
-    uint64_t currentRankSliceOutputOffset = outputSliceStride * myRank_;
-    uint64_t sliceOffset                  = normalSliceSize * myRank_;
+    const uint64_t scratchAddr = PointerToAddr(buffInfo_.hcclBuff.addr) + buffInfo_.hcclBuffBaseOff;
+    const uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
+
+    const uint64_t normalSliceSize = sliceInfoVec[0][0].size;
+    const uint64_t lastSliceSize = sliceInfoVec[templateRankSize_ - 1][0].size;
+    const uint64_t mySliceSize = sliceInfoVec[mySubCommRank_][0].size;
+    const uint64_t currentRankSliceInputOffset = templateDataParams.inputSliceStride * myRank_;
+    const uint64_t currentRankSliceOutputOffset = templateDataParams.outputSliceStride * myRank_;
+    const uint64_t sliceOffset = normalSliceSize * myRank_;
+
     LoopGroupConfig config{};
-    uint64_t CCU_SCHED_USED_LOOP_COUNT = 16;
     config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = CCU_SCHED_USED_LOOP_COUNT;
-    config.memSlice     = CCU_MS_SIZE;
-    auto normalGoSize = CalGoSize(normalSliceSize, config);
-    auto lastGoSize = CalGoSize(lastSliceSize, config);
-    std::vector<uint64_t> goSize;
+    config.loopCount = 16;
+    config.memSlice = CCU_MS_SIZE;
+    const std::vector<uint64_t> goSize = (myRank_ != templateRankSize_ - 1) ?
+        CalGoSize(normalSliceSize, config) : CalGoSize(lastSliceSize, config);
 
-    if (myRank_ != templateRankSize_ - 1 ) {
-        goSize = normalGoSize;
-    } else {
-        goSize = lastGoSize;
-    }
+    std::vector<uint64_t> taskArgs;
+    BuildTaskArgs(inputAddr, outputAddr, token, scratchAddr, currentRankSliceInputOffset,
+                  currentRankSliceOutputOffset, normalSliceSize, lastSliceSize, mySliceSize,
+                  sliceOffset, isInputOutputEqual, goSize, taskArgs);
 
-    std::vector<uint64_t> taskArgs = {
-        inputAddr,
-        outputAddr,
-        token,
-        scratchAddr,
-        currentRankSliceInputOffset,
-        currentRankSliceOutputOffset,
-        normalSliceSize,
-        lastSliceSize,
-        mySliceSize,
-        sliceOffset,
-        isInputOutputEqual,
-        goSize[0],
-        goSize[1],
-        goSize[2],
-        goSize[3]
-    };
-    uint64_t argSize = 15;
-
-    CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
+    CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0],
+                                                taskArgs.data(), taskArgs.size());
     if (launchRet != CCU_SUCCESS) {
         HCCL_ERROR("[CcuTempAllReduceMeshMem2Mem1D::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
         return ConvertCcuToHccl(launchRet);
     }
 
-    CcuKernelSubmitInfo submitInfo;
-    submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, scratchAddr,
-        currentRankSliceInputOffset, currentRankSliceOutputOffset, normalSliceSize, 
-        lastSliceSize, mySliceSize, sliceOffset, isInputOutputEqual, 
-        goSize[0], goSize[1], goSize[2], goSize[3], 
-        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, buffInfo_.hcclBuffBaseOff));
-    templateResource.submitInfos.push_back(submitInfo);
+    SaveSubmitInfo(inputAddr, outputAddr, token, scratchAddr, currentRankSliceInputOffset,
+                   currentRankSliceOutputOffset, normalSliceSize, lastSliceSize, mySliceSize,
+                   sliceOffset, isInputOutputEqual, goSize, templateResource);
 
     return HcclResult::HCCL_SUCCESS;
 }

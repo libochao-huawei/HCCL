@@ -134,78 +134,101 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch(const OpParam& par
     return HcclResult::HCCL_SUCCESS;
 }
 
+void CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcSliceParams(const uint64_t dataCount, 
+    uint64_t& dataSizePerRank, uint64_t& dataSizePerPort, 
+    uint64_t& lastRankSliceSize, uint64_t& lastPortSliceSize) const
+{
+    const uint64_t unitSize = DataTypeSizeGet(dataType_);
+    const uint64_t sliceDivisor = templateRankSize_ * portNum_;
+    const uint64_t sliceAlignCount = HCCL_MIN_SLICE_ALIGN / unitSize;
+    const uint64_t dataCountPerPort = dataCount / sliceDivisor / sliceAlignCount * sliceAlignCount;
+    const uint64_t dataCountPerRank = dataCountPerPort * portNum_;
+    dataSizePerPort = dataCountPerPort * unitSize;
+    dataSizePerRank = dataSizePerPort * portNum_;
+    const uint64_t lastRankSliceCount = dataCount - dataCountPerRank * (templateRankSize_ - 1);
+    const uint64_t lastPortSliceCount = lastRankSliceCount - dataCountPerPort * (portNum_ - 1);
+    lastRankSliceSize = lastRankSliceCount * unitSize;
+    lastPortSliceSize = lastPortSliceCount * unitSize;
+}
+
+void CcuTempAllReduceNhrMem2Mem1DMultiJetty::BuildTaskArgsAndGoSize(const uint64_t inputAddr, 
+    const uint64_t outputAddr, const uint64_t outputToken, const uint64_t isInplace, 
+    const uint64_t dataSizePerRank, const uint64_t dataSizePerPort, 
+    const uint64_t lastRankSliceSize, const uint64_t lastPortSliceSize,
+    std::vector<uint64_t>& taskArgs, std::vector<uint64_t>& localCopyGoSize,
+    std::vector<uint64_t>& localCopyGoSizeLastSlice) const
+{
+    LoopGroupConfig config{};
+    config.msInterleave = CCU_MS_INTERLEAVE;
+    config.loopCount = CCU_MS_DEFAULT_LOOP_COUNT;
+    config.memSlice = CCU_MS_SIZE;
+    localCopyGoSize = CalGoSize(dataSizePerRank, config);
+    localCopyGoSizeLastSlice = CalGoSize(lastRankSliceSize, config);
+
+    taskArgs = {inputAddr, outputAddr, outputToken, isInplace,
+        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize};
+    taskArgs.insert(taskArgs.end(), localCopyGoSize.cbegin(), localCopyGoSize.cend());
+    taskArgs.insert(taskArgs.end(), localCopyGoSizeLastSlice.cbegin(), localCopyGoSizeLastSlice.cend());
+}
+
+void CcuTempAllReduceNhrMem2Mem1DMultiJetty::FillSubmitInfo(const uint64_t outputToken, const uint64_t isInplace,
+    const uint64_t dataSizePerRank, const uint64_t dataSizePerPort, const uint64_t lastRankSliceSize,
+    const uint64_t lastPortSliceSize, const std::vector<uint64_t>& localCopyGoSize,
+    const std::vector<uint64_t>& localCopyGoSizeLastSlice, TemplateResource& templateResource) const
+{
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    (void)FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, outputToken, isInplace,
+        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize, localCopyGoSize[0],
+        localCopyGoSize[1], localCopyGoSize[2], localCopyGoSize[3], localCopyGoSizeLastSlice[0],
+        localCopyGoSizeLastSlice[1], localCopyGoSizeLastSlice[2], localCopyGoSizeLastSlice[3]);
+    templateResource.submitInfos.push_back(submitInfo);
+}
+
 HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& param,
     const TemplateDataParams& templateDataParams, TemplateResource& templateResource)
 {
     HCCL_DEBUG("[%s] begin.", __func__);
     buffInfo_ = templateDataParams.buffInfo;
 
-    // 数据量为0时，直接返回
     CHK_PRT_RET(templateDataParams.count == 0, HCCL_INFO("[%s] Count is zero, nothing to do.", __func__),
                 HcclResult::HCCL_SUCCESS);
 
     const uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     const uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    
     uint64_t outputToken;
     {
         auto tokenBuffInfo = buffInfo_;
-        tokenBuffInfo.inputPtr = nullptr; // 让 GetToken 走 outputPtr 分支
+        tokenBuffInfo.inputPtr = nullptr;
         tokenBuffInfo.inputSize = 0;
         CHK_RET(GetToken(tokenBuffInfo, outputToken));
     }
+    
     const uint64_t isInplace = inputAddr == outputAddr ? 1 : 0;
-    const uint64_t dataCount = templateDataParams.count; // 总count数
-    const uint64_t unitSize = DataTypeSizeGet(dataType_);
-    const uint64_t dataSize = dataCount * unitSize; // 总size
-    const uint64_t sliceDivisor = templateRankSize_ * portNum_;
-    const uint64_t sliceAlignCount = HCCL_MIN_SLICE_ALIGN / unitSize; // 保证切分的slice呈128字节对齐
-    const uint64_t dataCountPerPort = dataCount / sliceDivisor / sliceAlignCount * sliceAlignCount;
-    const uint64_t dataCountPerRank = dataCountPerPort * portNum_;
-    const uint64_t dataSizePerPort = dataCountPerPort * unitSize;
-    const uint64_t dataSizePerRank = dataSizePerPort * portNum_;
-    const uint64_t lastRankSliceCount = dataCount - dataCountPerRank * (templateRankSize_ - 1);
-    const uint64_t lastPortSliceCount = lastRankSliceCount - dataCountPerPort * (portNum_ - 1);
-    const uint64_t lastRankSliceSize = lastRankSliceCount * unitSize;
-    const uint64_t lastPortSliceSize = lastPortSliceCount * unitSize;
+    const uint64_t dataCount = templateDataParams.count;
 
-    HCCL_DEBUG("[%s] inputAddr[%llu], outputAddr[%llu], isInplace[%llu], dataSize[%llu], "
-               "sliceDivisor[%llu], dataSizePerPort[%llu], dataSizePerRank[%llu], lastRankSliceSize[%llu], "
-               "lastPortSliceSize[%llu]",
-               __func__, inputAddr, outputAddr, isInplace, dataSize, sliceDivisor, dataSizePerPort,
-               dataSizePerRank, lastRankSliceSize, lastPortSliceSize);
+    uint64_t dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize;
+    CalcSliceParams(dataCount, dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize);
 
-    // go size of group operations
-    LoopGroupConfig config{};
-    config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
-    config.memSlice     = CCU_MS_SIZE;
-    auto localCopyGoSize = CalGoSize(dataSizePerRank, config);
-    auto localCopyGoSizeLastSlice = CalGoSize(lastRankSliceSize, config);
+    HCCL_DEBUG("[%s] inputAddr[%llu], outputAddr[%llu], isInplace[%llu], dataSizePerRank[%llu], "
+               "dataSizePerPort[%llu], lastRankSliceSize[%llu], lastPortSliceSize[%llu]",
+               __func__, inputAddr, outputAddr, isInplace, dataSizePerRank, dataSizePerPort,
+               lastRankSliceSize, lastPortSliceSize);
 
-    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, outputToken, isInplace, 
-        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize};
-    taskArgs.insert(taskArgs.end(), localCopyGoSize.cbegin(), localCopyGoSize.cend());
-    taskArgs.insert(taskArgs.end(), localCopyGoSizeLastSlice.cbegin(), localCopyGoSizeLastSlice.cend());
-    uint64_t argSize = taskArgs.size();
+    std::vector<uint64_t> taskArgs, localCopyGoSize, localCopyGoSizeLastSlice;
+    BuildTaskArgsAndGoSize(inputAddr, outputAddr, outputToken, isInplace, dataSizePerRank, dataSizePerPort,
+                           lastRankSliceSize, lastPortSliceSize, taskArgs, localCopyGoSize, localCopyGoSizeLastSlice);
 
     CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0],
-        taskArgs.data(), argSize);
-    if (launchRet != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] kernel launch failed, ccuRet -> %d", __func__, launchRet);
-        return ConvertCcuToHccl(launchRet);
-    }
+        taskArgs.data(), taskArgs.size());
+    CHK_PRT_RET(launchRet != CCU_SUCCESS, HCCL_ERROR("[%s] kernel launch failed, ccuRet -> %d", __func__, launchRet),
+                ConvertCcuToHccl(launchRet));
 
-    // 下发完再保存参数信息
-    CcuKernelSubmitInfo submitInfo;
-    submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, outputToken, isInplace,
-        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize, localCopyGoSize[0], 
-        localCopyGoSize[1], localCopyGoSize[2], localCopyGoSize[3], localCopyGoSizeLastSlice[0], 
-        localCopyGoSizeLastSlice[1], localCopyGoSizeLastSlice[2], localCopyGoSizeLastSlice[3]));
-    templateResource.submitInfos.push_back(submitInfo);
+    FillSubmitInfo(outputToken, isInplace, dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize,
+                   localCopyGoSize, localCopyGoSizeLastSlice, templateResource);
 
     HCCL_DEBUG("[%s] end.", __func__);
-
     return HcclResult::HCCL_SUCCESS;
 }
 
