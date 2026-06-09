@@ -162,7 +162,7 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
     std::vector<u32> notifyIdxSubToMain(1, 0);
     CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
 
-    DataSlice srcSlice(buffInfo_.hcclBuff.addr, buffInfo_.hcclBuffBaseOff + offsetSliceSize, sliceSize, sliceSize/DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
+    DataSlice srcSlice(buffInfo_.hcclBuff.addr, buffInfo_.hcclBuffBaseOff + sliceSize, sliceSize, sliceSize/DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
     DataSlice dstSlice(buffInfo_.outputPtr, buffInfo_.outBuffBaseOff, sliceSize, sliceSize/DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
     LocalReduce(templateResource.threads[0], srcSlice, dstSlice, param.DataDes.dataType, param.reduceType);
 
