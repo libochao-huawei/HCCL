@@ -1,0 +1,259 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include "ins_temp_all_gather_mesh_1D_opt_no_memcpy.h"
+#include "alg_data_trans_wrapper.h"
+#include "template_utils.h"
+namespace ops_hccl {
+namespace {
+HcclResult CheckRemoteOutputRange(const char *tag, u32 myRank, u32 peer, const ChannelInfo &linkRemote,
+                                  u64 offset, u64 size)
+{
+    CHK_PRT_RET(linkRemote.remoteOutputGraphMode.addr == nullptr,
+                HCCL_ERROR("[%s] Rank[%u] peer[%u] remote output unavailable.", tag, myRank, peer),
+                HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(offset + size > linkRemote.remoteOutputGraphMode.size,
+                HCCL_ERROR("[%s] Rank[%u] peer[%u] remote output range overflow. off[%llu] size[%llu] "
+                           "remoteOutputSize[%llu]",
+                           tag, myRank, peer, offset, size, linkRemote.remoteOutputGraphMode.size),
+                HcclResult::HCCL_E_INTERNAL);
+    return HCCL_SUCCESS;
+}
+}
+
+InsTempAllGatherMesh1DOptNoMemcpy::InsTempAllGatherMesh1DOptNoMemcpy(const OpParam &param, const u32 rankId,
+                                               const std::vector<std::vector<u32>> &subCommRanks)
+    : InsAlgTemplateBase(param, rankId, subCommRanks)
+{
+}
+InsTempAllGatherMesh1DOptNoMemcpy::~InsTempAllGatherMesh1DOptNoMemcpy() {}
+
+HcclResult InsTempAllGatherMesh1DOptNoMemcpy::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
+                                           AlgResourceRequest &resourceRequest)
+{
+    HCCL_INFO("[InsTempAllGatherMesh1DOptNoMemcpy][CalcRes] start");
+    GetRes(resourceRequest);
+    std::vector<HcclChannelDesc> level0Channels;
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    resourceRequest.channels.push_back(level0Channels);
+    return HCCL_SUCCESS;
+}
+HcclResult InsTempAllGatherMesh1DOptNoMemcpy::GetRes(AlgResourceRequest &resourceRequest) const
+{
+    u32 level0RankSize = templateRankSize_;
+    u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;
+    resourceRequest.slaveThreadNum = threadNum - 1;
+    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+    resourceRequest.notifyNumOnMainThread = threadNum - 1;
+    return HCCL_SUCCESS;
+}
+
+u64 InsTempAllGatherMesh1DOptNoMemcpy::GetThreadNum() const
+{
+    u32 commThreadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    return commThreadNum;
+}
+
+u64 InsTempAllGatherMesh1DOptNoMemcpy::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
+{
+    (void)inBuffType;
+    (void)outBuffType;
+    u64 scratchMultiple = 0;
+    if (opMode_ == OpMode::OPBASE){
+        scratchMultiple = templateRankSize_;
+    }
+    return scratchMultiple;
+}
+
+HcclResult InsTempAllGatherMesh1DOptNoMemcpy::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
+                                             TemplateResource &templateResource)
+{
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
+    HCCL_INFO("[InsTempAllGatherMesh1DOptNoMemcpy] Run start");
+    if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize ==0) {
+        HCCL_INFO("[InsTempAllGatherMesh1DOptNoMemcpy] Rank [%d], get slicesize zero.", myRank_);
+        return HCCL_SUCCESS;
+    }
+    threadNum_ = templateResource.threads.size();
+    tempAlgParams_ = tempAlgParams;
+    dataType_ = param.DataDes.dataType;
+    HCCL_DEBUG("[InsTempAllGatherMesh1DOptNoMemcpy] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
+    // CHK_RET(LocalDataCopy(templateResource.threads));
+    if (templateRankSize_ == 1) {
+        return HcclResult::HCCL_SUCCESS;
+    }
+    CHK_PRT_RET(templateResource.threads.size() < GetThreadNum(),
+                HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy] Rank[%u] threads[%zu] < required[%llu].",
+                           myRank_, templateResource.threads.size(), GetThreadNum()),
+                HcclResult::HCCL_E_INTERNAL);
+    u32 commThreadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    std::vector<ThreadHandle> commThreads(templateResource.threads.begin(),
+                                          templateResource.threads.begin() + commThreadNum);
+
+    for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
+        const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+        if (remoteWrite) {
+            u64 sliceSize = tempAlgParams_.buffInfo.inputSize;
+            u64 sliceCount = sliceSize / dataTypeSize;
+            u64 inputOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
+            u64 outputOffset = tempAlgParams_.buffInfo.outBuffBaseOff + myRank_ * tempAlgParams_.outputSliceStride;
+            DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inputOffset, sliceSize, sliceCount);
+            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outputOffset, sliceSize, sliceCount);
+            HCCL_WARNING("[InsTempAllGatherMesh1DOptNoMemcpy][LOCAL_WRITE] Rank[%u] inputOff[%llu] outputOff[%llu] "
+                         "size[%llu] stride[%llu]",
+                         myRank_, inputOffset, outputOffset, sliceSize, tempAlgParams_.outputSliceStride);
+            CHK_RET(LocalCopy(commThreads[0], srcSlice, dstSlice));
+            break;
+        } else {
+            HCCL_INFO("[InsTempAllGatherMesh1DOptNoMemcpy][LOCAL_READ] Rank[%u] skip HCCL->output copy, rpt[%u].",
+                      myRank_, rpt);
+        }
+    }
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    }
+    CHK_RET(RunAllGatherMesh(commThreads, templateResource.channels));
+
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    }
+    HCCL_INFO("[InsTempAllGatherMesh1DOptNoMemcpy] Run End");
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult InsTempAllGatherMesh1DOptNoMemcpy::RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
+                                                    const std::map<u32, std::vector<ChannelInfo>> &channels)
+{
+    HCCL_INFO("[InsTempAllGatherMesh1DOptNoMemcpy] RunAllGatherMesh RankIDs[%d].", myRank_);
+
+    u32 myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    for (u32 threadIdx = 0; threadIdx < subCommRanks_[0].size() - 1; threadIdx++) {
+        u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + threadIdx) % subCommRanks_[0].size()];
+
+        u32 connectedAlgRank = 0;
+        CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
+        HCCL_INFO("[InsTempAllGatherMesh1DOptNoMemcpy] RunAllGatherMesh RankIDs[%d], connectedRank[%d], connectedAlgRank[%d].",
+                    myRank_, connectedRank, connectedAlgRank);
+
+        CHK_PRT_RET(threadIdx >= threads.size() || channels.count(connectedRank) == 0 ||
+                    channels.at(connectedRank).empty(),
+                    HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy][RankID]=%u threadIdx=%u, threads.size=%u, "
+                                "connectedRank=%d, channels.size=%u",
+                                myRank_, threadIdx, threads.size(), connectedRank, channels.size()),
+                    HcclResult::HCCL_E_INTERNAL);
+
+        const ChannelInfo &linkRemote = channels.at(connectedRank)[0];
+
+        u64 sliceSize = tempAlgParams_.buffInfo.inputSize;
+        u64 sliceCount = sliceSize / dataTypeSize;
+        u64 outputSliceStride = tempAlgParams_.outputSliceStride;
+
+        if (remoteWrite) {
+            std::vector<DataSlice> txSrcSlicesAll;
+            std::vector<DataSlice> txDstSlicesAll;
+            std::vector<DataSlice> rxDstSlicesAll;
+            std::vector<DataSlice> rxSrcSlicesAll;
+            // 阶段1 远端写， 从本地的 input ptr 到 远端的 hccl buffer
+            // 需要确保 当前场景下配置的repeatNum 为 1
+
+            // tx 远端写
+            void *txSrcPtr = tempAlgParams_.buffInfo.inputPtr;
+            u64 txSrcOffset = tempAlgParams_.buffInfo.inBuffBaseOff;
+            txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, sliceSize, sliceCount);
+
+            void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
+            u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + myRank_ * outputSliceStride;
+            CHK_RET(CheckRemoteOutputRange("InsTempAllGatherMesh1DOptNoMemcpy", myRank_, connectedRank,
+                                           linkRemote, txDstOffset, sliceSize));
+            txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
+
+            // rx 远端读，不应该启动
+            void *rxSrcPtr = linkRemote.remoteOutputGraphMode.addr;
+            u64 rxSrcOffset = tempAlgParams_.buffInfo.outBuffBaseOff + connectedRank * outputSliceStride;
+            rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, sliceSize, sliceCount);
+            
+            void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
+            u64 rxOutOffset = tempAlgParams_.buffInfo.outBuffBaseOff + connectedRank * outputSliceStride;
+            rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, sliceSize, sliceCount);
+
+            TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
+            TxRxChannels sendRecvChannels(linkRemote, linkRemote);
+            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
+                        HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy] RunAllGather SendRecvWrite failed"), HcclResult::HCCL_E_INTERNAL);
+
+        } else {
+            // 阶段 2 远端写， 将本地 output 中对端需要的数据直写到对端 output
+            std::vector<DataSlice> txSrcSlicesAll;
+            std::vector<DataSlice> txDstSlicesAll;
+            std::vector<DataSlice> rxDstSlicesAll;
+            std::vector<DataSlice> rxSrcSlicesAll;
+
+            for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
+                u32 txRank = (myRank_ + rpt * meshSize_) % rankSize_;
+                void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
+                u64 txSrcOffset = tempAlgParams_.buffInfo.outBuffBaseOff + txRank * outputSliceStride;
+                txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, sliceSize, sliceCount);
+
+                void *txDstPtr = linkRemote.remoteOutputGraphMode.addr;
+                u64 txDstOffset = tempAlgParams_.buffInfo.outBuffBaseOff + txRank * outputSliceStride;
+                CHK_RET(CheckRemoteOutputRange("InsTempAllGatherMesh1DOptNoMemcpy", myRank_, connectedRank,
+                                               linkRemote, txDstOffset, sliceSize));
+                txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
+
+
+                // rx slice用于描述对端会写回本端的数据槽。
+                u32 rxRank = (connectedRank + rpt * meshSize_) % rankSize_;
+                void *rxSrcPtr = linkRemote.remoteOutputGraphMode.addr;
+                u64 rxSrcOffset = tempAlgParams_.buffInfo.outBuffBaseOff + rxRank * outputSliceStride;
+                rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, sliceSize, sliceCount);
+                
+                void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
+                u64 rxOutOffset = tempAlgParams_.buffInfo.outBuffBaseOff + rxRank * outputSliceStride;
+                rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, sliceSize, sliceCount);
+            }
+            TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
+            TxRxChannels sendRecvChannels(linkRemote, linkRemote);
+            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
+                        HCCL_ERROR("[InsTempAllGatherMesh1DOptNoMemcpy] RunAllGather SendRecvWrite failed"),
+                        HcclResult::HCCL_E_INTERNAL);
+        }
+    }    
+    return HcclResult::HCCL_SUCCESS;
+}
+
+void InsTempAllGatherMesh1DOptNoMemcpy::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub)
+{
+    notifyIdxMianToSub.clear();
+    u32 threadNum = GetThreadNum();
+    u32 slaveThreadNum = threadNum - 1;
+    for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
+        notifyIdxMianToSub.push_back(0);
+    }
+}
+
+void InsTempAllGatherMesh1DOptNoMemcpy::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
+{
+    notifyIdxSubToMain.clear();
+    u32 threadNum = GetThreadNum();
+    u32 notifyNum = threadNum - 1;
+    for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
+        notifyIdxSubToMain.push_back(notifyIdx);
+    }
+}
+
+}  // namespace ops_hccl
