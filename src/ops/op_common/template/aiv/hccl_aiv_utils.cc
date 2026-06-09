@@ -282,27 +282,27 @@ void ProcessAivExceptionCallBack(aclrtExceptionInfo *exceptionInfo)
         return;
     }
 
-    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
-        "TaskId[%u], cmdType[%u], tag[%u],rank[%u],rankSize[%u], dataCount[%llu], blockDim[%u],"
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u], streamId[%u], "
+        "TaskId[%u], cmdType[%u], tag[%u], rank[%u], rankSize[%u], dataCount[%llu], blockDim[%u], "
         "dataType:[%u], beginTime:[%llu], flagMem[%p]",
         deviceId, streamId, taskId, taskInfo.cmdType, taskInfo.tag,
         taskInfo.rank, taskInfo.rankSize, taskInfo.size, taskInfo.blockDim, taskInfo.dataType, taskInfo.beginTime,
         taskInfo.flagMem);
 
-    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
-        "TaskId[%u], flag: %s", deviceId, streamId, taskId,
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u], streamId[%u], "
+        "TaskId[%u]. flag: %s", deviceId, streamId, taskId,
         SerializeAivFlag(taskInfo).c_str());
 
-    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
-        "TaskId[%u], task info before failed task is:", deviceId, streamId, taskId);
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u], streamId[%u], "
+        "TaskId[%u]. task info before failed task is:", deviceId, streamId, taskId);
 
     u32 printed = 0;
     for (auto it = taskQueue.rbegin(); it != taskQueue.rend() && printed < AIV_TASK_CONTEXT_SIZE; ++it) {
         if (it->taskId == taskInfo.taskId) {
             continue;
         }
-        HCCL_ERROR("[TaskExceptionHandler][AIV] previous TaskId[%llu],streamId[%llu], cmdType[%u], "
-            "tag[%u],rank[%u],rankSize[%u], dataCount[%llu], blockDim[%u],dataType:[%u], beginTime:[%llu], "
+        HCCL_ERROR("[TaskExceptionHandler][AIV] previous TaskId[%llu], streamId[%llu], cmdType[%u], "
+            "tag[%u], rank[%u], rankSize[%u], dataCount[%llu], blockDim[%u], dataType:[%u], beginTime:[%llu], "
             "flagMem[%p]", it->taskId, it->streamId, it->cmdType, it->tag, it->rank, it->rankSize, it->size,
             it->blockDim, it->dataType, it->beginTime, it->flagMem);
         ++printed;
