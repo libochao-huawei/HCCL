@@ -693,9 +693,18 @@ CcuResult CreateMultiOpCopy(CcuKernelCtxBase &ctx, GroupCopyVar &var)
     return CCU_SUCCESS;
 }
 
+static void SetupLoopAddress(GroupCopyVar& var, ccu::LocalAddr& src, ccu::LocalAddr& dst,
+                           GroupOpSizeVars goSize, int index, ccu::Variable size) {
+    var.loopSrc[index].addr = src.addr;
+    var.loopSrc[index].token = src.token;
+    var.loopDst[index].addr = dst.addr;
+    var.loopDst[index].token = dst.token;
+    var.loopLen[index] = size;
+}
+
 CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupOpSizeVars goSize)
 {
-    auto &var = ctx.gcVar;
+    GroupCopyVar &var = ctx.gcVar;
     CCU_CHK_RET(CreateMultiOpCopy(ctx, var));
     auto &loops = ctx.loopMap["localcopy"];
 
@@ -708,11 +717,7 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
         ccu::Variable sliceSize;
         sliceSize = ctx.moConfig.memSlice;
 
-        var.loopSrc[0].addr = src.addr;
-        var.loopSrc[0].token = src.token;
-        var.loopDst[0].addr = dst.addr;
-        var.loopDst[0].token = dst.token;
-        var.loopLen[0] = sliceSize;
+        SetupLoopAddress(var, src, dst, goSize, 0, sliceSize);
 
         loops.loopParam[0] = loopParam;
         ccu::Variable paraCfg;
@@ -729,11 +734,7 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
         src.addr += goSize.addrOffset;
         dst.addr += goSize.addrOffset;
 
-        var.loopSrc[0].addr = src.addr;
-        var.loopSrc[0].token = src.token;
-        var.loopDst[0].addr = dst.addr;
-        var.loopDst[0].token = dst.token;
-        var.loopLen[0] = goSize.residual;
+        SetupLoopAddress(var, src, dst, goSize, 0, goSize.residual);
 
         src.addr += goSize.residual;
         dst.addr += goSize.residual;
@@ -741,11 +742,7 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
         ccu::Variable sliceSize;
         sliceSize = ctx.moConfig.memSlice;
 
-        var.loopSrc[1].addr = src.addr;
-        var.loopSrc[1].token = src.token;
-        var.loopDst[1].addr = dst.addr;
-        var.loopDst[1].token = dst.token;
-        var.loopLen[1] = sliceSize;
+        SetupLoopAddress(var, src, dst, goSize, 1, sliceSize);
 
         ccu::Variable loopCfg0;
         loopCfg0 = GetLoopParam(0, 0, 1);
