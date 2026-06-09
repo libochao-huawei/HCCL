@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
  
 #ifndef HCCL_AIV_UTILS_H
 #define HCCL_AIV_UTILS_H
@@ -28,7 +28,7 @@ constexpr u32 AIV_TOPO_ADDR_OFFSET = 32 * 1024;
 constexpr u32 AIV_TOPO_BUFF_LEN = 8 * 1024;
 constexpr u32 AIV_FLAG_ADDR_OFFSET = 40 * 1024;
 constexpr u32 AIV_FLAG_AREA_SIZE = 1000 * 1024;
-constexpr u32 AIV_TAG_BUFF_LEN = 33 * 1024 * 1024;
+constexpr u32 AIV_TAG_BUFF_LEN = 65 * 1024 * 1024;
 
 constexpr u32 AIV_MAX_CCL_LOOP_NUM = 16;
 
@@ -104,6 +104,7 @@ struct AivOpArgs {
     u64 repeatNum = 0;
     u64 inputRepeatStride = 0;
     u64 outputRepeatStride = 0;
+    u64 hcclBuffSize = 0;
     bool isOpBase = false;
     ExtraArgs extraArgs = {}; 
     uint64_t topo_[TOPO_LEN] = {0}; 
@@ -166,6 +167,7 @@ extern thread_local std::shared_ptr<InsQueue> g_recordingQueue;
 extern thread_local bool g_recordOnlyMode;
 extern thread_local u64 g_baseInputAddr;
 extern thread_local u64 g_baseOutputAddr;
+extern thread_local u64 g_aivCurrentCclBufferSize;
 extern thread_local HcclComm g_aivCurrentComm;
 extern thread_local std::string g_aivCurrentCommName;
 
