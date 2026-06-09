@@ -12,6 +12,7 @@
 #include "topo_match_multilevel.h"
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_mesh_clos_v2.h"
 #ifndef AICPU_COMPILE
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
@@ -407,6 +408,21 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                TopoMatchMultilevel,
                                InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
+                               InsAllGatherSequenceMeshClosV2Mesh1D,
+                               InsV2AllGatherSequenceExecutorAicpu,
+                               TopoMatchMultilevel,
+                               InsTempAllGatherMesh1D1DZAxisDetour,
+                               InsTempAllGatherMeshClosV2);
+#endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
+
+#if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
+#ifndef AICPU_COMPILE
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherSequenceMeshMesh,
+    InsV2AllGatherSequenceExecutorAicpu, TopoMatchMultilevel,
+    CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem);
+#endif
 #endif /* CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0) */
 
 #if CANN_VERSION_NUM >= CANN_VERSION(9, 0, 0)
