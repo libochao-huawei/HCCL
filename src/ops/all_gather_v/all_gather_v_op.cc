@@ -40,15 +40,14 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 参数校验等工作
- 	CHK_RET(CheckAllGatherVInputPara(comm, recvBuf, recvCounts, recvDispls, stream));
+ 	CHK_RET(CheckAllGatherVInputPara(comm, recvCounts, recvDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
-    CHK_RET(HcclGetRankSize(comm, &rankSize));
-    const u64* recvCountsAddr = reinterpret_cast<const u64*>(recvCounts);
-    CHK_PRT_RET(std::all_of(recvCountsAddr, recvCountsAddr + rankSize, [](auto count) { return count == 0; }),
-            HCCL_WARNING("input all %u elements in recvCounts are 0, return success", rankSize),
-            HCCL_SUCCESS);
     u32 userRank = INVALID_VALUE_RANKID;
-    CHK_RET(HcclGetRankId(comm, &userRank));
+    bool allRecvCountsZero = false;
+    CHK_RET(CheckAllGatherVRecvAndGetRank(comm, recvBuf, recvCounts, rankSize, userRank, allRecvCountsZero));
+    if (allRecvCountsZero) {
+        return HCCL_SUCCESS;
+    }
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
     const string tag = "AllGatherV_" + string(commName);
@@ -72,6 +71,7 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
 {
  	HCCL_INFO("Start to run execute HcclAllGatherVGraphMode");
  	// 根据group获取通信域
+ 	CHK_PTR_NULL(group);
  	HcclComm comm = nullptr;
     HCCL_INFO("[HcclAllGatherVGraphMode] get group name: %s", group);
  	CHK_RET(HcomGetCommHandleByGroup(group, &comm));
@@ -79,7 +79,7 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
  	// 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
  	// 检查入参指针有效性
- 	CHK_RET(CheckAllGatherVInputPara(comm, recvBuf, recvCounts, recvDispls, stream));
+ 	CHK_RET(CheckAllGatherVInputPara(comm, recvCounts, recvDispls, stream));
  	// tag有效性,是否过长
  	char commName[COMM_INDENTIFIER_MAX_LENGTH];
  	CHK_RET(HcclGetCommName(comm, commName));
@@ -92,13 +92,12 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
  	CHK_RET(CheckDataType(dataType, false));
  	// 检查rank有效性，是否超出rankSize
     u32 rankSize = INVALID_VALUE_RANKSIZE;
-    CHK_RET(HcclGetRankSize(comm, &rankSize));
-    const u64* recvCountsAddr = reinterpret_cast<const u64*>(recvCounts);
-    CHK_PRT_RET(std::all_of(recvCountsAddr, recvCountsAddr + rankSize, [](auto count) { return count == 0; }),
-        HCCL_WARNING("input all %u elements in recvCounts are 0, return success", rankSize), 
-        HCCL_SUCCESS);
     u32 userRank = INVALID_VALUE_RANKID;
-    CHK_RET(HcclGetRankId(comm, &userRank));
+    bool allRecvCountsZero = false;
+    CHK_RET(CheckAllGatherVRecvAndGetRank(comm, recvBuf, recvCounts, rankSize, userRank, allRecvCountsZero));
+    if (allRecvCountsZero) {
+        return HCCL_SUCCESS;
+    }
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
  	  	 
  	// 拼装ResPackGraphMode
@@ -124,15 +123,12 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
 }
  	
 namespace ops_hccl {
-HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* recvBuf, const void *recvCounts, const void *recvDispls, const aclrtStream stream)
+HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void *recvCounts, const void *recvDispls, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
                   std::vector<std::string>({"HcclAllGatherV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
-                  std::vector<std::string>({"HcclAllGatherV", "nullptr", "recvBuf", "non-null pointer"}));
-    CHK_PTR_NULL(recvBuf);
     RPT_INPUT_ERR(recvCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAllGatherV", "nullptr", "recvCounts", "non-null pointer"}));
     CHK_PTR_NULL(recvCounts);
@@ -142,6 +138,26 @@ HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* recvBuf, co
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAllGatherV", "nullptr", "stream", "non-null pointer"}));
     CHK_PTR_NULL(stream);
+    return HCCL_SUCCESS;
+}
+
+// 获取rankSize/userRank并校验recvBuf：recvCounts全0为合法空操作(allRecvCountsZero置true，
+// 调用方应直接返回成功)，此时允许recvBuf为nullptr；否则要求recvBuf非空
+HcclResult CheckAllGatherVRecvAndGetRank(const HcclComm comm, const void *recvBuf, const void *recvCounts,
+    u32 &rankSize, u32 &userRank, bool &allRecvCountsZero)
+{
+    allRecvCountsZero = false;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    const u64* recvCountsAddr = reinterpret_cast<const u64*>(recvCounts);
+    if (std::all_of(recvCountsAddr, recvCountsAddr + rankSize, [](auto count) { return count == 0; })) {
+        HCCL_WARNING("input all %u elements in recvCounts are 0, return success", rankSize);
+        allRecvCountsZero = true;
+        return HCCL_SUCCESS;
+    }
+    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+                  std::vector<std::string>({"HcclAllGatherV", "nullptr", "recvBuf", "non-null pointer"}));
+    CHK_PTR_NULL(recvBuf);
+    CHK_RET(HcclGetRankId(comm, &userRank));
     return HCCL_SUCCESS;
 }
  
@@ -167,7 +183,14 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
         HCCL_ERROR("malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
-    OpParam* paramPtr = new (paramMem) OpParam();
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.opMode = OpMode::OPBASE;
@@ -219,8 +242,6 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    paramPtr->~OpParam();
-    free(paramMem);
     HCCL_INFO("Execute AllGatherVOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -250,16 +271,12 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	HCCL_INFO("Start to execute AllGatherVOutPlaceGraphMode");
  	u32 userRankSize;
  	CHK_RET(HcclGetRankSize(comm, &userRankSize));
- 	  	 
  	u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
  	u64 inputSize = sendCount * perDataSize;    // all gather v 每个rank上一份数据
  	u64 outputSize = 0;  
     const u64 *u64RecvCount = reinterpret_cast<const u64 *>(recvCounts);
     const u64 *u64RecvDispls = reinterpret_cast<const u64 *>(recvDispls);
-    for (u64 i = 0; i < userRankSize; i++) {
-        outputSize = (outputSize > (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize) ? outputSize : (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize;
-    }// 结果为最大的displs加recvcount 	 
- 	// 申请OpParam参数结构体内存
+    for (u64 i = 0; i < userRankSize; i++) {outputSize = (outputSize > (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize) ? outputSize : (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize;}// 结果为最大的displs加recvcount 	 
  	u64 varMemSize = (userRankSize + userRankSize) * sizeof(u64);
  	void* paramMem = malloc(sizeof(OpParam) + varMemSize);
  	if (!paramMem) {
@@ -267,8 +284,10 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	    HCCL_ERROR("malloc OpParam failed!");
  	    return HCCL_E_INTERNAL;
  	} 
- 	OpParam* paramPtr = new (paramMem) OpParam();
- 	OpParam& param = *paramPtr; 
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {if (p) {p->~OpParam(); free(p);}};
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam& param = *paramPtr;
     CHK_RET(HcclGetCommName(comm, param.commName));
  	  	 
     DevType deviceType = DevType::DEV_TYPE_COUNT;

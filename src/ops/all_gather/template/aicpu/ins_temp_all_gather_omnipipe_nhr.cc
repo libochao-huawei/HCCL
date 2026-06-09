@@ -33,7 +33,7 @@ HcclResult InsTempAllGatherOmniPipeNHR::KernelRun(const OpParam& param, const Te
     }
     threadNum_ = 1;
     tempAlgParams_ = tempAlgParams;
-    CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
+    CHK_PRT_RET(templateResource.threads.size() < 1,
                 HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], requiredQueNum [%u] not equals templateQueNum [%zu].",
                            myRank_, threadNum_, templateResource.threads.size()),
                 HcclResult::HCCL_E_INTERNAL);

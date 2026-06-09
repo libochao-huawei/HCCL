@@ -10,6 +10,7 @@
 add_subdirectory(executor)
 add_subdirectory(selector)
 add_subdirectory(template)
+add_subdirectory(op_graph)
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/reduce_scatter_op.cc

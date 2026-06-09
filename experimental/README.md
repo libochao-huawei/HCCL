@@ -78,7 +78,29 @@ experimental/<ops|eco_system>/<category>/<project_name>/
 
 ---
 
-## 5. 维护策略
+## 5. 运行期开关
+
+为防止实验性贡献意外开启影响主干，贡献特性必须通过运行期开关控制是否生效：
+
+**开关命名**：环境变量 `HCCL_EXPERIMENTAL_<NAME>=true`，其中 `<NAME>` 使用大写下划线分隔的英文名（与特性名一致）。
+
+**启用模式**：在项目入口提供 `IsXxxEnabled()` 函数（函数名不强制），内部按以下逻辑判断：
+
+```cpp
+bool IsXxxEnabled() {
+    constexpr bool xxxEnabled = false;  // 默认 false
+    if (!xxxEnabled) return false;
+    const char* env = getenv("HCCL_EXPERIMENTAL_<NAME>");
+    return env && std::string(env) == "true";
+}
+```
+
+- 常量值默认 `false`；常量优先级高：常量为 `false` 时直接返回 `false`。
+- 常量为 `true` 时再判断环境变量是否为 `"true"`，是则启用。
+- 特性入口必须 `if (IsXxxEnabled()) { ... }` 守卫。
+
+
+## 6. 维护策略
 
 | 策略 | 说明 |
 |------|------|
