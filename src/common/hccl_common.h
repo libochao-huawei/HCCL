@@ -162,6 +162,31 @@ inline std::string GetDataStr(const void *data, u32 totalRanks)
     return dataCounts;
 }
 
+inline std::string GetBatchSendRecvInfoStr(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum)
+{
+    std::string opTypeStr = "opType[";
+    std::string bufStr = "buf[";
+    std::string dataTypeStr = "dataType[";
+    std::string countStr = "count[";
+    std::string remoteRankStr = "remoteRank[";
+    for (uint32_t i = 0; i < itemNum; i++) {
+        opTypeStr += (sendRecvInfo[i].sendRecvType == HcclSendRecvType::HCCL_SEND) ? "send" : "recv";
+        bufStr += "0x" + ToHexString(reinterpret_cast<uintptr_t>(sendRecvInfo[i].buf));
+        dataTypeStr += GetDataTypeEnumStr(sendRecvInfo[i].dataType);
+        countStr += std::to_string(sendRecvInfo[i].count);
+        remoteRankStr += std::to_string(sendRecvInfo[i].remoteRank);
+        if (i != itemNum - 1) {
+            opTypeStr += ", ";
+            bufStr += ", ";
+            dataTypeStr += ", ";
+            countStr += ", ";
+            remoteRankStr += ", ";
+        }
+    }
+    
+    return opTypeStr + "], " + bufStr + "], " + dataTypeStr + "], " + countStr + "], " + remoteRankStr + "], ";
+}
+
 // server内link类型
 enum class LinkTypeInServer {
     HCCS_TYPE = 0,
