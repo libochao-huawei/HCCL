@@ -203,15 +203,15 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
         uint32_t channelId = 0;
         for (uint64_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
             const uint16_t mask = 1 << rankIdx;
-            if (rankIdx == ctx.arg->rankId) {
-                CCU_CHK_RET(ccu::EventRecord(ctx.event, mask));
-                CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.goSize)); // 用loop资源做本地拷贝
-            } else {
+            if (rankIdx != ctx.arg->rankId) {
                 CCU_CHK_RET(ccu::Write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask)); // 本卡数据写入远端地址
                 channelId++;
             }
         }
     }
+
+    CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.goSize)); // 用loop资源做本地拷贝
+    CCU_CHK_RET(ccu::EventRecord(ctx.event, mask));
 
     const uint16_t totalMask = (1 << ctx.arg->rankSize) - 1;
     CCU_CHK_RET(ccu::EventWait(ctx.event, totalMask)); // 等待本卡的数据搬运完成
