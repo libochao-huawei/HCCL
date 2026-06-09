@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #ifndef AIV_COMMUNICATION_BASE_V2_H
 #define AIV_COMMUNICATION_BASE_V2_H
@@ -54,6 +54,7 @@ using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     uint64_t repeatNum;
     uint64_t inputRepeatStride;
     uint64_t outputRepeatStride;
+    uint64_t hcclBuffSize;
     uint64_t input;
     uint64_t output;
     uint64_t cclBufferSize;
@@ -76,7 +77,7 @@ enum class CommPattern {
 GM_ADDR buffIn, \
 uint64_t input, uint64_t output, uint32_t rank, uint32_t sendRecvRemoteRank, uint32_t rankSize, uint64_t xRankSize,  uint64_t yRankSize, uint64_t zRankSize, uint64_t len, \
 uint32_t dataType, uint32_t reduceOp, uint32_t root, uint32_t sliceId, \
-uint64_t inputSliceStride, uint64_t outputSliceStride, uint64_t repeatNum, uint64_t inputRepeatStride, uint64_t outputRepeatStride, \
+uint64_t inputSliceStride, uint64_t outputSliceStride, uint64_t repeatNum, uint64_t inputRepeatStride, uint64_t outputRepeatStride, uint64_t hcclBuffSize, \
 bool isOpBase, \
 GM_ADDR headCountMem, \
 GM_ADDR tailCountMem, GM_ADDR addOneMem, uint32_t counterMemSize, bool isEnableCounter
@@ -87,7 +88,7 @@ KERNEL_ARGS_DEF, ExtraArgs extraArgs
 #define KERNEL_ARGS_CALL \
 buffIn, \
 input, output, rank, sendRecvRemoteRank, rankSize, xRankSize, yRankSize, zRankSize, len, dataType, reduceOp, root, sliceId, \
-inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, \
+inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, hcclBuffSize, \
 isOpBase, \
 headCountMem, tailCountMem, addOneMem, counterMemSize, isEnableCounter
 
@@ -97,7 +98,7 @@ KERNEL_ARGS_CALL, extraArgs
 #define KERNEL_CLASS_INIT \
 buffIn, input, output,\
 rank, sendRecvRemoteRank, rankSize, xRankSize, yRankSize, zRankSize, len, dataType, reduceOp, root, \
-inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, \
+inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, hcclBuffSize, \
 headCountMem, tailCountMem, addOneMem, counterMemSize, isEnableCounter
 
 #define SUPERKERNEL_LITE_ARGS_DEF \
@@ -150,15 +151,21 @@ constexpr uint64_t CHUNK_SIZE = 2048;
 
 constexpr int32_t TAG_INIT_VALUE = 1;
 constexpr int32_t TAG_RESET_COUNT = 1000;
-constexpr uint32_t AIV_FLAG_CLEAR_OFFSET = 16 * 1024 * 1024;
-constexpr uint32_t AIV_FLAG_EMPTY_OFFSET = 17 * 1024 * 1024;
+constexpr uint32_t AIV_FLAG_CLEAR_OFFSET = 512 * 1024;
+// 相对于GM_OUT，前同步、尾同步使用的同步标记区的偏移，也是普通标记区的大小
+constexpr uint32_t BASE_FLAG_OFFSET = 1 * 1024 * 1024;
+constexpr uint32_t FLAG1_OFFSET = 2 * 1024 * 1024;
+constexpr uint32_t FLAG2_OFFSET = 6 * 1024 * 1024;
+constexpr uint32_t AIV_FLAG_EMPTY_OFFSET = 10 * 1024 * 1024;
+constexpr uint32_t GM_OUT_PING_OFFSET = 18 * 1024 * 1024;
+constexpr uint32_t GM_OUT_PONG_OFFSET = 34 * 1024 * 1024;
 
 /**
- *     GM_OUT                  BarrierBase(大小n*FLAG_SIZE)             Tag(大小4)                    Clear
- * 0 | 40K(FLAG_ADDR_OFFSET) | 16M(AIV_FLAG_CLEAR_OFFSET)-n*FLAG_SIZE | 16M(AIV_FLAG_CLEAR_OFFSET) | 17M(AIV_FLAG_EMPTY_OFFSET)
+ * ccl buffers        GM_OUT               Tag(大小4)              BarrierBase                   flag1           flag2              Clear              data1              data2
+ *   0       |         16K          |         512K          |         1M                   |      2M       |      6M      |         10M           |   18M             |    34M
+ *           BUFFER_OUT_ADDR_OFFSET | AIV_FLAG_CLEAR_OFFSET |    BASE_FLAG_OFFSET          |  FLAG1_OFFSET |  FLAG2_OFFSET| AIV_FLAG_EMPTY_OFFSET |GM_OUT_PING_OFFSET | GM_OUT_PONG_OFFSET
  */ 
-// 相对于GM_OUT，前同步、尾同步使用的同步标记区的偏移，也是普通标记区的大小
-constexpr uint32_t BASE_FLAG_OFFSET = (AIV_FLAG_CLEAR_OFFSET - FLAG_ADDR_OFFSET) - MAX_RANK_SIZE * FLAG_SIZE;
+
 
 class AivCommBase {
 public:
@@ -169,9 +176,10 @@ public:
                                 uint64_t len,
                                 uint32_t dataType, uint32_t reduceOp, uint32_t root,
                                 uint64_t inputSliceStride, uint64_t outputSliceStride, uint64_t repeatNum, uint64_t inputRepeatStride, uint64_t outputRepeatStride,
+                                uint64_t hcclBuffSize,
                                 GM_ADDR headCountMem,
                                 GM_ADDR tailCountMem, GM_ADDR addOneMem, uint32_t counterMemSize, bool isEnableCounter,
-                                bool useDoubleBuffer)
+                                bool useDoubleBuffer, uint32_t pingpong = 0)
     {
         rank_ = rank;
         sendRecvRemoteRank_  = sendRecvRemoteRank;
@@ -193,8 +201,9 @@ public:
         repeatNum_ = repeatNum;
         inputRepeatStride_ = inputRepeatStride;
         outputRepeatStride_ = outputRepeatStride;
+        cclBufferSize_ = hcclBuffSize;
 
-        InitBuffArray(buffIn);
+        InitBuffArray(buffIn, pingpong);
 
         localOffset = (rankSize_ * NUM_BLOCKS_FOUR_PER_RANK_A3 * FLAG_BUF_NUM) * FLAG_SIZE;
         multiOffset = MAX_NUM_BLOCKS * DOUBLE * FLAG_SIZE+ localOffset;
@@ -218,7 +227,7 @@ public:
         GetTag(buffIn);
     }
 
-    __aicore__ inline void Init(GM_ADDR hiddenInput, GM_ADDR input, GM_ADDR output)
+    __aicore__ inline void Init(GM_ADDR hiddenInput, GM_ADDR input, GM_ADDR output, uint32_t pingpong = 0)
     {
         __gm__ AivSuperKernelArgs* args = reinterpret_cast<__gm__ AivSuperKernelArgs*>(hiddenInput);
 
@@ -247,7 +256,7 @@ public:
         countOffset = DOUBLE * pingpongOffset;
         seperateOffset = countOffset + NUM_BLOCKS_FOUR_PER_RANK_A3 * rankSize_ * FLAG_SIZE;
 
-        InitBuffArray(args->buffersIn);
+        InitBuffArray(args->buffersIn, pingpong);
 
         pipe.InitBuffer(localFlagBuf, LOCAL_FLAG_BUF_LEN);
         localSetTensor = localFlagBuf.GetWithOffset<int32_t>(UB_FLAG_PAD_COUNT, FLAG_ONE_OFFSET);
@@ -268,13 +277,22 @@ public:
         GetTag(args->buffersIn);
     }
 
-    __aicore__ inline void InitBuffArray(GM_ADDR buffIn)
+    __aicore__ inline void InitBuffArray(GM_ADDR buffIn, uint32_t pingpong)
     {
         GlobalTensor<uint64_t> ipcBufferGlobal;
         ipcBufferGlobal.SetGlobalBuffer((__gm__ uint64_t*)(buffIn));
-        for(int i=0; i<rankSize_;i++){
-            GM_IN[i] = (GM_ADDR)ipcBufferGlobal.GetValue(i);
-            GM_OUT[i] = (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG_ADDR_OFFSET;
+        if(pingpong == 0){
+            for(int i=0; i<rankSize_;i++){
+                GM_IN[i] = (GM_ADDR)ipcBufferGlobal.GetValue(i);
+                GM_OUT[i] = (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG_ADDR_OFFSET;
+            }
+        } else {
+            for(int i=0; i<rankSize_;i++){
+                GM_IN[i] = tag_ % 2 == 0 ? (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + GM_OUT_PING_OFFSET : 
+                                        (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + GM_OUT_PONG_OFFSET;
+                GM_OUT[i] = tag_ % 2 == 0 ? (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG1_OFFSET: 
+                                        (GM_ADDR)ipcBufferGlobal.GetValue(BUFFER_OUT_ADDR_OFFSET / sizeof(uint64_t) + i) + FLAG2_OFFSET;
+            }            
         }
         pipe_barrier(PIPE_ALL);
     }
