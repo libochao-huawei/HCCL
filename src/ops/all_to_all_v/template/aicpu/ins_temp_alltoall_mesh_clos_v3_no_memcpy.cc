@@ -17,6 +17,22 @@ namespace ops_hccl {
 namespace {
 constexpr u32 COPY_THREAD_NUM = 0;
 constexpr u32 COPY_NOTIFY_BASE_IDX = 1;
+
+std::vector<u32> BuildClosSubmitChannelOrder(u32 channelNum, u32 round, u32 myRow)
+{
+    std::vector<u32> channelOrder;
+    if (channelNum == 0) {
+        return channelOrder;
+    }
+    channelOrder.reserve(channelNum);
+    u32 start = (round + myRow - 1) % channelNum;
+    bool reverse = (round % 2) == 0;
+    for (u32 i = 0; i < channelNum; i++) {
+        u32 channelIdx = reverse ? (start + channelNum - i) % channelNum : (start + i) % channelNum;
+        channelOrder.push_back(channelIdx);
+    }
+    return channelOrder;
+}
 }
 
 InsTempAlltoAllMeshClosV3NoMemcpy::InsTempAlltoAllMeshClosV3NoMemcpy(const OpParam &param, const u32 rankId,
@@ -160,14 +176,33 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllMesh(
                                "round=%u myRank=%d",
                                slotPlans.size(), commThreads.size(), round, myRank_),
                     HcclResult::HCCL_E_INTERNAL);
-        for (u32 slotIdx = 0; slotIdx < slotPlans.size(); slotIdx++) {
-            u32 threadIdx = slotPlans[slotIdx].txChannelIdx;
+        u32 myRow = myRank_ % rowNum;
+        std::vector<u32> submitChannelOrder = BuildClosSubmitChannelOrder(
+            static_cast<u32>(slotPlans.size()), round, myRow);
+        for (u32 orderIdx = 0; orderIdx < submitChannelOrder.size(); orderIdx++) {
+            u32 submitChannelIdx = submitChannelOrder[orderIdx];
+            auto slotIter = std::find_if(slotPlans.begin(), slotPlans.end(),
+                [submitChannelIdx](const ClosNoMemcpySlot &slot) {
+                    return slot.txChannelIdx == submitChannelIdx;
+                });
+            CHK_PRT_RET(slotIter == slotPlans.end(),
+                        HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunAlltoAllMesh] submitChannelIdx[%u] "
+                                   "has no slot. round=%u orderIdx=%u myRank=%d",
+                                   submitChannelIdx, round, orderIdx, myRank_),
+                        HcclResult::HCCL_E_INTERNAL);
+            u32 slotIdx = static_cast<u32>(slotIter - slotPlans.begin());
+            u32 threadIdx = slotIter->txChannelIdx;
             CHK_PRT_RET(threadIdx >= commThreads.size(),
                         HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][RunAlltoAllMesh] threadIdx[%u] >= "
-                                   "commThreads[%zu]. round=%u slotIdx=%u myRank=%d",
-                                   threadIdx, commThreads.size(), round, slotIdx, myRank_),
+                                   "commThreads[%zu]. round=%u slotIdx=%u orderIdx=%u myRank=%d",
+                                   threadIdx, commThreads.size(), round, slotIdx, orderIdx, myRank_),
                         HcclResult::HCCL_E_INTERNAL);
-            CHK_RET(RunClosNoMemcpySlot(channels, slotPlans[slotIdx], commThreads[threadIdx], round,
+            HCCL_INFO("[ALLTOALL_NO_MEMCPY][MeshClos][RunAlltoAllMesh] submit slot: "
+                      "myRank=%d round=%u orderIdx=%u slotIdx=%u channelIdx=%u threadIdx=%u "
+                      "txRank=%u rxRank=%u",
+                      myRank_, round, orderIdx, slotIdx, submitChannelIdx, threadIdx,
+                      slotIter->txRank, slotIter->rxRank);
+            CHK_RET(RunClosNoMemcpySlot(channels, *slotIter, commThreads[threadIdx], round,
                                         actualChunkSize, chunkCount, isPcie));
         }
     }
@@ -251,14 +286,6 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::SelectClosNoMemcpyChannel(
                            channelIdx, remoteChannels.size(), rowNum, remoteRank, myRank_, channelIdx, rowNum),
                 HcclResult::HCCL_E_PARA);
     u32 resolvedIdx = channelIdx;
-    // Experimental physical channel permutation: swap adjacent channel entries to check whether
-    // low bandwidth follows the logical channel id or the physical ChannelInfo index.
-    if (rowNum > 1) {
-        u32 permutedIdx = channelIdx ^ 1;
-        if (permutedIdx < rowNum) {
-            resolvedIdx = permutedIdx;
-        }
-    }
     CHK_PRT_RET(resolvedIdx >= remoteChannels.size(),
                 HCCL_ERROR("[ALLTOALL_NO_MEMCPY][MeshClos][SelectChannel] resolvedIdx[%u] out of range. "
                            "remoteRank=%u channelNum=%zu channelIdx=%u myRank=%d",
