@@ -28,7 +28,7 @@ u32 GetPairwiseRoundNum(u32 groupNum)
     return (groupNum % 2 == 0) ? groupNum - 1 : groupNum;
 }
 
-u32 GetPairGroupInRound(u32 groupNum, u32 myGroup, u32 round)
+u32 GetPairGroupInRound(u32 groupNum, u32 myGroup, u32 round, bool &myGroupIsLeft)
 {
     if (groupNum <= 1 || myGroup >= groupNum) {
         return INVALID_GROUP_ID;
@@ -54,9 +54,11 @@ u32 GetPairGroupInRound(u32 groupNum, u32 myGroup, u32 round)
         u32 left = groups[idx];
         u32 right = groups[scheduleGroupNum - 1 - idx];
         if (left == myGroup) {
+            myGroupIsLeft = true;
             return right == dummyGroup ? INVALID_GROUP_ID : right;
         }
         if (right == myGroup) {
+            myGroupIsLeft = false;
             return left == dummyGroup ? INVALID_GROUP_ID : left;
         }
     }
@@ -88,16 +90,15 @@ u32 InsTempAlltoAllMeshClosV3NoMemcpy::GetCopyNotifySlotCount() const
 {
     u32 commThreadNum = channelsPerRank_ == 0 ? 1 : channelsPerRank_;
     if (rankSize_ > 0 && meshSize_ > 0 && rankSize_ % meshSize_ == 0) {
-        u32 stepNum = GetPairwiseRoundNum(rankSize_ / meshSize_);
+        u32 colorRoundNum = GetPairwiseRoundNum(rankSize_ / meshSize_);
+        u32 stepNum = (meshSize_ * colorRoundNum + commThreadNum - 1) / commThreadNum;
         return std::max(1u, stepNum * commThreadNum);
     }
     u32 peerNum = templateRankSize_ > 0 ? templateRankSize_ - 1 : 0;
     if (peerNum == 0) {
         return 1;
     }
-    u32 groupNum = peerNum / commThreadNum + 1;
-    u32 stepNum = GetPairwiseRoundNum(groupNum);
-    return std::max(1u, stepNum * commThreadNum);
+    return std::max(1u, templateRankSize_ * commThreadNum);
 }
 
 HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::GetRes(AlgResourceRequest &resourceRequest) const
@@ -154,16 +155,13 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllMesh(
                            "myRank=%d rankSize=%u meshSize=%u closSize=%u",
                            myRank_, rankSize_, meshSize_, closSize_),
                 HcclResult::HCCL_E_INTERNAL);
-    CHK_PRT_RET(commThreads.size() < meshSize_,
-                HCCL_ERROR("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] commThreads[%zu] < meshSize[%u]. "
-                           "myRank=%d",
-                           commThreads.size(), meshSize_, myRank_),
-                HcclResult::HCCL_E_INTERNAL);
     u32 groupNum = rankSize_ / meshSize_;
-    u32 numSteps = GetPairwiseRoundNum(groupNum);
+    u32 colorRoundNum = GetPairwiseRoundNum(groupNum);
+    u32 numSteps = (meshSize_ * colorRoundNum + static_cast<u32>(commThreads.size()) - 1) /
+                   static_cast<u32>(commThreads.size());
     HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllMesh] schedule by mesh-group pairwise. "
-                 "myRank=%d groupNum=%u meshSize=%u commThreads=%zu numSteps=%u",
-                 myRank_, groupNum, meshSize_, commThreads.size(), numSteps);
+                 "myRank=%d groupNum=%u meshSize=%u commThreads=%zu colorRounds=%u numSteps=%u",
+                 myRank_, groupNum, meshSize_, commThreads.size(), colorRoundNum, numSteps);
     for (u32 step = 0; step < numSteps; step++) {
         for (u32 linkIdx = 0; linkIdx < commThreads.size(); linkIdx++) {
             CHK_RET(RunAlltoAllOnLink(commThreads, channels, linkIdx, step));
@@ -224,17 +222,23 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllOnLink(
     u32 groupNum = rankSize_ / meshSize_;
     u32 myGroup = myRank_ / meshSize_;
     u32 myLocalRank = myRank_ % meshSize_;
-    u32 peerGroup = GetPairGroupInRound(groupNum, myGroup, step);
+    u32 colorRoundNum = GetPairwiseRoundNum(groupNum);
+    u32 microRound = step * static_cast<u32>(commThreads.size()) + linkIdx;
+    u32 shift = colorRoundNum == 0 ? 0 : microRound / colorRoundNum;
+    u32 colorRound = colorRoundNum == 0 ? 0 : microRound % colorRoundNum;
+    if (shift >= meshSize_) {
+        return HCCL_SUCCESS;
+    }
+    bool myGroupIsLeft = true;
+    u32 peerGroup = GetPairGroupInRound(groupNum, myGroup, colorRound, myGroupIsLeft);
     if (peerGroup == INVALID_GROUP_ID) {
         HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] dummy round. "
-                     "myRank=%d step=%u groupNum=%u myGroup=%u linkIdx=%u",
-                     myRank_, step, groupNum, myGroup, linkIdx);
+                     "myRank=%d step=%u linkIdx=%u micro=%u shift=%u color=%u groupNum=%u myGroup=%u",
+                     myRank_, step, linkIdx, microRound, shift, colorRound, groupNum, myGroup);
         return HCCL_SUCCESS;
     }
-    if (linkIdx >= meshSize_) {
-        return HCCL_SUCCESS;
-    }
-    u32 connectedLocalRank = (linkIdx + meshSize_ - myLocalRank) % meshSize_;
+    u32 connectedLocalRank = myGroupIsLeft ? (myLocalRank + shift) % meshSize_ :
+                             (myLocalRank + meshSize_ - shift % meshSize_) % meshSize_;
     u32 connectedRank = peerGroup * meshSize_ + connectedLocalRank;
 
         u32 connectedAlgRank = 0;
@@ -279,11 +283,12 @@ HcclResult InsTempAlltoAllMeshClosV3NoMemcpy::RunAlltoAllOnLink(
         }
 
         HCCL_WARNING("[ALLTOALL_V2_DEBUG][MeshClos][RunAlltoAllOnLink] linkIdx[%u] matched: "
-                  "myRank=%d connectedRank=%u step=%u myGroup=%u peerGroup=%u myLocal=%u peerLocal=%u "
+                  "myRank=%d connectedRank=%u step=%u micro=%u shift=%u color=%u myGroup=%u peerGroup=%u "
+                  "myLocal=%u peerLocal=%u "
                   "selectedLinkIdx=%u/%u threads=%zu "
                   "enableRemoteMemAccess=%d isPcie=%d",
-                  linkIdx, myRank_, connectedRank, step, myGroup, peerGroup, myLocalRank, connectedLocalRank,
-                  selectedLinkIdx, totalLinksToNeighbor, commThreads.size(),
+                  linkIdx, myRank_, connectedRank, step, microRound, shift, colorRound, myGroup, peerGroup,
+                  myLocalRank, connectedLocalRank, selectedLinkIdx, totalLinksToNeighbor, commThreads.size(),
                   enableRemoteMemAccess_, isPcie);
 
         if (linkIdx >= channels.at(connectedRank).size()) {
