@@ -16,6 +16,7 @@
 #include <vector>
 #include <queue>
 #include <string>
+#include <sstream>
 #include <unordered_map>
 #include <algorithm>
 #include "dtype_common.h"
@@ -160,6 +161,47 @@ inline std::string GetDataStr(const void *data, u32 totalRanks)
         dataCounts += std::to_string(static_cast<const u64 *>(data)[i]);
     }
     return dataCounts;
+}
+
+inline std::string ToHexString(uintptr_t value)
+{
+    std::ostringstream oss;
+    oss << std::hex << value;
+    return oss.str();
+}
+
+inline std::string GetBatchSendRecvInfoStr(const HcclSendRecvItem *sendRecvInfo, uint32_t itemNum)
+{
+    std::string result;
+    result.reserve(itemNum * 100);
+
+    for (u32 i = 0; i < itemNum; ++i) {
+        const auto &item = sendRecvInfo[i];
+
+        result += "{op=";
+        result += (item.sendRecvType == HcclSendRecvType::HCCL_SEND)
+            ? "send"
+            : "recv";
+
+        result += ", buf=0x";
+        result += ToHexString(reinterpret_cast<uintptr_t>(item.buf));
+
+        result += ", type=";
+        result += GetDataTypeEnumStr(item.dataType);
+
+        result += ", count=";
+        result += std::to_string(item.count);
+
+        result += ", rank=";
+        result += std::to_string(item.remoteRank);
+
+        result += "}";
+
+        if (i + 1 < itemNum) {
+            result += ", ";
+        }
+    }
+    return result;
 }
 
 // server内link类型
