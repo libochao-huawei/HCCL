@@ -175,18 +175,19 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             } else if (topoInfo->is2DieFullMesh) {
                 HCCL_DEBUG("[AllReduceAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
                 return SelectorStatus::NOT_MATCH;
-            } else if (dataSize <= AR_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize && (!IsInputOutputOverlap(opParam))) {
-                selectAlgName = "CcuAllReduceMesh1DMem2Mem";
-                return SelectorStatus::MATCH;
-            } else if(IsSmallDataCCU(dataSize, topoInfo->userRankSize)){//64M以下跑ccu
+            } else {
+            // if (dataSize <= AR_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= ccuSize && (!IsInputOutputOverlap(opParam))) {
+            //     selectAlgName = "CcuAllReduceMesh1DMem2Mem";
+            //     return SelectorStatus::MATCH;
+            // } else if(IsSmallDataCCU(dataSize, topoInfo->userRankSize)){//64M以下跑ccu
                  // 性能优化改用MS做reduce后不支持int8
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
                     HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode with ms "
                         "reduce. levelNum[%u]", opParam.DataDes.dataType, topoInfo->topoLevelNums), SelectorStatus::NOT_MATCH);
                 selectAlgName = "CcuAllReduceParallelMesh1DNHR";
                 return SelectorStatus::MATCH;
-            } else {
-                return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
+            // } else {
+            //     return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
             }
         } else if (topoInfo->level0Topo == Level0Shape::CLOS &&(!IsInputOutputOverlap(opParam))) {
             selectAlgName = "CcuAllReduceNHR1D";
