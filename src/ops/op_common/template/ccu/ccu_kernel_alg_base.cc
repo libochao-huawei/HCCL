@@ -694,7 +694,7 @@ CcuResult CreateMultiOpCopy(CcuKernelCtxBase &ctx, GroupCopyVar &var)
 }
 
 static void SetupLoopAddress(GroupCopyVar& var, ccu::LocalAddr& src, ccu::LocalAddr& dst,
-                           GroupOpSizeVars goSize, int index, ccu::Variable size) {
+                             int index, ccu::Variable size) {
     var.loopSrc[index].addr = src.addr;
     var.loopSrc[index].token = src.token;
     var.loopDst[index].addr = dst.addr;
@@ -717,7 +717,7 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
         ccu::Variable sliceSize;
         sliceSize = ctx.moConfig.memSlice;
 
-        SetupLoopAddress(var, src, dst, goSize, 0, sliceSize);
+        SetupLoopAddress(var, src, dst, 0, sliceSize);
 
         loops.loopParam[0] = loopParam;
         ccu::Variable paraCfg;
@@ -734,7 +734,7 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
         src.addr += goSize.addrOffset;
         dst.addr += goSize.addrOffset;
 
-        SetupLoopAddress(var, src, dst, goSize, 0, goSize.residual);
+        SetupLoopAddress(var, src, dst, 0, goSize.residual);
 
         src.addr += goSize.residual;
         dst.addr += goSize.residual;
@@ -742,7 +742,7 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
         ccu::Variable sliceSize;
         sliceSize = ctx.moConfig.memSlice;
 
-        SetupLoopAddress(var, src, dst, goSize, 1, sliceSize);
+        SetupLoopAddress(var, src, dst, 1, sliceSize);
 
         ccu::Variable loopCfg0;
         loopCfg0 = GetLoopParam(0, 0, 1);

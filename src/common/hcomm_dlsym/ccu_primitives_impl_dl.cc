@@ -115,7 +115,7 @@ DEFINE_WEAK_FUNC(CcuResult, CcuLoopGroupCreateFromVar, CcuLoopGroup *group, uint
 DEFINE_WEAK_FUNC(CcuResult, CcuLoopGroupAddLoop, CcuLoopGroup group,CcuLoop loop, const CcuLoopConfig *config);
 DEFINE_WEAK_FUNC(CcuResult, CcuLoopGroupAddLoopFromVar, CcuLoopGroup group,CcuLoop loop, CcuVariableHandle loopParamVar);
 
-void CcuPrimitivesImplDlInit(void* libHcommHandle) {
+void InitAllocationFlags(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuVariableAlloc);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuAddressAlloc);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuEventAlloc);
@@ -125,6 +125,9 @@ void CcuPrimitivesImplDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuBlockVariableAlloc);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuBlockEventAlloc);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuBlockBufferAlloc);
+}
+
+void InitVariableAndAddressOps(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuVariableCreateByChannel);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuVariableAssignImm);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuVariableAssignVar);
@@ -135,11 +138,17 @@ void CcuPrimitivesImplDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuAddressAddVarToAddr);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuAddressAddAddrToAddr);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuAddressAddAssignVar);
+}
+
+void InitMemoryOps(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLoadArg);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLoadVar);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLoadVarFromVarAddr);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuStoreVar);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuStoreVarToVarAddr);
+}
+
+void InitEventAndNotifyOps(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuEventRecord);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuEventWait);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuNotifyRecord);
@@ -147,17 +156,26 @@ void CcuPrimitivesImplDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuWriteVariableWithNotify);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLocalNotifyRecord);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLocalNotifyWait);
+}
+
+void InitLocalTransferOps(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLocalCopyMemToMem);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLocalCopyMemToBuffer);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLocalCopyBufferToMem);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLocalMemReduce);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLocalBufferReduce);
+}
+
+void InitRemoteTransferOps(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuReadMemToMem);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuReadMemToBuffer);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuReadMemToMemReduce);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuWriteMemToMem);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuWriteBufferToMem);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuWriteMemToMemReduce);
+}
+
+void InitControlFlowOps(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuIfBegin);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuIfElse);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuIfEnd);
@@ -166,16 +184,19 @@ void CcuPrimitivesImplDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuWhileEnd);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuDoWhileBegin);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuDoWhileEnd);
-    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncBlockLookup);
-    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncBlockBegin);
-    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncBlockEnd);
-    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncDefineInArg);
-    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncCall);
     INIT_SUPPORT_FLAG(libHcommHandle, _CcuIfStackPush);
     INIT_SUPPORT_FLAG(libHcommHandle, _CcuIfStackMarkBodyDone);
     INIT_SUPPORT_FLAG(libHcommHandle, _CcuIfStackPopForElse);
     INIT_SUPPORT_FLAG(libHcommHandle, _CcuDoWhileStackPush);
     INIT_SUPPORT_FLAG(libHcommHandle, _CcuDoWhileStackPopForWhile);
+}
+
+void InitFunctionAndLoopOps(void* libHcommHandle) {
+    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncBlockLookup);
+    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncBlockBegin);
+    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncBlockEnd);
+    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncDefineInArg);
+    INIT_SUPPORT_FLAG(libHcommHandle, CcuFuncCall);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLoopCreate);
     INIT_SUPPORT_FLAG(libHcommHandle, _CcuLoopBodyEnter);
     INIT_SUPPORT_FLAG(libHcommHandle, _CcuLoopBodyExit);
@@ -183,4 +204,15 @@ void CcuPrimitivesImplDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLoopGroupCreateFromVar);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLoopGroupAddLoop);
     INIT_SUPPORT_FLAG(libHcommHandle, CcuLoopGroupAddLoopFromVar);
+}
+
+void CcuPrimitivesImplDlInit(void* libHcommHandle) {
+    InitAllocationFlags(libHcommHandle);
+    InitVariableAndAddressOps(libHcommHandle);
+    InitMemoryOps(libHcommHandle);
+    InitEventAndNotifyOps(libHcommHandle);
+    InitLocalTransferOps(libHcommHandle);
+    InitRemoteTransferOps(libHcommHandle);
+    InitControlFlowOps(libHcommHandle);
+    InitFunctionAndLoopOps(libHcommHandle);
 }
