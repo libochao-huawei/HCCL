@@ -179,6 +179,13 @@ HcclResult InsV2AllReduceTwoShotSoleExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     reduceOp_ = param.reduceType;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     threads_ = resCtx.threads;
+    supportSymmetricMemory_ = param.supportSymmetricMemory;
+    if (supportSymmetricMemory_) {
+        inputOffset_ = param.inputOffset;
+        outputOffset_ = param.outputOffset;
+        inputSymWindow_ = param.inputSymWindow;
+        outputSymWindow_ = param.outputSymWindow;
+    }
 
     CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
 
@@ -328,13 +335,50 @@ HcclResult InsV2AllReduceTwoShotSoleExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
 
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
     u64 processedDataCount = 0;
+    if (param.supportSymmetricMemory) {
+        maxCountPerLoop = dataCount_;
+        loopTimes = 1;
+        tempAlgParamsReduceScatter.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsReduceScatter.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsAllGather.buffInfo.inputPtr = param.outputPtr;
+        tempAlgParamsAllGather.buffInfo.inBuffType = BufferType::OUTPUT;
+        HCCL_INFO("[InsV2AllReduceTwoShotSoleExecutor][OrchestrateLoop] %s: symmetric memory enabled", param.algName);
+    }
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxCountPerLoop;
 
         GenTempAlgParamsReduceScatter(loop, currDataCount, processedDataCount, tempAlgParamsReduceScatter);
+        // GenTempAlgParamsReduceScatter 会覆盖对称设置，需重新覆盖
+        if (param.supportSymmetricMemory) {
+            tempAlgParamsReduceScatter.buffInfo.outputPtr = param.inputPtr;
+            tempAlgParamsReduceScatter.buffInfo.outBuffType = BufferType::INPUT;
+            tempAlgParamsReduceScatter.buffInfo.outBuffBaseOff = tempAlgParamsReduceScatter.buffInfo.inBuffBaseOff;
+            tempAlgParamsReduceScatter.outputSliceStride = tempAlgParamsReduceScatter.inputSliceStride;
+        }
         CHK_RET(algTemplateReduceScatter->KernelRun(param, tempAlgParamsReduceScatter, templateResourceReduceScatter));
 
+        // 对称内存路径：RS 完成后 input[mySlice] 已是归约结果，拷贝到 output[mySlice] 供 AG 阶段使用
+        if (param.supportSymmetricMemory && currDataCount > 0) {
+            u32 myRankIdx = 0;
+            CHK_RET(GetAlgRank(myRank_, algHierarchyInfo_.infos[0][0], myRankIdx));
+            u64 mySliceSize = (myRankIdx == rankSize_ - 1) ? tempAlgParamsReduceScatter.tailSize :
+                                                             tempAlgParamsReduceScatter.sliceSize;
+            u64 mySliceOffset = tempAlgParamsReduceScatter.buffInfo.inBuffBaseOff
+                                + myRankIdx * tempAlgParamsReduceScatter.inputSliceStride;
+            DataSlice copySrcSlice(param.inputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+            DataSlice copyDstSlice(param.outputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+            CHK_RET(LocalCopy(threads_[0], copySrcSlice, copyDstSlice));
+        }
+
         GenTempAlgParamsAllGather(loop, currDataCount, processedDataCount, tempAlgParamsAllGather);
+        // GenTempAlgParamsAllGather 会覆盖对称设置，需重新覆盖
+        if (param.supportSymmetricMemory) {
+            tempAlgParamsAllGather.buffInfo.inputPtr = param.outputPtr;
+            tempAlgParamsAllGather.buffInfo.inBuffType = BufferType::OUTPUT;
+            tempAlgParamsAllGather.buffInfo.inBuffBaseOff = tempAlgParamsAllGather.buffInfo.outBuffBaseOff;
+            tempAlgParamsAllGather.inputSliceStride = tempAlgParamsAllGather.outputSliceStride;
+            tempAlgParamsAllGather.enableRemoteMemAccess = true;
+        }
         CHK_RET(algTemplateAllGather->KernelRun(param, tempAlgParamsAllGather, templateResourceAllGather));
 
         processedDataCount += currDataCount;

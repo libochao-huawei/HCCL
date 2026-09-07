@@ -13,6 +13,7 @@
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D.h"
+#include "alg_data_trans_wrapper.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_pcie_mix.h"
 #include "topo_match_squeeze_2d.h"
@@ -540,15 +541,23 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
     HCCL_INFO("[InsAllReduceParallelExecutor][Orchestrate] threads_size[%d]", threads_.size());
+    dataCount_ = param.DataDes.count;
+    dataType_ = param.DataDes.dataType;
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
+    dataSize_ = dataCount_ * dataTypeSize_;
+    supportSymmetricMemory_ = param.supportSymmetricMemory;
+    if (supportSymmetricMemory_) {
+        inputOffset_ = param.inputOffset;
+        outputOffset_ = param.outputOffset;
+        inputSymWindow_ = param.inputSymWindow;
+        outputSymWindow_ = param.outputSymWindow;
+    }
+
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
         intraLinks_ = remoteRankToChannelInfo_[0];
         interLinks_ = remoteRankToChannelInfo_[1];
     }
-    dataCount_ = param.DataDes.count;
-    dataType_ = param.DataDes.dataType;
-    dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
-    dataSize_ = dataCount_ * dataTypeSize_;
 
     // 获取算法Topo信息
     vTopo_ = resCtx.algHierarchyInfo.infos; // 本通信域内的通信平面
@@ -1033,6 +1042,11 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         u64 scratchCount = maxTmpMemSize_ / dataTypeSize_; // 按照count来切分
         sliceCount = std::min(static_cast<u64>(std::floor(double(scratchCount) / multiple)), sliceCountUB0);
     }
+    // 对称内存零拷贝：不受cclBuffer和UB_MAX_DATA_SIZE限制，一次传完
+    if (param.supportSymmetricMemory) {
+        sliceCount = dataCount_;
+        HCCL_INFO("[InsAllReduceParallelExecutor][GenInsQues] %s: symmetric memory enabled", param.algName);
+    }
     HCCL_DEBUG(
         "[InsAllReduceParallelExecutor][GenInsQues] dataCount_[%lu], myRank_[%d], sliceCountUB[%d], sliceCountUB0[%d], "
         "sliceCount[%d]",
@@ -1153,6 +1167,24 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         CHK_RET(PrepareResForTemplate23(tempAlgIntra, tempAlgIntra1, tempAlgInter1));
         CHK_RET(PrepareResForTemplateResource(param, resCtx, intraTempAlgRes1, interTempAlgRes1, false));
 
+        // 对称内存路径：RS 完成后 input[mySlice] 已是归约结果，拷贝到 output[mySlice] 供 AG 阶段使用
+        if (supportSymmetricMemory_ && currCountPart0 + currCountPart1 > 0) {
+            if (currCountPart0 > 0) {
+                u64 mySliceOffset = rankBaseOffInterAGMap_.at(myRank_) + dataOffset0;
+                u64 mySliceSize = meshPartDataMap_.at(myRank_).second;
+                DataSlice copySrcSlice(param.inputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+                DataSlice copyDstSlice(param.outputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+                CHK_RET(LocalCopy(threads_[0], copySrcSlice, copyDstSlice));
+            }
+            if (currCountPart1 > 0) {
+                u64 mySliceOffset = rankBaseOffIntraAGMap_.at(myRank_) + dataOffset1;
+                u64 mySliceSize = nhrPartDataMap_.at(myRank_).second;
+                DataSlice copySrcSlice(param.inputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+                DataSlice copyDstSlice(param.outputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+                CHK_RET(LocalCopy(threads_[0], copySrcSlice, copyDstSlice));
+            }
+        }
+
         // 第三步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
         CHK_RET(RunTemplateInter01(
@@ -1219,6 +1251,12 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         GenDataParamstempAlg(
             param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, intraLocalRankSize_, inputOffset,
             outputOffset, hcclBuffOffset);
+        if (supportSymmetricMemory_) {
+            dataParams.buffInfo.outputPtr = param.inputPtr;
+            dataParams.buffInfo.outputSize = param.inputSize;
+            dataParams.buffInfo.outBuffType = BufferType::INPUT;
+            dataParams.buffInfo.outBuffBaseOff = dataOffset;
+        }
         CHK_RET(tempAlgIntra.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -1243,6 +1281,12 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         GenDataParamstempAlg(
             param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, interLocalRankSize_, inputOffset,
             outputOffset, hcclBuffOffset);
+        if (supportSymmetricMemory_) {
+            dataParams.buffInfo.outputPtr = param.inputPtr;
+            dataParams.buffInfo.outputSize = param.inputSize;
+            dataParams.buffInfo.outBuffType = BufferType::INPUT;
+            dataParams.buffInfo.outBuffBaseOff = dataOffset;
+        }
         CHK_RET(tempAlgInter.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -1268,6 +1312,16 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         GenDataParamstempAlg(
             param, resCtx, dataOffset0Inter_, currCountPart0_, scratchOffsetCountInterStage1_, dataParams,
             interLocalRankSize_, inputOffset, outputOffset, hcclBuffOffset);
+        if (supportSymmetricMemory_) {
+            dataParams.buffInfo.inputPtr = param.inputPtr;
+            dataParams.buffInfo.inputSize = param.inputSize;
+            dataParams.buffInfo.inBuffType = BufferType::INPUT;
+            dataParams.buffInfo.inBuffBaseOff = dataOffset0Inter_;
+            dataParams.buffInfo.outputPtr = param.inputPtr;
+            dataParams.buffInfo.outputSize = param.inputSize;
+            dataParams.buffInfo.outBuffType = BufferType::INPUT;
+            dataParams.buffInfo.outBuffBaseOff = dataOffset0Inter_;
+        }
         dataParams.buffInfo.inBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
         dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
         dataParams.buffInfo.outBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
@@ -1296,6 +1350,16 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         GenDataParamstempAlg(
             param, resCtx, dataOffset0Intra_, currCountPart1_, scratchOffsetCountIntraStage1_, dataParams,
             intraLocalRankSize_, inputOffset, outputOffset, hcclBuffOffset);
+        if (supportSymmetricMemory_) {
+            dataParams.buffInfo.inputPtr = param.inputPtr;
+            dataParams.buffInfo.inputSize = param.inputSize;
+            dataParams.buffInfo.inBuffType = BufferType::INPUT;
+            dataParams.buffInfo.inBuffBaseOff = dataOffset0Intra_;
+            dataParams.buffInfo.outputPtr = param.inputPtr;
+            dataParams.buffInfo.outputSize = param.inputSize;
+            dataParams.buffInfo.outBuffType = BufferType::INPUT;
+            dataParams.buffInfo.outBuffBaseOff = dataOffset0Intra_;
+        }
         dataParams.buffInfo.inBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
         dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
         dataParams.buffInfo.outBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
@@ -1324,6 +1388,17 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         GenDataParamstempAlg(
             param, resCtx, dataOffset0Inter_, currCountPart0_, scratchOffsetCountInterStage1_, dataParams,
             interLocalRankSize_, inputOffset, outputOffset, hcclBuffOffset);
+        if (supportSymmetricMemory_) {
+            dataParams.buffInfo.inputPtr = param.outputPtr;
+            dataParams.buffInfo.inputSize = param.outputSize;
+            dataParams.buffInfo.inBuffType = BufferType::OUTPUT;
+            dataParams.buffInfo.inBuffBaseOff = dataOffset0Inter_;
+            dataParams.buffInfo.outputPtr = param.outputPtr;
+            dataParams.buffInfo.outputSize = param.outputSize;
+            dataParams.buffInfo.outBuffType = BufferType::OUTPUT;
+            dataParams.buffInfo.outBuffBaseOff = dataOffset0Inter_;
+            dataParams.enableRemoteMemAccess = true;
+        }
         dataParams.buffInfo.inBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
         dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
         dataParams.buffInfo.outBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
@@ -1352,6 +1427,17 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         GenDataParamstempAlg(
             param, resCtx, dataOffset0Intra_, currCountPart1_, scratchOffsetCountIntraStage1_, dataParams,
             intraLocalRankSize_, inputOffset, outputOffset, hcclBuffOffset);
+        if (supportSymmetricMemory_) {
+            dataParams.buffInfo.inputPtr = param.outputPtr;
+            dataParams.buffInfo.inputSize = param.outputSize;
+            dataParams.buffInfo.inBuffType = BufferType::OUTPUT;
+            dataParams.buffInfo.inBuffBaseOff = dataOffset0Intra_;
+            dataParams.buffInfo.outputPtr = param.outputPtr;
+            dataParams.buffInfo.outputSize = param.outputSize;
+            dataParams.buffInfo.outBuffType = BufferType::OUTPUT;
+            dataParams.buffInfo.outBuffBaseOff = dataOffset0Intra_;
+            dataParams.enableRemoteMemAccess = true;
+        }
         dataParams.buffInfo.inBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
         dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
         dataParams.buffInfo.outBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
@@ -1379,6 +1465,13 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         GenDataParamstempAlg(
             param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, intraLocalRankSize_, inputOffset,
             outputOffset, hcclBuffOffset);
+        if (supportSymmetricMemory_) {
+            dataParams.buffInfo.inputPtr = param.outputPtr;
+            dataParams.buffInfo.inputSize = param.outputSize;
+            dataParams.buffInfo.inBuffType = BufferType::OUTPUT;
+            dataParams.buffInfo.inBuffBaseOff = dataOffset;
+            dataParams.enableRemoteMemAccess = true;
+        }
         CHK_RET(tempAlgIntra1.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -1403,6 +1496,13 @@ InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
         GenDataParamstempAlg(
             param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, interLocalRankSize_, inputOffset,
             outputOffset, hcclBuffOffset);
+        if (supportSymmetricMemory_) {
+            dataParams.buffInfo.inputPtr = param.outputPtr;
+            dataParams.buffInfo.inputSize = param.outputSize;
+            dataParams.buffInfo.inBuffType = BufferType::OUTPUT;
+            dataParams.buffInfo.inBuffBaseOff = dataOffset;
+            dataParams.enableRemoteMemAccess = true;
+        }
         CHK_RET(tempAlgInter1.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;

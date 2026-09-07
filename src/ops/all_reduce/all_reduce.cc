@@ -187,35 +187,6 @@ HcclResult FillAllReduceOpParam(
     return HCCL_SUCCESS;
 }
 
-bool AllReduceSupportSymmetricMemory(OpParam& opParam)
-{
-    size_t inputOffset = 0;
-    size_t outputOffset = 0;
-
-    HcclResult ret = HcclCommSymWinGet(
-        opParam.hcclComm, opParam.inputPtr, opParam.inputSize, &opParam.inputSymWindow, &inputOffset);
-    CHK_PRT_RET(
-        ret != HCCL_SUCCESS || opParam.inputSymWindow == nullptr,
-        HCCL_INFO(
-            "[AllReduceSupportSymmetricMemory] is not support symmetric memory; "
-            "input[%p], size[%llu], ret[%d].",
-            opParam.inputPtr, opParam.inputSize, ret),
-        false);
-    ret = HcclCommSymWinGet(
-        opParam.hcclComm, opParam.outputPtr, opParam.outputSize, &opParam.outputSymWindow, &outputOffset);
-    CHK_PRT_RET(
-        ret != HCCL_SUCCESS || opParam.outputSymWindow == nullptr,
-        HCCL_INFO(
-            "[AllReduceSupportSymmetricMemory] is not support symmetric memory; "
-            "output[%p], size[%llu], ret[%d].",
-            opParam.outputPtr, opParam.outputSize, ret),
-        false);
-    opParam.supportSymmetricMemory = true;
-    opParam.inputOffset = inputOffset;
-    opParam.outputOffset = outputOffset;
-    return true;
-}
-
 HcclResult AllReduceOutPlaceCommon(
     void* sendBuf, void* recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
     aclrtStream stream, OpMode opMode, const ResPackGraphMode& resPack, OpParam& param)
@@ -255,17 +226,29 @@ HcclResult AllReduceOutPlaceCommon(
     }
 
     if (GetHcommVersion() >= CANN_VERSION(9, 1, 0) && param.opMode == OpMode::OPBASE) {
-        AllReduceSupportSymmetricMemory(param);
+        CheckAndSetSymmetricMemory(param);
     }
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    const bool isTwoLevelMeshNhrOmni = algName == "AicpuAllReducePipeLineMeshNHR"
-                                       && topoInfo->topoLevelNums == TOPO_LEVEL_NUM_1
-                                       && topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix;
-    if (!isTwoLevelMeshNhrOmni) {
-        param.supportSymmetricMemory = false;
+
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        const bool isTwoLevelMeshNhrOmni
+            = algName == "AicpuAllReducePipeLineMeshNHR" && topoInfo->topoLevelNums == TOPO_LEVEL_NUM_1;
+        if (!isTwoLevelMeshNhrOmni) {
+            param.supportSymmetricMemory = false;
+        }
+    } else {
+        const bool supportSymmetricMemory
+            = (param.engine == CommEngine::COMM_ENGINE_AICPU_TS && topoInfo->level0Topo == Level0Shape::MESH_1D
+               && param.DataDes.dataType != HcclDataType::HCCL_DATA_TYPE_INT64
+               && param.DataDes.dataType != HcclDataType::HCCL_DATA_TYPE_UINT64
+               && param.DataDes.dataType != HcclDataType::HCCL_DATA_TYPE_FP64
+               && param.reduceType != HcclReduceOp::HCCL_REDUCE_PROD);
+        if (!supportSymmetricMemory) {
+            param.supportSymmetricMemory = false;
+        }
     }
 
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));

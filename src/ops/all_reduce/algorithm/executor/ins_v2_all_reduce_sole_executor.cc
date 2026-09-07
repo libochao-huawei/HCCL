@@ -130,7 +130,14 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     // maxTmpMemSize_设定为cclIn的大小，op中将申请的HcclBuff全给了cclIn
     maxTmpMemSize_ = resCtx.cclMem.size;
     // 给channels_和threads_赋值
+    supportSymmetricMemory_ = param.supportSymmetricMemory;
     threads_ = resCtx.threads;
+    if (supportSymmetricMemory_) {
+        inputOffset_ = param.inputOffset;
+        outputOffset_ = param.outputOffset;
+        inputSymWindow_ = param.inputSymWindow;
+        outputSymWindow_ = param.outputSymWindow;
+    }
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
     }
@@ -226,6 +233,12 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
                     + static_cast<u64>(dataCount_ % maxDataCountPerLoop != 0); // 计算迭代轮次（ceil取整）
     // count已经处理的数据
     u64 processedDataCount = 0;
+
+    if (param.supportSymmetricMemory) {
+        loopTimes = 1;
+        HCCL_INFO("[InsV2AllReduceSoleExecutor][OrchestrateLoop] %s: symmetric memory enabled", param.algName);
+    }
+
     for (u64 loop = 0; loop < loopTimes; loop++) {
         // dataCount_实际总数据量 和 maxDataCountPerLoop 一次搬运数据量之间不一定是整除关系，需要对尾块进行处理
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxDataCountPerLoop;

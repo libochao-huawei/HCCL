@@ -253,6 +253,16 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsIntra0.repeatNum = rankSizeLevel1_;
     tempAlgParamsIntra0.inputRepeatStride = dataSize_ * rankSizeLevel0_;
     tempAlgParamsIntra0.outputRepeatStride = dataCountPerLoopAxis0 * dataTypeSize_ * rankSizeLevel0_;
+    if (param.supportSymmetricMemory) {
+        tempAlgParamsIntra0.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsIntra0.buffInfo.outputSize = param.inputSize;
+        tempAlgParamsIntra0.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsIntra0.buffInfo.outBuffBaseOff = dataOffset;
+        // 对称时 output 应与 input 同址跳过 LocalDataCopy，stride 需与 inputSliceStride 一致
+        tempAlgParamsIntra0.outputSliceStride = tempAlgParamsIntra0.inputSliceStride;
+        tempAlgParamsIntra0.outputRepeatStride = tempAlgParamsIntra0.inputRepeatStride;
+        tempAlgParamsIntra0.enableRemoteMemAccess = true;
+    }
     return;
 }
 
@@ -287,6 +297,16 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsInter0.repeatNum = 1;
     tempAlgParamsInter0.inputRepeatStride = 0;
     tempAlgParamsInter0.outputRepeatStride = 0;
+    if (param.supportSymmetricMemory) {
+        tempAlgParamsInter0.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsInter0.buffInfo.inputSize = param.inputSize;
+        tempAlgParamsInter0.buffInfo.inBuffType = BufferType::INPUT;
+        // 对称时从 user input 读取 Step1 结果，需定位到本 level0 rank 在各 level1 rank 中的位置
+        tempAlgParamsInter0.buffInfo.inBuffBaseOff = dataOffset + rankIdxLevel0_ * dataSize_;
+        // user input 中 level1 rank 间距 = rankSizeLevel0_ 个 user rank
+        tempAlgParamsInter0.inputSliceStride = rankSizeLevel0_ * dataSize_;
+        tempAlgParamsInter0.enableRemoteMemAccess = true;
+    }
     return;
 }
 
@@ -319,6 +339,17 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsInter1.repeatNum = rankSizeLevel0_;
     tempAlgParamsInter1.inputRepeatStride = dataSize_;
     tempAlgParamsInter1.outputRepeatStride = dataCountPerLoopAxis1 * dataTypeSize_ * rankSizeLevel1_;
+    if (param.supportSymmetricMemory) {
+        tempAlgParamsInter1.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsInter1.buffInfo.outputSize = param.inputSize;
+        tempAlgParamsInter1.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsInter1.buffInfo.outBuffBaseOff = dataOffset;
+        // 非对称时 inputSliceStride 已是 dataSize_ * rankSizeLevel0_（user input 的 level1 rank 间距），无需改
+        // output 同址跳过，stride 需与 input 一致
+        tempAlgParamsInter1.outputSliceStride = tempAlgParamsInter1.inputSliceStride;
+        tempAlgParamsInter1.outputRepeatStride = tempAlgParamsInter1.inputRepeatStride;
+        tempAlgParamsInter1.enableRemoteMemAccess = true;
+    }
     return;
 }
 
@@ -352,6 +383,16 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsIntra1.repeatNum = 1;
     tempAlgParamsIntra1.inputRepeatStride = 0;
     tempAlgParamsIntra1.outputRepeatStride = 0;
+    if (param.supportSymmetricMemory) {
+        tempAlgParamsIntra1.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsIntra1.buffInfo.inputSize = param.inputSize;
+        tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::INPUT;
+        // 对称时定位到本 level1 rank 在 user input 中的起始位置
+        tempAlgParamsIntra1.buffInfo.inBuffBaseOff = dataOffset + rankIdxLevel1_ * rankSizeLevel0_ * dataSize_;
+        // user input 中 level0 rank 间距 = dataSize_
+        tempAlgParamsIntra1.inputSliceStride = dataSize_;
+        tempAlgParamsIntra1.enableRemoteMemAccess = true;
+    }
     return;
 }
 
@@ -416,6 +457,13 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     maxTmpMemSize_ = resCtx.cclMem.size;
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
+    supportSymmetricMemory_ = param.supportSymmetricMemory;
+    if (supportSymmetricMemory_) {
+        inputOffset_ = param.inputOffset;
+        outputOffset_ = param.outputOffset;
+        inputSymWindow_ = param.inputSymWindow;
+        outputSymWindow_ = param.outputSymWindow;
+    }
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
         intraChannelMap_ = remoteRankToChannelInfo_[0];
@@ -513,6 +561,11 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     u64 maxCountPerLoop
         = std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_;
+    // 对称内存零拷贝：不受cclBuffer和UB_MAX_DATA_SIZE限制，一次传完
+    if (param.supportSymmetricMemory) {
+        maxCountPerLoop = dataCount_;
+        HCCL_INFO("[InsReduceScatterParallelExecutor][OrchestrateLoop] %s: symmetric memory enabled", param.algName);
+    }
     CHK_PRT_RET(
         maxCountPerLoop == 0, HCCL_ERROR("[InsReduceScatterParallelExecutor][OrchestrateLoop] maxCountPerLoop is 0"),
         HcclResult::HCCL_E_INTERNAL);

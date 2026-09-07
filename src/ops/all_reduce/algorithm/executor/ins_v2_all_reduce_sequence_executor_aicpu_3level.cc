@@ -14,6 +14,7 @@
 #include "ins_temp_all_gather_nhr.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
+#include "alg_data_trans_wrapper.h"
 #include "alg_attrs_registry.h"
 #include "auto_selector_base.h"
 
@@ -311,6 +312,13 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu3Level<
     dataSize_ = dataCount_ * dataTypeSize_;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     threads_ = resCtx.threads;
+    supportSymmetricMemory_ = param.supportSymmetricMemory;
+    if (supportSymmetricMemory_) {
+        inputOffset_ = param.inputOffset;
+        outputOffset_ = param.outputOffset;
+        inputSymWindow_ = param.inputSymWindow;
+        outputSymWindow_ = param.outputSymWindow;
+    }
 
     if (algHierarchyInfo_.infos.size() < TOPO_LEVEL_NUM_3 || algHierarchyInfo_.infos[0][0].empty()
         || algHierarchyInfo_.infos[1][0].empty() || algHierarchyInfo_.infos[2][0].empty()) {
@@ -326,6 +334,7 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu3Level<
     }
     rankIdxLevel0_ = myRank_ % algHierarchyInfo_.infos[0][0].size();
     rankIdxLevel1_ = (myRank_ / algHierarchyInfo_.infos[0][0].size()) % algHierarchyInfo_.infos[1][0].size();
+    rankIdxLevel2_ = myRank_ / (algHierarchyInfo_.infos[0][0].size() * algHierarchyInfo_.infos[1][0].size());
 
     CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
 
@@ -408,14 +417,15 @@ void InsV2AllReduceSequenceExecutorAicpu3Level<
 {
     tempAlgParamsRSL0.count = currDataCount;
     tempAlgParamsRSL0.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
-    tempAlgParamsRSL0.buffInfo.outBuffBaseOff = rsResultBuffOffset_;
+    tempAlgParamsRSL0.buffInfo.outBuffBaseOff
+        = supportSymmetricMemory_ ? processedDataCount * dataTypeSize_ : rsResultBuffOffset_;
     tempAlgParamsRSL0.buffInfo.hcclBuffBaseOff = meshCommBuffOffset_;
 
     tempAlgParamsRSL0.sliceSize = currDataCount / rankSizeLevel0_ * dataTypeSize_;
     tempAlgParamsRSL0.tailSize = (currDataCount / rankSizeLevel0_ + currDataCount % rankSizeLevel0_) * dataTypeSize_;
 
     tempAlgParamsRSL0.inputSliceStride = tempAlgParamsRSL0.sliceSize;
-    tempAlgParamsRSL0.outputSliceStride = 0;
+    tempAlgParamsRSL0.outputSliceStride = supportSymmetricMemory_ ? tempAlgParamsRSL0.sliceSize : 0;
 
     HCCL_INFO(
         "[InsV2AllReduceSequenceExecutorAicpu3Level] loop [%u] RSL0.inputSliceStride [%u], "
@@ -439,7 +449,7 @@ void InsV2AllReduceSequenceExecutorAicpu3Level<
     InsAlgTemplate5>::
     GenTempAlgParamsRSL1(
         const u64 loop, const u64 currDataCount, const u64 sliceSizeRSL0, const u64 tailSizeRSL0,
-        TemplateDataParams& tempAlgParamsRSL1) const
+        const u64 processedDataCount, TemplateDataParams& tempAlgParamsRSL1) const
 {
     tempAlgParamsRSL1.count = currDataCount;
     if (rankIdxLevel0_ == rankSizeLevel0_ - 1) {
@@ -451,8 +461,10 @@ void InsV2AllReduceSequenceExecutorAicpu3Level<
         tempAlgParamsRSL1.sliceSize = sliceCountRSL0 / rankSizeLevel1_ * dataTypeSize_;
         tempAlgParamsRSL1.tailSize = tempAlgParamsRSL1.sliceSize + sliceCountRSL0 % rankSizeLevel1_ * dataTypeSize_;
     }
-    tempAlgParamsRSL1.buffInfo.inBuffBaseOff = 0;
-    tempAlgParamsRSL1.buffInfo.outBuffBaseOff = 0;
+    u64 symMemBaseOff
+        = supportSymmetricMemory_ ? processedDataCount * dataTypeSize_ + rankIdxLevel0_ * sliceSizeRSL0 : 0;
+    tempAlgParamsRSL1.buffInfo.inBuffBaseOff = symMemBaseOff;
+    tempAlgParamsRSL1.buffInfo.outBuffBaseOff = symMemBaseOff;
     tempAlgParamsRSL1.buffInfo.hcclBuffBaseOff = 0;
 
     tempAlgParamsRSL1.inputSliceStride = tempAlgParamsRSL1.sliceSize;
@@ -480,7 +492,7 @@ void InsV2AllReduceSequenceExecutorAicpu3Level<
     InsAlgTemplate5>::
     GenTempAlgParamsRSL2(
         const u64 loop, const u64 currDataCount, const u64 sliceSizeRSL1, const u64 tailSizeRSL1,
-        TemplateDataParams& tempAlgParamsRSL2) const
+        const u64 symMemBaseOffRSL1, TemplateDataParams& tempAlgParamsRSL2) const
 {
     tempAlgParamsRSL2.count = currDataCount;
     if (rankIdxLevel1_ == rankSizeLevel1_ - 1) {
@@ -492,9 +504,11 @@ void InsV2AllReduceSequenceExecutorAicpu3Level<
         tempAlgParamsRSL2.sliceSize = sliceCountRSL1 / rankSizeLevel2_ * dataTypeSize_;
         tempAlgParamsRSL2.tailSize = tempAlgParamsRSL2.sliceSize + sliceCountRSL1 % rankSizeLevel2_ * dataTypeSize_;
     }
-    tempAlgParamsRSL2.buffInfo.inBuffBaseOff = rankIdxLevel1_ * sliceSizeRSL1;
-    tempAlgParamsRSL2.buffInfo.outBuffBaseOff = rankIdxLevel1_ * sliceSizeRSL1;
-    tempAlgParamsRSL2.buffInfo.hcclBuffBaseOff = rankIdxLevel1_ * sliceSizeRSL1;
+    u64 symMemBaseOff
+        = supportSymmetricMemory_ ? symMemBaseOffRSL1 + rankIdxLevel1_ * sliceSizeRSL1 : rankIdxLevel1_ * sliceSizeRSL1;
+    tempAlgParamsRSL2.buffInfo.inBuffBaseOff = symMemBaseOff;
+    tempAlgParamsRSL2.buffInfo.outBuffBaseOff = symMemBaseOff;
+    tempAlgParamsRSL2.buffInfo.hcclBuffBaseOff = supportSymmetricMemory_ ? 0 : rankIdxLevel1_ * sliceSizeRSL1;
 
     tempAlgParamsRSL2.inputSliceStride = tempAlgParamsRSL2.sliceSize;
     tempAlgParamsRSL2.outputSliceStride = tempAlgParamsRSL2.sliceSize;
@@ -521,12 +535,15 @@ void InsV2AllReduceSequenceExecutorAicpu3Level<
     InsAlgTemplate5>::
     GenTempAlgParamsAGL2(
         const u64 loop, const u64 currDataCount, const u64 sliceSizeRSL2, const u64 tailSizeRSL2,
-        const u64 sliceSizeRSL1, TemplateDataParams& tempAlgParamsAGL2) const
+        const u64 sliceSizeRSL1, const u64 symMemBaseOffRSL1, TemplateDataParams& tempAlgParamsAGL2) const
 {
     tempAlgParamsAGL2.count = currDataCount;
-    tempAlgParamsAGL2.buffInfo.inBuffBaseOff = rankIdxLevel1_ * sliceSizeRSL1;
-    tempAlgParamsAGL2.buffInfo.outBuffBaseOff = 0;
-    tempAlgParamsAGL2.buffInfo.hcclBuffBaseOff = rankIdxLevel1_ * sliceSizeRSL1;
+    u64 inBaseOff
+        = supportSymmetricMemory_ ? symMemBaseOffRSL1 + rankIdxLevel1_ * sliceSizeRSL1 : rankIdxLevel1_ * sliceSizeRSL1;
+    u64 outBaseOff = supportSymmetricMemory_ ? symMemBaseOffRSL1 : 0;
+    tempAlgParamsAGL2.buffInfo.inBuffBaseOff = inBaseOff;
+    tempAlgParamsAGL2.buffInfo.outBuffBaseOff = outBaseOff;
+    tempAlgParamsAGL2.buffInfo.hcclBuffBaseOff = supportSymmetricMemory_ ? 0 : rankIdxLevel1_ * sliceSizeRSL1;
 
     tempAlgParamsAGL2.sliceSize = sliceSizeRSL2;
     tempAlgParamsAGL2.tailSize = tailSizeRSL2;
@@ -555,19 +572,20 @@ void InsV2AllReduceSequenceExecutorAicpu3Level<
     AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3, InsAlgTemplate4,
     InsAlgTemplate5>::
     GenTempAlgParamsAGL1(
-        const u64 loop, const u64 currDataCount, const u64 sliceSize, const u64 tailSize,
+        const u64 loop, const u64 currDataCount, const u64 sliceSize, const u64 tailSize, const u64 symMemBaseOff,
         TemplateDataParams& tempAlgParamsAGL1) const
 {
     tempAlgParamsAGL1.count = currDataCount;
-    tempAlgParamsAGL1.buffInfo.inBuffBaseOff = 0;
-    tempAlgParamsAGL1.buffInfo.outBuffBaseOff = 0;
+    u64 baseOff = supportSymmetricMemory_ ? symMemBaseOff : 0;
+    tempAlgParamsAGL1.buffInfo.inBuffBaseOff = baseOff;
+    tempAlgParamsAGL1.buffInfo.outBuffBaseOff = baseOff;
     tempAlgParamsAGL1.buffInfo.hcclBuffBaseOff = 0;
 
     tempAlgParamsAGL1.sliceSize = sliceSize;
     tempAlgParamsAGL1.tailSize = tailSize;
 
     tempAlgParamsAGL1.inputSliceStride = tempAlgParamsAGL1.sliceSize;
-    tempAlgParamsAGL1.outputSliceStride = 0;
+    tempAlgParamsAGL1.outputSliceStride = supportSymmetricMemory_ ? tempAlgParamsAGL1.sliceSize : 0;
 
     HCCL_INFO(
         "[InsV2AllReduceSequenceExecutorAicpu3Level] loop [%u] AGL1.inputSliceStride [%u], "
@@ -591,10 +609,10 @@ void InsV2AllReduceSequenceExecutorAicpu3Level<
     InsAlgTemplate5>::
     GenTempAlgParamsAGL0(
         const u64 loop, const u64 currDataCount, const u64 processedDataCount, const u64 sliceSize, const u64 tailSize,
-        TemplateDataParams& tempAlgParamsAGL0) const
+        const u64 symMemBaseOff, TemplateDataParams& tempAlgParamsAGL0) const
 {
     tempAlgParamsAGL0.count = currDataCount;
-    tempAlgParamsAGL0.buffInfo.inBuffBaseOff = 0;
+    tempAlgParamsAGL0.buffInfo.inBuffBaseOff = supportSymmetricMemory_ ? symMemBaseOff : 0;
     tempAlgParamsAGL0.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
     tempAlgParamsAGL0.buffInfo.hcclBuffBaseOff = 0;
 
@@ -720,6 +738,34 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu3Level<
                           / totalRankAlign * totalRankAlign;
     u64 processedDataCount = 0;
     u64 loop = 0;
+    if (param.supportSymmetricMemory) {
+        maxCountPerLoop = dataCount_;
+        tempAlgParamsRSL0.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsRSL0.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsRSL1.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsRSL1.buffInfo.inBuffType = BufferType::INPUT;
+        tempAlgParamsRSL1.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsRSL1.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsRSL2.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsRSL2.buffInfo.inBuffType = BufferType::INPUT;
+        tempAlgParamsRSL2.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsRSL2.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsAGL2.buffInfo.inputPtr = param.outputPtr;
+        tempAlgParamsAGL2.buffInfo.inBuffType = BufferType::OUTPUT;
+        tempAlgParamsAGL2.buffInfo.outputPtr = param.outputPtr;
+        tempAlgParamsAGL2.buffInfo.outBuffType = BufferType::OUTPUT;
+        tempAlgParamsAGL2.enableRemoteMemAccess = true;
+        tempAlgParamsAGL1.buffInfo.inputPtr = param.outputPtr;
+        tempAlgParamsAGL1.buffInfo.inBuffType = BufferType::OUTPUT;
+        tempAlgParamsAGL1.buffInfo.outputPtr = param.outputPtr;
+        tempAlgParamsAGL1.buffInfo.outBuffType = BufferType::OUTPUT;
+        tempAlgParamsAGL1.enableRemoteMemAccess = true;
+        tempAlgParamsAGL0.buffInfo.inputPtr = param.outputPtr;
+        tempAlgParamsAGL0.buffInfo.inBuffType = BufferType::OUTPUT;
+        tempAlgParamsAGL0.enableRemoteMemAccess = true;
+        HCCL_INFO(
+            "[InsV2AllReduceSequenceExecutorAicpu3Level][OrchestrateLoop] %s: symmetric memory enabled", param.algName);
+    }
     while (processedDataCount < dataCount_) {
         u64 remaining = dataCount_ - processedDataCount;
         u64 currDataCount;
@@ -758,38 +804,55 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu3Level<
         // ----------- RSL1: level1 ReduceScatter -----------
         u64 sliceSizeRSL1 = tempAlgParamsRSL0.sliceSize;
         u64 tailSizeRSL1 = tempAlgParamsRSL0.tailSize;
+        u64 symMemBaseOffRSL1 = 0;
         if (!skipLevel1_) {
             GenTempAlgParamsRSL1(
-                loop, currDataCount, tempAlgParamsRSL0.sliceSize, tempAlgParamsRSL0.tailSize, tempAlgParamsRSL1);
+                loop, currDataCount, tempAlgParamsRSL0.sliceSize, tempAlgParamsRSL0.tailSize, processedDataCount,
+                tempAlgParamsRSL1);
             CHK_RET(algTemplateRSL1->KernelRun(param, tempAlgParamsRSL1, templateResourceRSL1));
             sliceSizeRSL1 = tempAlgParamsRSL1.sliceSize;
             tailSizeRSL1 = tempAlgParamsRSL1.tailSize;
+            symMemBaseOffRSL1 = tempAlgParamsRSL1.buffInfo.inBuffBaseOff;
         } else {
             sliceSizeRSL1 = tempAlgParamsRSL0.sliceSize;
             tailSizeRSL1
                 = (rankIdxLevel0_ == rankSizeLevel0_ - 1) ? tempAlgParamsRSL0.tailSize : tempAlgParamsRSL0.sliceSize;
+            symMemBaseOffRSL1 = supportSymmetricMemory_ ?
+                                    processedDataCount * dataTypeSize_ + rankIdxLevel0_ * tempAlgParamsRSL0.sliceSize :
+                                    0;
         }
 
         // ----------- RSL2: level2 ReduceScatter -----------
-        GenTempAlgParamsRSL2(loop, currDataCount, sliceSizeRSL1, tailSizeRSL1, tempAlgParamsRSL2);
+        GenTempAlgParamsRSL2(loop, currDataCount, sliceSizeRSL1, tailSizeRSL1, symMemBaseOffRSL1, tempAlgParamsRSL2);
         CHK_RET(algTemplateRSL2->KernelRun(param, tempAlgParamsRSL2, templateResourceRSL2));
+
+        // 对称内存路径：RS 完成后 input[mySlice] 已是归约结果，拷贝到 output[mySlice] 供 AG 阶段使用
+        if (param.supportSymmetricMemory && currDataCount > 0) {
+            u64 mySliceSize
+                = (rankIdxLevel2_ == rankSizeLevel2_ - 1) ? tempAlgParamsRSL2.tailSize : tempAlgParamsRSL2.sliceSize;
+            u64 mySliceOffset = tempAlgParamsRSL2.buffInfo.inBuffBaseOff + rankIdxLevel2_ * tempAlgParamsRSL2.sliceSize;
+            DataSlice copySrcSlice(param.inputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+            DataSlice copyDstSlice(param.outputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+            CHK_RET(LocalCopy(threads_[0], copySrcSlice, copyDstSlice));
+        }
 
         // ----------- AGL2: level2 AllGather -----------
         GenTempAlgParamsAGL2(
             loop, currDataCount, tempAlgParamsRSL2.sliceSize, tempAlgParamsRSL2.tailSize, sliceSizeRSL1,
-            tempAlgParamsAGL2);
+            symMemBaseOffRSL1, tempAlgParamsAGL2);
         CHK_RET(algTemplateAGL2->KernelRun(param, tempAlgParamsAGL2, templateResourceAGL2));
 
         // ----------- AGL1: level1 AllGather -----------
         if (!skipLevel1_) {
-            GenTempAlgParamsAGL1(loop, currDataCount, sliceSizeRSL1, tailSizeRSL1, tempAlgParamsAGL1);
+            GenTempAlgParamsAGL1(
+                loop, currDataCount, sliceSizeRSL1, tailSizeRSL1, symMemBaseOffRSL1, tempAlgParamsAGL1);
             CHK_RET(algTemplateAGL1->KernelRun(param, tempAlgParamsAGL1, templateResourceAGL1));
         }
 
         // ----------- AGL0: level0 AllGather -----------
         GenTempAlgParamsAGL0(
             loop, currDataCount, processedDataCount, tempAlgParamsRSL0.sliceSize, tempAlgParamsRSL0.tailSize,
-            tempAlgParamsAGL0);
+            symMemBaseOffRSL1, tempAlgParamsAGL0);
         CHK_RET(algTemplateAGL0->KernelRun(param, tempAlgParamsAGL0, templateResourceAGL0));
 
         processedDataCount += currDataCount;

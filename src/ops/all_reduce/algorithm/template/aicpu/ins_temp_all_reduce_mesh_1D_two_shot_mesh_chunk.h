@@ -66,11 +66,14 @@ private:
     void NotifyIdxSubToMainInRSMeshChunk(std::vector<u32>& notifyIdxSubToMain);
     void NotifyIdxMainToSubInAG(std::vector<u32>& notifyIdxMainToSub);
     void NotifyIdxSubToMainInAG(std::vector<u32>& notifyIdxSubToMain);
+    HcclResult CopyRsResultToOutput(
+        const TemplateDataParams& tempAlgParams, const ThreadHandle& thread, const RankSliceInfo& sliceInfoVec);
 
     u64 processSize_{0};
     u64 count_{0};
     u64 dataTypeSize_{0};
     u32 myAlgRank_{0};
+    bool supportSymmetricMemAccess_{false};
 };
 } // namespace ops_hccl
 

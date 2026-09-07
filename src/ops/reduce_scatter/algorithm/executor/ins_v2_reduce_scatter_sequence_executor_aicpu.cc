@@ -227,6 +227,13 @@ HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0
     myRank_ = resCtx.topoInfo.userRank;
     rankSize_ = resCtx.topoInfo.userRankSize;
     threads_ = resCtx.threads;
+    supportSymmetricMemory_ = param.supportSymmetricMemory;
+    if (supportSymmetricMemory_) {
+        inputOffset_ = param.inputOffset;
+        outputOffset_ = param.outputOffset;
+        inputSymWindow_ = param.inputSymWindow;
+        outputSymWindow_ = param.outputSymWindow;
+    }
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
@@ -438,6 +445,17 @@ HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0
         HcclResult::HCCL_E_INTERNAL);
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
     u64 processedDataCount = 0;
+
+    if (param.supportSymmetricMemory) {
+        loopTimes = 1;
+        tempAlgParamsIntra.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsIntra.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsInter.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsInter.buffInfo.inBuffType = BufferType::INPUT;
+        HCCL_INFO(
+            "[InsV2ReduceScatterSequenceExecutorAicpu][OrchestrateLoop] %s: symmetric memory enabled", param.algName);
+    }
+
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxCountPerLoop;
 

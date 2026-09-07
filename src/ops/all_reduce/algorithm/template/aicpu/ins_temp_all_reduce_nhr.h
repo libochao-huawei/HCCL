@@ -101,6 +101,7 @@ private:
     std::vector<u64> dataOffset_;
     std::vector<u64> dataSplitTail_;
     std::vector<u64> dataOffsetTail_;
+    bool supportSymmetricMemAccess_{false};
 };
 
 } // namespace ops_hccl

@@ -42,6 +42,7 @@ public:
     static std::vector<CostModelParam> CalcCostCoeff(CalcCostCoeffParam param);
 
     HcclResult PreCopy(const TemplateDataParams& tempAlgParams, const std::vector<ThreadHandle>& threads) const;
+    HcclResult LocalDataCopy(const TemplateDataParams& tempAlgParams, const std::vector<ThreadHandle>& threads);
     HcclResult PostCopy(const TemplateDataParams& tempAlgParams, const std::vector<ThreadHandle>& threads);
     HcclResult CalcSliceInfoVec(const u64& dataSize, RankSliceInfo& sliceInfoVec);
 
@@ -63,6 +64,7 @@ private:
     u32 rankIdx_{0};
     u64 count_{0};
     u64 dataTypeSize_{0};
+    bool supportSymmetricMemAccess_{false};
 };
 
 } // namespace ops_hccl

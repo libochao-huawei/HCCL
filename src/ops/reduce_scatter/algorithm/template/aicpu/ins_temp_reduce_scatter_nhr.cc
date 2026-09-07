@@ -121,6 +121,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(
     channels_ = templateResource.channels;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
+    supportSymmetricMemAccess_ = param.supportSymmetricMemory;
 
     bool isPcieProtocal = IsPcieProtocol(channels_); // 判断是否存在pcie链路
     isDmaRead_ = isPcieProtocal;                     // 是否使用Read模式
@@ -129,7 +130,9 @@ HcclResult InsTempReduceScatterNHR::KernelRun(
     step0TxSliceIdxs_.clear();
     HCCL_DEBUG("[InsTempReduceScatterNHR] Use Dma Read[%d]", isDmaRead_);
 
-    if (!isDmaRead_ && templateRankSize_ > 1) {
+    if (supportSymmetricMemAccess_) {
+        HCCL_INFO("[InsTempReduceScatterNHR] Remote mem access enabled, skip PreCopy, use read+reduce on input");
+    } else if (!isDmaRead_ && templateRankSize_ > 1) {
         skipStep0TxPreCopy_ = true;
         HCCL_INFO("[InsTempReduceScatterNHR] Skip step0 tx pre-copy enabled");
     }
@@ -172,7 +175,9 @@ HcclResult InsTempReduceScatterNHR::KernelRun(
         CHK_PRT_RET(
             channelIdx >= sizeOut.size() || channelIdx >= elemOffset.size(),
             HCCL_ERROR("[InsTempReduceScatterNHR] channelIdx[%u] out of bounds", channelIdx), HCCL_E_INTERNAL);
-        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
+        if (!supportSymmetricMemAccess_) {
+            CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
+        }
     }
     if (templateRankSize_ <= 1) {
         for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
@@ -265,15 +270,21 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
     for (u64 rpt = 0; rpt < rptNum; ++rpt) {
         const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
         const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
+        const u64 inBaseOff = tempAlgParams_.buffInfo.inBuffBaseOff + rpt * tempAlgParams_.inputRepeatStride;
         // 如果做了前拷贝，则数据在ccl上紧密排列，按照sliceSize跳过间隔
         u64 scOff = scratchBase + tempAlgParams_.sliceSize * myAlgIdx + elemOffset[channelIdx];
-        if (!doPreCopy_) {
+        void* srcAddr = tempAlgParams_.buffInfo.hcclBuff.addr;
+        if (supportSymmetricMemAccess_) {
+            // 对称内存路径：数据在input上，按照inputSliceStride跳过间隔
+            scOff = inBaseOff + tempAlgParams_.inputSliceStride * myAlgIdx + elemOffset[channelIdx];
+            srcAddr = tempAlgParams_.buffInfo.inputPtr;
+        } else if (!doPreCopy_) {
             // 如果没做前拷贝，则ccl buffer继承input相关的所有参数，按照inputSliceStride跳过间隔
             scOff = scratchBase + tempAlgParams_.inputSliceStride * myAlgIdx + elemOffset[channelIdx];
         }
         const u64 outOff = outBaseOff + myAlgIdx * tempAlgParams_.outputSliceStride + elemOffset[channelIdx];
 
-        DataSlice src = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sizeOut[channelIdx]);
+        DataSlice src = DataSlice(srcAddr, scOff, sizeOut[channelIdx]);
         DataSlice dst = DataSlice(tempAlgParams_.buffInfo.outputPtr, outOff, sizeOut[channelIdx]);
 
         if (tempAlgParams_.buffInfo.hcclBuffType != tempAlgParams_.buffInfo.outBuffType || scOff != outOff) {
@@ -328,8 +339,10 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle>& thre
         rxSrcSlices.reserve(st.nSlices * rptNum);
         rxDstSlices.reserve(st.nSlices * rptNum);
 
-        void* sendRemoteCclBuffAddr = linkSend.remoteCclMem.addr;
-        void* recvRemoteCclBuffAddr = linkRecv.remoteCclMem.addr;
+        void* sendRemoteCclBuffAddr
+            = supportSymmetricMemAccess_ ? linkSend.remoteInputGraphMode.addr : linkSend.remoteCclMem.addr;
+        void* recvRemoteCclBuffAddr
+            = supportSymmetricMemAccess_ ? linkRecv.remoteInputGraphMode.addr : linkRecv.remoteCclMem.addr;
         // RS：在 SCRATCH 上进行规约交换
         for (u64 rpt = 0; rpt < rptNum; ++rpt) {
             const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
@@ -347,7 +360,11 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle>& thre
                 // 如果做了前拷贝，则数据在ccl上紧密排列，按照sliceSize跳过间隔
                 u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txelemOffset;
                 u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxelemOffset;
-                if (!doPreCopy_) {
+                if (supportSymmetricMemAccess_) {
+                    // 对称内存路径：数据在input上，按照inputSliceStride跳过间隔
+                    txScOff = inBaseOff + tempAlgParams_.inputSliceStride * txIdx + txelemOffset;
+                    rxScOff = inBaseOff + tempAlgParams_.inputSliceStride * rxIdx + rxelemOffset;
+                } else if (!doPreCopy_) {
                     // 如果没做前拷贝，则ccl buffer继承input相关的所有参数，按照inputSliceStride跳过间隔
                     txScOff = scratchBase + tempAlgParams_.inputSliceStride * txIdx + txelemOffset;
                     rxScOff = scratchBase + tempAlgParams_.inputSliceStride * rxIdx + rxelemOffset;
@@ -363,7 +380,9 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle>& thre
                 void* txSrcAddr = tempAlgParams_.buffInfo.hcclBuff.addr;
                 u64 txSrcOff = txScOff;
                 u64 txDstOff = txScOff;
-                if (skipStep0TxPreCopy_ && s == 0) {
+                if (supportSymmetricMemAccess_) {
+                    txSrcAddr = tempAlgParams_.buffInfo.inputPtr;
+                } else if (skipStep0TxPreCopy_ && s == 0) {
                     txSrcAddr = tempAlgParams_.buffInfo.inputPtr;
                     txSrcOff = inBaseOff + tempAlgParams_.inputSliceStride * txIdx + txelemOffset;
                 }
@@ -379,7 +398,9 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle>& thre
                     recvRemoteCclBuffAddr, rxScOff, rxSliceSize,
                     rxSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
                 DataSlice rxDstSlice = DataSlice(
-                    tempAlgParams_.buffInfo.hcclBuff.addr, rxScOff, rxSliceSize,
+                    supportSymmetricMemAccess_ ? tempAlgParams_.buffInfo.inputPtr :
+                                                 tempAlgParams_.buffInfo.hcclBuff.addr,
+                    rxScOff, rxSliceSize,
                     rxSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送目标
                 rxSrcSlices.push_back(rxSrcSlice);
                 rxDstSlices.push_back(rxDstSlice);
@@ -389,7 +410,12 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle>& thre
         SendRecvReduceInfo info{
             {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_};
 
-        if (isDmaRead_) {
+        if (supportSymmetricMemAccess_) {
+            CHK_PRT_RET(
+                SendRecvBatchReadReduce(info, threads[channelIdx]),
+                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvBatchReadReduce failed (step=%u)", st.step),
+                HcclResult::HCCL_E_INTERNAL);
+        } else if (isDmaRead_) {
             CHK_PRT_RET(
                 SendRecvReadReduce(info, threads[channelIdx]),
                 HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u)", st.step), HcclResult::HCCL_E_INTERNAL);

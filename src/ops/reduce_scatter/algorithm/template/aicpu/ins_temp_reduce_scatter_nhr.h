@@ -63,6 +63,7 @@ private:
     bool doPreCopy_{false};
     bool skipStep0TxPreCopy_{false};
     std::set<u32> step0TxSliceIdxs_;
+    bool supportSymmetricMemAccess_{false};
 };
 
 } // namespace ops_hccl

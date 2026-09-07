@@ -79,13 +79,13 @@ protected:
         TemplateDataParams& tempAlgParamsStepOne) const;
     void GenTempAlgParamsStepTwo(
         const u64 loop, const u64 currDataCount, const u64 sliceSizeLastStep, const u64 tailSizeLastStep,
-        TemplateDataParams& tempAlgParamsStepTwo) const;
+        const u64 processedDataCount, TemplateDataParams& tempAlgParamsStepTwo) const;
     void GenTempAlgParamsStepThree(
-        const u64 loop, const u64 currDataCount, const u64 sliceSize, const u64 tailSize,
+        const u64 loop, const u64 currDataCount, const u64 sliceSize, const u64 tailSize, const u64 symMemBaseOff,
         TemplateDataParams& tempAlgParamsStepThree) const;
     void GenTempAlgParamsStepFour(
         const u64 loop, const u64 currDataCount, const u64 processedDataCount, const u64 sliceSize, const u64 tailSize,
-        TemplateDataParams& tempAlgParamsStepFour) const;
+        const u64 symMemBaseOff, TemplateDataParams& tempAlgParamsStepFour) const;
     template <typename InsAlgTemplate>
     HcclResult GenTempResource(
         const AlgResourceCtxSerializable& resCtx, const u32 channelLevelIdx,

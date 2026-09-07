@@ -106,10 +106,13 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::KernelRun(
         templateRankSize_ == 0, HCCL_ERROR("[InsTempReduceScatterMesh1DMeshChunk] templateRankSize_ is 0"),
         HCCL_E_INTERNAL);
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], rankIdx_));
+    supportSymmetricMemAccess_ = param.supportSymmetricMemory;
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcSliceInfoVec(tempAlgParams.sliceSize, sliceInfoVec));
     HCCL_INFO("[InsTempReduceScatterMesh1DMeshChunk] Run Start");
-    PreCopy(tempAlgParams, templateResource.threads);
+    if (!supportSymmetricMemAccess_) {
+        PreCopy(tempAlgParams, templateResource.threads);
+    }
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxMainToSub(notifyIdxMainToSub_);
@@ -123,7 +126,11 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::KernelRun(
         GetNotifyIdxSubToMain(notifyIdxSubToMain_);
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
     }
-    PostCopy(tempAlgParams, templateResource.threads);
+    if (supportSymmetricMemAccess_) {
+        LocalDataCopy(tempAlgParams, templateResource.threads);
+    } else {
+        PostCopy(tempAlgParams, templateResource.threads);
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -139,6 +146,23 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::PreCopy(
             processSize_);
         DataSlice dstSlice
             = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, tempAlgParams.buffInfo.hcclBuffBaseOff, processSize_);
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult InsTempReduceScatterMesh1DMeshChunk::LocalDataCopy(
+    const TemplateDataParams& tempAlgParams, const std::vector<ThreadHandle>& threads)
+{
+    HCCL_INFO("[InsTempReduceScatterMesh1DMeshChunk][LocalDataCopy], copy from userIn to userOut");
+    for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
+        DataSlice srcSlice = DataSlice(
+            tempAlgParams.buffInfo.inputPtr,
+            tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride
+                + rankIdx_ * tempAlgParams.inputSliceStride,
+            processSize_);
+        DataSlice dstSlice
+            = DataSlice(tempAlgParams.buffInfo.outputPtr, tempAlgParams.buffInfo.outBuffBaseOff, processSize_);
         CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -214,24 +238,30 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
             const ChannelInfo& linkSend = channels.at(toRank)[0];
             const ChannelInfo& linkRecv = channels.at(toRank)[0];
             void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+            void* remoteBuffAddr
+                = supportSymmetricMemAccess_ ? linkSend.remoteInputGraphMode.addr : linkSend.remoteCclMem.addr;
+            u64 remoteBuffBaseOff = tempAlgParams.buffInfo.hcclBuffBaseOff;
             uint16_t queIdx;
             if (frontRank < myAlgRank) {
                 queIdx = frontRank;
             } else {
                 queIdx = frontRank - 1;
             }
+
             std::vector<DataSlice> txSrcSlices;
             std::vector<DataSlice> txDstSlices;
             std::vector<DataSlice> rxSrcSlices;
             std::vector<DataSlice> rxDstSlices;
             for (u32 repeatIdx = 0; repeatIdx < repeatNum; repeatIdx++) {
+                u64 inputBaseOff = tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride
+                                   + myAlgRank * tempAlgParams.inputSliceStride;
                 DataSlice rxSrcSlice = DataSlice(
-                    tempAlgParams.buffInfo.inputPtr,
-                    tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride
-                        + myAlgRank * tempAlgParams.inputSliceStride + sliceRecvOffset_,
-                    sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收源
+                    supportSymmetricMemAccess_ ? remoteBuffAddr : tempAlgParams.buffInfo.inputPtr,
+                    inputBaseOff + sliceRecvOffset_, sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收源
                 DataSlice rxDstSlice = DataSlice(
-                    tempAlgParams.buffInfo.hcclBuff.addr, tempAlgParams.buffInfo.hcclBuffBaseOff + sliceRecvOffset_,
+                    supportSymmetricMemAccess_ ? tempAlgParams.buffInfo.inputPtr : tempAlgParams.buffInfo.hcclBuff.addr,
+                    supportSymmetricMemAccess_ ? (inputBaseOff + sliceRecvOffset_) :
+                                                 (remoteBuffBaseOff + sliceRecvOffset_),
                     sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收目标
                 DataSlice txSrcSlice = DataSlice(
                     tempAlgParams.buffInfo.inputPtr,
@@ -239,8 +269,10 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
                         + frontRank * tempAlgParams.inputSliceStride + sliceSendOffset_,
                     sliceSize[i], sliceSize[i] / dataTypeSize_); // 发送源
                 DataSlice txDstSlice = DataSlice(
-                    remoteCclBuffAddr, tempAlgParams.buffInfo.hcclBuffBaseOff + sliceSendOffset_, sliceSize[i],
-                    sliceSize[i] / dataTypeSize_); // 发送目标
+                    remoteBuffAddr,
+                    supportSymmetricMemAccess_ ? (inputBaseOff + sliceSendOffset_) :
+                                                 (remoteBuffBaseOff + sliceSendOffset_),
+                    sliceSize[i], sliceSize[i] / dataTypeSize_); // 发送目标
 
                 rxSrcSlices.push_back(rxSrcSlice);
                 rxDstSlices.push_back(rxDstSlice);
@@ -250,10 +282,18 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
             SendRecvReduceInfo sendRecvReduceInfo{
                 {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_};
 
-            CHK_PRT_RET(
-                SendRecvBatchWriteReduce(sendRecvReduceInfo, threads[queIdx]),
-                HCCL_ERROR("[InsTempReduceScatterMesh1DMeshChunk] RunReduceScatter SendRecvReduce failed"),
-                HcclResult::HCCL_E_INTERNAL);
+            if (supportSymmetricMemAccess_) {
+                CHK_PRT_RET(
+                    SendRecvBatchReadReduce(sendRecvReduceInfo, threads[queIdx]),
+                    HCCL_ERROR("[InsTempReduceScatterMesh1DMeshChunk] RunReduceScatter SendRecvBatchReadReduce failed"),
+                    HcclResult::HCCL_E_INTERNAL);
+            } else {
+                CHK_PRT_RET(
+                    SendRecvBatchWriteReduce(sendRecvReduceInfo, threads[queIdx]),
+                    HCCL_ERROR(
+                        "[InsTempReduceScatterMesh1DMeshChunk] RunReduceScatter SendRecvBatchWriteReduce failed"),
+                    HcclResult::HCCL_E_INTERNAL);
+            }
 
             sliceSendOffset_ += sliceSize[i];
             if (templateRankSize_ > rankNum && i < (templateRankSize_ - rankNum)) {

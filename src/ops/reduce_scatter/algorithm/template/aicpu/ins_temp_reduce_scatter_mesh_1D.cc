@@ -9,6 +9,7 @@
  */
 
 #include "aicpu/ins_temp_reduce_scatter_mesh_1D.h"
+#include "template_utils.h"
 
 namespace ops_hccl {
 
@@ -105,6 +106,7 @@ u64 InsTempReduceScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, Buffe
 HcclResult InsTempReduceScatterMesh1D::KernelRun(
     const OpParam& param, const TemplateDataParams& tempAlgParams, TemplateResource& templateResource)
 {
+    supportSymmetricMemAccess_ = param.supportSymmetricMemory;
     if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
         HCCL_DEBUG(
             "[InsTempReduceScatterMesh1D] myRank[%u] sliceSize and tailSize are 0, skip reduce scatter.", myRank_);
@@ -137,7 +139,11 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(
             CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
         }
     }
-    PostCopy(param, tempAlgParams, templateResource.threads);
+    if (supportSymmetricMemAccess_) {
+        CHK_RET(LocalDataCopy(templateResource.threads, tempAlgParams));
+    } else {
+        PostCopy(param, tempAlgParams, templateResource.threads);
+    }
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run End");
     return HcclResult::HCCL_SUCCESS;
 }
@@ -212,6 +218,34 @@ HcclResult InsTempReduceScatterMesh1D::PostCopy(
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult InsTempReduceScatterMesh1D::LocalDataCopy(
+    const std::vector<ThreadHandle>& threads, const TemplateDataParams& tempAlgParams)
+{
+    HCCL_INFO("[InsTempReduceScatterMesh1D] LocalDataCopy.");
+    u32 myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+    u64 processSize = tempAlgParams.sliceSize;
+    u64 sliceCount = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
+    if (myAlgRank == templateRankSize_ - 1 && tempAlgParams.tailSize > 0) {
+        processSize = tempAlgParams.tailSize;
+        sliceCount = tempAlgParams.tailSize / DATATYPE_SIZE_TABLE[dataType_];
+    }
+    for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
+        DataSlice srcSlice(
+            tempAlgParams.buffInfo.inputPtr,
+            tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride
+                + myAlgRank * tempAlgParams.inputSliceStride,
+            processSize, sliceCount);
+        DataSlice dstSlice(
+            tempAlgParams.buffInfo.outputPtr,
+            tempAlgParams.buffInfo.outBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride
+                + myAlgRank * tempAlgParams.outputSliceStride,
+            processSize, sliceCount);
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
     const std::map<u32, std::vector<ChannelInfo>>& channels, const std::vector<ThreadHandle>& threads,
     const TemplateDataParams& tempAlgParam)
@@ -249,40 +283,70 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
             // 在 HcclBuffer 上进行 ReduceScatter 操作
             // 由于进程只能访问远端的HcclBuffer，所以只能通过write的方式将自己userIn上的数据写到远端HcclBuffer上
             for (u32 repeatIdx = 0; repeatIdx < tempAlgParam.repeatNum; repeatIdx++) {
-                // 在reduce_scatter.cc的创建channels的环节中获取到了remote的HcclBuff的地址
-                void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
-                // 在接收的时候接收源应该是远端地址，但是由于rs的mesh算法用的是write，所以rx不用care
-                DataSlice rxSrcSlice = DataSlice(
-                    remoteCclBuffAddr,
-                    tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride
-                        + myAlgRank * tempAlgParam.inputSliceStride + elemOffset_[channelIdx],
-                    sliceSize, sliceCount); // 接收源
-                DataSlice rxDstSlice = DataSlice(
-                    tempAlgParam.buffInfo.hcclBuff.addr,
-                    tempAlgParam.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParam.outputRepeatStride
-                        + nextRank * outputSliceStride + elemOffset_[channelIdx],
-                    sliceSize, sliceCount); // 接收目标
-                DataSlice txSrcSlice = DataSlice(
-                    tempAlgParam.buffInfo.inputPtr,
-                    tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride
-                        + nextRank * tempAlgParam.inputSliceStride + elemOffset_[channelIdx],
-                    sliceSize, sliceCount); // 发送源
-                DataSlice txDstSlice = DataSlice(
-                    remoteCclBuffAddr,
-                    tempAlgParam.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParam.outputRepeatStride
-                        + myAlgRank * outputSliceStride + elemOffset_[channelIdx],
-                    sliceSize, sliceCount); // 发送目标
-
-                rxSrcSlices.push_back(rxSrcSlice);
-                rxDstSlices.push_back(rxDstSlice);
-                txSrcSlices.push_back(txSrcSlice);
-                txDstSlices.push_back(txDstSlice);
+                if (supportSymmetricMemAccess_) {
+                    txSrcSlices.push_back(DataSlice(
+                        tempAlgParam.buffInfo.inputPtr,
+                        tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride
+                            + myAlgRank * tempAlgParam.inputSliceStride + elemOffset_[channelIdx],
+                        sliceSize, sliceCount));
+                    txDstSlices.push_back(DataSlice(
+                        linkSend.remoteInputGraphMode.addr,
+                        tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride
+                            + myAlgRank * tempAlgParam.inputSliceStride + elemOffset_[channelIdx],
+                        sliceSize, sliceCount));
+                    rxSrcSlices.push_back(DataSlice(
+                        linkRecv.remoteInputGraphMode.addr,
+                        tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride
+                            + myAlgRank * tempAlgParam.inputSliceStride + elemOffset_[channelIdx],
+                        sliceSize, sliceCount));
+                    rxDstSlices.push_back(DataSlice(
+                        tempAlgParam.buffInfo.inputPtr,
+                        tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride
+                            + myAlgRank * tempAlgParam.inputSliceStride + elemOffset_[channelIdx],
+                        sliceSize, sliceCount));
+                } else {
+                    txSrcSlices.push_back(DataSlice(
+                        tempAlgParam.buffInfo.inputPtr,
+                        tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride
+                            + nextRank * tempAlgParam.inputSliceStride + elemOffset_[channelIdx],
+                        sliceSize, sliceCount)); // 发送源
+                    void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+                    // 在接收的时候接收源应该是远端地址，但是由于rs的mesh算法用的是write，所以rx不用care
+                    rxSrcSlices.push_back(DataSlice(
+                        remoteCclBuffAddr,
+                        tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride
+                            + myAlgRank * tempAlgParam.inputSliceStride + elemOffset_[channelIdx],
+                        sliceSize, sliceCount)); // 接收源
+                    rxDstSlices.push_back(DataSlice(
+                        tempAlgParam.buffInfo.hcclBuff.addr,
+                        tempAlgParam.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParam.outputRepeatStride
+                            + nextRank * outputSliceStride + elemOffset_[channelIdx],
+                        sliceSize, sliceCount)); // 接收目标
+                    txDstSlices.push_back(DataSlice(
+                        remoteCclBuffAddr,
+                        tempAlgParam.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParam.outputRepeatStride
+                            + myAlgRank * outputSliceStride + elemOffset_[channelIdx],
+                        sliceSize, sliceCount)); // 发送目标
+                }
             }
-            SendRecvInfo sendRecvInfo{
-                {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_};
-            CHK_PRT_RET(
-                SendRecvBatchWrite(sendRecvInfo, threads[queIdx]),
-                HCCL_ERROR("[InsTempReduceScatterMesh1D] RunReduceScatter Send failed"), HcclResult::HCCL_E_INTERNAL);
+            if (supportSymmetricMemAccess_) {
+                SendRecvReduceInfo sendRecvReduceInfo{
+                    {linkSend, linkRecv},
+                    {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}},
+                    dataType_,
+                    reduceOp_};
+                CHK_PRT_RET(
+                    SendRecvBatchReadReduce(sendRecvReduceInfo, threads[queIdx]),
+                    HCCL_ERROR("[InsTempReduceScatterMesh1D] RunReduceScatter SendRecvBatchReadReduce failed"),
+                    HcclResult::HCCL_E_INTERNAL);
+            } else {
+                SendRecvInfo sendRecvInfo{
+                    {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_};
+                CHK_PRT_RET(
+                    SendRecvBatchWrite(sendRecvInfo, threads[queIdx]),
+                    HCCL_ERROR("[InsTempReduceScatterMesh1D] RunReduceScatter Send failed"),
+                    HcclResult::HCCL_E_INTERNAL);
+            }
             queIdx++;
         }
     }

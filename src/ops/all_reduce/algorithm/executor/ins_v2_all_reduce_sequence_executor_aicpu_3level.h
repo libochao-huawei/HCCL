@@ -71,19 +71,19 @@ protected:
         TemplateDataParams& tempAlgParamsRSL0) const;
     void GenTempAlgParamsRSL1(
         const u64 loop, const u64 currDataCount, const u64 sliceSizeRSL0, const u64 tailSizeRSL0,
-        TemplateDataParams& tempAlgParamsRSL1) const;
+        const u64 processedDataCount, TemplateDataParams& tempAlgParamsRSL1) const;
     void GenTempAlgParamsRSL2(
         const u64 loop, const u64 currDataCount, const u64 sliceSizeRSL1, const u64 tailSizeRSL1,
-        TemplateDataParams& tempAlgParamsRSL2) const;
+        const u64 symMemBaseOffRSL1, TemplateDataParams& tempAlgParamsRSL2) const;
     void GenTempAlgParamsAGL2(
         const u64 loop, const u64 currDataCount, const u64 sliceSizeRSL2, const u64 tailSizeRSL2,
-        const u64 sliceSizeRSL1, TemplateDataParams& tempAlgParamsAGL2) const;
+        const u64 sliceSizeRSL1, const u64 symMemBaseOffRSL1, TemplateDataParams& tempAlgParamsAGL2) const;
     void GenTempAlgParamsAGL1(
-        const u64 loop, const u64 currDataCount, const u64 sliceSize, const u64 tailSize,
+        const u64 loop, const u64 currDataCount, const u64 sliceSize, const u64 tailSize, const u64 symMemBaseOff,
         TemplateDataParams& tempAlgParamsAGL1) const;
     void GenTempAlgParamsAGL0(
         const u64 loop, const u64 currDataCount, const u64 processedDataCount, const u64 sliceSize, const u64 tailSize,
-        TemplateDataParams& tempAlgParamsAGL0) const;
+        const u64 symMemBaseOff, TemplateDataParams& tempAlgParamsAGL0) const;
     template <typename InsAlgTemplate>
     HcclResult GenTempResource(
         const AlgResourceCtxSerializable& resCtx, const u32 channelLevelIdx,
@@ -95,6 +95,7 @@ protected:
 
     uint64_t rankIdxLevel0_{0};
     uint64_t rankIdxLevel1_{0};
+    uint64_t rankIdxLevel2_{0};
 
     bool skipLevel1_{false};
 

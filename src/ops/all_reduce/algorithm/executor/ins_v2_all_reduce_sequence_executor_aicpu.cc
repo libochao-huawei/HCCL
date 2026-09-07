@@ -300,6 +300,13 @@ InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     reduceOp_ = param.reduceType;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     threads_ = resCtx.threads;
+    supportSymmetricMemory_ = param.supportSymmetricMemory;
+    if (supportSymmetricMemory_) {
+        inputOffset_ = param.inputOffset;
+        outputOffset_ = param.outputOffset;
+        inputSymWindow_ = param.inputSymWindow;
+        outputSymWindow_ = param.outputSymWindow;
+    }
 
     if (algHierarchyInfo_.infos.size() < TOPO_LEVEL_NUM_2 || algHierarchyInfo_.infos[0].empty()
         || algHierarchyInfo_.infos[1].empty() || algHierarchyInfo_.infos[0][0].empty()
@@ -393,7 +400,8 @@ void InsV2AllReduceSequenceExecutorAicpu<
 {
     tempAlgParamsStepOne.count = currDataCount; // 没用到
     tempAlgParamsStepOne.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
-    tempAlgParamsStepOne.buffInfo.outBuffBaseOff = outCclBuffOffset_;
+    tempAlgParamsStepOne.buffInfo.outBuffBaseOff
+        = supportSymmetricMemory_ ? processedDataCount * dataTypeSize_ : outCclBuffOffset_;
     if (engine_ == CommEngine::COMM_ENGINE_CCU) {
         tempAlgParamsStepOne.buffInfo.hcclBuffBaseOff = scratchBlockSize_;
     } else {
@@ -405,7 +413,7 @@ void InsV2AllReduceSequenceExecutorAicpu<
         = (currDataCount / rankSizeLevel0_ + currDataCount % rankSizeLevel0_) * dataTypeSize_; // 最后一个rank的数据量
 
     tempAlgParamsStepOne.inputSliceStride = tempAlgParamsStepOne.sliceSize;
-    tempAlgParamsStepOne.outputSliceStride = 0; // 归约时固定归约到offset0位置
+    tempAlgParamsStepOne.outputSliceStride = supportSymmetricMemory_ ? tempAlgParamsStepOne.sliceSize : 0;
 
     HCCL_INFO(
         "[InsV2AllReduceSequenceExecutorAicpu] loop [%u] tempAlgParamsStepOne.inputSliceStride [%u], "
@@ -429,7 +437,7 @@ void InsV2AllReduceSequenceExecutorAicpu<
     AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::
     GenTempAlgParamsStepTwo(
         const u64 loop, const u64 currDataCount, const u64 sliceSizeLastStep, const u64 tailSizeLastStep,
-        TemplateDataParams& tempAlgParamsStepTwo) const
+        const u64 processedDataCount, TemplateDataParams& tempAlgParamsStepTwo) const
 {
     tempAlgParamsStepTwo.count = currDataCount; // 没用到
     if (rankIdxLevel0_ == rankSizeLevel0_ - 1) {
@@ -445,8 +453,12 @@ void InsV2AllReduceSequenceExecutorAicpu<
             = tempAlgParamsStepTwo.sliceSize + sliceCountLastStep % rankSizeLevel1_ * dataTypeSize_;
     }
     // 上一步会归约到offset0位置，所以这一步offset为0
-    tempAlgParamsStepTwo.buffInfo.inBuffBaseOff = 0;
-    tempAlgParamsStepTwo.buffInfo.outBuffBaseOff = 0;
+    // 对称内存路径：step1 结果在 input[processedDataCount * dataTypeSize_ + rankIdxLevel0_ * sliceSizeLastStep]，
+    // step2 需在同一位置读写
+    u64 symMemBaseOff
+        = supportSymmetricMemory_ ? processedDataCount * dataTypeSize_ + rankIdxLevel0_ * sliceSizeLastStep : 0;
+    tempAlgParamsStepTwo.buffInfo.inBuffBaseOff = symMemBaseOff;
+    tempAlgParamsStepTwo.buffInfo.outBuffBaseOff = symMemBaseOff;
     if (engine_ == CommEngine::COMM_ENGINE_CCU) {
         tempAlgParamsStepTwo.buffInfo.hcclBuffBaseOff = scratchBlockSize_;
     } else {
@@ -477,12 +489,13 @@ template <
 void InsV2AllReduceSequenceExecutorAicpu<
     AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::
     GenTempAlgParamsStepThree(
-        const u64 loop, const u64 currDataCount, const u64 sliceSize, const u64 tailSize,
+        const u64 loop, const u64 currDataCount, const u64 sliceSize, const u64 tailSize, const u64 symMemBaseOff,
         TemplateDataParams& tempAlgParamsStepThree) const
 {
     tempAlgParamsStepThree.count = currDataCount; // 没用到
-    tempAlgParamsStepThree.buffInfo.inBuffBaseOff = 0;
-    tempAlgParamsStepThree.buffInfo.outBuffBaseOff = 0;
+    u64 baseOff = supportSymmetricMemory_ ? symMemBaseOff : 0;
+    tempAlgParamsStepThree.buffInfo.inBuffBaseOff = baseOff;
+    tempAlgParamsStepThree.buffInfo.outBuffBaseOff = baseOff;
     tempAlgParamsStepThree.buffInfo.hcclBuffBaseOff = 0;
     // 与上一步框间ReduceScatter数据量一致
     tempAlgParamsStepThree.sliceSize = sliceSize;
@@ -513,10 +526,10 @@ void InsV2AllReduceSequenceExecutorAicpu<
     AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::
     GenTempAlgParamsStepFour(
         const u64 loop, const u64 currDataCount, const u64 processedDataCount, const u64 sliceSize, const u64 tailSize,
-        TemplateDataParams& tempAlgParamsStepFour) const
+        const u64 symMemBaseOff, TemplateDataParams& tempAlgParamsStepFour) const
 {
     tempAlgParamsStepFour.count = currDataCount; // 没用到
-    tempAlgParamsStepFour.buffInfo.inBuffBaseOff = 0;
+    tempAlgParamsStepFour.buffInfo.inBuffBaseOff = supportSymmetricMemory_ ? symMemBaseOff : 0;
     tempAlgParamsStepFour.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
     tempAlgParamsStepFour.buffInfo.hcclBuffBaseOff = 0;
 
@@ -641,6 +654,24 @@ InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     // 计算loopTimes
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
     u64 processedDataCount = 0;
+    if (param.supportSymmetricMemory) {
+        loopTimes = 1;
+        tempAlgParamsStepOne.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsStepOne.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsStepTwo.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsStepTwo.buffInfo.inBuffType = BufferType::INPUT;
+        tempAlgParamsStepTwo.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsStepTwo.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsStepThree.buffInfo.inputPtr = param.outputPtr;
+        tempAlgParamsStepThree.buffInfo.inBuffType = BufferType::OUTPUT;
+        tempAlgParamsStepThree.buffInfo.outputPtr = param.outputPtr;
+        tempAlgParamsStepThree.buffInfo.outBuffType = BufferType::OUTPUT;
+        tempAlgParamsStepFour.buffInfo.inputPtr = param.outputPtr;
+        tempAlgParamsStepFour.buffInfo.inBuffType = BufferType::OUTPUT;
+        tempAlgParamsStepThree.enableRemoteMemAccess = true;
+        tempAlgParamsStepFour.enableRemoteMemAccess = true;
+        HCCL_INFO("[InsV2AllReduceSequenceExecutorAicpu][OrchestrateLoop] %s: symmetric memory enabled", param.algName);
+    }
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount :
                                                       maxCountPerLoop; // 判断是最后一轮，就处理尾块长度
@@ -652,20 +683,33 @@ InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
         // ----------- Step2:框间ReduceScatter数据搬运 -----------
         // 框间的数据偏移和搬运量计算
         GenTempAlgParamsStepTwo(
-            loop, currDataCount, tempAlgParamsStepOne.sliceSize, tempAlgParamsStepOne.tailSize, tempAlgParamsStepTwo);
+            loop, currDataCount, tempAlgParamsStepOne.sliceSize, tempAlgParamsStepOne.tailSize, processedDataCount,
+            tempAlgParamsStepTwo);
         CHK_RET(algTemplateStepTwo->KernelRun(param, tempAlgParamsStepTwo, templateResourceStepTwo));
+
+        // 对称内存路径：RS 完成后 input[mySlice] 已是归约结果，拷贝到 output[mySlice] 供 AG 阶段使用
+        if (param.supportSymmetricMemory && currDataCount > 0) {
+            u64 mySliceSize = (rankIdxLevel1_ == rankSizeLevel1_ - 1) ? tempAlgParamsStepTwo.tailSize :
+                                                                        tempAlgParamsStepTwo.sliceSize;
+            u64 mySliceOffset
+                = tempAlgParamsStepTwo.buffInfo.inBuffBaseOff + rankIdxLevel1_ * tempAlgParamsStepTwo.sliceSize;
+            DataSlice copySrcSlice(param.inputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+            DataSlice copyDstSlice(param.outputPtr, mySliceOffset, mySliceSize, mySliceSize / dataTypeSize_);
+            CHK_RET(LocalCopy(threads_[0], copySrcSlice, copyDstSlice));
+        }
 
         // ----------- Step3:框间AllGather数据搬运 -----------
         // 框间的数据偏移和搬运量计算
         GenTempAlgParamsStepThree(
-            loop, currDataCount, tempAlgParamsStepTwo.sliceSize, tempAlgParamsStepTwo.tailSize, tempAlgParamsStepThree);
+            loop, currDataCount, tempAlgParamsStepTwo.sliceSize, tempAlgParamsStepTwo.tailSize,
+            tempAlgParamsStepTwo.buffInfo.inBuffBaseOff, tempAlgParamsStepThree);
         CHK_RET(algTemplateStepThree->KernelRun(param, tempAlgParamsStepThree, templateResourceStepThree));
 
         // ----------- Step4:框内AllGather数据搬运 -----------
         // 框内的数据偏移和搬运计算
         GenTempAlgParamsStepFour(
             loop, currDataCount, processedDataCount, tempAlgParamsStepOne.sliceSize, tempAlgParamsStepOne.tailSize,
-            tempAlgParamsStepFour);
+            tempAlgParamsStepTwo.buffInfo.inBuffBaseOff, tempAlgParamsStepFour);
         CHK_RET(algTemplateStepFour->KernelRun(param, tempAlgParamsStepFour, templateResourceStepFour));
 
         processedDataCount += currDataCount;

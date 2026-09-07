@@ -71,9 +71,17 @@ private:
     HcclResult GatherData(
         const TemplateDataParams& tempAlgParams, const std::map<u32, std::vector<ChannelInfo>>& channels,
         const std::vector<ThreadHandle>& threads);
+    HcclResult ScatterSymmetricReadReduce(
+        u64 sendSize, void* localInBuffPtr, u64 inBuffBaseOffset, u64 recvOffset, u64 recvSize, u64 recvCount,
+        const ChannelInfo& sendRecvChannel, const std::vector<ThreadHandle>& threads, u32 remoteIdx);
+    HcclResult GatherSymmetricRead(
+        u64 sendSize, void* localOutBuffPtr, u64 outBuffBaseOffset, u64 sendOffset, u64 sendCount, u64 recvOffset,
+        u64 recvSize, u64 recvCount, const ChannelInfo& sendRecvChannel, const std::vector<ThreadHandle>& threads,
+        u32 remoteIdx);
 
     HcclResult PreSync(const std::vector<ThreadHandle>& threads);
     HcclResult PostSync(const std::vector<ThreadHandle>& threads);
+    HcclResult CopyRsResultToOutput(const TemplateDataParams& tempAlgParams, const ThreadHandle& thread);
 
     bool needAicpuReduce_{false};
     u32 dataTypeSize_{0};
@@ -83,6 +91,7 @@ private:
     u32 myRankIdx_{0};
     std::vector<SplitSliceInfo> sliceInfoList_;
     std::vector<u32> rankList_;
+    bool supportSymmetricMemAccess_{false};
 };
 
 } // namespace ops_hccl

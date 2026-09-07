@@ -174,6 +174,13 @@ InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     reduceOp_ = param.reduceType;
     dataTypeSize_ = HCCL_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
+    supportSymmetricMemory_ = param.supportSymmetricMemory;
+    if (supportSymmetricMemory_) {
+        inputOffset_ = param.inputOffset;
+        outputOffset_ = param.outputOffset;
+        inputSymWindow_ = param.inputSymWindow;
+        outputSymWindow_ = param.outputSymWindow;
+    }
 
     if (algHierarchyInfo_.infos.size() < TOPO_LEVEL_NUM_3 || algHierarchyInfo_.infos[0][0].empty()
         || algHierarchyInfo_.infos[1][0].empty() || algHierarchyInfo_.infos[2][0].empty()) {
@@ -218,7 +225,7 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
 {
     tempAlgParamsIntra.count = currDataCount;
     tempAlgParamsIntra.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
-    tempAlgParamsIntra.buffInfo.outBuffBaseOff = 0;
+    tempAlgParamsIntra.buffInfo.outBuffBaseOff = supportSymmetricMemory_ ? processedDataCount * dataTypeSize_ : 0;
     tempAlgParamsIntra.buffInfo.hcclBuffBaseOff = 0;
 
     tempAlgParamsIntra.sliceSize = currDataCount * dataTypeSize_;
@@ -247,9 +254,10 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
         const u64 loop) const
 {
     tempAlgParamsInter.count = currDataCount;
-    tempAlgParamsInter.buffInfo.inBuffBaseOff = rankIdxLevel0_ * currDataCount * dataTypeSize_;
+    u64 symMemBaseOff = supportSymmetricMemory_ ? processedDataCount * dataTypeSize_ : 0;
+    tempAlgParamsInter.buffInfo.inBuffBaseOff = symMemBaseOff + rankIdxLevel0_ * currDataCount * dataTypeSize_;
     tempAlgParamsInter.buffInfo.outBuffBaseOff
-        = (rankIdxLevel0_ + (rankIdxLevel1_ * rankSizeLevel0_)) * currDataCount * dataTypeSize_;
+        = symMemBaseOff + (rankIdxLevel0_ + (rankIdxLevel1_ * rankSizeLevel0_)) * currDataCount * dataTypeSize_;
     tempAlgParamsInter.buffInfo.hcclBuffBaseOff = rankIdxLevel0_ * currDataCount * dataTypeSize_;
 
     tempAlgParamsInter.sliceSize = currDataCount * dataTypeSize_;
@@ -278,8 +286,9 @@ void InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate0, Ins
         const u64 loop) const
 {
     tempAlgParamsInter.count = currDataCount;
+    u64 symMemBaseOff2 = supportSymmetricMemory_ ? processedDataCount * dataTypeSize_ : 0;
     tempAlgParamsInter.buffInfo.inBuffBaseOff
-        = (rankIdxLevel0_ + (rankIdxLevel1_ * rankSizeLevel0_)) * currDataCount * dataTypeSize_;
+        = symMemBaseOff2 + (rankIdxLevel0_ + (rankIdxLevel1_ * rankSizeLevel0_)) * currDataCount * dataTypeSize_;
     tempAlgParamsInter.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
     tempAlgParamsInter.buffInfo.hcclBuffBaseOff
         = (rankIdxLevel0_ + (rankIdxLevel1_ * rankSizeLevel0_)) * currDataCount * dataTypeSize_;
@@ -399,6 +408,19 @@ HcclResult InsV2ReduceScatterSequenceExecutor3Level<AlgTopoMatch, InsAlgTemplate
         return HCCL_E_INTERNAL;
     }
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
+    if (supportSymmetricMemory_) {
+        loopTimes = 1;
+        tempAlgParamsLevel0.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsLevel0.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsLevel1.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsLevel1.buffInfo.inBuffType = BufferType::INPUT;
+        tempAlgParamsLevel1.buffInfo.outputPtr = param.inputPtr;
+        tempAlgParamsLevel1.buffInfo.outBuffType = BufferType::INPUT;
+        tempAlgParamsLevel2.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParamsLevel2.buffInfo.inBuffType = BufferType::INPUT;
+        HCCL_INFO(
+            "[InsV2ReduceScatterSequenceExecutor3Level][OrchestrateLoop] %s: symmetric memory enabled", param.algName);
+    }
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxCountPerLoop;

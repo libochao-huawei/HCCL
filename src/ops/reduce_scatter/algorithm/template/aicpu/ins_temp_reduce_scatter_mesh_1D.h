@@ -54,11 +54,13 @@ protected:
     HcclResult RunReduceScatter(
         const std::map<u32, std::vector<ChannelInfo>>& channels, const std::vector<ThreadHandle>& threads,
         const TemplateDataParams& tempAlgParam);
+    HcclResult LocalDataCopy(const std::vector<ThreadHandle>& threads, const TemplateDataParams& tempAlgParams);
     u64 processSize_{0};
     u64 count_{0};
     std::vector<u64> elemCountOut_;
     std::vector<u64> sizeOut_;
     std::vector<u64> elemOffset_;
+    bool supportSymmetricMemAccess_{false};
 };
 
 } // namespace ops_hccl
