@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include "adapter_acl.h"
+#include "alg_env_config.h"
 #include "hccl_aiv_utils.h"
 #include "hccl_sym_win_dl.h"
 
@@ -61,4 +62,6 @@ HcclResult hcalrtGetDeviceInfo(u32 deviceId, aclrtDevAttr devAttr, s64& val, boo
     (void)quiet;
     return HCCL_E_NOT_SUPPORT;
 }
+
+std::string GetEnv(std::string) { return "EmptyString"; }
 } // namespace ops_hccl

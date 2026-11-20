@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <numeric>
 #include <future>
 #include <map>
@@ -85,10 +86,16 @@ constexpr u32 HOST_NOTIFY_TIMEOUT_OFFSET = 27; // host等待Device通知的超�
 constexpr u32 KERNEL_TIMEOUT_OFFSET = 25;      // kernel启动超时时间偏移量
 constexpr u32 CPU_TS_NOTIFY_NUM = 3;           // CPU TS thread notify数量
 
-static bool IsHostDpuThreadNewFlowEnabled()
+bool IsHostDpuThreadNewFlowEnabled()
 {
-    constexpr bool manualNewFlow = false;
-    return manualNewFlow || (std::getenv("ST_DPU_THREAD_NEW_FLOW") != nullptr);
+    if (GetHcommVersion() <= CANN_VERSION(9, 3, 0, 1)) {
+        return false;
+    }
+    std::string algoConfig = GetEnv("HCCL_ALGO");
+    std::transform(algoConfig.begin(), algoConfig.end(), algoConfig.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return algoConfig.find("rhd") == std::string::npos;
 }
 
 void UpdateAicpuTimeoutCtx(const OpParam& param, AlgResourceCtxSerializable& resCtx)

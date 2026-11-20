@@ -11,8 +11,8 @@
 /*
  * DPU Thread 算法编排 ST。
  *
- * 独立目标：覆盖新 DPU Thread 流程（用例设置 ST_DPU_THREAD_NEW_FLOW 强制走新流程），
- * 并将 HCOMM 版本桩打到 9.2.0.2（ST_HCOMM_VERSION）以满足其他版本相关判断；
+ * 独立目标：覆盖新 DPU Thread 流程（门控条件：HCOMM 版本高于 9.3.0.1 且 HCCL_ALGO 不含 RHD，
+ * 配置了 RHD 时走老流程），并将 HCOMM 版本桩打到 9.3.0.2（ST_HCOMM_VERSION）以满足门控与其他版本判断；
  * 未设置这些变量的既有用例行为不受影响。
  *
  * 每条用例校验：RUN_INFO 日志中的 algTag（选路）与 hccl-verifier 的任务队列语义。
@@ -51,14 +51,14 @@ extern uint32_t logLevel;
 
 namespace {
 
-// CANN_VERSION(9, 2, 0, 2) = 9*10000000 + 2*100000 + 0*1000 - 200 + 2
-constexpr const char* ST_HCOMM_VERSION_9_2_0_2 = "90199802";
+// CANN_VERSION(9, 3, 0, 2) = 9*10000000 + 3*100000 + 0*1000 - 200 + 2
+constexpr const char* ST_HCOMM_VERSION_9_3_0_2 = "90299802";
 
 struct StubEnvSetup {
     StubEnvSetup()
     {
-        setenv("ST_HCOMM_VERSION", ST_HCOMM_VERSION_9_2_0_2, 1);
-        setenv("ST_DPU_THREAD_NEW_FLOW", "1", 1);
+        setenv("ST_HCOMM_VERSION", ST_HCOMM_VERSION_9_3_0_2, 1);
+        unsetenv("HCCL_ALGO");
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);

@@ -243,6 +243,8 @@ bool IsHostDpu(HcclComm comm);
 
 bool IsBarrierHostDpu(HcclComm comm);
 
+bool IsHostDpuThreadNewFlowEnabled();
+
 void CheckAndSetSymmetricMemory(OpParam& param);
 
 // IsReduceOpSymMemDeterministic 声明见 sym_mem_gate.h（本文件已 include）。

@@ -129,7 +129,7 @@ namespace {
                 return false;
             }
             // 主线开启 DPU 线程时不会申请共享内存，当前 HostDPU RHD 只支持旧路径。
-            if (hostDpu && std::getenv("ST_DPU_THREAD_NEW_FLOW") != nullptr) {
+            if (hostDpu && IsHostDpuThreadNewFlowEnabled()) {
                 HCCL_INFO("[BarrierRHD] HostDPU requires the shared-memory request path.");
                 return false;
             }
