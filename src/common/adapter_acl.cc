@@ -9,9 +9,20 @@
  */
 
 #include <limits.h>
+#include <type_traits>
 #include "adapter_acl.h"
 #include "acl_rt.h"
 #include "dev_type.h"
+
+namespace {
+// Older Runtime headers only declare the original spelling.
+template <typename Attr, typename = void>
+constexpr Attr SUPER_POD_DEVICE_ID_ATTR = Attr::ACL_DEV_ATTR_SUPER_POD_DEVIDE_ID;
+
+template <typename Attr>
+constexpr Attr SUPER_POD_DEVICE_ID_ATTR<Attr, std::void_t<decltype(Attr::ACL_DEV_ATTR_SUPER_POD_DEVICE_ID)>>
+    = Attr::ACL_DEV_ATTR_SUPER_POD_DEVICE_ID;
+} // namespace
 
 namespace ops_hccl {
 HcclResult haclrtGetDeviceIndexByPhyId(u32 devicePhyId, u32& deviceLogicId)
@@ -100,8 +111,8 @@ HcclResult hcalrtGetDeviceInfo(u32 deviceId, aclrtDevAttr devAttr, s64& val, boo
 {
 #ifndef AICPU_COMPILE
     static const std::set<aclrtDevAttr> supportType = {
-        {ACL_DEV_ATTR_PHY_CHIP_ID},        {ACL_DEV_ATTR_SUPER_POD_DEVIDE_ID}, {ACL_DEV_ATTR_SUPER_POD_SERVER_ID},
-        {ACL_DEV_ATTR_SUPER_POD_ID},       {ACL_DEV_ATTR_CUST_OP_PRIVILEGE},   {ACL_DEV_ATTR_MAINBOARD_ID},
+        {ACL_DEV_ATTR_PHY_CHIP_ID},        {SUPER_POD_DEVICE_ID_ATTR<aclrtDevAttr>}, {ACL_DEV_ATTR_SUPER_POD_SERVER_ID},
+        {ACL_DEV_ATTR_SUPER_POD_ID},       {ACL_DEV_ATTR_CUST_OP_PRIVILEGE},         {ACL_DEV_ATTR_MAINBOARD_ID},
 #if HCCL_SUPPORT_DEV_FORM_FACTOR
         {ACL_DEV_ATTR_DEVICE_FORM_FACTOR},
 #endif
