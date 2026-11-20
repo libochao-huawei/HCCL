@@ -20,6 +20,10 @@ AutoSelectorBase::Select(OpParam& opParam, TopoInfoWithNetLayerDetails* topoInfo
     HCCL_DEBUG("[AutoSelectorBase][%s] start, OpExecuteConfig is %d.", __func__, opParam.opExecuteConfig);
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();
     SelectorStatus ret = SelectorStatus::NOT_MATCH;
+    if (opParam.opExecuteConfig == OpExecuteConfig::CCU_MS && topoInfo->isUBX) {
+        HCCL_ERROR("[AutoSelectorBase][%s] UBX topo is not supported yet for ccu ms mode.", __func__);
+        return SelectorStatus::NOT_MATCH;
+    }
     bool hostDPUOnly = false;
     if ((CheckHostDPUOnly(opParam.hcclComm, topoInfo, hostDPUOnly) == HCCL_SUCCESS) && hostDPUOnly) {
         bool isSupportNda = false;
