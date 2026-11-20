@@ -14,15 +14,16 @@ Note: Each rank can have only one input.
 
 ## Sample Introduction
 
-You can click [Sample Link](https://gitcode.com/cann/hcomm/tree/master/examples/01_communicators/03_one_device_per_pthread) to obtain the complete sample code. This sample creates a communicator based on root node information and manages one AI server in a single process, where each NPU device is managed by one thread. The sample mainly includes the following functions:
+You can click [Sample Link](../../../examples/02_collectives/01_allreduce) to obtain the complete sample code. This sample creates a communicator based on root node information and manages one AI server in a single process, where each NPU device is managed by one thread. The sample mainly includes the following functions:
 
 - Device detection: queries the number of available devices through the `aclrtGetDeviceCount()` API.
 - Uses rank0 as the root node and generates the rootInfo identification information of the root node through the `HcclGetRootInfo()` API.
-
 - Based on rootInfo, initializes the communicator in each thread through the `HcclCommInitRootInfo()` API.
 - Call the `HcclAllReduce( )` API to add the input data of all ranks in the communicator, send the result to all nodes, and print the result.
 
 ## Compilation and Execution
+
+Before compiling and running the sample, install the driver and firmware as well as the CANN software package, and set the CANN environment variables. For details, see [Environment Preparation](env_prep.md).
 
 Run the following commands in the sample code directory:
 
