@@ -92,6 +92,37 @@ public:
         bsr_aiv_test::Push({bsr_aiv_test::EventKind::SYNC});
     }
 
+    __aicore__ inline void
+    InitStuckCounter(__gm__ int32_t* head, __gm__ int32_t* tail, __gm__ int32_t* addOne, bool enable)
+    {
+        stuckHead_ = head;
+        stuckTail_ = tail;
+        stuckAddOne_ = addOne;
+        stuckEnabled_ = enable && (head != nullptr) && (tail != nullptr) && (addOne != nullptr);
+        HeadCounter();
+    }
+
+    __aicore__ inline void HeadCounter()
+    {
+        if (stuckEnabled_ && blockIdx_ == 0) {
+            ++bsr_aiv_test::store().headCounters;
+        }
+    }
+
+    __aicore__ inline void TailCounter()
+    {
+        if (stuckEnabled_ && blockIdx_ == 0) {
+            ++bsr_aiv_test::store().tailCounters;
+        }
+    }
+
+    __aicore__ inline void SyncBeforeTail()
+    {
+        if (stuckEnabled_) {
+            ++bsr_aiv_test::store().syncBeforeTail;
+        }
+    }
+
     template <typename T>
     __aicore__ inline void CpGM2GM(__gm__ T* outputGM, __gm__ T* inputGM, uint64_t count)
     {
@@ -144,6 +175,11 @@ public:
     uint64_t outputRepeatStride_ = 0;
 
     bool useDoubleBuffer_ = true;
+
+    __gm__ int32_t* stuckHead_ = nullptr;
+    __gm__ int32_t* stuckTail_ = nullptr;
+    __gm__ int32_t* stuckAddOne_ = nullptr;
+    bool stuckEnabled_ = false;
 
     AscendC::TPipe pipe;
     AscendC::TBuf<> localFlagBuf;

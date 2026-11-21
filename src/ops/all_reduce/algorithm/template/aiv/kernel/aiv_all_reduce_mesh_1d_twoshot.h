@@ -714,6 +714,7 @@ __aicore__ inline void AivAllReduceV2Mesh1DTwoShot(KERNEL_ARGS_DEF)
         op.SmallCoreAllgather();
     }
     op.BarrierAll(needEntrySync ? 1U : 0U);
+    op.TailCounter();
 }
 
 template <typename T>
@@ -760,6 +761,7 @@ __aicore__ inline void AivAllReduceV2Mesh1DTwoShotSuperKernel(SUPERKERNEL_ARGS_D
         op.output_ += curSize;
         loopTag += curSize / UB_DB_DATA_BATCH_SIZE + 1;
     }
+    op.TailCounter();
 }
 
 __aicore__ inline void sk_ar_mesh_1d_twoshot(SUPERKERNEL_ARGS_DEF)

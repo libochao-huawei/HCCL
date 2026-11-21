@@ -51,11 +51,7 @@ public:
         repeatNum_ = repeatNum;
         inputRepeatStride_ = inputRepeatStride;
         outputRepeatStride_ = outputRepeatStride;
-        headCountMem_ = (uint64_t)headCountMem;
-        tailCountMem_ = (uint64_t)tailCountMem;
-        addOneMem_ = (uint64_t)addOneMem;
-        counterMemSize_ = counterMemSize;
-        isEnableCounter_ = isEnableCounter;
+        (void)counterMemSize; // 保留参数以匹配 KERNEL_ARGS_DEF；URMA 路径当前不使用
         numBlocks_ = numBlocks;
         subCommRankLevel_ = subCommRankLevel;
         level0ChannelNumPerRank_ = level0ChannelNumPerRank;
@@ -80,7 +76,50 @@ public:
             "[AivUrmaCommBase][Init] rank=%u level=%u tag=%u blk=%u subRankSize=%u numBlocks=%u mySubRankIdx=%u "
             "len=%llu\n",
             rank_, subCommRankLevel_, tag_, blockIdx_, subCommRankSize_, numBlocks_, mySubCommRankIdx_, len_);
+
+        InitStuckCounter(
+            reinterpret_cast<__gm__ int32_t*>(headCountMem), reinterpret_cast<__gm__ int32_t*>(tailCountMem),
+            reinterpret_cast<__gm__ int32_t*>(addOneMem), isEnableCounter);
     }
+
+    __aicore__ inline void
+    InitStuckCounter(__gm__ int32_t* head, __gm__ int32_t* tail, __gm__ int32_t* addOne, bool enable)
+    {
+        stuckHead_ = head;
+        stuckTail_ = tail;
+        stuckAddOne_ = addOne;
+        stuckEnabled_ = enable && (head != nullptr) && (tail != nullptr) && (addOne != nullptr);
+        HeadCounter();
+    }
+
+    // 单元素 GM 原子加：URMA 基类未继承 AivCommBase，按 UB 中转 + SetAtomicAdd 语义自行实现
+    __aicore__ inline void AddOneToCounter(__gm__ int32_t* countMem)
+    {
+        GlobalTensor<int32_t> srcGT;
+        srcGT.SetGlobalBuffer(stuckAddOne_, 1);
+        GlobalTensor<int32_t> dstGT;
+        dstGT.SetGlobalBuffer(countMem, 1);
+        LocalTensor<int32_t> localIn = inOutQue_.AllocTensor<int32_t>();
+        DataCopyGM2UB(localIn, srcGT, 1);
+        inOutQue_.EnQue(localIn);
+        LocalTensor<int32_t> localOut = inOutQue_.DeQue<int32_t>();
+        SetAtomicAdd<int32_t>();
+        DataCopyUB2GM(dstGT, localOut, 1);
+        SetAtomicNone();
+        inOutQue_.FreeTensor(localOut);
+    }
+
+    __aicore__ inline void EmitStuckCounter(__gm__ int32_t* countMem)
+    {
+        if (!stuckEnabled_ || countMem == nullptr || GetBlockIdx() != 0) {
+            return;
+        }
+        AddOneToCounter(countMem);
+    }
+
+    __aicore__ inline void HeadCounter() { EmitStuckCounter(stuckHead_); }
+
+    __aicore__ inline void TailCounter() { EmitStuckCounter(stuckTail_); }
 
     __aicore__ inline uint64_t GetPeerCommInfoBase(uint32_t peerRank) { return peerCommInfoBasePtr_[peerRank]; }
 
@@ -291,11 +330,10 @@ protected:
     uint64_t repeatNum_{0};
     uint64_t inputRepeatStride_{0};
     uint64_t outputRepeatStride_{0};
-    uint64_t headCountMem_{0};
-    uint64_t tailCountMem_{0};
-    uint64_t addOneMem_{0};
-    uint32_t counterMemSize_{0};
-    bool isEnableCounter_{false};
+    __gm__ int32_t* stuckHead_{nullptr};
+    __gm__ int32_t* stuckTail_{nullptr};
+    __gm__ int32_t* stuckAddOne_{nullptr};
+    bool stuckEnabled_{false};
     uint32_t numBlocks_{0};
     uint32_t blockIdx_{0};
     uint32_t subCommRankLevel_{0};

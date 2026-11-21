@@ -76,10 +76,6 @@ This environment variable supports the following configuration items:
 export HCCL_DFS_CONFIG="connection_fault_detection_time:30,cluster_heartbeat:on,stuck_detection:on,inconsistent_check:off,task_monitor_interval:0"
 ```
 
-## Constraints
-
-**In the current version, 950PR and 950DT only support the following three fields: task_exception, cluster_heartbeat, and inconsistent_check.**
-
 ## Applicable Products
 
 <!-- npu="950" id1 -->

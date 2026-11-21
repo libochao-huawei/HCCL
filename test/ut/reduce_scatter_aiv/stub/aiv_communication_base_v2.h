@@ -32,6 +32,9 @@ struct Trace {
     uint32_t firstBarriers = 0;
     uint32_t endBarriers = 0;
     uint32_t syncAlls = 0;
+    uint32_t headCounters = 0;
+    uint32_t tailCounters = 0;
+    uint32_t syncBeforeTail = 0;
     std::vector<Event> events;
 };
 inline Trace* currentTrace = nullptr;
@@ -51,7 +54,8 @@ public:
     void Init(
         GM_ADDR, uint64_t input, uint64_t output, uint32_t rank, uint32_t, uint32_t rankSize, uint64_t len,
         uint32_t dataType, uint32_t reduceOp, uint32_t, uint64_t inputStride, uint64_t outputStride, uint64_t, uint64_t,
-        uint64_t, GM_ADDR, GM_ADDR, GM_ADDR, uint32_t, bool, uint32_t blocks, ExtraArgs...)
+        uint64_t, GM_ADDR headCountMem, GM_ADDR tailCountMem, GM_ADDR addOneMem, uint32_t, bool isEnableCounter,
+        uint32_t blocks, ExtraArgs...)
     {
         input_ = input;
         output_ = output;
@@ -65,6 +69,9 @@ public:
         numBlocks_ = blocks;
         blockIdx_ = reduce_scatter_aiv_test::currentTrace->block;
         myGmIn_ = GetGmIn(rank);
+        stuckEnabled_
+            = isEnableCounter && (headCountMem != nullptr) && (tailCountMem != nullptr) && (addOneMem != nullptr);
+        HeadCounter();
     }
     GM_ADDR GetGmIn(uint64_t rank)
     {
@@ -111,6 +118,25 @@ public:
     bool IsIdleCore() const { return blockIdx_ >= numBlocks_; }
     void BarrierForFirstOP() { ++reduce_scatter_aiv_test::currentTrace->firstBarriers; }
     void BarrierAll() { ++reduce_scatter_aiv_test::currentTrace->endBarriers; }
+    void HeadCounter()
+    {
+        if (stuckEnabled_ && blockIdx_ == 0) {
+            ++reduce_scatter_aiv_test::currentTrace->headCounters;
+        }
+    }
+    void TailCounter()
+    {
+        if (stuckEnabled_ && blockIdx_ == 0) {
+            ++reduce_scatter_aiv_test::currentTrace->tailCounters;
+        }
+    }
+    void SyncBeforeTail()
+    {
+        // 生产实现在计数使能时执行 SyncAll<true>()（所有 block 参与），桩按同条件记录
+        if (stuckEnabled_) {
+            ++reduce_scatter_aiv_test::currentTrace->syncBeforeTail;
+        }
+    }
 
     uint64_t len_ = 0;
     uint64_t input_ = 0;
@@ -123,6 +149,7 @@ public:
     uint32_t reduceOp_ = 0;
     uint32_t numBlocks_ = 0;
     uint32_t blockIdx_ = 0;
+    bool stuckEnabled_ = false;
     uint32_t tag_ = 1;
     uint32_t curTag_ = 0;
     GM_ADDR myGmIn_ = nullptr;
@@ -136,4 +163,11 @@ private:
              reinterpret_cast<uint64_t>(source), bytes, 0, 0, 0, reduce});
     }
 };
+
+// 生产 kernel 的入口函数在类外调用 SyncAll<true>()，桩需提供同名自由函数并计入当核计数。
+template <bool isAIVOnly = true>
+inline void SyncAll()
+{
+    ++reduce_scatter_aiv_test::currentTrace->syncAlls;
+}
 #endif

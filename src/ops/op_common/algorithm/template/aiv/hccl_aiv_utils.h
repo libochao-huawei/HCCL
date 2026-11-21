@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <type_traits>
 #include "hccl_types.h"
 #include "acl/acl_rt.h"
 #include "alg_param.h"
@@ -141,7 +142,7 @@ static_assert(
 static_assert(
     sizeof(ExtraArgsBsr) == 12304, "ExtraArgsBsr ABI size must match device side AivBatchSendRecv::ExtraArgsBsr");
 
-// 算子计数信息
+// 算子计数信息；三地址跨层同义：OpParam counter*Addr（AICPU）、CCU stuck*Addr
 struct OpCounterInfo {
     u64 headCountMem = 0;
     u64 tailCountMem = 0;
@@ -158,7 +159,6 @@ struct AivOpArgs {
     u32 numBlocks = MAX_NUM_BLOCKS;
     rtStream_t stream = nullptr;
     uint64_t beginTime = 0;
-    OpCounterInfo counter = {};
     void* buffersIn = nullptr;
     u64 input = 0;
     u64 output = 0;
@@ -280,6 +280,12 @@ using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     u64 input{};
     u64 output{};
     u64 cclBufferSize{};
+    // 卡死检测计数字段（须与 device 侧 AivSuperKernelArgsDef 布局一致）
+    const void* headCountMem = nullptr;
+    const void* tailCountMem = nullptr;
+    const void* addOneMem = nullptr;
+    u32 counterMemSize{};
+    u32 isEnableCounter{};
     AivSuperKernelArgsDef(
         u64 input, u64 output, u32 rank, u32 rankSize, u64 len, u32 dataType, u64 unitSize, u32 reduceOp,
         u32 numBlocks = 0, s32 tag = 0, bool clearEnable = true, uint64_t inputSliceStride = 0,
@@ -305,6 +311,18 @@ using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     {}
     AivSuperKernelArgsDef() {}
 };
+
+// 与 device 侧 aiv_defines.h 的同名结构体逐字节对齐：偏移错位时编译期报错，避免 host 误填计数槽字段
+static_assert(
+    offsetof(AivSuperKernelArgsDef, headCountMem) == 144,
+    "host AivSuperKernelArgsDef::headCountMem offset must be 144 to match device layout");
+static_assert(
+    offsetof(AivSuperKernelArgsDef, isEnableCounter) == 172,
+    "host AivSuperKernelArgsDef::isEnableCounter offset must be 172 to match device layout");
+
+static_assert(
+    std::is_same<decltype(AivSuperKernelArgsDef::isEnableCounter), u32>::value,
+    "host AivSuperKernelArgsDef::isEnableCounter must be uint32_t to match device layout");
 
 HcclResult RegisterKernel();
 

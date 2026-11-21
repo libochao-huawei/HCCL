@@ -16,6 +16,7 @@
 #include <sched.h>
 #include <hccl/hccl_comm.h>
 #include "alg_param.h"
+#include "aicpu_stuck_counter.h"
 #include "executor_base.h"
 #include "coll_alg_exec_registry.h"
 #include "coll_alg_v2_exec_registry.h"
@@ -881,7 +882,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam* param)
 
             std::string cacheTag;
             bool isCacheHit = false;
-            // 组装aicpu task cache tag
             CHK_RET(AicpuTaskCacheKey::GetAicpuTaskCacheTag(*param, inputSize, inplaceDiff, inplaceOverlap, cacheTag));
 
             // 查询aicpu task cache
@@ -892,6 +892,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam* param)
 
             if (!isCacheHit) { // cache miss
                 HcclResult cacheRet = HCCL_SUCCESS;
+                bool stuckHeadEmitted = false;
+                bool stuckTailEmitted = false;
                 do {
                     // 算子展开前, 通知aicpu task cache开始缓存task
                     if (HcommIsSupportHcommAicpuTsTaskCacheStart()) {
@@ -902,8 +904,15 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam* param)
                             HCCL_ERROR("[%s] HcommAicpuTsTaskCacheStart error, ret[%d]", __func__, cacheRet), (void)0);
                     }
 
+                    // head/tail 须留在 cache 录制窗口内（hit 靠回放计数）；head 窗口=下发→完成，含通知/排队等待
+                    stuckHeadEmitted = ops_hccl::AicpuStuckCounterHead(thread, *param);
+
                     // 设置算子展开相关的配置, 下发首个NotifyWait, 构造executor并执行算子展开
                     cacheRet = OpOrchestrate(param, resCtxPtr, thread, algName);
+                    // tail 紧跟下发点；head 未真正下发时跳过 tail，避免计数器单向偏移
+                    if (stuckHeadEmitted) {
+                        stuckTailEmitted = ops_hccl::AicpuStuckCounterTail(thread, *param);
+                    }
                     CHK_PRT_BREAK(
                         cacheRet != HCCL_SUCCESS, HCCL_ERROR("[%s] OpOrchestrate error, ret[%d]", __func__, cacheRet),
                         (void)0);
@@ -934,18 +943,33 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam* param)
                     return cacheRet;
                 }
 
-                // 首次缓存记录通信域与tag关系
-                AicpuTaskCacheCommManager::Instance().AddCommTagMap(param->hcclComm, cacheTag);
+                if (ops_hccl::AicpuStuckCounterNeedInvalidateCache(*param, stuckHeadEmitted, stuckTailEmitted)) {
+                    if (HcommIsSupportHcommAicpuTsTaskCacheClear()) {
+                        HCCL_WARNING(
+                            "[%s] stuck counter not fully recorded, head[%d], tail[%d], clear tag[%s]", __func__,
+                            stuckHeadEmitted, stuckTailEmitted, cacheTag.c_str());
+                        (void)HcommAicpuTsTaskCacheClear(cacheTag.c_str());
+                    }
+                } else {
+                    // 首次缓存记录通信域与tag关系
+                    AicpuTaskCacheCommManager::Instance().AddCommTagMap(param->hcclComm, cacheTag);
+                }
             } else { // cache hit
-                // 刷新并下发task
                 if (HcommIsSupportHcommAicpuTsTaskCacheExecute()) {
                     CHK_RET(static_cast<HcclResult>(
                         HcommAicpuTsTaskCacheExecute(cacheTag.c_str(), addrs, sizes, cacheMemCount)));
                 }
             }
         } else { // 不使能aicpu task cache
+            // head：窗口=下发→完成，含等待 host stream 通知/排队时间
+            const bool stuckHeadEmitted = ops_hccl::AicpuStuckCounterHead(thread, *param);
             // 设置算子展开相关的配置, 下发首个NotifyWait, 构造executor并执行算子展开
-            CHK_RET(OpOrchestrate(param, resCtxPtr, thread, algName));
+            HcclResult orchestrateRet = OpOrchestrate(param, resCtxPtr, thread, algName);
+            // tail 紧跟下发点；head 未真正下发时跳过 tail，避免计数器单向偏移
+            if (stuckHeadEmitted) {
+                (void)ops_hccl::AicpuStuckCounterTail(thread, *param);
+            }
+            CHK_RET(orchestrateRet);
         }
 
         constexpr u32 DEFAULT_NOTIFY_IDX = 0;
@@ -1004,7 +1028,6 @@ extern "C" unsigned int HcclLaunchP2pAicpuKernel(void* args)
         HCCL_ERROR("%s only support SEND/RECV, opType[%d]", __func__, static_cast<int>(param->opType));
         return 1;
     }
-
     HCCL_INFO(
         "Entry-%s, commName[%s], tag[%s], algTag[%s], opType[%d]", __func__, param->commName, param->tag, param->algTag,
         static_cast<int>(param->opType));
@@ -1078,8 +1101,14 @@ extern "C" unsigned int HcclLaunchP2pAicpuKernel(void* args)
         }
 
         ExecTimeoutManager::Instance().SetExecTimeout(param->opConfig.execTimeout);
+        // head：窗口=下发→完成，含等待 host stream 通知/排队时间
+        const bool stuckHeadEmitted = ops_hccl::AicpuStuckCounterHead(sendRecvThread, *param);
         HcclResult ret = HCCL_SUCCESS;
         ret = executor->OrchestrateWithThread(*param, *resCtxPtr, sendRecvThread);
+        // tail 紧跟下发点；head 未真正下发时跳过 tail，避免计数器单向偏移
+        if (stuckHeadEmitted) {
+            (void)ops_hccl::AicpuStuckCounterTail(sendRecvThread, *param);
+        }
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s, opType[%d]", param->algName, static_cast<int>(param->opType));
             (void)orderRecordGuard.Commit();

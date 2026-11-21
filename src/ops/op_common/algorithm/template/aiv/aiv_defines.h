@@ -11,6 +11,8 @@
 #ifndef AIV_DEFINES_H
 #define AIV_DEFINES_H
 
+#include <cstddef>
+
 #include "kernel_operator.h"
 
 using namespace AscendC;
@@ -127,7 +129,28 @@ using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     uint64_t input;
     uint64_t output;
     uint64_t cclBufferSize;
+    // 跨层同义：OpParam counter*Addr（AICPU）、CCU stuck*Addr
+    GM_ADDR headCountMem = nullptr;
+    GM_ADDR tailCountMem = nullptr;
+    GM_ADDR addOneMem = nullptr;
+    uint32_t counterMemSize = 0;
+    uint32_t isEnableCounter = 0;
 };
+
+// 与 host 侧 hccl_aiv_utils.h 的同名结构体逐字节对齐：偏移错位时编译期报错，避免 device 误用计数槽地址
+static_assert(
+    offsetof(AivSuperKernelArgsDef, headCountMem) == 144,
+    "AivSuperKernelArgsDef::headCountMem offset must be 144 to match host layout");
+static_assert(
+    offsetof(AivSuperKernelArgsDef, isEnableCounter) == 172,
+    "AivSuperKernelArgsDef::isEnableCounter offset must be 172 to match host layout");
+
+static_assert(
+    sizeof(AivSuperKernelArgsDef::isEnableCounter) == sizeof(uint32_t),
+    "AivSuperKernelArgsDef::isEnableCounter must be 32-bit");
+static_assert(
+    static_cast<decltype(AivSuperKernelArgsDef::isEnableCounter)>(-1) > 0,
+    "AivSuperKernelArgsDef::isEnableCounter must be unsigned");
 
 enum class AivNotifyType { ACK, DataSignal, Done };
 

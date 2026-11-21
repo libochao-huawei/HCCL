@@ -302,4 +302,35 @@ bool HcommIsSupportHcclDedicatedThreadAcquire(void) { return false; }
 int GetHcommVersion(void) { return CANN_VERSION_NUM; }
 bool HcommIsSupportHcclCommRegCommStateCallback(void) { return g_resources.callbackSupported; }
 bool IsHcommDefaultTimeoutSupported(void) { return false; }
+// stuck-detect helper 依赖（本 UT 不链接 hccl_res_dl.cc / hcomm_dlsym.cc），按“不支持”降级
+void HcommDlInit(void) {}
+bool HcommIsSupportHcclStuckDetectGetCounterAddr(void) { return g_resources.stuckDetectSupported; }
+HcclResult HcclStuckDetectGetCounterAddr(
+    HcclComm, uint64_t* headOpCounterAddr, uint64_t* tailOpCounterAddr, uint64_t* addOneMemAddr)
+{
+    if (headOpCounterAddr != nullptr) {
+        *headOpCounterAddr = g_resources.stuckHeadAddr;
+    }
+    if (tailOpCounterAddr != nullptr) {
+        *tailOpCounterAddr = g_resources.stuckTailAddr;
+    }
+    if (addOneMemAddr != nullptr) {
+        *addOneMemAddr = g_resources.stuckAddOneAddr;
+    }
+    return HCCL_SUCCESS;
+}
+
+// CCU 计数槽 token：接口不再返回 token，由 hccl 通过 HcommCcuGetMemToken 获取
+CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo)
+{
+    ++g_resources.ccuTokenQueries;
+    if (tokenInfo == nullptr) {
+        return CCU_E_PTR;
+    }
+    if (g_resources.ccuTokenFail || srcVa == 0 || size == 0) {
+        return CCU_E_INTERNAL;
+    }
+    *tokenInfo = g_resources.stuckToken;
+    return CCU_SUCCESS;
+}
 } // extern "C"

@@ -82,6 +82,21 @@ namespace {
         EXPECT_NE(tag, byteTag);
     }
 
+    TEST(AicpuTaskCacheKeyTest, CounterStateAppendsStuckDetectSuffix)
+    {
+        OpParam param{};
+        param.opType = HcclCMDType::HCCL_CMD_ALLTOALL;
+        param.all2AllDataDes.sendType = HCCL_DATA_TYPE_UINT8;
+        std::string normalTag;
+        ASSERT_EQ(AicpuTaskCacheKey::GetAicpuTaskCacheTag(param, 24, 0, 0, normalTag), HCCL_SUCCESS);
+
+        param.isEnableCounter = 1;
+        std::string counterTag;
+        ASSERT_EQ(AicpuTaskCacheKey::GetAicpuTaskCacheTag(param, 24, 0, 0, counterTag), HCCL_SUCCESS);
+        EXPECT_EQ(counterTag, normalTag + "-sd");
+        EXPECT_NE(counterTag, normalTag);
+    }
+
     TEST(AicpuTaskCacheKeyTest, InplaceOverlapFeatureDistinguishesTags)
     {
         OpParam param{};

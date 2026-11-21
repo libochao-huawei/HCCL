@@ -176,6 +176,7 @@ __aicore__ inline void AivUrmaAllGatherV2Mesh1D(KERNEL_ARGS_DEF)
     AivUrmaAllGatherMesh1D<T> kernel;
     kernel.Init(KERNEL_CLASS_INIT, subCommRankLevel, level0ChannelNumPerRank);
     kernel.Process();
+    kernel.TailCounter();
 }
 #endif // (ASC_DEVKIT_VERSION_NUM >= 90200000) && (HCOMM_VERSION_NUM >= 90200000)
 
